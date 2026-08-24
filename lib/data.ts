@@ -704,6 +704,28 @@ export const CLUB_SEASONS: ClubSeason[] = [
   { id: 's3', label: '2024/25', active: false },
 ];
 
+export type ExpenseStatus = 'paid' | 'pending' | 'reimbursed';
+
+export type Expense = {
+  id: string;
+  title: string;
+  category: string;
+  amount: string;
+  month: string;
+  status: ExpenseStatus;
+  color: string;
+};
+
+export const ALL_EXPENSES: Expense[] = [
+  { id: 'e1', title: 'Match travel — Ballkani', category: 'travel', amount: '€420', month: 'Sep', status: 'paid', color: '#185fa5' },
+  { id: 'e2', title: 'Training balls (pack of 12)', category: 'equipment', amount: '€260', month: 'Sep', status: 'paid', color: '#408A71' },
+  { id: 'e3', title: 'Physio supplies', category: 'medical', amount: '€180', month: 'Sep', status: 'pending', color: '#f5a623' },
+  { id: 'e4', title: 'Gym maintenance', category: 'facilities', amount: '€150', month: 'Sep', status: 'paid', color: '#534AB7' },
+  { id: 'e5', title: 'Scouting & analysis', category: 'staff', amount: '€190', month: 'Sep', status: 'paid', color: '#5aa7e6' },
+  { id: 'e6', title: 'Staff match-day meals', category: 'staff', amount: '€190', month: 'Aug', status: 'reimbursed', color: '#5aa7e6' },
+  { id: 'e7', title: 'Pitch line marking', category: 'facilities', amount: '€120', month: 'Aug', status: 'paid', color: '#534AB7' },
+];
+
 export type ClubField = { id: string; name: string; location: string; status: 'active' | 'maintenance' };
 
 export const CLUB_FIELDS: ClubField[] = [

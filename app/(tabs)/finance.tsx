@@ -76,6 +76,10 @@ export default function FinanceScreen() {
         <IconSymbol name="receipt" size={18} color={Colors.textOnPrimary} />
         <Text style={styles.primaryBtnText}>view all fees</Text>
       </Pressable>
+      <Pressable style={styles.secondaryBtn} onPress={() => router.push('/expenses')}>
+        <IconSymbol name="hammer.fill" size={18} color={Colors.mint} />
+        <Text style={styles.secondaryBtnText}>club expenses</Text>
+      </Pressable>
       <Pressable style={styles.secondaryBtn} onPress={() => router.push('/reports')}>
         <IconSymbol name="chart.bar.fill" size={18} color={Colors.mint} />
         <Text style={styles.secondaryBtnText}>finance reports</Text>

@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { InitialsTile } from '@/components/list-row';
 import { Screen, SectionLabel } from '@/components/screen';
@@ -19,6 +19,12 @@ const STATUS_TONE: Record<FeeStatus, StatusTone> = {
 
 const METHODS = ['cash', 'bank transfer', 'card'] as const;
 
+const REF_LABEL: Record<string, string> = {
+  cash: 'invoice number',
+  'bank transfer': 'transaction number',
+  card: 'authorization number',
+};
+
 export default function FeeScreen() {
   const router = useRouter();
   const { user } = useSession();
@@ -26,6 +32,9 @@ export default function FeeScreen() {
   const source = feesForRole('administrator').find((f) => f.id === id) ?? feesForRole('administrator')[0];
   const [status, setStatus] = useState<FeeStatus>(source.status);
   const [method, setMethod] = useState<string>(METHODS[0]);
+  const [ref, setRef] = useState('');
+  const [receipt, setReceipt] = useState(false);
+  const refLabel = REF_LABEL[method] ?? 'reference number';
 
   const paid = status === 'paid';
   const canManage = user?.role === 'administrator' || user?.role === 'financier';
@@ -77,11 +86,42 @@ export default function FeeScreen() {
               </Pressable>
             ))}
           </View>
+          <View style={styles.proofBox}>
+            <Text style={styles.proofLabel}>{refLabel}</Text>
+            <TextInput
+              style={styles.proofInput}
+              placeholder={`e.g. ${refLabel}`}
+              placeholderTextColor={Colors.textMuted}
+              value={ref}
+              onChangeText={setRef}
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+            <Pressable style={styles.attachRow} onPress={() => setReceipt((r) => !r)}>
+              <IconSymbol
+                name="doc.text.fill"
+                size={16}
+                color={receipt ? Colors.emerald : Colors.textMuted}
+              />
+              <Text style={[styles.attachText, receipt && { color: Colors.emerald }]}>
+                {receipt ? 'receipt attached' : 'attach receipt (optional)'}
+              </Text>
+              {receipt ? (
+                <IconSymbol name="checkmark.circle.fill" size={16} color={Colors.emerald} />
+              ) : null}
+            </Pressable>
+          </View>
           <Pressable
             style={styles.payBtn}
             onPress={() => {
+              if (!ref.trim()) {
+                alert(`Enter the ${refLabel} to record this payment.`);
+                return;
+              }
               setStatus('paid');
-              alert(`${source.amount} marked as paid via ${method}.`);
+              alert(
+                `${source.amount} marked as paid via ${method} — ${refLabel}: ${ref.trim()}.`,
+              );
             }}>
             <IconSymbol name="checkmark.circle.fill" size={18} color={Colors.textOnPrimary} />
             <Text style={styles.payBtnText}>mark as paid</Text>
@@ -193,6 +233,46 @@ const styles = StyleSheet.create({
   },
   chipTextActive: {
     color: Colors.textOnPrimary,
+  },
+  proofBox: {
+    marginTop: Spacing.md,
+    backgroundColor: Colors.surface,
+    borderColor: Colors.border,
+    borderWidth: 1,
+    borderRadius: Radius.lg,
+    padding: Spacing.md,
+    gap: Spacing.sm,
+  },
+  proofLabel: {
+    fontFamily: Fonts.bodyMedium,
+    fontSize: 11,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+    color: Colors.textMuted,
+  },
+  proofInput: {
+    backgroundColor: Colors.surfaceAlt,
+    borderColor: Colors.border,
+    borderWidth: 1,
+    borderRadius: Radius.md,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm + 2,
+    color: Colors.text,
+    fontFamily: Fonts.body,
+    fontSize: 14,
+  },
+  attachRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    paddingVertical: 2,
+  },
+  attachText: {
+    flex: 1,
+    fontFamily: Fonts.bodyMedium,
+    fontSize: 12,
+    color: Colors.textSecondary,
+    textTransform: 'lowercase',
   },
   payBtn: {
     marginTop: Spacing.xl,
