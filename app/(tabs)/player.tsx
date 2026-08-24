@@ -1,6 +1,8 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { StatBar } from '@/components/chart';
+import { EmptyState } from '@/components/empty-state';
 import { InitialsTile } from '@/components/list-row';
 import { Screen, SectionLabel, StatCell } from '@/components/screen';
 import { StatusChip, type StatusTone } from '@/components/status-chip';
@@ -10,6 +12,7 @@ import {
   ALL_INJURIES,
   ALL_PLAYERS,
   ALL_RATINGS,
+  PLAYER_FORM,
   PLAYER_PROFILES,
   PLAYER_SEASON,
   type Health,
@@ -22,6 +25,22 @@ const HEALTH_TONE: Record<Health, StatusTone> = {
   suspended: 'muted',
 };
 
+const CRITERIA: { label: string; key: 'technique' | 'physical' | 'tactics' | 'consistency' | 'teamwork' }[] = [
+  { label: 'technique', key: 'technique' },
+  { label: 'physical', key: 'physical' },
+  { label: 'tactics', key: 'tactics' },
+  { label: 'consistency', key: 'consistency' },
+  { label: 'teamwork', key: 'teamwork' },
+];
+
+const CRITERION_COLOR: Record<(typeof CRITERIA)[number]['key'], string> = {
+  technique: '#f5a623',
+  physical: '#E24B4A',
+  tactics: '#5aa7e6',
+  consistency: '#408A71',
+  teamwork: '#8f86e8',
+};
+
 export default function PlayerScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id?: string }>();
@@ -31,6 +50,7 @@ export default function PlayerScreen() {
   const ratings = ALL_RATINGS.filter((r) => r.player === player.name);
   const injuries = ALL_INJURIES.filter((i) => i.player === player.name);
   const latestRating = ratings[0];
+  const form = PLAYER_FORM[player.name] ?? [];
 
   const rows: { label: string; value: string }[] = [
     { label: 'birth', value: profile.birth },
@@ -86,36 +106,68 @@ export default function PlayerScreen() {
       <SectionLabel>rating</SectionLabel>
       {latestRating ? (
         <View style={styles.ratingCard}>
-          <Text style={styles.ratingAvg}>{latestRating.average.toFixed(1)}</Text>
-          <View style={styles.criteriaCol}>
-            <View style={styles.criteriaRow}>
-              <Text style={styles.criteriaName}>technique</Text>
-              <Text style={styles.criteriaValue}>{latestRating.technique.toFixed(1)}</Text>
+          <View style={styles.ratingHead}>
+            <Text style={styles.ratingAvg}>{latestRating.average.toFixed(1)}</Text>
+            <View style={styles.ratingHeadBody}>
+              <Text style={styles.ratingComment}>“{latestRating.comment}”</Text>
+              <Text style={styles.ratingBy}>
+                {latestRating.by} · {latestRating.rated}
+              </Text>
             </View>
-            <View style={styles.criteriaRow}>
-              <Text style={styles.criteriaName}>physical</Text>
-              <Text style={styles.criteriaValue}>{latestRating.physical.toFixed(1)}</Text>
-            </View>
-            <View style={styles.criteriaRow}>
-              <Text style={styles.criteriaName}>tactics</Text>
-              <Text style={styles.criteriaValue}>{latestRating.tactics.toFixed(1)}</Text>
-            </View>
-            <View style={styles.criteriaRow}>
-              <Text style={styles.criteriaName}>consistency</Text>
-              <Text style={styles.criteriaValue}>{latestRating.consistency.toFixed(1)}</Text>
-            </View>
-            <View style={styles.criteriaRow}>
-              <Text style={styles.criteriaName}>teamwork</Text>
-              <Text style={styles.criteriaValue}>{latestRating.teamwork.toFixed(1)}</Text>
-            </View>
-            <Text style={styles.ratingComment}>“{latestRating.comment}”</Text>
-            <Text style={styles.ratingBy}>
-              {latestRating.by} · {latestRating.rated}
-            </Text>
+          </View>
+          <View style={styles.criteria}>
+            {CRITERIA.map((c) => (
+              <StatBar
+                key={c.label}
+                label={c.label}
+                value={latestRating[c.key]}
+                max={10}
+                color={CRITERION_COLOR[c.key]}
+                display={latestRating[c.key].toFixed(1)}
+              />
+            ))}
           </View>
         </View>
       ) : (
-        <Text style={styles.emptyText}>No ratings yet.</Text>
+        <EmptyState
+          icon="star.fill"
+          title="No ratings yet"
+          subtitle="A coach assessment will appear here."
+        />
+      )}
+
+      {/* Form trend */}
+      <SectionLabel>form</SectionLabel>
+      {form.length > 0 ? (
+        <View style={styles.formCard}>
+          {form.map((f, i) => {
+            const prev = form[i - 1]?.value;
+            const color =
+              prev == null
+                ? Colors.mint
+                : f.value > prev
+                  ? Colors.emerald
+                  : f.value < prev
+                    ? Colors.danger
+                    : Colors.textMuted;
+            return (
+              <StatBar
+                key={f.period}
+                label={f.period}
+                value={f.value}
+                max={10}
+                color={color}
+                display={f.value.toFixed(1)}
+              />
+            );
+          })}
+        </View>
+      ) : (
+        <EmptyState
+          icon="chart.bar.fill"
+          title="No form history"
+          subtitle="A trend appears after a few weekly assessments."
+        />
       )}
 
       {/* Injuries */}
@@ -133,7 +185,11 @@ export default function PlayerScreen() {
           ))}
         </View>
       ) : (
-        <Text style={styles.emptyText}>No active injuries.</Text>
+        <EmptyState
+          icon="stethoscope"
+          title="No active injuries"
+          subtitle="Medical records appear here when needed."
+        />
       )}
 
       <Pressable style={styles.rateBtn} onPress={() => router.push(`/rate?id=${player.id}`)}>
@@ -238,13 +294,17 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   ratingCard: {
-    flexDirection: 'row',
-    gap: Spacing.lg,
     backgroundColor: Colors.surface,
     borderColor: Colors.border,
     borderWidth: 1,
     borderRadius: Radius.lg,
     padding: Spacing.lg,
+    gap: Spacing.lg,
+  },
+  ratingHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
   },
   ratingAvg: {
     fontFamily: Fonts.heading,
@@ -252,42 +312,31 @@ const styles = StyleSheet.create({
     color: Colors.mint,
     letterSpacing: -1,
   },
-  criteriaCol: {
+  ratingHeadBody: {
     flex: 1,
-    gap: 6,
+    gap: 4,
   },
-  criteriaRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  criteriaName: {
-    fontFamily: Fonts.body,
-    fontSize: 12,
-    color: Colors.textSecondary,
-    textTransform: 'lowercase',
-  },
-  criteriaValue: {
-    fontFamily: Fonts.bodySemiBold,
-    fontSize: 12,
-    color: Colors.text,
+  criteria: {
+    gap: Spacing.md,
   },
   ratingComment: {
     fontFamily: Fonts.body,
     fontSize: 12,
     color: Colors.textSecondary,
     fontStyle: 'italic',
-    marginTop: Spacing.xs,
   },
   ratingBy: {
     fontFamily: Fonts.bodyMedium,
     fontSize: 11,
     color: Colors.textMuted,
-    marginTop: 2,
   },
-  emptyText: {
-    fontFamily: Fonts.body,
-    fontSize: 13,
-    color: Colors.textMuted,
+  formCard: {
+    backgroundColor: Colors.surface,
+    borderColor: Colors.border,
+    borderWidth: 1,
+    borderRadius: Radius.lg,
+    padding: Spacing.lg,
+    gap: Spacing.md,
   },
   rateBtn: {
     marginTop: Spacing.xl,

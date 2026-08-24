@@ -425,6 +425,66 @@ export const ALL_RATINGS: Rating[] = [
   { id: 'r8', player: 'Erion Zeka', initials: 'EZ', color: '#E24B4A', technique: 7.5, physical: 7.1, tactics: 6.9, consistency: 6.4, teamwork: 7.3, average: 7.0, comment: 'Exciting on the ball, needs to track back more.', by: 'Rexhep Hyseni', rated: 'Aug 13' },
 ];
 
+/** Last five weekly coach assessments per player — powers the form trend on a profile. */
+export const PLAYER_FORM: Record<string, { period: string; value: number }[]> = {
+  'Ardit Llapashtica': [
+    { period: 'Jul 25', value: 7.4 },
+    { period: 'Aug 01', value: 8.1 },
+    { period: 'Aug 08', value: 7.6 },
+    { period: 'Aug 15', value: 8.3 },
+    { period: 'Aug 22', value: 8.2 },
+  ],
+  'Mergim Berisha': [
+    { period: 'Jul 25', value: 7.2 },
+    { period: 'Aug 01', value: 7.8 },
+    { period: 'Aug 08', value: 7.5 },
+    { period: 'Aug 15', value: 7.4 },
+    { period: 'Aug 22', value: 7.9 },
+  ],
+  'Dren Hyseni': [
+    { period: 'Jul 25', value: 8.2 },
+    { period: 'Aug 01', value: 7.9 },
+    { period: 'Aug 08', value: 8.3 },
+    { period: 'Aug 15', value: 7.8 },
+    { period: 'Aug 22', value: 8.0 },
+  ],
+  'Agon Gashi': [
+    { period: 'Jul 25', value: 6.8 },
+    { period: 'Aug 01', value: 7.2 },
+    { period: 'Aug 08', value: 7.5 },
+    { period: 'Aug 15', value: 7.0 },
+    { period: 'Aug 22', value: 7.6 },
+  ],
+  'Luan Kryeziu': [
+    { period: 'Jul 25', value: 7.5 },
+    { period: 'Aug 01', value: 7.8 },
+    { period: 'Aug 08', value: 7.6 },
+    { period: 'Aug 15', value: 7.9 },
+    { period: 'Aug 22', value: 7.4 },
+  ],
+  'Bekim Shala': [
+    { period: 'Jul 25', value: 6.7 },
+    { period: 'Aug 01', value: 7.1 },
+    { period: 'Aug 08', value: 6.9 },
+    { period: 'Aug 15', value: 7.2 },
+    { period: 'Aug 22', value: 6.8 },
+  ],
+  'Fatos Bytyqi': [
+    { period: 'Jul 25', value: 7.3 },
+    { period: 'Aug 01', value: 7.7 },
+    { period: 'Aug 08', value: 7.5 },
+    { period: 'Aug 15', value: 7.8 },
+    { period: 'Aug 22', value: 7.6 },
+  ],
+  'Erion Zeka': [
+    { period: 'Jul 25', value: 6.9 },
+    { period: 'Aug 01', value: 7.3 },
+    { period: 'Aug 08', value: 6.6 },
+    { period: 'Aug 15', value: 7.2 },
+    { period: 'Aug 22', value: 7.0 },
+  ],
+};
+
 export type AttendanceStatus = 'present' | 'absent' | 'unconfirmed';
 
 export type AttRow = {

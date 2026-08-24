@@ -1,15 +1,24 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { Ring } from '@/components/chart';
+import { EmptyState } from '@/components/empty-state';
 import { InitialsTile, ListRow } from '@/components/list-row';
-import { Screen, SectionLabel } from '@/components/screen';
+import { Screen, SectionLabel, StatCell } from '@/components/screen';
 import { StatusChip } from '@/components/status-chip';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
-import { ALL_PLAYERS, ALL_TEAMS } from '@/lib/data';
+import { ALL_MATCHES, ALL_PLAYERS, ALL_TEAMS, MATCH_DETAILS } from '@/lib/data';
 
 function playerId(name: string) {
   return ALL_PLAYERS.find((p) => p.name === name)?.id ?? '';
+}
+
+function resultOf(score: string): 'W' | 'D' | 'L' {
+  const [a, b] = score.split('–').map((s) => parseInt(s.trim(), 10));
+  if (a > b) return 'W';
+  if (a < b) return 'L';
+  return 'D';
 }
 
 export default function TeamScreen() {
@@ -23,6 +32,33 @@ export default function TeamScreen() {
     { label: 'trainer', value: team.trainer },
     { label: 'squad size', value: String(team.members.length) },
   ];
+
+  const playedMatches = ALL_MATCHES.filter((m) => m.status === 'played');
+  const results = playedMatches.map((m) => resultOf(m.score ?? '0 – 0'));
+  const wins = results.filter((r) => r === 'W').length;
+  const draws = results.filter((r) => r === 'D').length;
+  const losses = results.filter((r) => r === 'L').length;
+  let goalsFor = 0;
+  let goalsAgainst = 0;
+  playedMatches.forEach((m) => {
+    const [a, b] = (m.score ?? '0 – 0').split('–').map((s) => parseInt(s.trim(), 10));
+    goalsFor += a;
+    goalsAgainst += b;
+  });
+
+  const scorerTotals = new Map<string, { name: string; initials: string; color: string; goals: number; assists: number }>();
+  Object.values(MATCH_DETAILS).forEach((d) =>
+    d.stats.forEach((s) => {
+      const cur = scorerTotals.get(s.player) ?? { name: s.player, initials: s.initials, color: s.color, goals: 0, assists: 0 };
+      cur.goals += s.goals;
+      cur.assists += s.assists;
+      scorerTotals.set(s.player, cur);
+    }),
+  );
+  const scorers = [...scorerTotals.values()]
+    .filter((s) => s.goals + s.assists > 0)
+    .sort((a, b) => b.goals + b.assists - (a.goals + a.assists))
+    .slice(0, 4);
 
   return (
     <Screen back>
@@ -55,7 +91,11 @@ export default function TeamScreen() {
       <SectionLabel>players</SectionLabel>
       <View style={styles.list}>
         {team.members.length === 0 ? (
-          <Text style={styles.empty}>No players registered for this squad yet.</Text>
+          <EmptyState
+            icon="person.2.fill"
+            title="No players registered"
+            subtitle="This squad has no players yet."
+          />
         ) : (
           team.members.map((m) => {
             const pid = playerId(m.name);
@@ -76,14 +116,53 @@ export default function TeamScreen() {
         )}
       </View>
 
+      <SectionLabel>statistics</SectionLabel>
+      <View style={styles.statsCard}>
+        <Ring
+          size={88}
+          stroke={7}
+          progress={playedMatches.length ? wins / playedMatches.length : 0}
+          color={Colors.emerald}
+          label={playedMatches.length ? `${Math.round((wins / playedMatches.length) * 100)}%` : '–'}
+          sublabel="win rate"
+        />
+        <View style={styles.statsCol}>
+          <StatCell value={String(goalsFor)} label="goals for" color={Colors.emerald} />
+          <StatCell value={String(goalsAgainst)} label="against" color={Colors.danger} />
+          <StatCell value={String(goalsFor - goalsAgainst)} label="goal diff" color={Colors.mint} />
+        </View>
+      </View>
+      <View style={styles.recordRow}>
+        <StatCell value={String(wins)} label="won" color={Colors.emerald} />
+        <StatCell value={String(draws)} label="drawn" color={Colors.info} />
+        <StatCell value={String(losses)} label="lost" color={Colors.danger} />
+      </View>
+
+      <SectionLabel>top scorers</SectionLabel>
+      <View style={styles.list}>
+        {scorers.length === 0 ? (
+          <EmptyState
+            icon="chart.bar.fill"
+            title="No match stats yet"
+            subtitle="Scoring data appears once matches are played."
+          />
+        ) : (
+          scorers.map((s) => (
+            <View key={s.name} style={styles.scorerRow}>
+              <InitialsTile initials={s.initials} color={s.color} />
+              <Text style={styles.scorerName}>{s.name}</Text>
+              <Text style={styles.scorerStat}>
+                {s.goals} goal{s.goals === 1 ? '' : 's'} · {s.assists} assist{s.assists === 1 ? '' : 's'}
+              </Text>
+            </View>
+          ))
+        )}
+      </View>
+
       <SectionLabel>management</SectionLabel>
       <Pressable style={styles.mgmtBtn} onPress={() => router.push('/transfers')}>
         <IconSymbol name="arrow.right" size={16} color={Colors.mint} />
         <Text style={styles.mgmtBtnText}>transfers</Text>
-      </Pressable>
-      <Pressable style={styles.mgmtBtn} onPress={() => alert('Team statistics — coming soon')}>
-        <IconSymbol name="chart.bar.fill" size={16} color={Colors.mint} />
-        <Text style={styles.mgmtBtnText}>team statistics</Text>
       </Pressable>
     </Screen>
   );
@@ -160,9 +239,49 @@ const styles = StyleSheet.create({
   list: {
     gap: Spacing.md,
   },
-  empty: {
-    fontFamily: Fonts.body,
-    fontSize: 13,
+  statsCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.lg,
+    backgroundColor: Colors.surface,
+    borderColor: Colors.border,
+    borderWidth: 1,
+    borderRadius: Radius.lg,
+    padding: Spacing.lg,
+  },
+  statsCol: {
+    flex: 1,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  recordRow: {
+    flexDirection: 'row',
+    marginTop: Spacing.sm,
+    backgroundColor: Colors.surface,
+    borderColor: Colors.border,
+    borderWidth: 1,
+    borderRadius: Radius.lg,
+    padding: Spacing.md,
+  },
+  scorerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+    backgroundColor: Colors.surface,
+    borderColor: Colors.border,
+    borderWidth: 1,
+    borderRadius: Radius.lg,
+    padding: Spacing.md,
+  },
+  scorerName: {
+    flex: 1,
+    fontFamily: Fonts.bodySemiBold,
+    fontSize: 14,
+    color: Colors.text,
+  },
+  scorerStat: {
+    fontFamily: Fonts.bodyMedium,
+    fontSize: 12,
     color: Colors.textMuted,
   },
   mgmtBtn: {

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { Ring, StatBar } from '@/components/chart';
 import { Screen, DetailHead, StatCell, SectionLabel } from '@/components/screen';
 import { StatusChip } from '@/components/status-chip';
 import { IconSymbol } from '@/components/ui/icon-symbol';
@@ -33,6 +34,8 @@ export default function ReportsScreen() {
 
   const played = ALL_MATCHES.filter((m) => m.status === 'played');
   const wins = played.filter((m) => resultOf(m.score ?? '0 – 0') === 'W').length;
+  const draws = played.filter((m) => resultOf(m.score ?? '0 – 0') === 'D').length;
+  const losses = played.length - wins - draws;
   const fees = feesForRole('administrator');
   const paid = fees.filter((f) => f.status === 'paid').length;
   const pending = fees.filter((f) => f.status === 'unpaid' || f.status === 'delayed').length;
@@ -78,6 +81,24 @@ export default function ReportsScreen() {
           );
         })}
       </View>
+
+      {/* Results breakdown */}
+      <View style={styles.resultsCard}>
+        <Ring
+          size={88}
+          stroke={7}
+          progress={played.length ? wins / played.length : 0}
+          color={Colors.emerald}
+          label={played.length ? `${Math.round((wins / played.length) * 100)}%` : '–'}
+          sublabel="win rate"
+        />
+        <View style={styles.resultsBars}>
+          <StatBar label="wins" value={wins} max={played.length || 1} color={Colors.emerald} display={String(wins)} />
+          <StatBar label="draws" value={draws} max={played.length || 1} color={Colors.info} display={String(draws)} />
+          <StatBar label="losses" value={losses} max={played.length || 1} color={Colors.danger} display={String(losses)} />
+        </View>
+      </View>
+
       <Pressable
         style={styles.exportBtn}
         onPress={() => generate('match', `${played.length} played · ${wins} wins · ${date}`)}>
@@ -156,6 +177,21 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: Radius.lg,
     overflow: 'hidden',
+  },
+  resultsCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.lg,
+    marginTop: Spacing.sm,
+    backgroundColor: Colors.surface,
+    borderColor: Colors.border,
+    borderWidth: 1,
+    borderRadius: Radius.lg,
+    padding: Spacing.lg,
+  },
+  resultsBars: {
+    flex: 1,
+    gap: Spacing.sm,
   },
   row: {
     flexDirection: 'row',

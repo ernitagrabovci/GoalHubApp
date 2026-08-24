@@ -2,17 +2,17 @@ import { useRouter } from 'expo-router';
 import { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { Ring, StatBar } from '@/components/chart';
 import { Screen, DetailHead, StatCell, SectionLabel } from '@/components/screen';
-import { StatusChip, type StatusTone } from '@/components/status-chip';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
-import { feesForRole, type FeeStatus } from '@/lib/data';
+import { feesForRole } from '@/lib/data';
 
-const STATUS_TONE: Record<FeeStatus, StatusTone> = {
-  paid: 'emerald',
-  unpaid: 'warning',
-  delayed: 'purple',
-  critical: 'danger',
+const STATUS_COLOR: Record<'paid' | 'unpaid' | 'delayed' | 'critical', string> = {
+  paid: Colors.emerald,
+  unpaid: '#f5a623',
+  delayed: Colors.purple,
+  critical: Colors.danger,
 };
 
 export default function FinanceScreen() {
@@ -51,24 +51,38 @@ export default function FinanceScreen() {
         <StatCell value={String(stats.critical)} label="critical" color={Colors.danger} />
       </View>
       <View style={styles.collectedCard}>
-        <View style={[styles.collectedIcon, { backgroundColor: `${Colors.emerald}22` }]}>
-          <IconSymbol name="dollarsign.circle.fill" size={20} color={Colors.emerald} />
+        <View style={styles.collectedLeft}>
+          <View style={[styles.collectedIcon, { backgroundColor: `${Colors.emerald}22` }]}>
+            <IconSymbol name="dollarsign.circle.fill" size={20} color={Colors.emerald} />
+          </View>
+          <View style={styles.collectedBody}>
+            <Text style={styles.collectedLabel}>collected this month</Text>
+            <Text style={styles.collectedValue}>€8,420</Text>
+            <Text style={styles.collectedSub}>{stats.total} fee records · {month}</Text>
+          </View>
         </View>
-        <View style={styles.collectedBody}>
-          <Text style={styles.collectedLabel}>collected this month</Text>
-          <Text style={styles.collectedValue}>€8,420</Text>
-          <Text style={styles.collectedSub}>{stats.total} fee records · {month}</Text>
-        </View>
+        <Ring
+          size={64}
+          stroke={6}
+          progress={stats.total ? stats.paid / stats.total : 0}
+          color={Colors.emerald}
+          label={`${stats.total ? Math.round((stats.paid / stats.total) * 100) : 0}%`}
+          sublabel="paid"
+        />
       </View>
 
       {/* Status breakdown */}
       <SectionLabel>status breakdown</SectionLabel>
-      <View style={styles.rowsCard}>
+      <View style={styles.breakdownCard}>
         {summary.map((s) => (
-          <View key={s.status} style={styles.row}>
-            <StatusChip label={s.label} tone={STATUS_TONE[s.status]} />
-            <Text style={styles.rowCount}>{s.count}</Text>
-          </View>
+          <StatBar
+            key={s.status}
+            label={s.label}
+            value={s.count}
+            max={stats.total || 1}
+            color={STATUS_COLOR[s.status]}
+            display={`${s.count} · ${stats.total ? Math.round((s.count / stats.total) * 100) : 0}%`}
+          />
         ))}
       </View>
 
@@ -97,12 +111,19 @@ const styles = StyleSheet.create({
   collectedCard: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     gap: Spacing.md,
     backgroundColor: Colors.surface,
     borderColor: Colors.border,
     borderWidth: 1,
     borderRadius: Radius.lg,
     padding: Spacing.lg,
+  },
+  collectedLeft: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
   },
   collectedIcon: {
     width: 44,
@@ -133,26 +154,13 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: Colors.textMuted,
   },
-  rowsCard: {
+  breakdownCard: {
     backgroundColor: Colors.surface,
     borderColor: Colors.border,
     borderWidth: 1,
     borderRadius: Radius.lg,
-    overflow: 'hidden',
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.md,
-    borderBottomColor: Colors.borderSoft,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  rowCount: {
-    fontFamily: Fonts.headingSemiBold,
-    fontSize: 18,
-    color: Colors.text,
+    padding: Spacing.lg,
+    gap: Spacing.md,
   },
   primaryBtn: {
     marginTop: Spacing.xl,
