@@ -6,6 +6,7 @@ import { Screen, DetailHead, SectionLabel, StatCell } from '@/components/screen'
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
 import { ALL_PLAYERS, ALL_TEAMS } from '@/lib/data';
+import { usePersistedState } from '@/lib/storage';
 
 const REASONS = ['Promotion', 'Demotion', 'Reorganization', 'Other'];
 
@@ -21,11 +22,11 @@ export default function TransfersScreen() {
     });
   });
 
-  const [roster, setRoster] = useState<Record<string, string>>(initialRoster);
+  const [roster, setRoster] = usePersistedState<Record<string, string>>('transfers:roster', initialRoster);
   const [playerId, setPlayerId] = useState<string | null>(null);
   const [teamId, setTeamId] = useState<string | null>(null);
   const [reason, setReason] = useState<string>(REASONS[0]);
-  const [log, setLog] = useState<string[]>([]);
+  const [log, setLog] = usePersistedState<string[]>('transfers:log', []);
 
   const player = ALL_PLAYERS.find((p) => p.id === playerId) ?? null;
   const currentTeam = player ? teamOf(roster, player.initials) : null;

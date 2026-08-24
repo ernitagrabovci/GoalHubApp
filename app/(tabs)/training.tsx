@@ -1,5 +1,4 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { DateTile, InitialsTile } from '@/components/list-row';
@@ -9,6 +8,7 @@ import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
 import { ALL_TRAININGS, TRAINING_ATTENDANCE, type AttendanceStatus, type AttRow } from '@/lib/data';
 import { useSession } from '@/lib/session';
+import { usePersistedState } from '@/lib/storage';
 
 const STATUS_TONE: Record<AttendanceStatus, StatusTone> = {
   present: 'emerald',
@@ -41,11 +41,15 @@ export default function TrainingScreen() {
   const mine = isPlayer ? 'AL' : 'AG';
   const myInitial = baseRows.find((r) => r.initials === mine);
 
-  const [rows, setRows] = useState<AttRow[]>(baseRows);
-  const [myStatus, setMyStatus] = useState<AttendanceStatus>(
+  const [rows, setRows] = usePersistedState<AttRow[]>(`training:${training.id}:rows`, baseRows);
+  const [myStatus, setMyStatus] = usePersistedState<AttendanceStatus>(
+    `training:${training.id}:my`,
     myInitial?.status ?? 'unconfirmed',
   );
-  const [myReason, setMyReason] = useState<string | undefined>(myInitial?.reason);
+  const [myReason, setMyReason] = usePersistedState<string | undefined>(
+    `training:${training.id}:reason`,
+    myInitial?.reason,
+  );
 
   const present = rows.filter((r) => r.status === 'present').length;
 

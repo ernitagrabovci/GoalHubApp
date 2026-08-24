@@ -7,6 +7,7 @@ import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
 import { ALL_COMPETITIONS, type Competition, type CompetitionType } from '@/lib/data';
 import { useSession } from '@/lib/session';
+import { usePersistedState } from '@/lib/storage';
 
 const TYPE_META: Record<CompetitionType, { label: string; color: string }> = {
   league: { label: 'league', color: '#185fa5' },
@@ -20,7 +21,7 @@ export default function CompetitionsScreen() {
   const { user } = useSession();
   const canManage = user?.role === 'administrator';
 
-  const [comps, setComps] = useState<Competition[]>(ALL_COMPETITIONS);
+  const [comps, setComps] = usePersistedState<Competition[]>('competitions:list', ALL_COMPETITIONS);
   const [name, setName] = useState('');
   const [type, setType] = useState<CompetitionType>('league');
 

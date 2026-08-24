@@ -1,5 +1,4 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { InitialsTile } from '@/components/list-row';
@@ -9,6 +8,7 @@ import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
 import { feesForRole, type FeeStatus } from '@/lib/data';
 import { useSession } from '@/lib/session';
+import { usePersistedState } from '@/lib/storage';
 
 const STATUS_TONE: Record<FeeStatus, StatusTone> = {
   paid: 'emerald',
@@ -30,10 +30,10 @@ export default function FeeScreen() {
   const { user } = useSession();
   const { id } = useLocalSearchParams<{ id?: string }>();
   const source = feesForRole('administrator').find((f) => f.id === id) ?? feesForRole('administrator')[0];
-  const [status, setStatus] = useState<FeeStatus>(source.status);
-  const [method, setMethod] = useState<string>(METHODS[0]);
-  const [ref, setRef] = useState('');
-  const [receipt, setReceipt] = useState(false);
+  const [status, setStatus] = usePersistedState<FeeStatus>(`fee:${source.id}:status`, source.status);
+  const [method, setMethod] = usePersistedState<string>(`fee:${source.id}:method`, METHODS[0]);
+  const [ref, setRef] = usePersistedState<string>(`fee:${source.id}:ref`, '');
+  const [receipt, setReceipt] = usePersistedState<boolean>(`fee:${source.id}:receipt`, false);
   const refLabel = REF_LABEL[method] ?? 'reference number';
 
   const paid = status === 'paid';
