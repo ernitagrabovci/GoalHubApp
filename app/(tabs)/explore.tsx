@@ -1,3 +1,4 @@
+import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -5,33 +6,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { ThemedText } from '@/components/themed-text';
 import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
-import { useSession, type Role } from '@/lib/session';
-
-const MODULES = [
-  { icon: 'person.2.fill', label: 'Players', color: Colors.mint },
-  { icon: 'graduationcap.fill', label: 'Trainers', color: Colors.emerald },
-  { icon: 'person.fill', label: 'Parents', color: Colors.purple },
-  { icon: 'figure.soccer', label: 'Matches', color: Colors.warning },
-  { icon: 'calendar', label: 'Trainings', color: Colors.info },
-  { icon: 'trophy.fill', label: 'Academy', color: Colors.mintDim },
-  { icon: 'stethoscope', label: 'Medical', color: Colors.danger },
-  { icon: 'dollarsign.circle.fill', label: 'Payments', color: Colors.emerald },
-  { icon: 'bubble.left.fill', label: 'Messages', color: Colors.info },
-  { icon: 'chart.bar.fill', label: 'Reports', color: Colors.warning },
-  { icon: 'gearshape.fill', label: 'Settings', color: Colors.textMuted },
-] as const;
-
-const ROLE_MODULES: Record<Role, string[]> = {
-  administrator: ['Players', 'Matches', 'Trainings', 'Payments', 'Medical', 'Messages', 'Reports', 'Settings'],
-  trainer: ['Players', 'Matches', 'Trainings', 'Medical', 'Academy', 'Messages', 'Settings'],
-  player: ['Matches', 'Trainings', 'Payments', 'Messages', 'Settings'],
-  parent: ['Matches', 'Trainings', 'Payments', 'Messages', 'Settings'],
-  financier: ['Payments', 'Reports', 'Messages', 'Settings'],
-};
+import { ALL_MODULES, modulesForRole } from '@/lib/modules';
+import { useSession } from '@/lib/session';
 
 export default function ModulesScreen() {
+  const router = useRouter();
   const { user } = useSession();
-  const modules = user ? MODULES.filter((m) => ROLE_MODULES[user.role].includes(m.label)) : MODULES;
+  const modules = user ? modulesForRole(user.role) : ALL_MODULES;
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <StatusBar style="light" />
@@ -64,7 +45,11 @@ export default function ModulesScreen() {
             <Pressable
               key={module.label}
               style={styles.cell}
-              onPress={() => alert(`${module.label} — coming soon`)}>
+              onPress={() =>
+                module.route
+                  ? router.push(module.route as never)
+                  : alert(`${module.label} — coming soon`)
+              }>
               <View style={[styles.cellIcon, { backgroundColor: `${module.color}1F` }]}>
                 <IconSymbol name={module.icon} size={24} color={module.color} />
               </View>

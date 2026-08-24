@@ -5,11 +5,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { DateTile, IconTile, InitialsTile, ListRow } from '@/components/list-row';
 import { StatusChip, type StatusTone } from '@/components/status-chip';
-import { IconSymbol, type IconSymbolName } from '@/components/ui/icon-symbol';
+import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
 import { ALL_MESSAGES, ALL_PLAYERS, ALL_TRAININGS, feesForRole, type FeeStatus, type Health } from '@/lib/data';
+import { modulesForRole } from '@/lib/modules';
 import { ROLE_DASHBOARD } from '@/lib/role-content';
-import { ROLE_LABELS, useSession, type Role } from '@/lib/session';
+import { ROLE_LABELS, useSession } from '@/lib/session';
 
 const FEE_TONE: Record<FeeStatus, StatusTone> = {
   paid: 'emerald',
@@ -23,37 +24,6 @@ const HEALTH_TONE: Record<Health, StatusTone> = {
   injured: 'danger',
   rehabilitation: 'warning',
   suspended: 'purple',
-};
-
-type QuickLink = { label: string; icon: IconSymbolName; tint: string; route: string };
-
-const HOME_LINKS: Record<Role, QuickLink[]> = {
-  administrator: [
-    { label: 'Players', icon: 'person.2.fill', tint: '#B0E4CC', route: '/players' },
-    { label: 'Fees', icon: 'dollarsign.circle.fill', tint: '#2fbf71', route: '/fees' },
-    { label: 'Medical', icon: 'stethoscope', tint: '#E24B4A', route: '/medical' },
-    { label: 'Trainings', icon: 'calendar', tint: '#408A71', route: '/trainings' },
-  ],
-  trainer: [
-    { label: 'Trainings', icon: 'calendar', tint: '#408A71', route: '/trainings' },
-    { label: 'Players', icon: 'person.2.fill', tint: '#B0E4CC', route: '/players' },
-    { label: 'Medical', icon: 'stethoscope', tint: '#E24B4A', route: '/medical' },
-  ],
-  player: [
-    { label: 'My Stats', icon: 'chart.bar.fill', tint: '#f5a623', route: '/stats' },
-    { label: 'Fees', icon: 'dollarsign.circle.fill', tint: '#2fbf71', route: '/fees' },
-    { label: 'Medical', icon: 'stethoscope', tint: '#E24B4A', route: '/medical' },
-  ],
-  parent: [
-    { label: 'My Child', icon: 'person.fill', tint: '#8f86e8', route: '/child' },
-    { label: 'Fees', icon: 'dollarsign.circle.fill', tint: '#2fbf71', route: '/fees' },
-    { label: 'Medical', icon: 'stethoscope', tint: '#E24B4A', route: '/medical' },
-  ],
-  financier: [
-    { label: 'Fees', icon: 'dollarsign.circle.fill', tint: '#2fbf71', route: '/fees' },
-    { label: 'Expenses', icon: 'receipt', tint: '#408A71', route: '/expenses' },
-    { label: 'Reports', icon: 'chart.bar.fill', tint: '#B0E4CC', route: '/reports' },
-  ],
 };
 
 export default function HomeScreen() {
@@ -86,6 +56,7 @@ export default function HomeScreen() {
   const dash = ROLE_DASHBOARD[user.role];
   const child = ALL_PLAYERS.find((p) => p.name === 'Agon Gashi');
   const player = ALL_PLAYERS.find((p) => p.name === 'Ardit Llapashtica');
+  const links = modulesForRole(user.role);
   const fees = feesForRole(user.role);
   const currentFee = fees[0];
   const nextTraining = ALL_TRAININGS[0];
@@ -241,18 +212,22 @@ export default function HomeScreen() {
           </Pressable>
         ) : null}
 
-        {/* Quick access */}
-        <Text style={styles.sectionLabel}>your stuff</Text>
+        {/* Quick access — every module for this role */}
+        <Text style={styles.sectionLabel}>everything</Text>
         <View style={styles.grid}>
-          {HOME_LINKS[user.role].map((link) => (
+          {links.map((module) => (
             <Pressable
-              key={link.label}
+              key={module.label}
               style={styles.cell}
-              onPress={() => router.push(link.route as never)}>
-              <View style={[styles.cellIcon, { backgroundColor: `${link.tint}1f` }]}>
-                <IconSymbol name={link.icon} size={22} color={link.tint} />
+              onPress={() =>
+                module.route
+                  ? router.push(module.route as never)
+                  : alert(`${module.label} — coming soon`)
+              }>
+              <View style={[styles.cellIcon, { backgroundColor: `${module.color}1f` }]}>
+                <IconSymbol name={module.icon} size={22} color={module.color} />
               </View>
-              <Text style={styles.cellLabel}>{link.label}</Text>
+              <Text style={styles.cellLabel}>{module.label}</Text>
             </Pressable>
           ))}
           <Pressable style={styles.cell} onPress={() => router.push('/explore')}>

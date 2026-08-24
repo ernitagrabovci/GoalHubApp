@@ -1,0 +1,39 @@
+import type { IconSymbolName } from '@/components/ui/icon-symbol';
+import { Colors } from '@/constants/theme';
+import type { Role } from '@/lib/session';
+
+export type ModuleDef = {
+  label: string;
+  icon: IconSymbolName;
+  color: string;
+  /** Route to a real screen; undefined means the module is coming soon. */
+  route?: string;
+};
+
+/** Every module in the app. Roles get a filtered subset via modulesForRole(). */
+export const ALL_MODULES: ModuleDef[] = [
+  { label: 'Players', icon: 'person.2.fill', color: Colors.mint, route: '/players' },
+  { label: 'Trainers', icon: 'graduationcap.fill', color: Colors.emerald },
+  { label: 'Parents', icon: 'person.fill', color: Colors.purple },
+  { label: 'Matches', icon: 'figure.soccer', color: Colors.warning },
+  { label: 'Trainings', icon: 'calendar', color: Colors.info, route: '/trainings' },
+  { label: 'Academy', icon: 'trophy.fill', color: Colors.mintDim },
+  { label: 'Medical', icon: 'stethoscope', color: Colors.danger, route: '/medical' },
+  { label: 'Payments', icon: 'dollarsign.circle.fill', color: Colors.emerald, route: '/fees' },
+  { label: 'Messages', icon: 'bubble.left.fill', color: Colors.info, route: '/chat' },
+  { label: 'Reports', icon: 'chart.bar.fill', color: Colors.warning, route: '/reports' },
+  { label: 'Settings', icon: 'gearshape.fill', color: Colors.textMuted, route: '/profile' },
+];
+
+/** Which modules each role can see. */
+export const ROLE_MODULES: Record<Role, string[]> = {
+  administrator: ['Players', 'Matches', 'Trainings', 'Payments', 'Medical', 'Messages', 'Reports', 'Settings'],
+  trainer: ['Players', 'Matches', 'Trainings', 'Medical', 'Academy', 'Messages', 'Settings'],
+  player: ['Matches', 'Trainings', 'Payments', 'Messages', 'Settings'],
+  parent: ['Matches', 'Trainings', 'Payments', 'Messages', 'Settings'],
+  financier: ['Payments', 'Reports', 'Messages', 'Settings'],
+};
+
+export function modulesForRole(role: Role): ModuleDef[] {
+  return ALL_MODULES.filter((m) => ROLE_MODULES[role].includes(m.label));
+}
