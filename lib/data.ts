@@ -144,6 +144,157 @@ export function feesForRole(role: Role): Fee[] {
   );
 }
 
+export type Match = {
+  id: string;
+  day: string;
+  month: string;
+  opponent: string;
+  competition: string;
+  venue: 'home' | 'away';
+  status: 'upcoming' | 'played' | 'cancelled';
+  score?: string;
+  time?: string;
+  color: string;
+};
+
+export const ALL_MATCHES: Match[] = [
+  { id: 'ma1', day: '20', month: 'AUG', opponent: 'FC Ballkani', competition: 'Superliga', venue: 'home', status: 'played', score: '2 – 1', color: '#B0E4CC' },
+  { id: 'ma2', day: '16', month: 'AUG', opponent: 'KF Drita', competition: 'Superliga', venue: 'away', status: 'played', score: '1 – 1', color: '#408A71' },
+  { id: 'ma3', day: '27', month: 'AUG', opponent: 'KF Llapi', competition: 'Superliga', venue: 'home', status: 'upcoming', time: '19:00', color: '#86C2A4' },
+  { id: 'ma4', day: '31', month: 'AUG', opponent: 'KF Feronikeli', competition: 'Cup', venue: 'away', status: 'upcoming', time: '17:00', color: '#f5a623' },
+  { id: 'ma5', day: '10', month: 'AUG', opponent: 'KF Gjilani', competition: 'Superliga', venue: 'home', status: 'played', score: '3 – 0', color: '#5aa7e6' },
+];
+
+export type Drill = {
+  id: string;
+  title: string;
+  category: string;
+  level: 'beginner' | 'intermediate' | 'advanced';
+  duration: string;
+  players: string;
+  focus: string;
+  color: string;
+};
+
+export const ALL_DRILLS: Drill[] = [
+  { id: 'd1', title: 'Rondo 4v2', category: 'Possession', level: 'intermediate', duration: '15 min', players: '6–10', focus: 'Passing under pressure', color: '#B0E4CC' },
+  { id: 'd2', title: 'Finishing lanes', category: 'Shooting', level: 'beginner', duration: '20 min', players: '8–12', focus: 'Striking accuracy', color: '#f5a623' },
+  { id: 'd3', title: 'Transition 3v3v3', category: 'Tactical', level: 'advanced', duration: '25 min', players: '9–15', focus: 'Fast transitions', color: '#86C2A4' },
+  { id: 'd4', title: 'Sprint + recovery', category: 'Fitness', level: 'intermediate', duration: '12 min', players: 'Whole team', focus: 'Sprint capacity', color: '#5aa7e6' },
+  { id: 'd5', title: 'Build-up from the back', category: 'Tactical', level: 'intermediate', duration: '20 min', players: '8–11', focus: 'Playing out under pressure', color: '#8f86e8' },
+  { id: 'd6', title: 'Crossing & headers', category: 'Shooting', level: 'advanced', duration: '18 min', players: '10–14', focus: 'Delivery + finishing', color: '#E24B4A' },
+];
+
+export type GroupMember = { initials: string; color: string; name: string };
+
+export type Group = {
+  id: string;
+  name: string;
+  type: string;
+  color: string;
+  members: GroupMember[];
+};
+
+export const ALL_GROUPS: Group[] = [
+  {
+    id: 'g1', name: 'Attackers', type: 'Position group', color: '#f5a623',
+    members: [
+      { initials: 'AL', color: '#B0E4CC', name: 'Ardit Llapashtica' },
+      { initials: 'MB', color: '#408A71', name: 'Mergim Berisha' },
+      { initials: 'AG', color: '#8f86e8', name: 'Agon Gashi' },
+      { initials: 'EZ', color: '#E24B4A', name: 'Erion Zeka' },
+    ],
+  },
+  {
+    id: 'g2', name: 'Defensive unit', type: 'Position group', color: '#5aa7e6',
+    members: [
+      { initials: 'DH', color: '#2fbf71', name: 'Dren Hyseni' },
+      { initials: 'BS', color: '#f5a623', name: 'Bekim Shala' },
+      { initials: 'LK', color: '#5aa7e6', name: 'Luan Kryeziu' },
+    ],
+  },
+  {
+    id: 'g3', name: 'Set-piece takers', type: 'Specialist', color: '#86C2A4',
+    members: [
+      { initials: 'AL', color: '#B0E4CC', name: 'Ardit Llapashtica' },
+      { initials: 'FB', color: '#86C2A4', name: 'Fatos Bytyqi' },
+    ],
+  },
+  {
+    id: 'g4', name: 'U19 prospects', type: 'Development', color: '#8f86e8',
+    members: [{ initials: 'AG', color: '#8f86e8', name: 'Agon Gashi' }],
+  },
+];
+
+export type AcademyItem = {
+  id: string;
+  title: string;
+  category: string;
+  level: string;
+  duration: string;
+  type: 'video' | 'session';
+  isShared: boolean;
+  color: string;
+};
+
+export const ALL_ACADEMY: AcademyItem[] = [
+  { id: 'a1', title: 'Pressing triggers in a 4-3-3', category: 'Tactical', level: 'Advanced', duration: '12:40', type: 'video', isShared: true, color: '#B0E4CC' },
+  { id: 'a2', title: 'Rondo progressions — U17', category: 'Possession', level: 'Intermediate', duration: '09:15', type: 'video', isShared: true, color: '#5aa7e6' },
+  { id: 'a3', title: 'Recovery runs: video analysis', category: 'Fitness', level: 'All', duration: '07:30', type: 'video', isShared: false, color: '#f5a623' },
+  { id: 'a4', title: 'Midweek tactical session plan', category: 'Tactical', level: 'Intermediate', duration: '45 min', type: 'session', isShared: true, color: '#86C2A4' },
+  { id: 'a5', title: 'Finishing circuit — high tempo', category: 'Shooting', level: 'Advanced', duration: '60 min', type: 'session', isShared: false, color: '#E24B4A' },
+];
+
+export type TacticalRoster = { initials: string; number: number; name: string; color: string };
+
+/** Eleven-man first-team roster used to populate the tactical board. */
+export const TACTICAL_ROSTER: TacticalRoster[] = [
+  { initials: 'LK', number: 1, name: 'Luan Kryeziu', color: '#5aa7e6' },
+  { initials: 'DH', number: 5, name: 'Dren Hyseni', color: '#2fbf71' },
+  { initials: 'BS', number: 3, name: 'Bekim Shala', color: '#f5a623' },
+  { initials: 'MB', number: 8, name: 'Mergim Berisha', color: '#408A71' },
+  { initials: 'FB', number: 6, name: 'Fatos Bytyqi', color: '#86C2A4' },
+  { initials: 'AL', number: 9, name: 'Ardit Llapashtica', color: '#B0E4CC' },
+  { initials: 'AG', number: 7, name: 'Agon Gashi', color: '#8f86e8' },
+  { initials: 'EZ', number: 11, name: 'Erion Zeka', color: '#E24B4A' },
+  { initials: 'LX', number: 4, name: 'Lorik Fejzullahu', color: '#185FA5' },
+  { initials: 'AN', number: 2, name: 'Arian Neziri', color: '#B0E4CC' },
+  { initials: 'BK', number: 10, name: 'Blerim Kotori', color: '#86C2A4' },
+];
+
+export type TacticalScene = {
+  id: string;
+  name: string;
+  formation: string;
+  players: { id: string; x: number; y: number }[];
+};
+
+export const DEFAULT_SCENES: TacticalScene[] = [
+  { id: 'ts1', name: 'Starters vs Ballkani', formation: '4-3-3', players: [] },
+  { id: 'ts2', name: 'Counter template', formation: '4-2-3-1', players: [] },
+];
+
+/** Formation templates: 11 normalized slot positions per formation (y grows from opponent goal → own goal). */
+export const FORMATION_SLOTS: Record<string, { x: number; y: number }[]> = {
+  '4-3-3': [
+    { x: 0.5, y: 0.92 }, { x: 0.13, y: 0.79 }, { x: 0.36, y: 0.82 }, { x: 0.64, y: 0.82 }, { x: 0.87, y: 0.79 },
+    { x: 0.2, y: 0.58 }, { x: 0.5, y: 0.62 }, { x: 0.8, y: 0.58 }, { x: 0.1, y: 0.3 }, { x: 0.5, y: 0.16 }, { x: 0.9, y: 0.3 },
+  ],
+  '4-4-2': [
+    { x: 0.5, y: 0.92 }, { x: 0.13, y: 0.79 }, { x: 0.36, y: 0.82 }, { x: 0.64, y: 0.82 }, { x: 0.87, y: 0.79 },
+    { x: 0.12, y: 0.56 }, { x: 0.38, y: 0.6 }, { x: 0.62, y: 0.6 }, { x: 0.88, y: 0.56 }, { x: 0.38, y: 0.22 }, { x: 0.62, y: 0.22 },
+  ],
+  '3-5-2': [
+    { x: 0.5, y: 0.92 }, { x: 0.28, y: 0.82 }, { x: 0.5, y: 0.84 }, { x: 0.72, y: 0.82 },
+    { x: 0.12, y: 0.64 }, { x: 0.34, y: 0.58 }, { x: 0.5, y: 0.66 }, { x: 0.66, y: 0.58 }, { x: 0.88, y: 0.64 },
+    { x: 0.4, y: 0.2 }, { x: 0.6, y: 0.2 },
+  ],
+  '4-2-3-1': [
+    { x: 0.5, y: 0.92 }, { x: 0.13, y: 0.79 }, { x: 0.36, y: 0.82 }, { x: 0.64, y: 0.82 }, { x: 0.87, y: 0.79 },
+    { x: 0.34, y: 0.62 }, { x: 0.66, y: 0.62 }, { x: 0.1, y: 0.42 }, { x: 0.5, y: 0.38 }, { x: 0.9, y: 0.42 }, { x: 0.5, y: 0.16 },
+  ],
+};
+
 export const ALL_MESSAGES: Message[] = [
   { id: 'm1', sender: 'Rexhep Hyseni', initials: 'RH', preview: 'Training moved to 09:00 tomorrow — be on time.', time: '09:42', unread: true, color: '#2fbf71' },
   { id: 'm2', sender: 'FC Prishtina Admin', initials: 'FP', preview: 'Your match tickets for Ballkani are ready.', time: '08:15', unread: true, color: '#B0E4CC' },

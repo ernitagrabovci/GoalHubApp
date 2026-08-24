@@ -15,9 +15,12 @@ export const ALL_MODULES: ModuleDef[] = [
   { label: 'Players', icon: 'person.2.fill', color: Colors.mint, route: '/players' },
   { label: 'Trainers', icon: 'graduationcap.fill', color: Colors.emerald },
   { label: 'Parents', icon: 'person.fill', color: Colors.purple },
-  { label: 'Matches', icon: 'figure.soccer', color: Colors.warning },
+  { label: 'Matches', icon: 'figure.soccer', color: Colors.warning, route: '/matches' },
   { label: 'Trainings', icon: 'calendar', color: Colors.info, route: '/trainings' },
-  { label: 'Academy', icon: 'trophy.fill', color: Colors.mintDim },
+  { label: 'Academy', icon: 'trophy.fill', color: Colors.mintDim, route: '/academy' },
+  { label: 'Tactical Board', icon: 'map.fill', color: Colors.mintDim, route: '/tactical' },
+  { label: 'Drills', icon: 'fitness-center', color: Colors.info, route: '/drills' },
+  { label: 'Groups', icon: 'person.2.fill', color: Colors.purple, route: '/groups' },
   { label: 'Medical', icon: 'stethoscope', color: Colors.danger, route: '/medical' },
   { label: 'Payments', icon: 'dollarsign.circle.fill', color: Colors.emerald, route: '/fees' },
   { label: 'Messages', icon: 'bubble.left.fill', color: Colors.info, route: '/chat' },
@@ -28,7 +31,7 @@ export const ALL_MODULES: ModuleDef[] = [
 /** Which modules each role can see. */
 export const ROLE_MODULES: Record<Role, string[]> = {
   administrator: ['Players', 'Matches', 'Trainings', 'Payments', 'Medical', 'Messages', 'Reports', 'Settings'],
-  trainer: ['Players', 'Matches', 'Trainings', 'Medical', 'Academy', 'Messages', 'Settings'],
+  trainer: ['Players', 'Matches', 'Trainings', 'Medical', 'Academy', 'Tactical Board', 'Drills', 'Groups', 'Messages', 'Settings'],
   player: ['Matches', 'Trainings', 'Payments', 'Messages', 'Settings'],
   parent: ['Matches', 'Trainings', 'Payments', 'Messages', 'Settings'],
   financier: ['Payments', 'Reports', 'Messages', 'Settings'],

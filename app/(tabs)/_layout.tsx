@@ -11,6 +11,11 @@ import { useSession } from '@/lib/session';
 const HIDDEN_ROUTES = [
   'players',
   'trainings',
+  'matches',
+  'academy',
+  'tactical',
+  'drills',
+  'groups',
   'medical',
   'fees',
   'reports',

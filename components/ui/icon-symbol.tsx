@@ -31,6 +31,7 @@ const MAPPING = {
   'trophy.fill': 'emoji-events',
   'arrow.right': 'arrow-forward',
   'bolt.fill': 'bolt',
+  'play.fill': 'play-arrow',
   'doc.text.fill': 'description',
   'checkmark.circle.fill': 'check-circle',
   'clock.fill': 'schedule',
