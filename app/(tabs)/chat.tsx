@@ -1,3 +1,4 @@
+import { useRouter } from 'expo-router';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { InitialsTile, ListRow } from '@/components/list-row';
@@ -5,17 +6,18 @@ import { ListScreen } from '@/components/list-screen';
 import { Colors, Fonts } from '@/constants/theme';
 import { ALL_MESSAGES } from '@/lib/data';
 
-export default function MessagesScreen() {
+export default function ChatScreen() {
+  const router = useRouter();
   const unread = ALL_MESSAGES.filter((m) => m.unread).length;
 
   return (
     <ListScreen
       icon="bubble.left.fill"
       accent="#408A71"
-      title="messages"
-      subtitle={unread ? `${unread} unread · coach & club` : 'coach & club · all read'}
+      title="chat"
+      subtitle={unread ? `${unread} unread · tap a conversation` : 'coach & club · all read'}
       searchable
-      searchPlaceholder="Search messages…"
+      searchPlaceholder="Search conversations…"
       items={ALL_MESSAGES}
       itemKey={(m) => m.id}
       searchKeys={(m) => `${m.sender} ${m.preview}`}
@@ -30,7 +32,7 @@ export default function MessagesScreen() {
               {m.unread ? <View style={styles.unreadDot} /> : <View style={styles.readDot} />}
             </View>
           }
-          onPress={() => alert(`Conversation with ${m.sender} — coming soon`)}
+          onPress={() => router.push(`/conversation?id=${m.id}`)}
         />
       )}
       actionLabel="new message"

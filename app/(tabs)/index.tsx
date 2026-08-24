@@ -3,18 +3,58 @@ import { StatusBar } from 'expo-status-bar';
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { IconSymbol } from '@/components/ui/icon-symbol';
-import { ThemedText } from '@/components/themed-text';
+import { DateTile, InitialsTile, ListRow } from '@/components/list-row';
+import { StatusChip, type StatusTone } from '@/components/status-chip';
+import { IconSymbol, type IconSymbolName } from '@/components/ui/icon-symbol';
 import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
-import { ROLE_DASHBOARD, type EventItem } from '@/lib/role-content';
-import { ROLE_LABELS, useSession } from '@/lib/session';
+import { ALL_MESSAGES, ALL_PLAYERS, ALL_TRAININGS, feesForRole, type FeeStatus, type Health } from '@/lib/data';
+import { ROLE_DASHBOARD } from '@/lib/role-content';
+import { ROLE_LABELS, useSession, type Role } from '@/lib/session';
 
-const TONE_COLORS: Record<EventItem['tone'], string> = {
-  emerald: '#2fbf71',
-  warning: '#f5a623',
-  info: '#5aa7e6',
-  purple: '#8f86e8',
-  mint: Colors.mint,
+const FEE_TONE: Record<FeeStatus, StatusTone> = {
+  paid: 'emerald',
+  unpaid: 'warning',
+  delayed: 'purple',
+  critical: 'danger',
+};
+
+const HEALTH_TONE: Record<Health, StatusTone> = {
+  active: 'emerald',
+  injured: 'danger',
+  rehabilitation: 'warning',
+  suspended: 'purple',
+};
+
+type QuickLink = { label: string; icon: IconSymbolName; tint: string; route: string };
+
+const HOME_LINKS: Record<Role, QuickLink[]> = {
+  administrator: [
+    { label: 'Players', icon: 'person.2.fill', tint: '#B0E4CC', route: '/players' },
+    { label: 'Fees', icon: 'dollarsign.circle.fill', tint: '#2fbf71', route: '/fees' },
+    { label: 'Medical', icon: 'stethoscope', tint: '#E24B4A', route: '/medical' },
+    { label: 'Trainings', icon: 'calendar', tint: '#408A71', route: '/trainings' },
+  ],
+  trainer: [
+    { label: 'Trainings', icon: 'calendar', tint: '#408A71', route: '/trainings' },
+    { label: 'Players', icon: 'person.2.fill', tint: '#B0E4CC', route: '/players' },
+    { label: 'Medical', icon: 'stethoscope', tint: '#E24B4A', route: '/medical' },
+    { label: 'Fees', icon: 'dollarsign.circle.fill', tint: '#2fbf71', route: '/fees' },
+  ],
+  player: [
+    { label: 'My Stats', icon: 'chart.bar.fill', tint: '#f5a623', route: '/stats' },
+    { label: 'Fees', icon: 'dollarsign.circle.fill', tint: '#2fbf71', route: '/fees' },
+    { label: 'Medical', icon: 'stethoscope', tint: '#E24B4A', route: '/medical' },
+  ],
+  parent: [
+    { label: 'My Child', icon: 'person.fill', tint: '#8f86e8', route: '/child' },
+    { label: 'Fees', icon: 'dollarsign.circle.fill', tint: '#2fbf71', route: '/fees' },
+    { label: 'Medical', icon: 'stethoscope', tint: '#E24B4A', route: '/medical' },
+  ],
+  financier: [
+    { label: 'Fees', icon: 'dollarsign.circle.fill', tint: '#2fbf71', route: '/fees' },
+    { label: 'Expenses', icon: 'receipt', tint: '#408A71', route: '/expenses' },
+    { label: 'Reports', icon: 'chart.bar.fill', tint: '#B0E4CC', route: '/reports' },
+  ],
 };
 
 export default function HomeScreen() {
@@ -45,7 +85,11 @@ export default function HomeScreen() {
   }
 
   const dash = ROLE_DASHBOARD[user.role];
-  const roleColor = user.color;
+  const child = ALL_PLAYERS.find((p) => p.name === 'Agon Gashi');
+  const fees = feesForRole(user.role);
+  const currentFee = fees[0];
+  const nextTraining = ALL_TRAININGS[0];
+  const latestMessage = ALL_MESSAGES[0];
 
   const handleSignOut = () => {
     signOut();
@@ -68,24 +112,17 @@ export default function HomeScreen() {
             />
             <Text style={styles.brandText}>goalhub</Text>
           </View>
-          <View style={styles.headerRight}>
-            <View style={styles.clubChip}>
-              <View style={styles.liveDot} />
-              <Text style={styles.clubChipText}>{user.club}</Text>
+          <Pressable onPress={() => router.navigate('/profile')} hitSlop={8}>
+            <View style={[styles.avatar, { backgroundColor: `${user.color}26` }]}>
+              <Text style={[styles.avatarText, { color: user.color }]}>{user.initials}</Text>
             </View>
-            <Pressable onPress={() => router.push('/modal')} hitSlop={8} style={styles.iconButton}>
-              <IconSymbol name="gearshape.fill" size={20} color={Colors.textMuted} />
-            </Pressable>
-            <View style={[styles.avatar, { backgroundColor: `${roleColor}26` }]}>
-              <Text style={[styles.avatarText, { color: roleColor }]}>{user.initials}</Text>
-            </View>
-          </View>
+          </Pressable>
         </View>
 
         {/* Hero */}
         <View style={styles.hero}>
           <View style={styles.heroTopRow}>
-            <ThemedText type="label">GoalHub · {ROLE_LABELS[user.role]}</ThemedText>
+            <Text style={styles.heroKicker}>GoalHub · {ROLE_LABELS[user.role]}</Text>
             <Pressable style={styles.rolePill} onPress={handleSignOut}>
               <IconSymbol name="logout" size={13} color={Colors.mint} />
               <Text style={styles.rolePillText}>switch role</Text>
@@ -93,85 +130,111 @@ export default function HomeScreen() {
           </View>
           <Text style={styles.heroTitle}>{dash.greeting}</Text>
           <Text style={styles.heroSub}>{dash.subtitle}</Text>
-          <View style={styles.userRow}>
-            <View style={[styles.userDot, { backgroundColor: roleColor }]} />
-            <Text style={styles.userName}>{user.name}</Text>
-          </View>
         </View>
 
-        {/* Stats */}
-        <View style={styles.statsGrid}>
-          {dash.stats.map((stat) => (
-            <View key={stat.label} style={styles.statCard}>
-              <View style={[styles.statIcon, { backgroundColor: `${stat.tint}1f` }]}>
-                <IconSymbol name={stat.icon} size={18} color={stat.tint} />
-              </View>
-              <View>
-                <Text style={styles.statValue}>{stat.value}</Text>
-                <Text style={styles.statLabel}>{stat.label}</Text>
+        {/* Child / person card */}
+        {user.role === 'parent' && child ? (
+          <Pressable style={styles.childCard} onPress={() => router.push('/child')}>
+            <InitialsTile initials={child.initials} color={child.color} size={56} />
+            <View style={styles.childBody}>
+              <Text style={styles.childKicker}>your child</Text>
+              <Text style={styles.childName}>{child.name}</Text>
+              <Text style={styles.childMeta}>
+                {child.position} · No. {child.number} · age {child.age}
+              </Text>
+              <View style={styles.childTags}>
+                <StatusChip label={child.health} tone={HEALTH_TONE[child.health]} />
+                <View style={styles.ratingChip}>
+                  <IconSymbol name="star.fill" size={11} color="#f5a623" />
+                  <Text style={styles.ratingText}>{child.rating.toFixed(1)}</Text>
+                </View>
               </View>
             </View>
-          ))}
-        </View>
+            <IconSymbol name="chevron.right" size={18} color={Colors.textMuted} />
+          </Pressable>
+        ) : (
+          <View style={styles.childCard}>
+            <InitialsTile initials={user.initials} color={user.color} size={56} />
+            <View style={styles.childBody}>
+              <Text style={styles.childKicker}>you</Text>
+              <Text style={styles.childName}>{user.name}</Text>
+              <Text style={styles.childMeta}>{user.subtitle}</Text>
+            </View>
+          </View>
+        )}
 
-        {/* Quick actions */}
-        <View style={styles.sectionHead}>
-          <Text style={styles.sectionLabel}>quick actions</Text>
-          <Text style={styles.sectionLink}>view all</Text>
-        </View>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.quickRow}>
-          {dash.actions.map((action) => (
+        {/* Fee status */}
+        {currentFee ? (
+          <Pressable style={styles.infoCard} onPress={() => router.push('/fees')}>
+            <View style={[styles.infoIcon, { backgroundColor: `${Colors.emerald}22` }]}>
+              <IconSymbol name="dollarsign.circle.fill" size={20} color={Colors.emerald} />
+            </View>
+            <View style={styles.infoBody}>
+              <Text style={styles.infoLabel}>fee status</Text>
+              <Text style={styles.infoTitle}>
+                {currentFee.month} · {currentFee.amount}
+              </Text>
+              <Text style={styles.infoSub}>{currentFee.name}</Text>
+            </View>
+            <StatusChip label={currentFee.status} tone={FEE_TONE[currentFee.status]} />
+          </Pressable>
+        ) : null}
+
+        {/* Next up */}
+        {nextTraining ? (
+          <Pressable style={styles.infoCard} onPress={() => router.push('/trainings')}>
+            <DateTile day={nextTraining.day} month={nextTraining.month} color={Colors.mint} />
+            <View style={styles.infoBody}>
+              <Text style={styles.infoLabel}>next up</Text>
+              <Text style={styles.infoTitle}>{nextTraining.type} training</Text>
+              <Text style={styles.infoSub}>
+                {nextTraining.field} · {nextTraining.time} · {nextTraining.present}/{nextTraining.total} present
+              </Text>
+            </View>
+            <IconSymbol name="chevron.right" size={18} color={Colors.textMuted} />
+          </Pressable>
+        ) : null}
+
+        {/* Quick access */}
+        <Text style={styles.sectionLabel}>your stuff</Text>
+        <View style={styles.grid}>
+          {HOME_LINKS[user.role].map((link) => (
             <Pressable
-              key={action.label}
-              style={styles.quickItem}
-              onPress={() => alert(`${action.label} — coming soon`)}>
-              <View style={[styles.quickIcon, { backgroundColor: `${action.tint}22` }]}>
-                <IconSymbol name={action.icon} size={22} color={action.tint} />
+              key={link.label}
+              style={styles.cell}
+              onPress={() => router.push(link.route as never)}>
+              <View style={[styles.cellIcon, { backgroundColor: `${link.tint}1f` }]}>
+                <IconSymbol name={link.icon} size={22} color={link.tint} />
               </View>
-              <Text style={styles.quickLabel}>{action.label}</Text>
+              <Text style={styles.cellLabel}>{link.label}</Text>
             </Pressable>
           ))}
-        </ScrollView>
-
-        {/* Browse modules */}
-        <Pressable style={styles.modulesLink} onPress={() => router.push('/explore')}>
-          <View style={styles.modulesLinkIcon}>
-            <IconSymbol name="square.grid.2x2.fill" size={20} color={Colors.mint} />
-          </View>
-          <View style={styles.modulesLinkBody}>
-            <Text style={styles.modulesLinkTitle}>browse all modules</Text>
-            <Text style={styles.modulesLinkSub}>every feature for your role</Text>
-          </View>
-          <IconSymbol name="chevron.right" size={18} color={Colors.textMuted} />
-        </Pressable>
-
-        {/* Upcoming */}
-        <View style={styles.sectionHead}>
-          <Text style={styles.sectionLabel}>upcoming</Text>
-          <Text style={styles.sectionLink}>calendar</Text>
+          <Pressable style={styles.cell} onPress={() => router.push('/explore')}>
+            <View style={[styles.cellIcon, { backgroundColor: `${Colors.mint}1f` }]}>
+              <IconSymbol name="square.grid.2x2.fill" size={22} color={Colors.mint} />
+            </View>
+            <Text style={styles.cellLabel}>all modules</Text>
+          </Pressable>
         </View>
-        {dash.events.map((event) => {
-          const tone = TONE_COLORS[event.tone];
-          return (
-            <Pressable
-              key={`${event.day}-${event.title}`}
-              style={styles.eventCard}
-              onPress={() => alert('coming soon')}>
-              <View style={[styles.dateBox, { borderColor: `${tone}55` }]}>
-                <Text style={[styles.dateDay, { color: tone }]}>{event.day}</Text>
-                <Text style={styles.dateNum}>{event.month}</Text>
-              </View>
-              <View style={styles.eventBody}>
-                <Text style={styles.eventTitle}>{event.title}</Text>
-                <Text style={styles.eventMeta}>{event.meta}</Text>
-              </View>
-              <IconSymbol name="chevron.right" size={18} color={Colors.textMuted} />
-            </Pressable>
-          );
-        })}
+
+        {/* Recent chat */}
+        {latestMessage ? (
+          <>
+            <Text style={styles.sectionLabel}>latest from chat</Text>
+            <ListRow
+              title={latestMessage.sender}
+              subtitle={latestMessage.preview}
+              leading={<InitialsTile initials={latestMessage.initials} color={latestMessage.color} />}
+              trailing={
+                <View style={styles.chatTrailing}>
+                  <Text style={styles.chatTime}>{latestMessage.time}</Text>
+                  {latestMessage.unread ? <View style={styles.unreadDot} /> : null}
+                </View>
+              }
+              onPress={() => router.navigate('/chat')}
+            />
+          </>
+        ) : null}
       </ScrollView>
     </SafeAreaView>
   );
@@ -208,43 +271,6 @@ const styles = StyleSheet.create({
     color: Colors.mint,
     textTransform: 'lowercase',
   },
-  headerRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
-  },
-  iconButton: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
-    borderWidth: 1,
-  },
-  clubChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
-    borderWidth: 1,
-    borderRadius: Radius.pill,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-  },
-  liveDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: Colors.emerald,
-  },
-  clubChipText: {
-    fontFamily: Fonts.bodyMedium,
-    fontSize: 12,
-    color: Colors.textSecondary,
-  },
   avatar: {
     width: 34,
     height: 34,
@@ -265,6 +291,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
+  heroKicker: {
+    fontFamily: Fonts.bodyMedium,
+    fontSize: 11,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+    color: Colors.textSecondary,
+  },
   rolePill: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -283,189 +316,164 @@ const styles = StyleSheet.create({
   },
   heroTitle: {
     fontFamily: Fonts.heading,
-    fontSize: 34,
-    lineHeight: 38,
+    fontSize: 32,
+    lineHeight: 36,
     letterSpacing: -1,
     color: Colors.mint,
     textTransform: 'lowercase',
-    marginTop: Spacing.xs,
   },
   heroSub: {
     fontFamily: Fonts.body,
     fontSize: 14,
     lineHeight: 20,
     color: Colors.textMuted,
-    maxWidth: 300,
+    maxWidth: 320,
   },
-  userRow: {
+  childCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.sm,
-    marginTop: Spacing.xs,
-  },
-  userDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  userName: {
-    fontFamily: Fonts.bodySemiBold,
-    fontSize: 14,
-    color: Colors.text,
-  },
-  statsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
     gap: Spacing.md,
-    marginTop: Spacing.xl,
-  },
-  statCard: {
-    flexGrow: 1,
-    flexBasis: '45%',
     backgroundColor: Colors.surface,
     borderColor: Colors.border,
     borderWidth: 1,
     borderRadius: Radius.lg,
     padding: Spacing.lg,
-    gap: Spacing.md,
-    justifyContent: 'space-between',
+    marginTop: Spacing.xl,
   },
-  statIcon: {
-    width: 34,
-    height: 34,
+  childBody: {
+    flex: 1,
+    gap: 2,
+  },
+  childKicker: {
+    fontFamily: Fonts.bodyMedium,
+    fontSize: 10,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+    color: Colors.textMuted,
+  },
+  childName: {
+    fontFamily: Fonts.headingSemiBold,
+    fontSize: 18,
+    color: Colors.mint,
+  },
+  childMeta: {
+    fontFamily: Fonts.body,
+    fontSize: 12,
+    color: Colors.textSecondary,
+  },
+  childTags: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    marginTop: Spacing.sm,
+  },
+  ratingChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: `${Colors.surfaceAlt}`,
+    borderColor: Colors.border,
+    borderWidth: 1,
+    borderRadius: Radius.pill,
+    paddingVertical: 3,
+    paddingHorizontal: 9,
+  },
+  ratingText: {
+    fontFamily: Fonts.bodyMedium,
+    fontSize: 11,
+    color: '#f5a623',
+  },
+  infoCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+    backgroundColor: Colors.surface,
+    borderColor: Colors.border,
+    borderWidth: 1,
+    borderRadius: Radius.lg,
+    padding: Spacing.md,
+    marginTop: Spacing.md,
+  },
+  infoIcon: {
+    width: 42,
+    height: 42,
     borderRadius: Radius.md,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  statValue: {
-    fontFamily: Fonts.heading,
-    fontSize: 26,
-    letterSpacing: -0.5,
-    color: Colors.mint,
+  infoBody: {
+    flex: 1,
+    gap: 1,
   },
-  statLabel: {
+  infoLabel: {
     fontFamily: Fonts.bodyMedium,
-    fontSize: 11,
+    fontSize: 10,
     letterSpacing: 1,
     textTransform: 'uppercase',
-    color: Colors.textSecondary,
-    marginTop: 2,
+    color: Colors.textMuted,
   },
-  sectionHead: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    justifyContent: 'space-between',
-    marginTop: Spacing.xxl,
-    marginBottom: Spacing.md,
+  infoTitle: {
+    fontFamily: Fonts.bodySemiBold,
+    fontSize: 14,
+    color: Colors.text,
+  },
+  infoSub: {
+    fontFamily: Fonts.body,
+    fontSize: 12,
+    color: Colors.textMuted,
   },
   sectionLabel: {
     fontFamily: Fonts.headingSemiBold,
     fontSize: 18,
     color: Colors.mint,
     textTransform: 'lowercase',
+    marginTop: Spacing.xxl,
+    marginBottom: Spacing.md,
   },
-  sectionLink: {
-    fontFamily: Fonts.bodyMedium,
-    fontSize: 12,
-    color: Colors.emerald,
+  grid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    rowGap: Spacing.lg,
   },
-  quickRow: {
-    gap: Spacing.lg,
-  },
-  quickItem: {
+  cell: {
+    width: '31%',
     alignItems: 'center',
     gap: Spacing.sm,
-    width: 64,
-  },
-  quickIcon: {
-    width: 52,
-    height: 52,
+    backgroundColor: Colors.surface,
+    borderColor: Colors.border,
+    borderWidth: 1,
     borderRadius: Radius.lg,
+    paddingVertical: Spacing.lg,
+  },
+  cellIcon: {
+    width: 46,
+    height: 46,
+    borderRadius: Radius.md,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  quickLabel: {
+  cellLabel: {
+    fontFamily: Fonts.bodyMedium,
+    fontSize: 12,
+    color: Colors.text,
+    textTransform: 'lowercase',
+  },
+  chatTrailing: {
+    flexDirection: 'column',
+    alignItems: 'flex-end',
+    gap: 6,
+  },
+  chatTime: {
     fontFamily: Fonts.bodyMedium,
     fontSize: 11,
     color: Colors.textMuted,
   },
-  modulesLink: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.md,
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
-    borderWidth: 1,
-    borderRadius: Radius.lg,
-    padding: Spacing.md,
-    marginTop: Spacing.xl,
-  },
-  modulesLinkIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: Radius.md,
-    backgroundColor: Colors.surfaceAlt,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  modulesLinkBody: {
-    flex: 1,
-    gap: 2,
-  },
-  modulesLinkTitle: {
-    fontFamily: Fonts.bodySemiBold,
-    fontSize: 14,
-    color: Colors.text,
-  },
-  modulesLinkSub: {
-    fontFamily: Fonts.body,
-    fontSize: 12,
-    color: Colors.textMuted,
-  },
-  eventCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.md,
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
-    borderWidth: 1,
-    borderRadius: Radius.lg,
-    padding: Spacing.md,
-    marginBottom: Spacing.md,
-  },
-  dateBox: {
-    width: 52,
-    height: 52,
-    borderRadius: Radius.md,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Colors.surfaceAlt,
-  },
-  dateDay: {
-    fontFamily: Fonts.headingSemiBold,
-    fontSize: 15,
-  },
-  dateNum: {
-    fontFamily: Fonts.bodyMedium,
-    fontSize: 10,
-    letterSpacing: 1,
-    color: Colors.textMuted,
-    marginTop: 1,
-  },
-  eventBody: {
-    flex: 1,
-    gap: 2,
-  },
-  eventTitle: {
-    fontFamily: Fonts.bodySemiBold,
-    fontSize: 14,
-    color: Colors.text,
-  },
-  eventMeta: {
-    fontFamily: Fonts.body,
-    fontSize: 12,
-    color: Colors.textMuted,
+  unreadDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: Colors.mint,
   },
   signedOut: {
     flex: 1,

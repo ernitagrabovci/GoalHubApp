@@ -2,16 +2,19 @@ import { useRouter } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { InitialsTile, ListRow } from '@/components/list-row';
 import { IconSymbol, type IconSymbolName } from '@/components/ui/icon-symbol';
-import { ThemedText } from '@/components/themed-text';
 import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
+import { ALL_PLAYERS } from '@/lib/data';
 import { ROLE_LABELS, useSession } from '@/lib/session';
 
 const VERSION = '1.0.0';
 
-export default function SettingsScreen() {
+export default function ProfileScreen() {
   const router = useRouter();
   const { user, signOut } = useSession();
+
+  const child = ALL_PLAYERS.find((p) => p.name === 'Agon Gashi');
 
   const handleSignOut = () => {
     signOut();
@@ -21,24 +24,17 @@ export default function SettingsScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <ThemedText type="title" style={styles.title}>
-          settings
-        </ThemedText>
-        <Pressable onPress={() => router.back()} hitSlop={10} style={styles.closeButton}>
-          <IconSymbol name="xmark" size={18} color={Colors.textMuted} />
-        </Pressable>
+        <Text style={styles.title}>profile</Text>
       </View>
 
       {!user ? (
         <View style={styles.signedOut}>
-          <ThemedText type="subtitle">you&apos;re signed out</ThemedText>
-          <ThemedText type="muted" style={styles.centerText}>
+          <Text style={styles.signedOutTitle}>you&apos;re signed out</Text>
+          <Text style={styles.signedOutSub}>
             Sign in to manage your account.
-          </ThemedText>
+          </Text>
           <Pressable style={styles.primary} onPress={() => router.replace('/login')}>
-            <ThemedText type="defaultSemiBold" style={styles.primaryText}>
-              go to sign in
-            </ThemedText>
+            <Text style={styles.primaryText}>go to sign in</Text>
           </Pressable>
         </View>
       ) : (
@@ -62,16 +58,31 @@ export default function SettingsScreen() {
             </Text>
           </View>
 
+          {/* Linked child — parent only */}
+          {user.role === 'parent' && child ? (
+            <>
+              <Text style={styles.sectionLabel}>linked child</Text>
+              <ListRow
+                title={child.name}
+                subtitle={`${child.position} · No. ${child.number} · age ${child.age}`}
+                leading={<InitialsTile initials={child.initials} color={child.color} />}
+                onPress={() => router.push('/child')}
+              />
+            </>
+          ) : null}
+
           {/* Account */}
           <Text style={styles.sectionLabel}>account</Text>
           <View style={styles.card}>
-            <SettingRow
-              icon="mail"
-              label="email"
-              value={user.email}
-            />
+            <SettingRow icon="mail" label="email" value={user.email} />
             <View style={styles.divider} />
             <SettingRow icon="person.fill" label="role" value={ROLE_LABELS[user.role]} />
+          </View>
+
+          {/* Preferences */}
+          <Text style={styles.sectionLabel}>preferences</Text>
+          <View style={styles.card}>
+            <SettingRow icon="gearshape.fill" label="theme" value="dark mint" />
           </View>
 
           {/* About */}
@@ -80,8 +91,6 @@ export default function SettingsScreen() {
             <SettingRow icon="info" label="app" value="goalhub" />
             <View style={styles.divider} />
             <SettingRow icon="doc.text.fill" label="version" value={VERSION} />
-            <View style={styles.divider} />
-            <SettingRow icon="gearshape.fill" label="theme" value="dark mint" />
           </View>
 
           {/* Sign out */}
@@ -89,9 +98,9 @@ export default function SettingsScreen() {
             <IconSymbol name="logout" size={18} color={Colors.danger} />
             <Text style={styles.signOutText}>sign out &amp; switch role</Text>
           </Pressable>
-          <ThemedText type="muted" style={styles.footnote}>
+          <Text style={styles.footnote}>
             demo preview · no data leaves this device
-          </ThemedText>
+          </Text>
         </ScrollView>
       )}
     </SafeAreaView>
@@ -116,25 +125,14 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.background,
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md,
   },
   title: {
+    fontFamily: Fonts.heading,
     fontSize: 26,
+    color: Colors.mint,
     textTransform: 'lowercase',
-  },
-  closeButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   content: {
     paddingHorizontal: Spacing.lg,
@@ -143,7 +141,7 @@ const styles = StyleSheet.create({
   profile: {
     alignItems: 'center',
     gap: Spacing.sm,
-    marginTop: Spacing.md,
+    marginTop: Spacing.sm,
     marginBottom: Spacing.xl,
   },
   avatar: {
@@ -242,6 +240,9 @@ const styles = StyleSheet.create({
     color: Colors.danger,
   },
   footnote: {
+    fontFamily: Fonts.body,
+    fontSize: 12,
+    color: Colors.textMuted,
     textAlign: 'center',
     marginTop: Spacing.lg,
   },
@@ -252,7 +253,16 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
     padding: Spacing.xxl,
   },
-  centerText: {
+  signedOutTitle: {
+    fontFamily: Fonts.heading,
+    fontSize: 24,
+    color: Colors.mint,
+    textTransform: 'lowercase',
+  },
+  signedOutSub: {
+    fontFamily: Fonts.body,
+    fontSize: 14,
+    color: Colors.textMuted,
     textAlign: 'center',
   },
   primary: {
@@ -263,6 +273,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.xl,
   },
   primaryText: {
+    fontFamily: Fonts.bodySemiBold,
+    fontSize: 15,
     color: Colors.textOnPrimary,
   },
 });

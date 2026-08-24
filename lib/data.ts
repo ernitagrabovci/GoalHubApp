@@ -151,3 +151,40 @@ export const ALL_MESSAGES: Message[] = [
   { id: 'm4', sender: 'Rexhep Hyseni', initials: 'RH', preview: 'Great session today — review the tactical clip.', time: 'Yesterday', unread: false, color: '#2fbf71' },
   { id: 'm5', sender: 'Finance', initials: 'FN', preview: 'Monthly fee invoice for September is available.', time: 'Mon', unread: true, color: '#8f86e8' },
 ];
+
+export type ChatBubble = {
+  id: string;
+  text: string;
+  time: string;
+  mine: boolean;
+};
+
+/** Message threads keyed by message id — mixed mine/theirs so the thread feels real. */
+export const CONVERSATIONS: Record<string, ChatBubble[]> = {
+  m1: [
+    { id: 'c1a', text: "Morning coach — is tomorrow's training still on?", time: '09:20', mine: true },
+    { id: 'c1b', text: "Morning! Yes, but it's moved to 09:00 instead of 10:30.", time: '09:38', mine: false },
+    { id: 'c1c', text: 'Got it, Agon will be there on time.', time: '09:40', mine: true },
+    { id: 'c1d', text: 'Training moved to 09:00 tomorrow — be on time.', time: '09:42', mine: false },
+  ],
+  m2: [
+    { id: 'c2a', text: 'Hi, will tickets for the Ballkani match be available at the gate?', time: '08:02', mine: true },
+    { id: 'c2b', text: 'Your match tickets for Ballkani are ready.', time: '08:15', mine: false },
+    { id: 'c2c', text: 'You can collect them at the club office or at the entrance.', time: '08:16', mine: false },
+  ],
+  m3: [
+    { id: 'c3a', text: 'When was Agon’s last physio check scheduled?', time: 'Tue', mine: true },
+    { id: 'c3b', text: 'Physio check confirmed for Tuesday 12:30.', time: 'Tue', mine: false },
+    { id: 'c3c', text: 'Perfect, thanks for confirming.', time: 'Tue', mine: true },
+  ],
+  m4: [
+    { id: 'c4a', text: 'That was a great session — well done Agon.', time: 'Yesterday', mine: false },
+    { id: 'c4b', text: 'Thank you coach! He really enjoyed it.', time: 'Yesterday', mine: true },
+    { id: 'c4c', text: 'Great session today — review the tactical clip.', time: 'Yesterday', mine: false },
+  ],
+  m5: [
+    { id: 'c5a', text: 'Hello, just checking on the September invoice.', time: 'Mon', mine: true },
+    { id: 'c5b', text: 'Monthly fee invoice for September is available.', time: 'Mon', mine: false },
+    { id: 'c5c', text: 'It is paid — thank you!', time: 'Mon', mine: true },
+  ],
+};
