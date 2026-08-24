@@ -1,4 +1,5 @@
 import { StatusBar } from 'expo-status-bar';
+import { useRouter } from 'expo-router';
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -32,6 +33,7 @@ function AcademyRow({ item }: { item: AcademyItem }) {
 }
 
 export default function AcademyScreen() {
+  const router = useRouter();
   const videos = ALL_ACADEMY.filter((a) => a.type === 'video');
   const sessions = ALL_ACADEMY.filter((a) => a.type === 'session');
 
@@ -78,7 +80,7 @@ export default function AcademyScreen() {
           ))}
         </View>
 
-        <Pressable style={styles.action}>
+        <Pressable style={styles.action} onPress={() => router.push('/academy-create')}>
           <IconSymbol name="plus" size={18} color={Colors.textOnPrimary} />
           <Text style={styles.actionText}>add training material</Text>
         </Pressable>

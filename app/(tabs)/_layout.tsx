@@ -10,18 +10,31 @@ import { useSession } from '@/lib/session';
 /** Secondary feature screens — reachable from Home but hidden from the tab bar. */
 const HIDDEN_ROUTES = [
   'players',
+  'player',
+  'rate',
+  'ratings',
+  'attendance',
   'trainings',
+  'training',
   'matches',
+  'match',
   'academy',
+  'academy-create',
   'tactical',
+  'tactical-editor',
   'drills',
+  'drill',
   'groups',
   'medical',
+  'injury',
+  'injury-create',
   'fees',
   'reports',
   'stats',
   'child',
   'expenses',
+  'channel',
+  'notifications',
 ];
 
 export default function TabLayout() {

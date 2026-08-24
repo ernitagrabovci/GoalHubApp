@@ -1,3 +1,4 @@
+import { useRouter } from 'expo-router';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { IconSymbol } from '@/components/ui/icon-symbol';
@@ -8,6 +9,7 @@ import { Colors, Fonts } from '@/constants/theme';
 import { ALL_TRAININGS } from '@/lib/data';
 
 export default function TrainingsScreen() {
+  const router = useRouter();
   return (
     <ListScreen
       icon="calendar"
@@ -34,7 +36,7 @@ export default function TrainingsScreen() {
                 </Text>
               </View>
             }
-            onPress={() => alert(`${t.type} training — details coming soon`)}
+            onPress={() => router.push(`/training?id=${t.id}`)}
           />
         );
       }}

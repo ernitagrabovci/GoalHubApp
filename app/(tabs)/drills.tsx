@@ -1,3 +1,4 @@
+import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
@@ -20,6 +21,7 @@ const LEVEL_COLOR: Record<Drill['level'], string> = {
 };
 
 export default function DrillsScreen() {
+  const router = useRouter();
   const [drills, setDrills] = useState<Drill[]>(ALL_DRILLS);
 
   const generate = () => {
@@ -54,6 +56,7 @@ export default function DrillsScreen() {
               </View>
             </View>
           }
+          onPress={() => router.push(`/drill?id=${d.id}`)}
         />
       )}
       emptyText="No drills match that search."

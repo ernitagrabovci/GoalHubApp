@@ -1,3 +1,4 @@
+import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Image, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -36,18 +37,20 @@ function MatchTrailing({ match }: { match: Match }) {
   );
 }
 
-function MatchRow({ match }: { match: Match }) {
+function MatchRow({ match, onPress }: { match: Match; onPress: () => void }) {
   return (
     <ListRow
       title={match.opponent}
       subtitle={`${match.competition} · ${match.venue === 'home' ? 'Home' : 'Away'}`}
       leading={<DateTile day={match.day} month={match.month} color={match.color} />}
       trailing={<MatchTrailing match={match} />}
+      onPress={onPress}
     />
   );
 }
 
 export default function MatchesScreen() {
+  const router = useRouter();
   const upcoming = ALL_MATCHES.filter((m) => m.status === 'upcoming');
   const played = ALL_MATCHES.filter((m) => m.status === 'played');
   const cancelled = ALL_MATCHES.filter((m) => m.status === 'cancelled');
@@ -86,7 +89,7 @@ export default function MatchesScreen() {
             <Text style={styles.sectionLabel}>upcoming</Text>
             <View style={styles.list}>
               {upcoming.map((m) => (
-                <MatchRow key={m.id} match={m} />
+                <MatchRow key={m.id} match={m} onPress={() => router.push(`/match?id=${m.id}`)} />
               ))}
             </View>
           </>
@@ -97,7 +100,7 @@ export default function MatchesScreen() {
             <Text style={styles.sectionLabel}>results</Text>
             <View style={styles.list}>
               {played.map((m) => (
-                <MatchRow key={m.id} match={m} />
+                <MatchRow key={m.id} match={m} onPress={() => router.push(`/match?id=${m.id}`)} />
               ))}
             </View>
           </>
@@ -108,7 +111,7 @@ export default function MatchesScreen() {
             <Text style={styles.sectionLabel}>cancelled</Text>
             <View style={styles.list}>
               {cancelled.map((m) => (
-                <MatchRow key={m.id} match={m} />
+                <MatchRow key={m.id} match={m} onPress={() => router.push(`/match?id=${m.id}`)} />
               ))}
             </View>
           </>

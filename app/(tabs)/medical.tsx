@@ -1,3 +1,5 @@
+import { useRouter } from 'expo-router';
+
 import { StatusChip, type StatusTone } from '@/components/status-chip';
 import { InitialsTile, ListRow } from '@/components/list-row';
 import { ListScreen } from '@/components/list-screen';
@@ -10,6 +12,7 @@ const STATUS_TONE: Record<string, StatusTone> = {
 };
 
 export default function MedicalScreen() {
+  const router = useRouter();
   return (
     <ListScreen
       icon="stethoscope"
@@ -27,11 +30,11 @@ export default function MedicalScreen() {
           subtitle={`${i.type} · return ${i.expected}`}
           leading={<InitialsTile initials={i.initials} color={i.color} />}
           trailing={<StatusChip label={i.status} tone={STATUS_TONE[i.status]} />}
-          onPress={() => alert(`${i.player} — injury record coming soon`)}
+          onPress={() => router.push(`/injury?id=${i.id}`)}
         />
       )}
       actionLabel="register injury"
-      onAction={() => alert('Register injury — coming soon')}
+      onAction={() => router.push('/injury-create')}
     />
   );
 }

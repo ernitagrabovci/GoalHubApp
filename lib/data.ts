@@ -267,11 +267,15 @@ export type TacticalScene = {
   name: string;
   formation: string;
   players: { id: string; x: number; y: number }[];
+  shared: boolean;
+  created: string;
+  modified: string;
 };
 
 export const DEFAULT_SCENES: TacticalScene[] = [
-  { id: 'ts1', name: 'Starters vs Ballkani', formation: '4-3-3', players: [] },
-  { id: 'ts2', name: 'Counter template', formation: '4-2-3-1', players: [] },
+  { id: 'ts1', name: 'Starters vs Ballkani', formation: '4-3-3', players: [], shared: true, created: 'Aug 12', modified: 'Aug 20' },
+  { id: 'ts2', name: 'Counter template', formation: '4-2-3-1', players: [], shared: false, created: 'Aug 15', modified: 'Aug 15' },
+  { id: 'ts3', name: 'High press vs Drita', formation: '3-5-2', players: [], shared: true, created: 'Aug 16', modified: 'Aug 18' },
 ];
 
 /** Formation templates: 11 normalized slot positions per formation (y grows from opponent goal → own goal). */
@@ -339,3 +343,262 @@ export const CONVERSATIONS: Record<string, ChatBubble[]> = {
     { id: 'c5c', text: 'It is paid — thank you!', time: 'Mon', mine: true },
   ],
 };
+
+/* ---------- Trainer detail data (parity with the GoalHub webapp) ---------- */
+
+export type PlayerSeason = {
+  goals: number;
+  assists: number;
+  minutes: number;
+  yellow: number;
+  red: number;
+  matches: number;
+};
+
+export const PLAYER_SEASON: Record<string, PlayerSeason> = {
+  'Ardit Llapashtica': { goals: 12, assists: 6, minutes: 2140, yellow: 2, red: 0, matches: 24 },
+  'Mergim Berisha': { goals: 5, assists: 9, minutes: 1980, yellow: 4, red: 0, matches: 22 },
+  'Dren Hyseni': { goals: 2, assists: 1, minutes: 2160, yellow: 5, red: 1, matches: 24 },
+  'Agon Gashi': { goals: 7, assists: 4, minutes: 1540, yellow: 1, red: 0, matches: 20 },
+  'Luan Kryeziu': { goals: 0, assists: 0, minutes: 2160, yellow: 1, red: 0, matches: 24 },
+  'Bekim Shala': { goals: 1, assists: 0, minutes: 1080, yellow: 3, red: 0, matches: 15 },
+  'Fatos Bytyqi': { goals: 3, assists: 7, minutes: 1750, yellow: 3, red: 0, matches: 21 },
+  'Erion Zeka': { goals: 4, assists: 2, minutes: 640, yellow: 1, red: 0, matches: 12 },
+};
+
+export type PlayerProfile = {
+  birth: string;
+  nationality: string;
+  license: string;
+  contract: string;
+  contractEnd: string;
+  team: string;
+};
+
+export const PLAYER_PROFILES: Record<string, PlayerProfile> = {
+  'Ardit Llapashtica': { birth: '2003-05-14', nationality: 'Kosovo', license: 'FFK-1023', contract: '2023-01-01', contractEnd: '2026-06-30', team: 'First Team' },
+  'Mergim Berisha': { birth: '2002-11-02', nationality: 'Kosovo', license: 'FFK-0987', contract: '2022-07-01', contractEnd: '2025-12-31', team: 'First Team' },
+  'Dren Hyseni': { birth: '2001-03-21', nationality: 'Kosovo', license: 'FFK-0911', contract: '2021-08-01', contractEnd: '2026-06-30', team: 'First Team' },
+  'Agon Gashi': { birth: '2008-06-09', nationality: 'Kosovo', license: 'FFK-1140', contract: '2024-02-01', contractEnd: '2027-06-30', team: 'U19' },
+  'Luan Kryeziu': { birth: '2000-01-30', nationality: 'Kosovo', license: 'FFK-0855', contract: '2020-07-01', contractEnd: '2025-06-30', team: 'First Team' },
+  'Bekim Shala': { birth: '2004-09-17', nationality: 'Kosovo', license: 'FFK-1205', contract: '2024-01-15', contractEnd: '2026-12-31', team: 'First Team' },
+  'Fatos Bytyqi': { birth: '2002-04-11', nationality: 'Kosovo', license: 'FFK-1042', contract: '2023-01-01', contractEnd: '2026-06-30', team: 'First Team' },
+  'Erion Zeka': { birth: '2005-12-03', nationality: 'Kosovo', license: 'FFK-1318', contract: '2024-08-01', contractEnd: '2027-06-30', team: 'U21' },
+};
+
+export type Rating = {
+  id: string;
+  player: string;
+  initials: string;
+  color: string;
+  technique: number;
+  physical: number;
+  tactics: number;
+  consistency: number;
+  teamwork: number;
+  average: number;
+  comment: string;
+  by: string;
+  rated: string;
+};
+
+export const ALL_RATINGS: Rating[] = [
+  { id: 'r1', player: 'Dren Hyseni', initials: 'DH', color: '#2fbf71', technique: 7.2, physical: 8.3, tactics: 8.1, consistency: 8.0, teamwork: 8.5, average: 8.0, comment: 'Leader at the back, dominant in the air.', by: 'Rexhep Hyseni', rated: 'Aug 20' },
+  { id: 'r2', player: 'Ardit Llapashtica', initials: 'AL', color: '#B0E4CC', technique: 8.4, physical: 7.6, tactics: 7.8, consistency: 7.9, teamwork: 8.0, average: 7.9, comment: 'Best finisher in the squad — keep the work-rate up.', by: 'Rexhep Hyseni', rated: 'Aug 19' },
+  { id: 'r3', player: 'Luan Kryeziu', initials: 'LK', color: '#5aa7e6', technique: 7.0, physical: 7.5, tactics: 8.0, consistency: 7.8, teamwork: 8.2, average: 7.7, comment: 'Reliable distribution, commands his box well.', by: 'Rexhep Hyseni', rated: 'Aug 18' },
+  { id: 'r4', player: 'Mergim Berisha', initials: 'MB', color: '#408A71', technique: 7.8, physical: 7.4, tactics: 7.6, consistency: 7.2, teamwork: 8.2, average: 7.6, comment: 'Smart off the ball, dangerous in the half-spaces.', by: 'Rexhep Hyseni', rated: 'Aug 17' },
+  { id: 'r5', player: 'Fatos Bytyqi', initials: 'FB', color: '#86C2A4', technique: 7.9, physical: 7.0, tactics: 7.5, consistency: 7.4, teamwork: 8.1, average: 7.6, comment: 'Engine of the midfield, always an option.', by: 'Rexhep Hyseni', rated: 'Aug 16' },
+  { id: 'r6', player: 'Agon Gashi', initials: 'AG', color: '#8f86e8', technique: 7.6, physical: 6.8, tactics: 7.2, consistency: 6.9, teamwork: 7.8, average: 7.3, comment: 'Huge potential — needs to impose himself more.', by: 'Rexhep Hyseni', rated: 'Aug 15' },
+  { id: 'r7', player: 'Bekim Shala', initials: 'BS', color: '#f5a623', technique: 6.8, physical: 7.2, tactics: 7.0, consistency: 6.5, teamwork: 7.4, average: 7.0, comment: 'Solid, improving in possession.', by: 'Rexhep Hyseni', rated: 'Aug 14' },
+  { id: 'r8', player: 'Erion Zeka', initials: 'EZ', color: '#E24B4A', technique: 7.5, physical: 7.1, tactics: 6.9, consistency: 6.4, teamwork: 7.3, average: 7.0, comment: 'Exciting on the ball, needs to track back more.', by: 'Rexhep Hyseni', rated: 'Aug 13' },
+];
+
+export type AttendanceStatus = 'present' | 'absent' | 'unconfirmed';
+
+export type AttRow = {
+  player: string;
+  initials: string;
+  color: string;
+  status: AttendanceStatus;
+  reason?: string;
+};
+
+function att(overrides: Record<string, { status: AttendanceStatus; reason?: string }> = {}): AttRow[] {
+  return ALL_PLAYERS.map((p) => {
+    const o = overrides[p.initials];
+    return o
+      ? { player: p.name, initials: p.initials, color: p.color, status: o.status, reason: o.reason }
+      : { player: p.name, initials: p.initials, color: p.color, status: 'present' as AttendanceStatus };
+  });
+}
+
+export const TRAINING_ATTENDANCE: Record<string, AttRow[]> = {
+  t1: att({ EZ: { status: 'absent', reason: 'Hamstring — medical' }, BS: { status: 'unconfirmed' } }),
+  t2: att({ EZ: { status: 'absent', reason: 'Hamstring — medical' }, BS: { status: 'present' }, AG: { status: 'present' } }),
+  t3: att({ EZ: { status: 'absent', reason: 'Hamstring — medical' }, LK: { status: 'absent', reason: 'Shoulder — medical' }, BS: { status: 'present' } }),
+  t4: att({ EZ: { status: 'present' }, BS: { status: 'present' }, AG: { status: 'unconfirmed' } }),
+  t5: att({ EZ: { status: 'unconfirmed' }, BS: { status: 'present' } }),
+};
+
+export type MatchStat = {
+  player: string;
+  initials: string;
+  color: string;
+  goals: number;
+  assists: number;
+  minutes: number;
+  yellow: number;
+  red: number;
+  rating: number;
+};
+
+export type MatchDetail = {
+  matchId: string;
+  transport?: string;
+  lineup: string[];
+  stats: MatchStat[];
+};
+
+export const MATCH_DETAILS: Record<string, MatchDetail> = {
+  ma1: {
+    matchId: 'ma1',
+    lineup: ['LK', 'DH', 'BS', 'MB', 'FB', 'AL', 'AG', 'EZ', 'LX', 'AN', 'BK'],
+    stats: [
+      { player: 'Ardit Llapashtica', initials: 'AL', color: '#B0E4CC', goals: 1, assists: 1, minutes: 90, yellow: 0, red: 0, rating: 8.2 },
+      { player: 'Mergim Berisha', initials: 'MB', color: '#408A71', goals: 1, assists: 0, minutes: 90, yellow: 0, red: 0, rating: 7.4 },
+      { player: 'Dren Hyseni', initials: 'DH', color: '#2fbf71', goals: 0, assists: 0, minutes: 90, yellow: 1, red: 0, rating: 7.8 },
+      { player: 'Fatos Bytyqi', initials: 'FB', color: '#86C2A4', goals: 0, assists: 1, minutes: 90, yellow: 0, red: 0, rating: 7.6 },
+      { player: 'Luan Kryeziu', initials: 'LK', color: '#5aa7e6', goals: 0, assists: 0, minutes: 90, yellow: 0, red: 0, rating: 7.1 },
+      { player: 'Agon Gashi', initials: 'AG', color: '#8f86e8', goals: 0, assists: 0, minutes: 30, yellow: 0, red: 0, rating: 6.9 },
+      { player: 'Bekim Shala', initials: 'BS', color: '#f5a623', goals: 0, assists: 0, minutes: 12, yellow: 0, red: 0, rating: 6.5 },
+    ],
+  },
+  ma2: {
+    matchId: 'ma2',
+    transport: 'Bus departs club 15:30',
+    lineup: ['LK', 'DH', 'BS', 'MB', 'FB', 'AL', 'AG', 'EZ', 'LX', 'AN', 'BK'],
+    stats: [
+      { player: 'Ardit Llapashtica', initials: 'AL', color: '#B0E4CC', goals: 1, assists: 0, minutes: 90, yellow: 0, red: 0, rating: 7.9 },
+      { player: 'Dren Hyseni', initials: 'DH', color: '#2fbf71', goals: 0, assists: 0, minutes: 90, yellow: 1, red: 0, rating: 7.5 },
+      { player: 'Fatos Bytyqi', initials: 'FB', color: '#86C2A4', goals: 0, assists: 0, minutes: 90, yellow: 0, red: 0, rating: 7.2 },
+      { player: 'Luan Kryeziu', initials: 'LK', color: '#5aa7e6', goals: 0, assists: 0, minutes: 90, yellow: 0, red: 0, rating: 7.0 },
+      { player: 'Mergim Berisha', initials: 'MB', color: '#408A71', goals: 0, assists: 0, minutes: 74, yellow: 0, red: 0, rating: 6.8 },
+      { player: 'Agon Gashi', initials: 'AG', color: '#8f86e8', goals: 0, assists: 0, minutes: 20, yellow: 0, red: 0, rating: 6.6 },
+      { player: 'Bekim Shala', initials: 'BS', color: '#f5a623', goals: 0, assists: 0, minutes: 16, yellow: 0, red: 0, rating: 6.3 },
+    ],
+  },
+  ma3: {
+    matchId: 'ma3',
+    lineup: ['LK', 'DH', 'BS', 'MB', 'FB', 'AL', 'AG', 'EZ', 'LX', 'AN', 'BK'],
+    stats: [],
+  },
+  ma4: {
+    matchId: 'ma4',
+    transport: 'Bus departs club 18:30',
+    lineup: ['LK', 'DH', 'BS', 'MB', 'FB', 'AL', 'AG', 'EZ', 'LX', 'AN', 'BK'],
+    stats: [],
+  },
+  ma5: {
+    matchId: 'ma5',
+    lineup: ['LK', 'DH', 'BS', 'MB', 'FB', 'AL', 'AG', 'EZ', 'LX', 'AN', 'BK'],
+    stats: [
+      { player: 'Ardit Llapashtica', initials: 'AL', color: '#B0E4CC', goals: 2, assists: 0, minutes: 90, yellow: 0, red: 0, rating: 8.8 },
+      { player: 'Mergim Berisha', initials: 'MB', color: '#408A71', goals: 1, assists: 1, minutes: 90, yellow: 0, red: 0, rating: 8.0 },
+      { player: 'Fatos Bytyqi', initials: 'FB', color: '#86C2A4', goals: 0, assists: 1, minutes: 90, yellow: 0, red: 0, rating: 7.7 },
+      { player: 'Dren Hyseni', initials: 'DH', color: '#2fbf71', goals: 0, assists: 0, minutes: 90, yellow: 0, red: 0, rating: 7.6 },
+      { player: 'Luan Kryeziu', initials: 'LK', color: '#5aa7e6', goals: 0, assists: 0, minutes: 90, yellow: 0, red: 0, rating: 7.2 },
+      { player: 'Agon Gashi', initials: 'AG', color: '#8f86e8', goals: 0, assists: 0, minutes: 24, yellow: 0, red: 0, rating: 6.8 },
+    ],
+  },
+};
+
+export type InjuryDetail = {
+  injuryId: string;
+  occurredDuring: string;
+  date: string;
+  description: string;
+  treatment: string;
+  history: { date: string; change: string }[];
+};
+
+export const INJURY_DETAILS: Record<string, InjuryDetail> = {
+  i1: {
+    injuryId: 'i1',
+    occurredDuring: 'match',
+    date: 'Aug 18',
+    description: 'Hamstring strain during a sprint in the 60th minute against Ballkani.',
+    treatment: 'Ice therapy twice daily, physio sessions, no sprint work for 10 days.',
+    history: [
+      { date: 'Aug 18', change: 'Injury registered — status set to injured, admin notified.' },
+      { date: 'Aug 20', change: 'Follow-up: swelling reduced, expected return Sep 20.' },
+    ],
+  },
+  i2: {
+    injuryId: 'i2',
+    occurredDuring: 'training',
+    date: 'Aug 22',
+    description: 'Ankle sprain landing from a jump at the end of the recovery session.',
+    treatment: 'RICE protocol, ankle strapped, gym work permitted, return to pitch pending.',
+    history: [
+      { date: 'Aug 22', change: 'Injury registered — status set to rehabilitation.' },
+      { date: 'Aug 23', change: 'Physio check confirmed, no fracture.' },
+    ],
+  },
+  i3: {
+    injuryId: 'i3',
+    occurredDuring: 'training',
+    date: 'Aug 02',
+    description: 'Minor muscle strain in the left quadriceps.',
+    treatment: 'Rest and gradual return, fully cleared.',
+    history: [
+      { date: 'Aug 02', change: 'Injury registered — status set to injured.' },
+      { date: 'Aug 09', change: 'Marked as recovered — health status restored to active.' },
+    ],
+  },
+  i4: {
+    injuryId: 'i4',
+    occurredDuring: 'match',
+    date: 'Jul 28',
+    description: 'Shoulder issue after a fall during a match challenge.',
+    treatment: 'Physiotherapy and strength work, fully cleared.',
+    history: [
+      { date: 'Jul 28', change: 'Injury registered — status set to injured.' },
+      { date: 'Aug 05', change: 'Marked as recovered — health status restored to active.' },
+    ],
+  },
+};
+
+export type ChannelPost = {
+  id: string;
+  author: string;
+  initials: string;
+  color: string;
+  text: string;
+  time: string;
+  mine: boolean;
+};
+
+export const CHANNEL_POSTS: ChannelPost[] = [
+  { id: 'cp1', author: 'Rexhep Hyseni', initials: 'RH', color: '#2fbf71', text: 'Great intensity today. Tactical review Wednesday 17:00.', time: '09:42', mine: true },
+  { id: 'cp2', author: 'Ardit Llapashtica', initials: 'AL', color: '#B0E4CC', text: 'Coach, can we go through set-pieces before Ballkani?', time: '10:05', mine: false },
+  { id: 'cp3', author: 'Rexhep Hyseni', initials: 'RH', color: '#2fbf71', text: 'Yes — we will add 15 min after the Wednesday review.', time: '10:11', mine: true },
+  { id: 'cp4', author: 'Agon Gashi', initials: 'AG', color: '#8f86e8', text: "I'm free earlier tomorrow, happy to help set up cones.", time: '10:14', mine: false },
+  { id: 'cp5', author: 'Rexhep Hyseni', initials: 'RH', color: '#2fbf71', text: "That's the spirit. See you all Wednesday.", time: '10:20', mine: true },
+];
+
+export type AppNotification = {
+  id: string;
+  type: string;
+  title: string;
+  body: string;
+  source: string;
+  time: string;
+  read: boolean;
+};
+
+export const ALL_NOTIFICATIONS: AppNotification[] = [
+  { id: 'n1', type: 'injury_registered', title: 'Erion Zeka — injury registered', body: 'Hamstring strain reported. Expected return Sep 20.', source: 'platform', time: '2h', read: false },
+  { id: 'n2', type: 'match_scheduled', title: 'Match vs KF Llapi', body: 'Superliga · Home · Aug 27 at 19:00.', source: 'admin', time: '5h', read: false },
+  { id: 'n3', type: 'rating_saved', title: 'Rating saved', body: 'Ardit Llapashtica was rated 8.2.', source: 'platform', time: '1d', read: true },
+  { id: 'n4', type: 'message', title: 'Message from Faton Krasniqi', body: 'Please confirm the player list for September.', source: 'finance', time: '2d', read: true },
+];
