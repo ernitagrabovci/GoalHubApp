@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Screen, DetailHead, StatCell, SectionLabel } from '@/components/screen';
@@ -16,6 +17,20 @@ function resultOf(score: string): 'W' | 'D' | 'L' {
 const RESULT_TONE = { W: 'emerald', D: 'info', L: 'danger' } as const;
 
 export default function ReportsScreen() {
+  const [generated, setGenerated] = useState<Record<string, string | null>>({
+    match: null,
+    finance: null,
+    activity: null,
+  });
+  const [date] = useState(
+    () => `${new Date().getDate()} ${new Date().toLocaleString('en', { month: 'short' })}`,
+  );
+
+  const generate = (key: string, summary: string) => {
+    setGenerated((prev) => ({ ...prev, [key]: summary }));
+    alert('Report generated — ready to export.');
+  };
+
   const played = ALL_MATCHES.filter((m) => m.status === 'played');
   const wins = played.filter((m) => resultOf(m.score ?? '0 – 0') === 'W').length;
   const fees = feesForRole('administrator');
@@ -63,10 +78,18 @@ export default function ReportsScreen() {
           );
         })}
       </View>
-      <Pressable style={styles.exportBtn} onPress={() => alert('Exporting match report…')}>
+      <Pressable
+        style={styles.exportBtn}
+        onPress={() => generate('match', `${played.length} played · ${wins} wins · ${date}`)}>
         <IconSymbol name="square.and.arrow.up" size={15} color={Colors.mint} />
         <Text style={styles.exportText}>export matches</Text>
       </Pressable>
+      {generated.match ? (
+        <View style={styles.generatedCard}>
+          <IconSymbol name="checkmark.circle.fill" size={14} color={Colors.emerald} />
+          <Text style={styles.generatedText}>match report · {generated.match}</Text>
+        </View>
+      ) : null}
 
       <SectionLabel>finance report</SectionLabel>
       <View style={styles.rowsCard}>
@@ -80,10 +103,18 @@ export default function ReportsScreen() {
           </View>
         ))}
       </View>
-      <Pressable style={styles.exportBtn} onPress={() => alert('Exporting finance report…')}>
+      <Pressable
+        style={styles.exportBtn}
+        onPress={() => generate('finance', `${paid} paid · ${pending} pending · ${critical} critical · ${date}`)}>
         <IconSymbol name="square.and.arrow.up" size={15} color={Colors.mint} />
         <Text style={styles.exportText}>export finance</Text>
       </Pressable>
+      {generated.finance ? (
+        <View style={styles.generatedCard}>
+          <IconSymbol name="checkmark.circle.fill" size={14} color={Colors.emerald} />
+          <Text style={styles.generatedText}>finance report · {generated.finance}</Text>
+        </View>
+      ) : null}
 
       <SectionLabel>platform activity</SectionLabel>
       <View style={styles.rowsCard}>
@@ -97,10 +128,18 @@ export default function ReportsScreen() {
           </View>
         ))}
       </View>
-      <Pressable style={styles.exportBtn} onPress={() => alert('Exporting activity report…')}>
+      <Pressable
+        style={styles.exportBtn}
+        onPress={() => generate('activity', `${activity.length} events · ${date}`)}>
         <IconSymbol name="square.and.arrow.up" size={15} color={Colors.mint} />
         <Text style={styles.exportText}>export activity</Text>
       </Pressable>
+      {generated.activity ? (
+        <View style={styles.generatedCard}>
+          <IconSymbol name="checkmark.circle.fill" size={14} color={Colors.emerald} />
+          <Text style={styles.generatedText}>activity report · {generated.activity}</Text>
+        </View>
+      ) : null}
     </Screen>
   );
 }
@@ -178,5 +217,24 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: Colors.mint,
     textTransform: 'lowercase',
+  },
+  generatedCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    marginTop: Spacing.sm,
+    marginBottom: Spacing.xs,
+    backgroundColor: `${Colors.emerald}1a`,
+    borderColor: `${Colors.emerald}55`,
+    borderWidth: 1,
+    borderRadius: Radius.md,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+  },
+  generatedText: {
+    flex: 1,
+    fontFamily: Fonts.bodyMedium,
+    fontSize: 12,
+    color: Colors.emerald,
   },
 });

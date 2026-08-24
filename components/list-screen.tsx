@@ -30,6 +30,8 @@ type ListScreenProps<T> = {
   renderItem: (item: T) => ReactNode;
   actionLabel?: string;
   onAction?: () => void;
+  /** When provided, the action button toggles an inline form rendered above the list. */
+  actionForm?: (close: () => void) => ReactNode;
   emptyText?: string;
 };
 
@@ -46,10 +48,12 @@ export function ListScreen<T>({
   renderItem,
   actionLabel,
   onAction,
+  actionForm,
   emptyText = 'No results found.',
 }: ListScreenProps<T>) {
   const { user } = useSession();
   const [query, setQuery] = useState('');
+  const [showForm, setShowForm] = useState(false);
   const [fade] = useState(() => new Animated.Value(0));
   const [rise] = useState(() => new Animated.Value(10));
 
@@ -135,6 +139,10 @@ export function ListScreen<T>({
             </View>
           ) : null}
 
+          {actionForm && showForm ? (
+            <View style={styles.formWrap}>{actionForm(() => setShowForm(false))}</View>
+          ) : null}
+
           {filtered.length === 0 ? (
             <View style={styles.empty}>
               <IconSymbol name="search" size={26} color={Colors.textMuted} />
@@ -149,9 +157,11 @@ export function ListScreen<T>({
           )}
 
           {actionLabel ? (
-            <Pressable style={styles.action} onPress={onAction}>
-              <IconSymbol name="plus" size={18} color={Colors.textOnPrimary} />
-              <Text style={styles.actionText}>{actionLabel}</Text>
+            <Pressable
+              style={styles.action}
+              onPress={() => (actionForm ? setShowForm((s) => !s) : onAction?.())}>
+              <IconSymbol name={showForm ? 'xmark' : 'plus'} size={18} color={Colors.textOnPrimary} />
+              <Text style={styles.actionText}>{showForm ? 'close form' : actionLabel}</Text>
             </Pressable>
           ) : null}
         </ScrollView>
@@ -262,6 +272,9 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: Fonts.body,
     paddingVertical: Spacing.md,
+  },
+  formWrap: {
+    marginBottom: Spacing.lg,
   },
   list: {
     gap: Spacing.md,
