@@ -77,7 +77,7 @@ export default function TeamScreen() {
       </View>
 
       <SectionLabel>management</SectionLabel>
-      <Pressable style={styles.mgmtBtn} onPress={() => alert('Transfers — coming soon')}>
+      <Pressable style={styles.mgmtBtn} onPress={() => router.push('/transfers')}>
         <IconSymbol name="arrow.right" size={16} color={Colors.mint} />
         <Text style={styles.mgmtBtnText}>transfers</Text>
       </Pressable>

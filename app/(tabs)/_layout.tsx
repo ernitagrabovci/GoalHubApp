@@ -39,6 +39,8 @@ const HIDDEN_ROUTES = [
   'teams',
   'team',
   'club',
+  'competitions',
+  'transfers',
   'stats',
   'child',
   'child-attendance',

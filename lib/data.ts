@@ -726,6 +726,23 @@ export const ALL_EXPENSES: Expense[] = [
   { id: 'e7', title: 'Pitch line marking', category: 'facilities', amount: '€120', month: 'Aug', status: 'paid', color: '#534AB7' },
 ];
 
+export type CompetitionType = 'league' | 'cup' | 'friendly';
+
+export type Competition = {
+  id: string;
+  name: string;
+  type: CompetitionType;
+  active: boolean;
+};
+
+export const ALL_COMPETITIONS: Competition[] = [
+  { id: 'c1', name: 'Superliga e Kosovës', type: 'league', active: true },
+  { id: 'c2', name: 'Kupa e Kosovës', type: 'cup', active: true },
+  { id: 'c3', name: 'Superkupa e Kosovës', type: 'cup', active: true },
+  { id: 'c4', name: 'Friendly matches', type: 'friendly', active: true },
+  { id: 'c5', name: 'U19 League', type: 'league', active: false },
+];
+
 export type ClubField = { id: string; name: string; location: string; status: 'active' | 'maintenance' };
 
 export const CLUB_FIELDS: ClubField[] = [
