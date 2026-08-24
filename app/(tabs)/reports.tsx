@@ -50,7 +50,7 @@ export default function ReportsScreen() {
   const activity = ALL_NOTIFICATIONS;
 
   return (
-    <Screen>
+    <Screen back>
       <DetailHead
         icon="chart.bar.fill"
         accent="#B0E4CC"

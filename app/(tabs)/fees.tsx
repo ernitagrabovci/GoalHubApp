@@ -25,7 +25,7 @@ export default function FeesScreen() {
       : `${fees.length} entries · September · FC Prishtina`;
 
   return (
-    <ListScreen
+    <ListScreen back
       icon="dollarsign.circle.fill"
       accent="#2fbf71"
       title={title}

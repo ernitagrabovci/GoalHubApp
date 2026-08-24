@@ -1,3 +1,4 @@
+import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Fragment, useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
@@ -22,6 +23,8 @@ type ListScreenProps<T> = {
   accent: string;
   title: string;
   subtitle: string;
+  /** Show a back button instead of the brand header (for pushed feature screens). */
+  back?: boolean;
   searchable?: boolean;
   searchPlaceholder?: string;
   searchKeys?: (item: T) => string;
@@ -40,6 +43,7 @@ export function ListScreen<T>({
   accent,
   title,
   subtitle,
+  back,
   searchable,
   searchPlaceholder,
   searchKeys,
@@ -51,6 +55,7 @@ export function ListScreen<T>({
   actionForm,
   emptyText = 'No results found.',
 }: ListScreenProps<T>) {
+  const router = useRouter();
   const { user } = useSession();
   const [query, setQuery] = useState('');
   const [showForm, setShowForm] = useState(false);
@@ -86,23 +91,30 @@ export function ListScreen<T>({
       <Animated.View
         style={[styles.flex, { opacity: fade, transform: [{ translateY: rise }] }]}
       >
-        {/* Brand header */}
-        <View style={styles.header}>
-          <View style={styles.brand}>
-            <Image
-              source={require('@/assets/images/goalhub-logo.png')}
-              style={styles.brandLogo}
-              resizeMode="contain"
-            />
-            <Text style={styles.brandText}>goalhub</Text>
-          </View>
-          {user ? (
-            <View style={[styles.rolePill, { borderColor: `${user.color}55` }]}>
-              <View style={[styles.roleDot, { backgroundColor: user.color }]} />
-              <Text style={styles.rolePillText}>{ROLE_LABELS[user.role]}</Text>
+        {/* Brand header or back button */}
+        {back ? (
+          <Pressable style={styles.backRow} onPress={() => router.back()} hitSlop={8}>
+            <IconSymbol name="chevron-left" size={22} color={Colors.mint} />
+            <Text style={styles.backText}>back</Text>
+          </Pressable>
+        ) : (
+          <View style={styles.header}>
+            <View style={styles.brand}>
+              <Image
+                source={require('@/assets/images/goalhub-logo.png')}
+                style={styles.brandLogo}
+                resizeMode="contain"
+              />
+              <Text style={styles.brandText}>goalhub</Text>
             </View>
-          ) : null}
-        </View>
+            {user ? (
+              <View style={[styles.rolePill, { borderColor: `${user.color}55` }]}>
+                <View style={[styles.roleDot, { backgroundColor: user.color }]} />
+                <Text style={styles.rolePillText}>{ROLE_LABELS[user.role]}</Text>
+              </View>
+            ) : null}
+          </View>
+        )}
 
         <ScrollView
           contentContainerStyle={styles.content}
@@ -184,6 +196,20 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: Spacing.lg,
     paddingTop: Spacing.sm,
+  },
+  backRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 4,
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.xs,
+  },
+  backText: {
+    fontFamily: Fonts.bodyMedium,
+    fontSize: 13,
+    color: Colors.mint,
+    textTransform: 'lowercase',
   },
   brand: {
     flexDirection: 'row',

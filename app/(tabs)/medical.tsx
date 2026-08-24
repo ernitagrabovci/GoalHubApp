@@ -14,7 +14,7 @@ const STATUS_TONE: Record<string, StatusTone> = {
 export default function MedicalScreen() {
   const router = useRouter();
   return (
-    <ListScreen
+    <ListScreen back
       icon="stethoscope"
       accent="#E24B4A"
       title="medical"

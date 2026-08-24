@@ -31,7 +31,7 @@ export default function DrillsScreen() {
   };
 
   return (
-    <ListScreen
+    <ListScreen back
       icon="fitness-center"
       accent={Colors.info}
       title="drills"

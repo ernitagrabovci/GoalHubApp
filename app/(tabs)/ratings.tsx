@@ -30,7 +30,7 @@ export default function RatingsScreen() {
   const router = useRouter();
   const sorted = [...ALL_RATINGS].sort((a, b) => b.average - a.average);
   return (
-    <ListScreen
+    <ListScreen back
       icon="star.fill"
       accent="#f5a623"
       title="ratings"

@@ -128,7 +128,7 @@ export default function TrainingsScreen() {
   const [trainings, setTrainings] = usePersistedState<Training[]>('trainings:list', ALL_TRAININGS);
 
   return (
-    <ListScreen
+    <ListScreen back
       icon="calendar"
       accent="#B0E4CC"
       title="trainings"

@@ -39,7 +39,7 @@ export default function PlayersScreen() {
   }, [query]);
 
   return (
-    <Screen>
+    <Screen back>
       <DetailHead
         icon="person.2.fill"
         accent={Colors.mint}

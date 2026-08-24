@@ -103,7 +103,7 @@ export default function GroupsScreen() {
   const [groups, setGroups] = usePersistedState<Group[]>('groups:list', ALL_GROUPS);
 
   return (
-    <ListScreen
+    <ListScreen back
       icon="person.2.fill"
       accent={Colors.purple}
       title="groups"

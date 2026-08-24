@@ -20,7 +20,7 @@ export default function TacticalScreen() {
   const visible = viewer ? scenes.filter((s) => s.shared) : scenes;
 
   return (
-    <Screen>
+    <Screen back>
       <DetailHead
         icon="map.fill"
         accent={Colors.mintDim}

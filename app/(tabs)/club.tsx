@@ -65,7 +65,7 @@ export default function ClubScreen() {
   ];
 
   return (
-    <Screen>
+    <Screen back>
       <DetailHead
         icon="trophy.fill"
         accent={Colors.mintDim}

@@ -69,7 +69,7 @@ export default function UsersScreen() {
   };
 
   return (
-    <Screen>
+    <Screen back>
       <DetailHead
         icon="person.fill"
         accent="#1a9e5c"

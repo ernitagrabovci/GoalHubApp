@@ -36,7 +36,7 @@ export default function FinanceScreen() {
   const month = fees[0]?.month ?? 'Sep';
 
   return (
-    <Screen>
+    <Screen back>
       <DetailHead
         icon="dollarsign.circle.fill"
         accent={Colors.emerald}

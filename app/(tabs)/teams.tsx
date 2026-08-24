@@ -46,7 +46,7 @@ export default function TeamsScreen() {
   };
 
   return (
-    <Screen>
+    <Screen back>
       <DetailHead
         icon="person.2.fill"
         accent="#1a9e5c"

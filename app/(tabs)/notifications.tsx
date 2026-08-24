@@ -24,7 +24,7 @@ export default function NotificationsScreen() {
   const markAllRead = () => setItems((prev) => prev.map((n) => ({ ...n, read: true })));
 
   return (
-    <Screen>
+    <Screen back>
       <DetailHead
         icon="notifications"
         accent="#F5A623"
