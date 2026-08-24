@@ -86,6 +86,7 @@ export default function HomeScreen() {
 
   const dash = ROLE_DASHBOARD[user.role];
   const child = ALL_PLAYERS.find((p) => p.name === 'Agon Gashi');
+  const player = ALL_PLAYERS.find((p) => p.name === 'Ardit Llapashtica');
   const fees = feesForRole(user.role);
   const currentFee = fees[0];
   const nextTraining = ALL_TRAININGS[0];
@@ -152,6 +153,25 @@ export default function HomeScreen() {
             </View>
             <IconSymbol name="chevron.right" size={18} color={Colors.textMuted} />
           </Pressable>
+        ) : user.role === 'player' && player ? (
+          <Pressable style={styles.childCard} onPress={() => router.push('/stats')}>
+            <InitialsTile initials={player.initials} color={player.color} size={56} />
+            <View style={styles.childBody}>
+              <Text style={styles.childKicker}>your profile</Text>
+              <Text style={styles.childName}>{player.name}</Text>
+              <Text style={styles.childMeta}>
+                {player.position} · No. {player.number} · age {player.age}
+              </Text>
+              <View style={styles.childTags}>
+                <StatusChip label={player.health} tone={HEALTH_TONE[player.health]} />
+                <View style={styles.ratingChip}>
+                  <IconSymbol name="star.fill" size={11} color="#f5a623" />
+                  <Text style={styles.ratingText}>{player.rating.toFixed(1)}</Text>
+                </View>
+              </View>
+            </View>
+            <IconSymbol name="chevron.right" size={18} color={Colors.textMuted} />
+          </Pressable>
         ) : (
           <View style={styles.childCard}>
             <InitialsTile initials={user.initials} color={user.color} size={56} />
@@ -162,6 +182,23 @@ export default function HomeScreen() {
             </View>
           </View>
         )}
+
+        {/* Player stats */}
+        {user.role === 'player' ? (
+          <View style={styles.statsGrid}>
+            {dash.stats.map((stat) => (
+              <View key={stat.label} style={styles.statCard}>
+                <View style={[styles.statIcon, { backgroundColor: `${stat.tint}1f` }]}>
+                  <IconSymbol name={stat.icon} size={18} color={stat.tint} />
+                </View>
+                <View>
+                  <Text style={styles.statValue}>{stat.value}</Text>
+                  <Text style={styles.statLabel}>{stat.label}</Text>
+                </View>
+              </View>
+            ))}
+          </View>
+        ) : null}
 
         {/* Fee status */}
         {currentFee ? (
@@ -421,6 +458,44 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.body,
     fontSize: 12,
     color: Colors.textMuted,
+  },
+  statsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.md,
+    marginTop: Spacing.md,
+  },
+  statCard: {
+    flexGrow: 1,
+    flexBasis: '45%',
+    backgroundColor: Colors.surface,
+    borderColor: Colors.border,
+    borderWidth: 1,
+    borderRadius: Radius.lg,
+    padding: Spacing.lg,
+    gap: Spacing.md,
+    justifyContent: 'space-between',
+  },
+  statIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: Radius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  statValue: {
+    fontFamily: Fonts.heading,
+    fontSize: 26,
+    letterSpacing: -0.5,
+    color: Colors.mint,
+  },
+  statLabel: {
+    fontFamily: Fonts.bodyMedium,
+    fontSize: 11,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+    color: Colors.textSecondary,
+    marginTop: 2,
   },
   sectionLabel: {
     fontFamily: Fonts.headingSemiBold,
