@@ -1,5 +1,5 @@
 import { StatusBar } from 'expo-status-bar';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { IconSymbol } from '@/components/ui/icon-symbol';
@@ -30,9 +30,11 @@ export default function ModulesScreen() {
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.brand}>
-            <View style={styles.brandMark}>
-              <Text style={styles.brandLetter}>G</Text>
-            </View>
+            <Image
+              source={require('@/assets/images/goalhub-logo.png')}
+              style={styles.brandLogo}
+              resizeMode="contain"
+            />
             <Text style={styles.brandText}>goalhub</Text>
           </View>
         </View>
@@ -83,18 +85,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: Spacing.sm,
   },
-  brandMark: {
+  brandLogo: {
     width: 32,
     height: 32,
-    borderRadius: Radius.sm,
-    backgroundColor: Colors.mint,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  brandLetter: {
-    fontFamily: Fonts.heading,
-    fontSize: 17,
-    color: Colors.textOnPrimary,
   },
   brandText: {
     fontFamily: Fonts.heading,

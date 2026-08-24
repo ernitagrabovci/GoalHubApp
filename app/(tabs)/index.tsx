@@ -1,55 +1,57 @@
+import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { ThemedText } from '@/components/themed-text';
 import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
+import { ROLE_DASHBOARD, type EventItem } from '@/lib/role-content';
+import { ROLE_LABELS, useSession } from '@/lib/session';
 
-const STATS = [
-  { label: 'Players', value: '24' },
-  { label: 'Trainings', value: '12' },
-  { label: 'Matches', value: '8' },
-  { label: 'Attendance', value: '87%' },
-];
-
-const QUICK = [
-  { icon: 'figure.soccer', label: 'Matches', color: Colors.warning },
-  { icon: 'calendar', label: 'Trainings', color: Colors.info },
-  { icon: 'person.2.fill', label: 'Team', color: Colors.emerald },
-  { icon: 'stethoscope', label: 'Medical', color: Colors.danger },
-  { icon: 'bubble.left.fill', label: 'Messages', color: Colors.info },
-  { icon: 'chart.bar.fill', label: 'Reports', color: Colors.mint },
-] as const;
-
-const UPCOMING = [
-  {
-    day: 'TUE',
-    date: '25',
-    title: 'Tactical training',
-    time: '18:00',
-    meta: 'Fusha Prishtina A',
-    tone: Colors.info,
-  },
-  {
-    day: 'THU',
-    date: '27',
-    title: 'Match · U21',
-    time: '16:30',
-    meta: 'FC Drita · Home',
-    tone: Colors.warning,
-  },
-  {
-    day: 'SAT',
-    date: '29',
-    title: 'Recovery session',
-    time: '09:00',
-    meta: 'Akademia B',
-    tone: Colors.emerald,
-  },
-] as const;
+const TONE_COLORS: Record<EventItem['tone'], string> = {
+  emerald: '#2fbf71',
+  warning: '#f5a623',
+  info: '#5aa7e6',
+  purple: '#8f86e8',
+  mint: Colors.mint,
+};
 
 export default function HomeScreen() {
+  const router = useRouter();
+  const { user, signOut } = useSession();
+
+  if (!user) {
+    return (
+      <SafeAreaView style={styles.safe} edges={['top']}>
+        <StatusBar style="light" />
+        <View style={styles.signedOut}>
+          <Image
+            source={require('@/assets/images/goalhub-logo.png')}
+            style={styles.signedOutLogo}
+            resizeMode="contain"
+          />
+          <Text style={styles.signedOutTitle}>you&apos;re signed out</Text>
+          <Text style={styles.signedOutSub}>
+            Sign in to see your personal dashboard.
+          </Text>
+          <Pressable style={styles.signedOutButton} onPress={() => router.replace('/login')}>
+            <Text style={styles.signedOutButtonText}>go to sign in</Text>
+            <IconSymbol name="arrow.right" size={18} color={Colors.textOnPrimary} />
+          </Pressable>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  const dash = ROLE_DASHBOARD[user.role];
+  const roleColor = user.color;
+
+  const handleSignOut = () => {
+    signOut();
+    router.replace('/login');
+  };
+
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <StatusBar style="light" />
@@ -59,32 +61,52 @@ export default function HomeScreen() {
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.brand}>
-            <View style={styles.brandMark}>
-              <Text style={styles.brandLetter}>G</Text>
-            </View>
+            <Image
+              source={require('@/assets/images/goalhub-logo.png')}
+              style={styles.brandLogo}
+              resizeMode="contain"
+            />
             <Text style={styles.brandText}>goalhub</Text>
           </View>
-          <View style={styles.clubChip}>
-            <View style={styles.liveDot} />
-            <Text style={styles.clubChipText}>FC Prishtina</Text>
+          <View style={styles.headerRight}>
+            <View style={styles.clubChip}>
+              <View style={styles.liveDot} />
+              <Text style={styles.clubChipText}>{user.club}</Text>
+            </View>
+            <View style={[styles.avatar, { backgroundColor: `${roleColor}26` }]}>
+              <Text style={[styles.avatarText, { color: roleColor }]}>{user.initials}</Text>
+            </View>
           </View>
         </View>
 
         {/* Hero */}
         <View style={styles.hero}>
-          <ThemedText type="label">GoalHub · Overview</ThemedText>
-          <Text style={styles.heroTitle}>your club,{'\n'}one place</Text>
-          <Text style={styles.heroSub}>
-            Everything for FC Prishtina — players, trainings, matches and medical.
-          </Text>
+          <View style={styles.heroTopRow}>
+            <ThemedText type="label">GoalHub · {ROLE_LABELS[user.role]}</ThemedText>
+            <Pressable style={styles.rolePill} onPress={handleSignOut}>
+              <IconSymbol name="logout" size={13} color={Colors.mint} />
+              <Text style={styles.rolePillText}>switch role</Text>
+            </Pressable>
+          </View>
+          <Text style={styles.heroTitle}>{dash.greeting}</Text>
+          <Text style={styles.heroSub}>{dash.subtitle}</Text>
+          <View style={styles.userRow}>
+            <View style={[styles.userDot, { backgroundColor: roleColor }]} />
+            <Text style={styles.userName}>{user.name}</Text>
+          </View>
         </View>
 
         {/* Stats */}
         <View style={styles.statsGrid}>
-          {STATS.map((stat) => (
+          {dash.stats.map((stat) => (
             <View key={stat.label} style={styles.statCard}>
-              <Text style={styles.statValue}>{stat.value}</Text>
-              <Text style={styles.statLabel}>{stat.label}</Text>
+              <View style={[styles.statIcon, { backgroundColor: `${stat.tint}1f` }]}>
+                <IconSymbol name={stat.icon} size={18} color={stat.tint} />
+              </View>
+              <View>
+                <Text style={styles.statValue}>{stat.value}</Text>
+                <Text style={styles.statLabel}>{stat.label}</Text>
+              </View>
             </View>
           ))}
         </View>
@@ -98,13 +120,13 @@ export default function HomeScreen() {
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.quickRow}>
-          {QUICK.map((action) => (
+          {dash.actions.map((action) => (
             <Pressable
               key={action.label}
               style={styles.quickItem}
               onPress={() => alert(`${action.label} — coming soon`)}>
-              <View style={[styles.quickIcon, { backgroundColor: `${action.color}22` }]}>
-                <IconSymbol name={action.icon} size={22} color={action.color} />
+              <View style={[styles.quickIcon, { backgroundColor: `${action.tint}22` }]}>
+                <IconSymbol name={action.icon} size={22} color={action.tint} />
               </View>
               <Text style={styles.quickLabel}>{action.label}</Text>
             </Pressable>
@@ -116,25 +138,25 @@ export default function HomeScreen() {
           <Text style={styles.sectionLabel}>upcoming</Text>
           <Text style={styles.sectionLink}>calendar</Text>
         </View>
-        {UPCOMING.map((event) => (
-          <Pressable
-            key={`${event.date}-${event.title}`}
-            style={styles.eventCard}
-            onPress={() => alert('coming soon')}>
-            <View style={[styles.dateBox, { borderColor: `${event.tone}55` }]}>
-              <Text style={[styles.dateDay, { color: event.tone }]}>{event.day}</Text>
-              <Text style={styles.dateNum}>{event.date}</Text>
-            </View>
-            <View style={styles.eventBody}>
-              <Text style={styles.eventTitle}>{event.title}</Text>
-              <Text style={styles.eventMeta}>{event.meta}</Text>
-            </View>
-            <View style={styles.eventTime}>
-              <IconSymbol name="clock.fill" size={14} color={Colors.textMuted} />
-              <Text style={styles.eventTimeText}>{event.time}</Text>
-            </View>
-          </Pressable>
-        ))}
+        {dash.events.map((event) => {
+          const tone = TONE_COLORS[event.tone];
+          return (
+            <Pressable
+              key={`${event.day}-${event.title}`}
+              style={styles.eventCard}
+              onPress={() => alert('coming soon')}>
+              <View style={[styles.dateBox, { borderColor: `${tone}55` }]}>
+                <Text style={[styles.dateDay, { color: tone }]}>{event.day}</Text>
+                <Text style={styles.dateNum}>{event.month}</Text>
+              </View>
+              <View style={styles.eventBody}>
+                <Text style={styles.eventTitle}>{event.title}</Text>
+                <Text style={styles.eventMeta}>{event.meta}</Text>
+              </View>
+              <IconSymbol name="chevron.right" size={18} color={Colors.textMuted} />
+            </Pressable>
+          );
+        })}
       </ScrollView>
     </SafeAreaView>
   );
@@ -160,18 +182,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: Spacing.sm,
   },
-  brandMark: {
+  brandLogo: {
     width: 32,
     height: 32,
-    borderRadius: Radius.sm,
-    backgroundColor: Colors.mint,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  brandLetter: {
-    fontFamily: Fonts.heading,
-    fontSize: 17,
-    color: Colors.textOnPrimary,
   },
   brandText: {
     fontFamily: Fonts.heading,
@@ -179,6 +192,11 @@ const styles = StyleSheet.create({
     letterSpacing: -0.5,
     color: Colors.mint,
     textTransform: 'lowercase',
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
   },
   clubChip: {
     flexDirection: 'row',
@@ -202,9 +220,41 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: Colors.textSecondary,
   },
+  avatar: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarText: {
+    fontFamily: Fonts.headingSemiBold,
+    fontSize: 13,
+  },
   hero: {
     marginTop: Spacing.xl,
     gap: Spacing.sm,
+  },
+  heroTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  rolePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: Colors.surfaceAlt,
+    borderColor: Colors.border,
+    borderWidth: 1,
+    borderRadius: Radius.pill,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  rolePillText: {
+    fontFamily: Fonts.bodyMedium,
+    fontSize: 11,
+    color: Colors.mint,
   },
   heroTitle: {
     fontFamily: Fonts.heading,
@@ -213,6 +263,7 @@ const styles = StyleSheet.create({
     letterSpacing: -1,
     color: Colors.mint,
     textTransform: 'lowercase',
+    marginTop: Spacing.xs,
   },
   heroSub: {
     fontFamily: Fonts.body,
@@ -220,6 +271,22 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     color: Colors.textMuted,
     maxWidth: 300,
+  },
+  userRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    marginTop: Spacing.xs,
+  },
+  userDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  userName: {
+    fontFamily: Fonts.bodySemiBold,
+    fontSize: 14,
+    color: Colors.text,
   },
   statsGrid: {
     flexDirection: 'row',
@@ -235,12 +302,19 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: Radius.lg,
     padding: Spacing.lg,
-    minHeight: 96,
+    gap: Spacing.md,
     justifyContent: 'space-between',
+  },
+  statIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: Radius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   statValue: {
     fontFamily: Fonts.heading,
-    fontSize: 30,
+    fontSize: 26,
     letterSpacing: -0.5,
     color: Colors.mint,
   },
@@ -250,7 +324,7 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
     textTransform: 'uppercase',
     color: Colors.textSecondary,
-    marginTop: Spacing.sm,
+    marginTop: 2,
   },
   sectionHead: {
     flexDirection: 'row',
@@ -302,7 +376,7 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.md,
   },
   dateBox: {
-    width: 48,
+    width: 52,
     height: 52,
     borderRadius: Radius.md,
     borderWidth: 1,
@@ -311,14 +385,15 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.surfaceAlt,
   },
   dateDay: {
-    fontFamily: Fonts.bodySemiBold,
-    fontSize: 10,
-    letterSpacing: 1,
+    fontFamily: Fonts.headingSemiBold,
+    fontSize: 15,
   },
   dateNum: {
-    fontFamily: Fonts.heading,
-    fontSize: 18,
-    color: Colors.mint,
+    fontFamily: Fonts.bodyMedium,
+    fontSize: 10,
+    letterSpacing: 1,
+    color: Colors.textMuted,
+    marginTop: 1,
   },
   eventBody: {
     flex: 1,
@@ -334,14 +409,43 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: Colors.textMuted,
   },
-  eventTime: {
+  signedOut: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: Spacing.xxl,
+    gap: Spacing.sm,
+  },
+  signedOutLogo: {
+    width: 72,
+    height: 72,
+    marginBottom: Spacing.md,
+  },
+  signedOutTitle: {
+    fontFamily: Fonts.heading,
+    fontSize: 24,
+    color: Colors.mint,
+    textTransform: 'lowercase',
+  },
+  signedOutSub: {
+    fontFamily: Fonts.body,
+    fontSize: 14,
+    color: Colors.textMuted,
+    textAlign: 'center',
+  },
+  signedOutButton: {
+    marginTop: Spacing.lg,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: Spacing.sm,
+    backgroundColor: Colors.mint,
+    borderRadius: Radius.md,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.xl,
   },
-  eventTimeText: {
-    fontFamily: Fonts.bodyMedium,
-    fontSize: 12,
-    color: Colors.textMuted,
+  signedOutButtonText: {
+    fontFamily: Fonts.bodySemiBold,
+    fontSize: 15,
+    color: Colors.textOnPrimary,
   },
 });

@@ -19,11 +19,13 @@ import {
 } from '@expo-google-fonts/space-grotesk';
 
 import { navigationTheme } from '@/constants/theme';
+import { SessionProvider } from '@/lib/session';
 
 SplashScreen.preventAutoHideAsync();
 
 export const unstable_settings = {
   anchor: '(tabs)',
+  initialRouteName: 'intro',
 };
 
 export default function RootLayout() {
@@ -49,17 +51,21 @@ export default function RootLayout() {
 
   return (
     <ThemeProvider value={navigationTheme}>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen
-          name="modal"
-          options={{
-            presentation: 'modal',
-            headerShown: false,
-          }}
-        />
-      </Stack>
-      <StatusBar style="light" />
+      <SessionProvider>
+        <Stack>
+          <Stack.Screen name="intro" options={{ headerShown: false }} />
+          <Stack.Screen name="login" options={{ headerShown: false }} />
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen
+            name="modal"
+            options={{
+              presentation: 'modal',
+              headerShown: false,
+            }}
+          />
+        </Stack>
+        <StatusBar style="light" />
+      </SessionProvider>
     </ThemeProvider>
   );
 }

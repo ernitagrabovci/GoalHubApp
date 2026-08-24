@@ -4,7 +4,7 @@
     "slug": "GoalHubApp",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/images/goalhub-logo.png",
     "scheme": "goalhubapp",
     "userInterfaceStyle": "dark",
     "newArchEnabled": true,
@@ -13,32 +13,32 @@
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/images/android-icon-foreground.png",
-        "backgroundImage": "./assets/images/android-icon-background.png",
-        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+        "backgroundColor": "#091413",
+        "foregroundImage": "./assets/images/goalhub-logo.png",
+        "monochromeImage": "./assets/images/goalhub-logo.png"
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false
     },
     "web": {
       "output": "static",
-      "favicon": "./assets/images/favicon.png"
+      "favicon": "./assets/images/goalhub-logo.png"
     },
     "plugins": [
       "expo-router",
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/splash-icon.png",
-          "imageWidth": 200,
+          "image": "./assets/images/goalhub-logo.png",
+          "imageWidth": 180,
           "resizeMode": "contain",
           "backgroundColor": "#091413",
           "dark": {
             "backgroundColor": "#091413"
           }
         }
-      ]
+      ],
+      "expo-video"
     ],
     "experiments": {
       "typedRoutes": true,
