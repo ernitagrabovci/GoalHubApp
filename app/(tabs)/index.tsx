@@ -3,7 +3,7 @@ import { StatusBar } from 'expo-status-bar';
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { DateTile, InitialsTile, ListRow } from '@/components/list-row';
+import { DateTile, IconTile, InitialsTile, ListRow } from '@/components/list-row';
 import { StatusChip, type StatusTone } from '@/components/status-chip';
 import { IconSymbol, type IconSymbolName } from '@/components/ui/icon-symbol';
 import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
@@ -38,7 +38,6 @@ const HOME_LINKS: Record<Role, QuickLink[]> = {
     { label: 'Trainings', icon: 'calendar', tint: '#408A71', route: '/trainings' },
     { label: 'Players', icon: 'person.2.fill', tint: '#B0E4CC', route: '/players' },
     { label: 'Medical', icon: 'stethoscope', tint: '#E24B4A', route: '/medical' },
-    { label: 'Fees', icon: 'dollarsign.circle.fill', tint: '#2fbf71', route: '/fees' },
   ],
   player: [
     { label: 'My Stats', icon: 'chart.bar.fill', tint: '#f5a623', route: '/stats' },
@@ -172,6 +171,16 @@ export default function HomeScreen() {
             </View>
             <IconSymbol name="chevron.right" size={18} color={Colors.textMuted} />
           </Pressable>
+        ) : user.role === 'trainer' ? (
+          <Pressable style={styles.childCard} onPress={() => router.push('/players')}>
+            <IconTile icon="person.2.fill" color={Colors.mint} size={56} />
+            <View style={styles.childBody}>
+              <Text style={styles.childKicker}>your squad</Text>
+              <Text style={styles.childName}>{user.club}</Text>
+              <Text style={styles.childMeta}>{user.subtitle}</Text>
+            </View>
+            <IconSymbol name="chevron.right" size={18} color={Colors.textMuted} />
+          </Pressable>
         ) : (
           <View style={styles.childCard}>
             <InitialsTile initials={user.initials} color={user.color} size={56} />
@@ -183,8 +192,8 @@ export default function HomeScreen() {
           </View>
         )}
 
-        {/* Player stats */}
-        {user.role === 'player' ? (
+        {/* Key stats */}
+        {user.role === 'player' || user.role === 'trainer' ? (
           <View style={styles.statsGrid}>
             {dash.stats.map((stat) => (
               <View key={stat.label} style={styles.statCard}>
@@ -200,8 +209,8 @@ export default function HomeScreen() {
           </View>
         ) : null}
 
-        {/* Fee status */}
-        {currentFee ? (
+        {/* Fee status — hidden for trainer, who doesn't manage club fees */}
+        {user.role !== 'trainer' && currentFee ? (
           <Pressable style={styles.infoCard} onPress={() => router.push('/fees')}>
             <View style={[styles.infoIcon, { backgroundColor: `${Colors.emerald}22` }]}>
               <IconSymbol name="dollarsign.circle.fill" size={20} color={Colors.emerald} />
