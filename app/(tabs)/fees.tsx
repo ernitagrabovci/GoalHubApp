@@ -1,3 +1,4 @@
+import { useRouter } from 'expo-router';
 import { StatusChip, type StatusTone } from '@/components/status-chip';
 import { InitialsTile, ListRow } from '@/components/list-row';
 import { ListScreen } from '@/components/list-screen';
@@ -12,6 +13,7 @@ const STATUS_TONE: Record<FeeStatus, StatusTone> = {
 };
 
 export default function FeesScreen() {
+  const router = useRouter();
   const { user } = useSession();
   const role = user?.role ?? 'administrator';
   const fees = feesForRole(role);
@@ -44,11 +46,11 @@ export default function FeesScreen() {
               tone={STATUS_TONE[f.status]}
             />
           }
-          onPress={() => alert(`${f.name} — payment record coming soon`)}
+          onPress={() => router.push(`/fee?id=${f.id}`)}
         />
       )}
-      actionLabel="register payment"
-      onAction={() => alert('Register payment — coming soon')}
+      actionLabel={role === 'administrator' || role === 'financier' ? 'finance overview' : undefined}
+      onAction={() => router.push('/finance')}
     />
   );
 }

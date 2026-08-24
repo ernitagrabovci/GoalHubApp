@@ -602,3 +602,101 @@ export const ALL_NOTIFICATIONS: AppNotification[] = [
   { id: 'n3', type: 'rating_saved', title: 'Rating saved', body: 'Ardit Llapashtica was rated 8.2.', source: 'platform', time: '1d', read: true },
   { id: 'n4', type: 'message', title: 'Message from Faton Krasniqi', body: 'Please confirm the player list for September.', source: 'finance', time: '2d', read: true },
 ];
+
+// ---------- Admin: users, teams, club ----------
+
+export type AppUser = {
+  id: string;
+  name: string;
+  initials: string;
+  role: Role;
+  email: string;
+  club: string;
+  active: boolean;
+  lastLogin: string;
+};
+
+export const ALL_USERS: AppUser[] = [
+  { id: 'u1', name: 'Ardian Dema', initials: 'AD', role: 'administrator', email: 'admin@fcprishtina.com', club: 'FC Prishtina', active: true, lastLogin: 'now' },
+  { id: 'u2', name: 'Rexhep Hyseni', initials: 'RH', role: 'trainer', email: 'rexhep@fcprishtina.com', club: 'FC Prishtina', active: true, lastLogin: '2h' },
+  { id: 'u3', name: 'Faton Krasniqi', initials: 'FK', role: 'financier', email: 'faton@fcprishtina.com', club: 'FC Prishtina', active: true, lastLogin: '5h' },
+  { id: 'u4', name: 'Besnik Gashi', initials: 'BG', role: 'parent', email: 'besnik@gmail.com', club: 'FC Prishtina Academy', active: true, lastLogin: '1d' },
+  { id: 'u5', name: 'Ardit Llapashtica', initials: 'AL', role: 'player', email: 'ardit@fcprishtina.com', club: 'FC Prishtina', active: true, lastLogin: '3h' },
+  { id: 'u6', name: 'Mergim Berisha', initials: 'MB', role: 'player', email: 'mergim@fcprishtina.com', club: 'FC Prishtina', active: true, lastLogin: '1d' },
+  { id: 'u7', name: 'Dren Hyseni', initials: 'DH', role: 'player', email: 'dren@fcprishtina.com', club: 'FC Prishtina', active: true, lastLogin: '2d' },
+  { id: 'u8', name: 'Agon Gashi', initials: 'AG', role: 'player', email: 'agon@fcprishtina.com', club: 'FC Prishtina Academy', active: true, lastLogin: '3h' },
+  { id: 'u9', name: 'Valon Krasniqi', initials: 'VK', role: 'parent', email: 'valon@gmail.com', club: 'FC Prishtina Academy', active: false, lastLogin: '2w' },
+];
+
+export type TeamMember = {
+  name: string;
+  initials: string;
+  color: string;
+  position: string;
+  number: number;
+};
+
+export type Team = {
+  id: string;
+  name: string;
+  category: string;
+  color: string;
+  trainer: string;
+  season: string;
+  members: TeamMember[];
+};
+
+const FIRST_TEAM: TeamMember[] = [
+  { name: 'Luan Kryeziu', initials: 'LK', color: '#5aa7e6', position: 'GK', number: 1 },
+  { name: 'Dren Hyseni', initials: 'DH', color: '#2fbf71', position: 'CB', number: 5 },
+  { name: 'Bekim Shala', initials: 'BS', color: '#f5a623', position: 'CB', number: 3 },
+  { name: 'Fatos Bytyqi', initials: 'FB', color: '#86C2A4', position: 'CM', number: 6 },
+  { name: 'Mergim Berisha', initials: 'MB', color: '#408A71', position: 'ML', number: 8 },
+  { name: 'Ardit Llapashtica', initials: 'AL', color: '#B0E4CC', position: 'FW', number: 9 },
+  { name: 'Agon Gashi', initials: 'AG', color: '#8f86e8', position: 'ML', number: 7 },
+  { name: 'Erion Zeka', initials: 'EZ', color: '#E24B4A', position: 'ML', number: 11 },
+];
+
+export const ALL_TEAMS: Team[] = [
+  { id: 'tm1', name: 'First Team', category: 'Senior', color: '#1a9e5c', trainer: 'Rexhep Hyseni', season: '2026/27', members: FIRST_TEAM },
+  { id: 'tm2', name: 'U21', category: 'Academy', color: '#185fa5', trainer: 'Blerim Shala', season: '2026/27', members: [
+    { name: 'Granit Aliu', initials: 'GA', color: '#185fa5', position: 'CM', number: 6 },
+    { name: 'Leart Mehmeti', initials: 'LM', color: '#185fa5', position: 'FW', number: 9 },
+    { name: 'Dardan Morina', initials: 'DM', color: '#185fa5', position: 'CB', number: 4 },
+  ] },
+  { id: 'tm3', name: 'U17', category: 'Academy', color: '#ba7517', trainer: 'Blerim Shala', season: '2026/27', members: [
+    { name: 'Agon Gashi', initials: 'AG', color: '#8f86e8', position: 'ML', number: 7 },
+    { name: 'Rinor Hoxha', initials: 'RH', color: '#ba7517', position: 'GK', number: 1 },
+  ] },
+  { id: 'tm4', name: 'U15', category: 'Academy', color: '#993556', trainer: 'Luan Shala', season: '2026/27', members: [
+    { name: 'Endrit Gashi', initials: 'EG', color: '#993556', position: 'FW', number: 10 },
+  ] },
+  { id: 'tm5', name: 'U13', category: 'Academy', color: '#534ab7', trainer: 'Luan Shala', season: '2026/27', members: [] },
+];
+
+export const CLUB_PROFILE = {
+  name: 'FC Prishtina',
+  founded: 1922,
+  address: 'Rr. Luan Haradinaj, Prishtina, Kosovo',
+  phone: '+383 38 220 200',
+  email: 'info@fcprishtina.com',
+  league: 'Superliga e Kosovës',
+  stadium: 'Stadiumi i Prishtinës',
+};
+
+export type ClubSeason = { id: string; label: string; active: boolean };
+
+export const CLUB_SEASONS: ClubSeason[] = [
+  { id: 's1', label: '2026/27', active: true },
+  { id: 's2', label: '2025/26', active: false },
+  { id: 's3', label: '2024/25', active: false },
+];
+
+export type ClubField = { id: string; name: string; location: string; status: 'active' | 'maintenance' };
+
+export const CLUB_FIELDS: ClubField[] = [
+  { id: 'f1', name: 'Field 1', location: 'Training Centre', status: 'active' },
+  { id: 'f2', name: 'Field 2', location: 'Training Centre', status: 'active' },
+  { id: 'f3', name: 'Gym', location: 'Training Centre', status: 'active' },
+  { id: 'f4', name: 'Pool', location: 'Recovery Suite', status: 'maintenance' },
+];

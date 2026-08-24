@@ -15,6 +15,9 @@ export const ALL_MODULES: ModuleDef[] = [
   { label: 'Players', icon: 'person.2.fill', color: Colors.mint, route: '/players' },
   { label: 'Trainers', icon: 'graduationcap.fill', color: Colors.emerald },
   { label: 'Parents', icon: 'person.fill', color: Colors.purple },
+  { label: 'Teams', icon: 'person.2.fill', color: '#185fa5', route: '/teams' },
+  { label: 'Users', icon: 'person.fill', color: '#1a9e5c', route: '/users' },
+  { label: 'Club', icon: 'trophy.fill', color: Colors.mintDim, route: '/club' },
   { label: 'Matches', icon: 'figure.soccer', color: Colors.warning, route: '/matches' },
   { label: 'Trainings', icon: 'calendar', color: Colors.info, route: '/trainings' },
   { label: 'Academy', icon: 'trophy.fill', color: Colors.mintDim, route: '/academy' },
@@ -23,6 +26,7 @@ export const ALL_MODULES: ModuleDef[] = [
   { label: 'Groups', icon: 'person.2.fill', color: Colors.purple, route: '/groups' },
   { label: 'Medical', icon: 'stethoscope', color: Colors.danger, route: '/medical' },
   { label: 'Payments', icon: 'dollarsign.circle.fill', color: Colors.emerald, route: '/fees' },
+  { label: 'Finance', icon: 'dollarsign.circle.fill', color: Colors.emerald, route: '/finance' },
   { label: 'Messages', icon: 'bubble.left.fill', color: Colors.info, route: '/chat' },
   { label: 'Reports', icon: 'chart.bar.fill', color: Colors.warning, route: '/reports' },
   { label: 'Settings', icon: 'gearshape.fill', color: Colors.textMuted, route: '/profile' },
@@ -30,11 +34,11 @@ export const ALL_MODULES: ModuleDef[] = [
 
 /** Which modules each role can see. */
 export const ROLE_MODULES: Record<Role, string[]> = {
-  administrator: ['Players', 'Matches', 'Trainings', 'Payments', 'Medical', 'Messages', 'Reports', 'Settings'],
+  administrator: ['Players', 'Teams', 'Users', 'Matches', 'Trainings', 'Medical', 'Finance', 'Club', 'Reports', 'Messages', 'Settings'],
   trainer: ['Players', 'Matches', 'Trainings', 'Medical', 'Academy', 'Tactical Board', 'Drills', 'Groups', 'Messages', 'Settings'],
   player: ['Matches', 'Trainings', 'Payments', 'Messages', 'Settings'],
   parent: ['Matches', 'Trainings', 'Payments', 'Messages', 'Settings'],
-  financier: ['Payments', 'Reports', 'Messages', 'Settings'],
+  financier: ['Finance', 'Payments', 'Reports', 'Messages', 'Settings'],
 };
 
 export function modulesForRole(role: Role): ModuleDef[] {

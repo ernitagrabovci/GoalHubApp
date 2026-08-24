@@ -1,0 +1,185 @@
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+
+import { InitialsTile, ListRow } from '@/components/list-row';
+import { Screen, SectionLabel } from '@/components/screen';
+import { StatusChip } from '@/components/status-chip';
+import { IconSymbol } from '@/components/ui/icon-symbol';
+import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
+import { ALL_PLAYERS, ALL_TEAMS } from '@/lib/data';
+
+function playerId(name: string) {
+  return ALL_PLAYERS.find((p) => p.name === name)?.id ?? '';
+}
+
+export default function TeamScreen() {
+  const router = useRouter();
+  const { id } = useLocalSearchParams<{ id?: string }>();
+  const team = ALL_TEAMS.find((t) => t.id === id) ?? ALL_TEAMS[0];
+
+  const infoRows = [
+    { label: 'category', value: team.category },
+    { label: 'season', value: team.season },
+    { label: 'trainer', value: team.trainer },
+    { label: 'squad size', value: String(team.members.length) },
+  ];
+
+  return (
+    <Screen back>
+      {/* Team card */}
+      <View style={styles.card}>
+        <View style={[styles.teamIcon, { backgroundColor: `${team.color}22` }]}>
+          <IconSymbol name="person.2.fill" size={24} color={team.color} />
+        </View>
+        <View style={styles.cardBody}>
+          <Text style={styles.name}>{team.name}</Text>
+          <Text style={styles.subtitle}>
+            {team.category} · {team.season}
+          </Text>
+          <View style={styles.tagRow}>
+            <StatusChip label={team.category.toLowerCase()} tone={team.category === 'Senior' ? 'emerald' : 'info'} />
+          </View>
+        </View>
+      </View>
+
+      <SectionLabel>details</SectionLabel>
+      <View style={styles.rowsCard}>
+        {infoRows.map((r) => (
+          <View key={r.label} style={styles.row}>
+            <Text style={styles.rowLabel}>{r.label}</Text>
+            <Text style={styles.rowValue}>{r.value}</Text>
+          </View>
+        ))}
+      </View>
+
+      <SectionLabel>players</SectionLabel>
+      <View style={styles.list}>
+        {team.members.length === 0 ? (
+          <Text style={styles.empty}>No players registered for this squad yet.</Text>
+        ) : (
+          team.members.map((m) => {
+            const pid = playerId(m.name);
+            return (
+              <ListRow
+                key={`${m.initials}-${m.number}`}
+                title={m.name}
+                subtitle={`${m.position} · No. ${m.number}`}
+                leading={<InitialsTile initials={m.initials} color={m.color} />}
+                onPress={() =>
+                  pid
+                    ? router.push(`/player?id=${pid}`)
+                    : alert(`${m.name} — full profile not synced to the app yet.`)
+                }
+              />
+            );
+          })
+        )}
+      </View>
+
+      <SectionLabel>management</SectionLabel>
+      <Pressable style={styles.mgmtBtn} onPress={() => alert('Transfers — coming soon')}>
+        <IconSymbol name="arrow.right" size={16} color={Colors.mint} />
+        <Text style={styles.mgmtBtnText}>transfers</Text>
+      </Pressable>
+      <Pressable style={styles.mgmtBtn} onPress={() => alert('Team statistics — coming soon')}>
+        <IconSymbol name="chart.bar.fill" size={16} color={Colors.mint} />
+        <Text style={styles.mgmtBtnText}>team statistics</Text>
+      </Pressable>
+    </Screen>
+  );
+}
+
+const styles = StyleSheet.create({
+  card: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+    marginTop: Spacing.md,
+    backgroundColor: Colors.surface,
+    borderColor: Colors.border,
+    borderWidth: 1,
+    borderRadius: Radius.lg,
+    padding: Spacing.lg,
+  },
+  teamIcon: {
+    width: 52,
+    height: 52,
+    borderRadius: Radius.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cardBody: {
+    flex: 1,
+    gap: 3,
+  },
+  name: {
+    fontFamily: Fonts.headingSemiBold,
+    fontSize: 18,
+    color: Colors.mint,
+  },
+  subtitle: {
+    fontFamily: Fonts.body,
+    fontSize: 13,
+    color: Colors.textSecondary,
+  },
+  tagRow: {
+    marginTop: 2,
+  },
+  rowsCard: {
+    backgroundColor: Colors.surface,
+    borderColor: Colors.border,
+    borderWidth: 1,
+    borderRadius: Radius.lg,
+    overflow: 'hidden',
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    borderBottomColor: Colors.borderSoft,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  rowLabel: {
+    fontFamily: Fonts.bodyMedium,
+    fontSize: 11,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+    color: Colors.textMuted,
+  },
+  rowValue: {
+    fontFamily: Fonts.bodySemiBold,
+    fontSize: 13,
+    color: Colors.text,
+    textTransform: 'capitalize',
+    flexShrink: 1,
+    textAlign: 'right',
+  },
+  list: {
+    gap: Spacing.md,
+  },
+  empty: {
+    fontFamily: Fonts.body,
+    fontSize: 13,
+    color: Colors.textMuted,
+  },
+  mgmtBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    backgroundColor: Colors.surface,
+    borderColor: Colors.border,
+    borderWidth: 1,
+    borderRadius: Radius.lg,
+    padding: Spacing.md,
+    marginBottom: Spacing.sm,
+  },
+  mgmtBtnText: {
+    fontFamily: Fonts.bodySemiBold,
+    fontSize: 14,
+    color: Colors.text,
+    textTransform: 'lowercase',
+  },
+});
