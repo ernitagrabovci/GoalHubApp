@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { ThemedText } from '@/components/themed-text';
 import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
+import { useSession, type Role } from '@/lib/session';
 
 const MODULES = [
   { icon: 'person.2.fill', label: 'Players', color: Colors.mint },
@@ -20,7 +21,17 @@ const MODULES = [
   { icon: 'gearshape.fill', label: 'Settings', color: Colors.textMuted },
 ] as const;
 
+const ROLE_MODULES: Record<Role, string[]> = {
+  administrator: ['Players', 'Matches', 'Trainings', 'Payments', 'Medical', 'Messages', 'Reports', 'Settings'],
+  trainer: ['Players', 'Matches', 'Trainings', 'Medical', 'Academy', 'Messages', 'Settings'],
+  player: ['Matches', 'Trainings', 'Payments', 'Messages', 'Settings'],
+  parent: ['Matches', 'Trainings', 'Payments', 'Messages', 'Settings'],
+  financier: ['Payments', 'Reports', 'Messages', 'Settings'],
+};
+
 export default function ModulesScreen() {
+  const { user } = useSession();
+  const modules = user ? MODULES.filter((m) => ROLE_MODULES[user.role].includes(m.label)) : MODULES;
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <StatusBar style="light" />
@@ -49,7 +60,7 @@ export default function ModulesScreen() {
 
         {/* Module grid */}
         <View style={styles.grid}>
-          {MODULES.map((module) => (
+          {modules.map((module) => (
             <Pressable
               key={module.label}
               style={styles.cell}

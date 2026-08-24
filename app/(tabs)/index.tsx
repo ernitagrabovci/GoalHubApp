@@ -73,6 +73,9 @@ export default function HomeScreen() {
               <View style={styles.liveDot} />
               <Text style={styles.clubChipText}>{user.club}</Text>
             </View>
+            <Pressable onPress={() => router.push('/modal')} hitSlop={8} style={styles.iconButton}>
+              <IconSymbol name="gearshape.fill" size={20} color={Colors.textMuted} />
+            </Pressable>
             <View style={[styles.avatar, { backgroundColor: `${roleColor}26` }]}>
               <Text style={[styles.avatarText, { color: roleColor }]}>{user.initials}</Text>
             </View>
@@ -132,6 +135,18 @@ export default function HomeScreen() {
             </Pressable>
           ))}
         </ScrollView>
+
+        {/* Browse modules */}
+        <Pressable style={styles.modulesLink} onPress={() => router.push('/explore')}>
+          <View style={styles.modulesLinkIcon}>
+            <IconSymbol name="square.grid.2x2.fill" size={20} color={Colors.mint} />
+          </View>
+          <View style={styles.modulesLinkBody}>
+            <Text style={styles.modulesLinkTitle}>browse all modules</Text>
+            <Text style={styles.modulesLinkSub}>every feature for your role</Text>
+          </View>
+          <IconSymbol name="chevron.right" size={18} color={Colors.textMuted} />
+        </Pressable>
 
         {/* Upcoming */}
         <View style={styles.sectionHead}>
@@ -197,6 +212,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.sm,
+  },
+  iconButton: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.surface,
+    borderColor: Colors.border,
+    borderWidth: 1,
   },
   clubChip: {
     flexDirection: 'row',
@@ -362,6 +387,39 @@ const styles = StyleSheet.create({
   quickLabel: {
     fontFamily: Fonts.bodyMedium,
     fontSize: 11,
+    color: Colors.textMuted,
+  },
+  modulesLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+    backgroundColor: Colors.surface,
+    borderColor: Colors.border,
+    borderWidth: 1,
+    borderRadius: Radius.lg,
+    padding: Spacing.md,
+    marginTop: Spacing.xl,
+  },
+  modulesLinkIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: Radius.md,
+    backgroundColor: Colors.surfaceAlt,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modulesLinkBody: {
+    flex: 1,
+    gap: 2,
+  },
+  modulesLinkTitle: {
+    fontFamily: Fonts.bodySemiBold,
+    fontSize: 14,
+    color: Colors.text,
+  },
+  modulesLinkSub: {
+    fontFamily: Fonts.body,
+    fontSize: 12,
     color: Colors.textMuted,
   },
   eventCard: {

@@ -4,8 +4,13 @@ import { StyleSheet } from 'react-native';
 import { HapticTab } from '@/components/haptic-tab';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors, Fonts } from '@/constants/theme';
+import { ROLE_TABS, SIGNED_OUT_TABS } from '@/lib/tabs';
+import { useSession } from '@/lib/session';
 
 export default function TabLayout() {
+  const { user } = useSession();
+  const tabs = user ? ROLE_TABS[user.role] : SIGNED_OUT_TABS;
+
   return (
     <Tabs
       screenOptions={{
@@ -17,22 +22,16 @@ export default function TabLayout() {
         tabBarLabelStyle: styles.tabBarLabel,
         sceneStyle: { backgroundColor: Colors.background },
       }}>
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: 'Home',
-          tabBarIcon: ({ color }) => <IconSymbol size={26} name="house.fill" color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="explore"
-        options={{
-          title: 'Modules',
-          tabBarIcon: ({ color }) => (
-            <IconSymbol size={26} name="square.grid.2x2.fill" color={color} />
-          ),
-        }}
-      />
+      {tabs.map((tab) => (
+        <Tabs.Screen
+          key={tab.name}
+          name={tab.name}
+          options={{
+            title: tab.title,
+            tabBarIcon: ({ color }) => <IconSymbol size={26} name={tab.icon} color={color} />,
+          }}
+        />
+      ))}
     </Tabs>
   );
 }
