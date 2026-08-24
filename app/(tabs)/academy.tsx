@@ -8,13 +8,14 @@ import { IconSymbol, type IconSymbolName } from '@/components/ui/icon-symbol';
 import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
 import { ALL_ACADEMY, type AcademyItem } from '@/lib/data';
 
-function AcademyRow({ item }: { item: AcademyItem }) {
+function AcademyRow({ item, onPress }: { item: AcademyItem; onPress: () => void }) {
   const icon: IconSymbolName = item.type === 'video' ? 'play.fill' : 'calendar';
   return (
     <ListRow
       title={item.title}
       subtitle={`${item.category} · ${item.level}`}
       leading={<IconTile icon={icon} color={item.color} />}
+      onPress={onPress}
       trailing={
         <View style={styles.trailing}>
           <Text style={styles.duration}>{item.duration}</Text>
@@ -69,14 +70,14 @@ export default function AcademyScreen() {
         <Text style={styles.sectionLabel}>videos</Text>
         <View style={styles.list}>
           {videos.map((v) => (
-            <AcademyRow key={v.id} item={v} />
+            <AcademyRow key={v.id} item={v} onPress={() => router.push(`/academy-item?id=${v.id}`)} />
           ))}
         </View>
 
         <Text style={styles.sectionLabel}>sessions</Text>
         <View style={styles.list}>
           {sessions.map((s) => (
-            <AcademyRow key={s.id} item={s} />
+            <AcademyRow key={s.id} item={s} onPress={() => router.push(`/academy-item?id=${s.id}`)} />
           ))}
         </View>
 
