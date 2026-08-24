@@ -17,7 +17,6 @@ const HIDDEN_ROUTES = [
   'stats',
   'child',
   'expenses',
-  'explore',
 ];
 
 export default function TabLayout() {
@@ -48,6 +47,8 @@ export default function TabLayout() {
       {HIDDEN_ROUTES.map((name) => (
         <Tabs.Screen key={name} name={name} options={{ href: null }} />
       ))}
+      {/* explore is a visible tab when signed out, hidden-but-reachable when signed in */}
+      {user ? <Tabs.Screen name="explore" options={{ href: null }} /> : null}
     </Tabs>
   );
 }
