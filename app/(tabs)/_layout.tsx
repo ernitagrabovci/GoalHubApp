@@ -41,6 +41,8 @@ const HIDDEN_ROUTES = [
   'club',
   'stats',
   'child',
+  'child-attendance',
+  'child-ratings',
   'expenses',
   'channel',
   'notifications',

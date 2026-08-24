@@ -7,6 +7,7 @@ import { IconTile, ListRow } from '@/components/list-row';
 import { IconSymbol, type IconSymbolName } from '@/components/ui/icon-symbol';
 import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
 import { ALL_ACADEMY, type AcademyItem } from '@/lib/data';
+import { useSession } from '@/lib/session';
 
 function AcademyRow({ item, onPress }: { item: AcademyItem; onPress: () => void }) {
   const icon: IconSymbolName = item.type === 'video' ? 'play.fill' : 'calendar';
@@ -35,8 +36,11 @@ function AcademyRow({ item, onPress }: { item: AcademyItem; onPress: () => void 
 
 export default function AcademyScreen() {
   const router = useRouter();
-  const videos = ALL_ACADEMY.filter((a) => a.type === 'video');
-  const sessions = ALL_ACADEMY.filter((a) => a.type === 'session');
+  const { user } = useSession();
+  const viewer = user?.role === 'player' || user?.role === 'parent';
+  const library = viewer ? ALL_ACADEMY.filter((a) => a.isShared) : ALL_ACADEMY;
+  const videos = library.filter((a) => a.type === 'video');
+  const sessions = library.filter((a) => a.type === 'session');
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -63,7 +67,9 @@ export default function AcademyScreen() {
           </View>
           <View style={styles.headBody}>
             <Text style={styles.title}>academy</Text>
-            <Text style={styles.subtitle}>training videos & session plans</Text>
+            <Text style={styles.subtitle}>
+              {viewer ? 'shared videos & session plans' : 'training videos & session plans'}
+            </Text>
           </View>
         </View>
 
@@ -81,10 +87,12 @@ export default function AcademyScreen() {
           ))}
         </View>
 
-        <Pressable style={styles.action} onPress={() => router.push('/academy-create')}>
-          <IconSymbol name="plus" size={18} color={Colors.textOnPrimary} />
-          <Text style={styles.actionText}>add training material</Text>
-        </Pressable>
+        {viewer ? null : (
+          <Pressable style={styles.action} onPress={() => router.push('/academy-create')}>
+            <IconSymbol name="plus" size={18} color={Colors.textOnPrimary} />
+            <Text style={styles.actionText}>add training material</Text>
+          </Pressable>
+        )}
       </ScrollView>
     </SafeAreaView>
   );

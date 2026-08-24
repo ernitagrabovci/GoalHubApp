@@ -6,13 +6,18 @@ import { Screen, DetailHead, SectionLabel } from '@/components/screen';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
 import { DEFAULT_SCENES, type TacticalScene } from '@/lib/data';
+import { useSession } from '@/lib/session';
 
 export default function TacticalScreen() {
   const router = useRouter();
+  const { user } = useSession();
+  const viewer = user?.role === 'player' || user?.role === 'parent';
   const [scenes, setScenes] = useState<TacticalScene[]>(DEFAULT_SCENES);
 
   const toggleShare = (id: string) =>
     setScenes((prev) => prev.map((s) => (s.id === id ? { ...s, shared: !s.shared } : s)));
+
+  const visible = viewer ? scenes.filter((s) => s.shared) : scenes;
 
   return (
     <Screen>
@@ -20,15 +25,21 @@ export default function TacticalScreen() {
         icon="map.fill"
         accent={Colors.mintDim}
         title="tactical board"
-        subtitle={`${scenes.length} saved scenes · build a formation, then drag players`}
+        subtitle={
+          viewer
+            ? `${visible.length} shared scenes · view only`
+            : `${visible.length} saved scenes · build a formation, then drag players`
+        }
       />
 
-      <SectionLabel>saved scenes</SectionLabel>
+      <SectionLabel>{viewer ? 'shared scenes' : 'saved scenes'}</SectionLabel>
       <View style={styles.list}>
-        {scenes.length === 0 ? (
-          <Text style={styles.empty}>No scenes yet — create one to start planning.</Text>
+        {visible.length === 0 ? (
+          <Text style={styles.empty}>
+            {viewer ? 'No shared scenes yet.' : 'No scenes yet — create one to start planning.'}
+          </Text>
         ) : (
-          scenes.map((scene) => (
+          visible.map((scene) => (
             <Pressable
               key={scene.id}
               style={styles.card}
@@ -43,27 +54,31 @@ export default function TacticalScreen() {
                 </Text>
                 <Text style={styles.meta}>created {scene.created} · modified {scene.modified}</Text>
               </View>
-              <Pressable
-                style={[styles.shareBtn, scene.shared && styles.shareBtnOn]}
-                onPress={() => toggleShare(scene.id)}
-                hitSlop={8}>
-                <IconSymbol
-                  name="square.and.arrow.up"
-                  size={14}
-                  color={scene.shared ? Colors.textOnPrimary : Colors.mint}
-                />
-              </Pressable>
+              {viewer ? null : (
+                <Pressable
+                  style={[styles.shareBtn, scene.shared && styles.shareBtnOn]}
+                  onPress={() => toggleShare(scene.id)}
+                  hitSlop={8}>
+                  <IconSymbol
+                    name="square.and.arrow.up"
+                    size={14}
+                    color={scene.shared ? Colors.textOnPrimary : Colors.mint}
+                  />
+                </Pressable>
+              )}
             </Pressable>
           ))
         )}
       </View>
 
-      <Pressable
-        style={styles.action}
-        onPress={() => router.push('/tactical-editor')}>
-        <IconSymbol name="plus" size={18} color={Colors.textOnPrimary} />
-        <Text style={styles.actionText}>new scene</Text>
-      </Pressable>
+      {viewer ? null : (
+        <Pressable
+          style={styles.action}
+          onPress={() => router.push('/tactical-editor')}>
+          <IconSymbol name="plus" size={18} color={Colors.textOnPrimary} />
+          <Text style={styles.actionText}>new scene</Text>
+        </Pressable>
+      )}
     </Screen>
   );
 }

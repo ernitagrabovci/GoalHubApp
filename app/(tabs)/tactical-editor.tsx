@@ -16,6 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
 import { DEFAULT_SCENES, FORMATION_SLOTS, TACTICAL_ROSTER } from '@/lib/data';
+import { useSession } from '@/lib/session';
 
 const FORMATIONS = Object.keys(FORMATION_SLOTS);
 
@@ -72,6 +73,7 @@ function PlayerMarker({
   height,
   dragging,
   selected,
+  editable = true,
   onSelect,
   onMove,
   onDragStart,
@@ -82,6 +84,7 @@ function PlayerMarker({
   height: number;
   dragging: boolean;
   selected: boolean;
+  editable?: boolean;
   onSelect: (id: string) => void;
   onMove: (id: string, x: number, y: number) => void;
   onDragStart: () => void;
@@ -115,8 +118,8 @@ function PlayerMarker({
 
   const pan = useRef(
     PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: () => true,
+      onStartShouldSetPanResponder: () => editable,
+      onMoveShouldSetPanResponder: () => editable,
       onPanResponderTerminationRequest: () => false,
       onPanResponderGrant: () => {
         baseRef.current = { x: p.x, y: p.y };
@@ -157,6 +160,8 @@ function PlayerMarker({
 
 export default function TacticalEditorScreen() {
   const router = useRouter();
+  const { user } = useSession();
+  const viewer = user?.role === 'player' || user?.role === 'parent';
   const { id } = useLocalSearchParams<{ id?: string }>();
   const source = DEFAULT_SCENES.find((s) => s.id === id);
 
@@ -223,42 +228,61 @@ export default function TacticalEditorScreen() {
           </Pressable>
           <View style={styles.headerBody}>
             <Text style={styles.headerTitle}>tactical board</Text>
-            <Text style={styles.headerSub}>{source ? 'edit scene' : 'new scene'}</Text>
-          </View>
-          <Pressable
-            style={[styles.shareBtn, shared && styles.shareBtnOn]}
-            onPress={() => setShared((v) => !v)}>
-            <IconSymbol name="square.and.arrow.up" size={15} color={shared ? Colors.textOnPrimary : Colors.mint} />
-            <Text style={[styles.shareText, shared && styles.shareTextOn]}>
-              {shared ? 'shared' : 'share'}
+            <Text style={styles.headerSub}>
+              {viewer ? 'shared scene · view only' : source ? 'edit scene' : 'new scene'}
             </Text>
-          </Pressable>
+          </View>
+          {viewer ? (
+            <View style={styles.viewTag}>
+              <IconSymbol name="visibility" size={14} color={Colors.mintDim} />
+            </View>
+          ) : (
+            <Pressable
+              style={[styles.shareBtn, shared && styles.shareBtnOn]}
+              onPress={() => setShared((v) => !v)}>
+              <IconSymbol name="square.and.arrow.up" size={15} color={shared ? Colors.textOnPrimary : Colors.mint} />
+              <Text style={[styles.shareText, shared && styles.shareTextOn]}>
+                {shared ? 'shared' : 'share'}
+              </Text>
+            </Pressable>
+          )}
         </View>
 
         {/* Scene name */}
-        <TextInput
-          style={styles.nameInput}
-          placeholder="Scene name…"
-          placeholderTextColor={Colors.textMuted}
-          value={name}
-          onChangeText={setName}
-        />
+        {viewer ? (
+          <View style={styles.nameStatic}>
+            <Text style={styles.nameStaticText}>{name.trim() || 'Untitled scene'}</Text>
+            <Text style={styles.nameStaticSub}>{formation} · {players.length} players</Text>
+          </View>
+        ) : (
+          <TextInput
+            style={styles.nameInput}
+            placeholder="Scene name…"
+            placeholderTextColor={Colors.textMuted}
+            value={name}
+            onChangeText={setName}
+          />
+        )}
 
         {/* Formation picker */}
-        <Text style={styles.sectionLabel}>formation</Text>
-        <View style={styles.chips}>
-          {FORMATIONS.map((f) => {
-            const active = f === formation;
-            return (
-              <Pressable
-                key={f}
-                onPress={() => handleSelectFormation(f)}
-                style={[styles.chip, active && styles.chipActive]}>
-                <Text style={[styles.chipText, active && styles.chipTextActive]}>{f}</Text>
-              </Pressable>
-            );
-          })}
-        </View>
+        {viewer ? null : (
+          <>
+            <Text style={styles.sectionLabel}>formation</Text>
+            <View style={styles.chips}>
+              {FORMATIONS.map((f) => {
+                const active = f === formation;
+                return (
+                  <Pressable
+                    key={f}
+                    onPress={() => handleSelectFormation(f)}
+                    style={[styles.chip, active && styles.chipActive]}>
+                    <Text style={[styles.chipText, active && styles.chipTextActive]}>{f}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </>
+        )}
 
         {/* Pitch */}
         <View style={[styles.pitchOuter, dragging && styles.pitchActive]} onLayout={onPitchLayout}>
@@ -307,6 +331,7 @@ export default function TacticalEditorScreen() {
                   height={pitchH}
                   dragging={dragging}
                   selected={p.id === selectedId}
+                  editable={!viewer}
                   onSelect={setSelectedId}
                   onMove={handleMove}
                   onDragStart={() => setDragging(true)}
@@ -332,29 +357,35 @@ export default function TacticalEditorScreen() {
 
         <View style={styles.insightCard}>
           <IconSymbol name="query-stats" size={18} color={Colors.mintDim} />
-          <Text style={styles.insightText}>{insight}</Text>
-          <View style={styles.insightActions}>
-            <Pressable
-              style={styles.insightBtn}
-              onPress={() => setInsight(`${tips.suggest}`)}>
-              <IconSymbol name="bolt.fill" size={14} color={Colors.mint} />
-              <Text style={styles.insightBtnText}>AI suggest</Text>
-            </Pressable>
-            <Pressable
-              style={styles.insightBtn}
-              onPress={() => setInsight(`${tips.scan}`)}>
-              <IconSymbol name="warning" size={14} color={Colors.warning} />
-              <Text style={[styles.insightBtnText, { color: Colors.warning }]}>
-                vulnerability scan
-              </Text>
-            </Pressable>
-          </View>
+          <Text style={styles.insightText}>
+            {viewer ? `${formation} shape — shared by the coaching staff.` : insight}
+          </Text>
+          {viewer ? null : (
+            <View style={styles.insightActions}>
+              <Pressable
+                style={styles.insightBtn}
+                onPress={() => setInsight(`${tips.suggest}`)}>
+                <IconSymbol name="bolt.fill" size={14} color={Colors.mint} />
+                <Text style={styles.insightBtnText}>AI suggest</Text>
+              </Pressable>
+              <Pressable
+                style={styles.insightBtn}
+                onPress={() => setInsight(`${tips.scan}`)}>
+                <IconSymbol name="warning" size={14} color={Colors.warning} />
+                <Text style={[styles.insightBtnText, { color: Colors.warning }]}>
+                  vulnerability scan
+                </Text>
+              </Pressable>
+            </View>
+          )}
         </View>
 
-        <Pressable style={styles.saveBtn} onPress={handleSave}>
-          <IconSymbol name="checkmark.circle.fill" size={18} color={Colors.textOnPrimary} />
-          <Text style={styles.saveBtnText}>save scene</Text>
-        </Pressable>
+        {viewer ? null : (
+          <Pressable style={styles.saveBtn} onPress={handleSave}>
+            <IconSymbol name="checkmark.circle.fill" size={18} color={Colors.textOnPrimary} />
+            <Text style={styles.saveBtnText}>save scene</Text>
+          </Pressable>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -417,6 +448,36 @@ const styles = StyleSheet.create({
   },
   shareTextOn: {
     color: Colors.textOnPrimary,
+  },
+  viewTag: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.surfaceAlt,
+    borderColor: Colors.border,
+    borderWidth: 1,
+  },
+  nameStatic: {
+    marginTop: Spacing.lg,
+    backgroundColor: Colors.surface,
+    borderColor: Colors.border,
+    borderWidth: 1,
+    borderRadius: Radius.md,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.md,
+    gap: 2,
+  },
+  nameStaticText: {
+    fontFamily: Fonts.bodySemiBold,
+    fontSize: 15,
+    color: Colors.text,
+  },
+  nameStaticSub: {
+    fontFamily: Fonts.body,
+    fontSize: 12,
+    color: Colors.textMuted,
   },
   nameInput: {
     marginTop: Spacing.lg,

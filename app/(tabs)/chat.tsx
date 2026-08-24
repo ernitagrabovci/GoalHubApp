@@ -6,20 +6,24 @@ import { InitialsTile, ListRow } from '@/components/list-row';
 import { Screen, DetailHead, SectionLabel } from '@/components/screen';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
-import { ALL_MESSAGES } from '@/lib/data';
+import { messagesForRole } from '@/lib/data';
+import { useSession } from '@/lib/session';
 
 export default function ChatScreen() {
   const router = useRouter();
+  const { user } = useSession();
+  const viewer = user?.role === 'player' || user?.role === 'parent';
+  const messages = messagesForRole(user?.role ?? 'administrator');
   const [query, setQuery] = useState('');
-  const unread = ALL_MESSAGES.filter((m) => m.unread).length;
+  const unread = messages.filter((m) => m.unread).length;
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return ALL_MESSAGES;
-    return ALL_MESSAGES.filter(
+    if (!q) return messages;
+    return messages.filter(
       (m) => m.sender.toLowerCase().includes(q) || m.preview.toLowerCase().includes(q),
     );
-  }, [query]);
+  }, [query, messages]);
 
   return (
     <Screen>
@@ -27,15 +31,23 @@ export default function ChatScreen() {
         icon="bubble.left.fill"
         accent="#408A71"
         title="chat"
-        subtitle={unread ? `${unread} unread · tap a conversation` : 'coach & club · all read'}
+        subtitle={
+          viewer
+            ? `${unread} unread · trainer & admin`
+            : unread
+              ? `${unread} unread · tap a conversation`
+              : 'coach & club · all read'
+        }
       />
 
       {/* Quick links */}
       <View style={styles.links}>
-        <Pressable style={styles.link} onPress={() => router.push('/channel')}>
-          <IconSymbol name="person.2.fill" size={16} color="#2fbf71" />
-          <Text style={styles.linkText}>team channel</Text>
-        </Pressable>
+        {user?.role === 'parent' ? null : (
+          <Pressable style={styles.link} onPress={() => router.push('/channel')}>
+            <IconSymbol name="person.2.fill" size={16} color="#2fbf71" />
+            <Text style={styles.linkText}>team channel</Text>
+          </Pressable>
+        )}
         <Pressable style={styles.link} onPress={() => router.push('/notifications')}>
           <IconSymbol name="notifications" size={16} color="#f5a623" />
           <Text style={styles.linkText}>notifications</Text>

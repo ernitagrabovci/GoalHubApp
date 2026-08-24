@@ -49,6 +49,8 @@ export type Fee = {
   color: string;
 };
 
+export type MessageScope = 'trainer' | 'admin' | 'club';
+
 export type Message = {
   id: string;
   sender: string;
@@ -57,6 +59,8 @@ export type Message = {
   time: string;
   unread: boolean;
   color: string;
+  /** Who the conversation is with — players/parents only message trainer & admin. */
+  scope: MessageScope;
 };
 
 export const ALL_PLAYERS: Player[] = [
@@ -300,12 +304,20 @@ export const FORMATION_SLOTS: Record<string, { x: number; y: number }[]> = {
 };
 
 export const ALL_MESSAGES: Message[] = [
-  { id: 'm1', sender: 'Rexhep Hyseni', initials: 'RH', preview: 'Training moved to 09:00 tomorrow — be on time.', time: '09:42', unread: true, color: '#2fbf71' },
-  { id: 'm2', sender: 'FC Prishtina Admin', initials: 'FP', preview: 'Your match tickets for Ballkani are ready.', time: '08:15', unread: true, color: '#B0E4CC' },
-  { id: 'm3', sender: 'Physio Dept', initials: 'PD', preview: 'Physio check confirmed for Tuesday 12:30.', time: 'Yesterday', unread: false, color: '#5aa7e6' },
-  { id: 'm4', sender: 'Rexhep Hyseni', initials: 'RH', preview: 'Great session today — review the tactical clip.', time: 'Yesterday', unread: false, color: '#2fbf71' },
-  { id: 'm5', sender: 'Finance', initials: 'FN', preview: 'Monthly fee invoice for September is available.', time: 'Mon', unread: true, color: '#8f86e8' },
+  { id: 'm1', sender: 'Rexhep Hyseni', initials: 'RH', preview: 'Training moved to 09:00 tomorrow — be on time.', time: '09:42', unread: true, color: '#2fbf71', scope: 'trainer' },
+  { id: 'm2', sender: 'FC Prishtina Admin', initials: 'FP', preview: 'Your match tickets for Ballkani are ready.', time: '08:15', unread: true, color: '#B0E4CC', scope: 'admin' },
+  { id: 'm3', sender: 'Physio Dept', initials: 'PD', preview: 'Physio check confirmed for Tuesday 12:30.', time: 'Yesterday', unread: false, color: '#5aa7e6', scope: 'club' },
+  { id: 'm4', sender: 'Rexhep Hyseni', initials: 'RH', preview: 'Great session today — review the tactical clip.', time: 'Yesterday', unread: false, color: '#2fbf71', scope: 'trainer' },
+  { id: 'm5', sender: 'Finance', initials: 'FN', preview: 'Monthly fee invoice for September is available.', time: 'Mon', unread: true, color: '#8f86e8', scope: 'club' },
 ];
+
+/** Player/parent only talk to trainer & admin; staff roles see everyone. */
+export function messagesForRole(role: Role): Message[] {
+  if (role === 'player' || role === 'parent') {
+    return ALL_MESSAGES.filter((m) => m.scope === 'trainer' || m.scope === 'admin');
+  }
+  return ALL_MESSAGES;
+}
 
 export type ChatBubble = {
   id: string;

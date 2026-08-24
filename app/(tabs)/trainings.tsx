@@ -7,9 +7,12 @@ import { ListScreen } from '@/components/list-screen';
 import { TONE_COLORS } from '@/components/status-chip';
 import { Colors, Fonts } from '@/constants/theme';
 import { ALL_TRAININGS } from '@/lib/data';
+import { useSession } from '@/lib/session';
 
 export default function TrainingsScreen() {
   const router = useRouter();
+  const { user } = useSession();
+  const canPlan = user?.role === 'administrator' || user?.role === 'trainer';
   return (
     <ListScreen
       icon="calendar"
@@ -40,7 +43,7 @@ export default function TrainingsScreen() {
           />
         );
       }}
-      actionLabel="new training"
+      actionLabel={canPlan ? 'new training' : undefined}
       onAction={() => alert('New training — coming soon')}
     />
   );

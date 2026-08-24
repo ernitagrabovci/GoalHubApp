@@ -36,7 +36,7 @@ export const ALL_MODULES: ModuleDef[] = [
 export const ROLE_MODULES: Record<Role, string[]> = {
   administrator: ['Players', 'Teams', 'Users', 'Matches', 'Trainings', 'Medical', 'Finance', 'Club', 'Reports', 'Messages', 'Settings'],
   trainer: ['Players', 'Matches', 'Trainings', 'Medical', 'Academy', 'Tactical Board', 'Drills', 'Groups', 'Messages', 'Settings'],
-  player: ['Matches', 'Trainings', 'Payments', 'Messages', 'Settings'],
+  player: ['Matches', 'Trainings', 'Academy', 'Tactical Board', 'Groups', 'Payments', 'Messages', 'Settings'],
   parent: ['Matches', 'Trainings', 'Payments', 'Messages', 'Settings'],
   financier: ['Finance', 'Payments', 'Reports', 'Messages', 'Settings'],
 };
