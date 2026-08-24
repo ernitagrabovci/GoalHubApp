@@ -1,11 +1,10 @@
 // Fallback for using MaterialIcons on Android and web.
 
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { SymbolWeight, SymbolViewProps } from 'expo-symbols';
 import { ComponentProps } from 'react';
 import { OpaqueColorValue, type StyleProp, type TextStyle } from 'react-native';
 
-type IconMapping = Record<SymbolViewProps['name'], ComponentProps<typeof MaterialIcons>['name']>;
+type MaterialIconName = ComponentProps<typeof MaterialIcons>['name'];
 type IconSymbolName = keyof typeof MAPPING;
 
 /**
@@ -18,7 +17,33 @@ const MAPPING = {
   'paperplane.fill': 'send',
   'chevron.left.forwardslash.chevron.right': 'code',
   'chevron.right': 'chevron-right',
-} as IconMapping;
+  'square.grid.2x2.fill': 'grid-view',
+  'person.2.fill': 'groups',
+  'person.fill': 'person',
+  'figure.soccer': 'sports-soccer',
+  calendar: 'calendar-month',
+  'graduationcap.fill': 'school',
+  stethoscope: 'medical-services',
+  'dollarsign.circle.fill': 'payments',
+  'bubble.left.fill': 'chat',
+  'chart.bar.fill': 'bar-chart',
+  'gearshape.fill': 'settings',
+  'trophy.fill': 'emoji-events',
+  'arrow.right': 'arrow-forward',
+  'bolt.fill': 'bolt',
+  'doc.text.fill': 'description',
+  'checkmark.circle.fill': 'check-circle',
+  'clock.fill': 'schedule',
+  'star.fill': 'star',
+  'map.fill': 'map',
+  'hammer.fill': 'build',
+  xmark: 'close',
+  pencil: 'edit',
+  link: 'link',
+  ellipsis: 'more-vert',
+  'square.and.arrow.up': 'share',
+  trash: 'delete',
+} as const satisfies Record<string, MaterialIconName>;
 
 /**
  * An icon component that uses native SF Symbols on iOS, and Material Icons on Android and web.
@@ -35,7 +60,6 @@ export function IconSymbol({
   size?: number;
   color: string | OpaqueColorValue;
   style?: StyleProp<TextStyle>;
-  weight?: SymbolWeight;
 }) {
   return <MaterialIcons color={color} size={size} name={MAPPING[name]} style={style} />;
 }

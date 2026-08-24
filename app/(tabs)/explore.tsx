@@ -1,112 +1,155 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { Collapsible } from '@/components/ui/collapsible';
-import { ExternalLink } from '@/components/external-link';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Fonts } from '@/constants/theme';
+import { ThemedText } from '@/components/themed-text';
+import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
 
-export default function TabTwoScreen() {
+const MODULES = [
+  { icon: 'person.2.fill', label: 'Players', color: Colors.mint },
+  { icon: 'graduationcap.fill', label: 'Trainers', color: Colors.emerald },
+  { icon: 'person.fill', label: 'Parents', color: Colors.purple },
+  { icon: 'figure.soccer', label: 'Matches', color: Colors.warning },
+  { icon: 'calendar', label: 'Trainings', color: Colors.info },
+  { icon: 'trophy.fill', label: 'Academy', color: Colors.mintDim },
+  { icon: 'stethoscope', label: 'Medical', color: Colors.danger },
+  { icon: 'dollarsign.circle.fill', label: 'Payments', color: Colors.emerald },
+  { icon: 'bubble.left.fill', label: 'Messages', color: Colors.info },
+  { icon: 'chart.bar.fill', label: 'Reports', color: Colors.warning },
+  { icon: 'gearshape.fill', label: 'Settings', color: Colors.textMuted },
+] as const;
+
+export default function ModulesScreen() {
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#D0D0D0', dark: '#353636' }}
-      headerImage={
-        <IconSymbol
-          size={310}
-          color="#808080"
-          name="chevron.left.forwardslash.chevron.right"
-          style={styles.headerImage}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText
-          type="title"
-          style={{
-            fontFamily: Fonts.rounded,
-          }}>
-          Explore
-        </ThemedText>
-      </ThemedView>
-      <ThemedText>This app includes example code to help you get started.</ThemedText>
-      <Collapsible title="File-based routing">
-        <ThemedText>
-          This app has two screens:{' '}
-          <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> and{' '}
-          <ThemedText type="defaultSemiBold">app/(tabs)/explore.tsx</ThemedText>
-        </ThemedText>
-        <ThemedText>
-          The layout file in <ThemedText type="defaultSemiBold">app/(tabs)/_layout.tsx</ThemedText>{' '}
-          sets up the tab navigator.
-        </ThemedText>
-        <ExternalLink href="https://docs.expo.dev/router/introduction">
-          <ThemedText type="link">Learn more</ThemedText>
-        </ExternalLink>
-      </Collapsible>
-      <Collapsible title="Android, iOS, and web support">
-        <ThemedText>
-          You can open this project on Android, iOS, and the web. To open the web version, press{' '}
-          <ThemedText type="defaultSemiBold">w</ThemedText> in the terminal running this project.
-        </ThemedText>
-      </Collapsible>
-      <Collapsible title="Images">
-        <ThemedText>
-          For static images, you can use the <ThemedText type="defaultSemiBold">@2x</ThemedText> and{' '}
-          <ThemedText type="defaultSemiBold">@3x</ThemedText> suffixes to provide files for
-          different screen densities
-        </ThemedText>
-        <Image
-          source={require('@/assets/images/react-logo.png')}
-          style={{ width: 100, height: 100, alignSelf: 'center' }}
-        />
-        <ExternalLink href="https://reactnative.dev/docs/images">
-          <ThemedText type="link">Learn more</ThemedText>
-        </ExternalLink>
-      </Collapsible>
-      <Collapsible title="Light and dark mode components">
-        <ThemedText>
-          This template has light and dark mode support. The{' '}
-          <ThemedText type="defaultSemiBold">useColorScheme()</ThemedText> hook lets you inspect
-          what the user&apos;s current color scheme is, and so you can adjust UI colors accordingly.
-        </ThemedText>
-        <ExternalLink href="https://docs.expo.dev/develop/user-interface/color-themes/">
-          <ThemedText type="link">Learn more</ThemedText>
-        </ExternalLink>
-      </Collapsible>
-      <Collapsible title="Animations">
-        <ThemedText>
-          This template includes an example of an animated component. The{' '}
-          <ThemedText type="defaultSemiBold">components/HelloWave.tsx</ThemedText> component uses
-          the powerful{' '}
-          <ThemedText type="defaultSemiBold" style={{ fontFamily: Fonts.mono }}>
-            react-native-reanimated
-          </ThemedText>{' '}
-          library to create a waving hand animation.
-        </ThemedText>
-        {Platform.select({
-          ios: (
-            <ThemedText>
-              The <ThemedText type="defaultSemiBold">components/ParallaxScrollView.tsx</ThemedText>{' '}
-              component provides a parallax effect for the header image.
-            </ThemedText>
-          ),
-        })}
-      </Collapsible>
-    </ParallaxScrollView>
+    <SafeAreaView style={styles.safe} edges={['top']}>
+      <StatusBar style="light" />
+      <ScrollView
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}>
+        {/* Header */}
+        <View style={styles.header}>
+          <View style={styles.brand}>
+            <View style={styles.brandMark}>
+              <Text style={styles.brandLetter}>G</Text>
+            </View>
+            <Text style={styles.brandText}>goalhub</Text>
+          </View>
+        </View>
+
+        <View style={styles.hero}>
+          <ThemedText type="label">GoalHub · Modules</ThemedText>
+          <Text style={styles.heroTitle}>everything for your club</Text>
+          <Text style={styles.heroSub}>
+            Each role gets its own view — players, trainers, parents and finance.
+          </Text>
+        </View>
+
+        {/* Module grid */}
+        <View style={styles.grid}>
+          {MODULES.map((module) => (
+            <Pressable
+              key={module.label}
+              style={styles.cell}
+              onPress={() => alert(`${module.label} — coming soon`)}>
+              <View style={[styles.cellIcon, { backgroundColor: `${module.color}1F` }]}>
+                <IconSymbol name={module.icon} size={24} color={module.color} />
+              </View>
+              <Text style={styles.cellLabel}>{module.label}</Text>
+            </Pressable>
+          ))}
+        </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  headerImage: {
-    color: '#808080',
-    bottom: -90,
-    left: -35,
-    position: 'absolute',
+  safe: {
+    flex: 1,
+    backgroundColor: Colors.background,
   },
-  titleContainer: {
+  content: {
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.sm,
+    paddingBottom: Spacing.xxl,
+  },
+  header: {
     flexDirection: 'row',
-    gap: 8,
+    alignItems: 'center',
+  },
+  brand: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
+  brandMark: {
+    width: 32,
+    height: 32,
+    borderRadius: Radius.sm,
+    backgroundColor: Colors.mint,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  brandLetter: {
+    fontFamily: Fonts.heading,
+    fontSize: 17,
+    color: Colors.textOnPrimary,
+  },
+  brandText: {
+    fontFamily: Fonts.heading,
+    fontSize: 22,
+    letterSpacing: -0.5,
+    color: Colors.mint,
+    textTransform: 'lowercase',
+  },
+  hero: {
+    marginTop: Spacing.xl,
+    marginBottom: Spacing.xl,
+    gap: Spacing.sm,
+  },
+  heroTitle: {
+    fontFamily: Fonts.heading,
+    fontSize: 30,
+    lineHeight: 34,
+    letterSpacing: -1,
+    color: Colors.mint,
+    textTransform: 'lowercase',
+  },
+  heroSub: {
+    fontFamily: Fonts.body,
+    fontSize: 14,
+    lineHeight: 20,
+    color: Colors.textMuted,
+    maxWidth: 320,
+  },
+  grid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    rowGap: Spacing.lg,
+  },
+  cell: {
+    width: '31%',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    backgroundColor: Colors.surface,
+    borderColor: Colors.border,
+    borderWidth: 1,
+    borderRadius: Radius.lg,
+    paddingVertical: Spacing.lg,
+  },
+  cellIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: Radius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cellLabel: {
+    fontFamily: Fonts.bodyMedium,
+    fontSize: 12,
+    color: Colors.text,
+    textTransform: 'lowercase',
   },
 });
