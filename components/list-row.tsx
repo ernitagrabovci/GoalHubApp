@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { IconSymbol, type IconSymbolName } from '@/components/ui/icon-symbol';
 import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
+import { useLanguage } from '@/lib/i18n';
 
 type ListRowProps = {
   title: string;
@@ -84,10 +85,11 @@ export function IconTile({
 
 /** A square date chip showing a day + month, e.g. for trainings/matches. */
 export function DateTile({ day, month, color }: { day: string; month: string; color: string }) {
+  const { t } = useLanguage();
   return (
     <View style={[styles.dateTile, { borderColor: `${color}55` }]}>
       <Text style={[styles.dateDay, { color }]}>{day}</Text>
-      <Text style={styles.dateMonth}>{month}</Text>
+      <Text style={styles.dateMonth}>{t(`month.${month.toUpperCase()}`)}</Text>
     </View>
   );
 }

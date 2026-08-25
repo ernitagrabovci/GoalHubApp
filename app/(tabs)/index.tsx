@@ -10,8 +10,8 @@ import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
 import { ALL_MESSAGES, ALL_PLAYERS, ALL_TRAININGS, feesForRole, type FeeStatus, type Health } from '@/lib/data';
 import { modulesForRole } from '@/lib/modules';
-import { ROLE_DASHBOARD } from '@/lib/role-content';
-import { ROLE_LABELS, useSession } from '@/lib/session';
+import { useLanguage } from '@/lib/i18n';
+import { useSession } from '@/lib/session';
 
 const FEE_TONE: Record<FeeStatus, StatusTone> = {
   paid: 'emerald',
@@ -30,6 +30,7 @@ const HEALTH_TONE: Record<Health, StatusTone> = {
 export default function HomeScreen() {
   const router = useRouter();
   const { user, signOut } = useSession();
+  const { t } = useLanguage();
 
   if (!user) {
     return (
@@ -41,12 +42,12 @@ export default function HomeScreen() {
             style={styles.signedOutLogo}
             resizeMode="contain"
           />
-          <Text style={styles.signedOutTitle}>you&apos;re signed out</Text>
+          <Text style={styles.signedOutTitle}>{t('home.signedOutTitle')}</Text>
           <Text style={styles.signedOutSub}>
-            Sign in to see your personal dashboard.
+            {t('home.signedOutSub')}
           </Text>
           <Pressable style={styles.signedOutButton} onPress={() => router.replace('/login')}>
-            <Text style={styles.signedOutButtonText}>go to sign in</Text>
+            <Text style={styles.signedOutButtonText}>{t('home.goToSignIn')}</Text>
             <IconSymbol name="arrow.right" size={18} color={Colors.textOnPrimary} />
           </Pressable>
         </View>
@@ -54,7 +55,8 @@ export default function HomeScreen() {
     );
   }
 
-  const { greeting, subtitle } = ROLE_DASHBOARD[user.role];
+  const greeting = t(`home.greeting.${user.role}`);
+  const subtitle = t(`home.subtitle.${user.role}`);
   const child = ALL_PLAYERS.find((p) => p.name === 'Agon Gashi');
   const player = ALL_PLAYERS.find((p) => p.name === 'Ardit Llapashtica');
   const links = modulesForRole(user.role);
@@ -94,10 +96,10 @@ export default function HomeScreen() {
         {/* Hero */}
         <View style={styles.hero}>
           <View style={styles.heroTopRow}>
-            <Text style={styles.heroKicker}>GoalHub · {ROLE_LABELS[user.role]}</Text>
+            <Text style={styles.heroKicker}>GoalHub · {t(`role.${user.role}`)}</Text>
             <Pressable style={styles.rolePill} onPress={handleSignOut}>
               <IconSymbol name="logout" size={13} color={Colors.mint} />
-              <Text style={styles.rolePillText}>switch role</Text>
+              <Text style={styles.rolePillText}>{t('home.switchRole')}</Text>
             </Pressable>
           </View>
           <Text style={styles.heroTitle}>{greeting}</Text>
@@ -109,13 +111,17 @@ export default function HomeScreen() {
           <Pressable style={styles.childCard} onPress={() => router.push('/child')}>
             <InitialsTile initials={child.initials} color={child.color} size={56} />
             <View style={styles.childBody}>
-              <Text style={styles.childKicker}>your child</Text>
+              <Text style={styles.childKicker}>{t('home.yourChild')}</Text>
               <Text style={styles.childName}>{child.name}</Text>
               <Text style={styles.childMeta}>
-                {child.position} · No. {child.number} · age {child.age}
+                {t('common.personMeta', {
+                  position: child.position,
+                  number: child.number,
+                  age: child.age,
+                })}
               </Text>
               <View style={styles.childTags}>
-                <StatusChip label={child.health} tone={HEALTH_TONE[child.health]} />
+                <StatusChip label={t(`health.${child.health}`)} tone={HEALTH_TONE[child.health]} />
                 <View style={styles.ratingChip}>
                   <IconSymbol name="star.fill" size={11} color="#f5a623" />
                   <Text style={styles.ratingText}>{child.rating.toFixed(1)}</Text>
@@ -128,13 +134,17 @@ export default function HomeScreen() {
           <Pressable style={styles.childCard} onPress={() => router.push('/stats')}>
             <InitialsTile initials={player.initials} color={player.color} size={56} />
             <View style={styles.childBody}>
-              <Text style={styles.childKicker}>your profile</Text>
+              <Text style={styles.childKicker}>{t('home.yourProfile')}</Text>
               <Text style={styles.childName}>{player.name}</Text>
               <Text style={styles.childMeta}>
-                {player.position} · No. {player.number} · age {player.age}
+                {t('common.personMeta', {
+                  position: player.position,
+                  number: player.number,
+                  age: player.age,
+                })}
               </Text>
               <View style={styles.childTags}>
-                <StatusChip label={player.health} tone={HEALTH_TONE[player.health]} />
+                <StatusChip label={t(`health.${player.health}`)} tone={HEALTH_TONE[player.health]} />
                 <View style={styles.ratingChip}>
                   <IconSymbol name="star.fill" size={11} color="#f5a623" />
                   <Text style={styles.ratingText}>{player.rating.toFixed(1)}</Text>
@@ -147,7 +157,7 @@ export default function HomeScreen() {
           <Pressable style={styles.childCard} onPress={() => router.push('/players')}>
             <IconTile icon="person.2.fill" color={Colors.mint} size={56} />
             <View style={styles.childBody}>
-              <Text style={styles.childKicker}>your squad</Text>
+              <Text style={styles.childKicker}>{t('home.yourSquad')}</Text>
               <Text style={styles.childName}>{user.club}</Text>
               <Text style={styles.childMeta}>{user.subtitle}</Text>
             </View>
@@ -157,7 +167,7 @@ export default function HomeScreen() {
           <View style={styles.childCard}>
             <InitialsTile initials={user.initials} color={user.color} size={56} />
             <View style={styles.childBody}>
-              <Text style={styles.childKicker}>you</Text>
+              <Text style={styles.childKicker}>{t('home.you')}</Text>
               <Text style={styles.childName}>{user.name}</Text>
               <Text style={styles.childMeta}>{user.subtitle}</Text>
             </View>
@@ -174,13 +184,13 @@ export default function HomeScreen() {
               <IconSymbol name="dollarsign.circle.fill" size={20} color={Colors.emerald} />
             </View>
             <View style={styles.infoBody}>
-              <Text style={styles.infoLabel}>fee status</Text>
+              <Text style={styles.infoLabel}>{t('home.feeStatus')}</Text>
               <Text style={styles.infoTitle}>
-                {currentFee.month} · {currentFee.amount}
+                {t(`month.${currentFee.month.toUpperCase()}`)} · {currentFee.amount}
               </Text>
               <Text style={styles.infoSub}>{currentFee.name}</Text>
             </View>
-            <StatusChip label={currentFee.status} tone={FEE_TONE[currentFee.status]} />
+            <StatusChip label={t(`status.${currentFee.status}`)} tone={FEE_TONE[currentFee.status]} />
           </Pressable>
         ) : null}
 
@@ -189,8 +199,10 @@ export default function HomeScreen() {
           <Pressable style={styles.infoCard} onPress={() => router.push('/trainings')}>
             <DateTile day={nextTraining.day} month={nextTraining.month} color={Colors.mint} />
             <View style={styles.infoBody}>
-              <Text style={styles.infoLabel}>next up</Text>
-              <Text style={styles.infoTitle}>{nextTraining.type} training</Text>
+              <Text style={styles.infoLabel}>{t('home.nextUp')}</Text>
+              <Text style={styles.infoTitle}>
+                {t(`trainings.${nextTraining.type.toLowerCase()}`)}
+              </Text>
               <Text style={styles.infoSub}>
                 {nextTraining.field} · {nextTraining.time} · {nextTraining.present}/{nextTraining.total} present
               </Text>
@@ -200,7 +212,7 @@ export default function HomeScreen() {
         ) : null}
 
         {/* Quick access — every module for this role */}
-        <Text style={styles.sectionLabel}>everything</Text>
+        <Text style={styles.sectionLabel}>{t('home.everything')}</Text>
         <View style={styles.grid}>
           {links.map((module) => (
             <Pressable
@@ -209,26 +221,26 @@ export default function HomeScreen() {
               onPress={() =>
                 module.route
                   ? router.push(module.route as never)
-                  : alert(`${module.label} — coming soon`)
+                  : alert(t('common.comingSoon', { label: t(`module.${module.label}`) }))
               }>
               <View style={[styles.cellIcon, { backgroundColor: `${module.color}1f` }]}>
                 <IconSymbol name={module.icon} size={22} color={module.color} />
               </View>
-              <Text style={styles.cellLabel}>{module.label}</Text>
+              <Text style={styles.cellLabel}>{t(`module.${module.label}`)}</Text>
             </Pressable>
           ))}
           <Pressable style={styles.cell} onPress={() => router.push('/explore')}>
             <View style={[styles.cellIcon, { backgroundColor: `${Colors.mint}1f` }]}>
               <IconSymbol name="square.grid.2x2.fill" size={22} color={Colors.mint} />
             </View>
-            <Text style={styles.cellLabel}>all modules</Text>
+            <Text style={styles.cellLabel}>{t('home.allModules')}</Text>
           </Pressable>
         </View>
 
         {/* Recent chat */}
         {latestMessage ? (
           <>
-            <Text style={styles.sectionLabel}>latest from chat</Text>
+            <Text style={styles.sectionLabel}>{t('home.latestFromChat')}</Text>
             <ListRow
               title={latestMessage.sender}
               subtitle={latestMessage.preview}

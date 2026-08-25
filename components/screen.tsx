@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { IconSymbol, type IconSymbolName } from '@/components/ui/icon-symbol';
 import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
+import { useLanguage } from '@/lib/i18n';
 
 /** The goalhub brand row shown at the top of every screen. */
 export function BrandHeader() {
@@ -34,6 +35,7 @@ export function SectionLabel({ children }: { children: ReactNode }) {
  */
 export function Screen({ children, back }: { children: ReactNode; back?: boolean }) {
   const router = useRouter();
+  const { t } = useLanguage();
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <StatusBar style="light" />
@@ -44,7 +46,7 @@ export function Screen({ children, back }: { children: ReactNode; back?: boolean
         {back ? (
           <Pressable style={styles.backRow} onPress={() => router.back()} hitSlop={8}>
             <IconSymbol name="chevron-left" size={22} color={Colors.mint} />
-            <Text style={styles.backText}>back</Text>
+            <Text style={styles.backText}>{t('common.back')}</Text>
           </Pressable>
         ) : (
           <BrandHeader />

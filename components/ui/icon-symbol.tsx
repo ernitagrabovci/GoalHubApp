@@ -67,6 +67,7 @@ const MAPPING = {
   event: 'event',
   'date-range': 'date-range',
   flag: 'flag',
+  globe: 'language',
   'monitor-heart': 'monitor-heart',
   'query-stats': 'query-stats',
   assignment: 'assignment',

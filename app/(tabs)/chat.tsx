@@ -7,11 +7,13 @@ import { Screen, DetailHead, SectionLabel } from '@/components/screen';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
 import { messagesForRole } from '@/lib/data';
+import { useLanguage } from '@/lib/i18n';
 import { useSession } from '@/lib/session';
 
 export default function ChatScreen() {
   const router = useRouter();
   const { user } = useSession();
+  const { t } = useLanguage();
   const viewer = user?.role === 'player' || user?.role === 'parent';
   const messages = messagesForRole(user?.role ?? 'administrator');
   const [query, setQuery] = useState('');
@@ -30,13 +32,13 @@ export default function ChatScreen() {
       <DetailHead
         icon="bubble.left.fill"
         accent="#408A71"
-        title="chat"
+        title={t('chat.title')}
         subtitle={
           viewer
-            ? `${unread} unread · trainer & admin`
+            ? t('chat.unreadTrainer', { unread })
             : unread
-              ? `${unread} unread · tap a conversation`
-              : 'coach & club · all read'
+              ? t('chat.unreadTap', { unread })
+              : t('chat.allRead')
         }
       />
 
@@ -45,12 +47,12 @@ export default function ChatScreen() {
         {user?.role === 'parent' ? null : (
           <Pressable style={styles.link} onPress={() => router.push('/channel')}>
             <IconSymbol name="person.2.fill" size={16} color="#2fbf71" />
-            <Text style={styles.linkText}>team channel</Text>
+            <Text style={styles.linkText}>{t('chat.teamChannel')}</Text>
           </Pressable>
         )}
         <Pressable style={styles.link} onPress={() => router.push('/notifications')}>
           <IconSymbol name="notifications" size={16} color="#f5a623" />
-          <Text style={styles.linkText}>notifications</Text>
+          <Text style={styles.linkText}>{t('chat.notifications')}</Text>
         </Pressable>
       </View>
 
@@ -59,7 +61,7 @@ export default function ChatScreen() {
         <IconSymbol name="search" size={18} color={Colors.textMuted} />
         <TextInput
           style={styles.searchInput}
-          placeholder="Search conversations…"
+          placeholder={t('chat.searchPlaceholder')}
           placeholderTextColor={Colors.textMuted}
           value={query}
           onChangeText={setQuery}
@@ -72,10 +74,10 @@ export default function ChatScreen() {
         ) : null}
       </View>
 
-      <SectionLabel>conversations</SectionLabel>
+      <SectionLabel>{t('chat.conversations')}</SectionLabel>
       <View style={styles.list}>
         {filtered.length === 0 ? (
-          <Text style={styles.empty}>No conversations match that search.</Text>
+          <Text style={styles.empty}>{t('chat.empty')}</Text>
         ) : (
           filtered.map((m) => (
             <ListRow

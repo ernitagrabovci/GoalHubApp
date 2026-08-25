@@ -6,13 +6,15 @@ import { InitialsTile, ListRow } from '@/components/list-row';
 import { IconSymbol, type IconSymbolName } from '@/components/ui/icon-symbol';
 import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
 import { ALL_PLAYERS } from '@/lib/data';
-import { ROLE_LABELS, useSession } from '@/lib/session';
+import { useLanguage } from '@/lib/i18n';
+import { useSession } from '@/lib/session';
 
 const VERSION = '1.0.0';
 
 export default function ProfileScreen() {
   const router = useRouter();
   const { user, signOut } = useSession();
+  const { t, lang, setLang } = useLanguage();
 
   const child = ALL_PLAYERS.find((p) => p.name === 'Agon Gashi');
 
@@ -24,17 +26,17 @@ export default function ProfileScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>profile</Text>
+        <Text style={styles.title}>{t('profile.title')}</Text>
       </View>
 
       {!user ? (
         <View style={styles.signedOut}>
-          <Text style={styles.signedOutTitle}>you&apos;re signed out</Text>
+          <Text style={styles.signedOutTitle}>{t('profile.signedOutTitle')}</Text>
           <Text style={styles.signedOutSub}>
-            Sign in to manage your account.
+            {t('profile.signedOutSub')}
           </Text>
           <Pressable style={styles.primary} onPress={() => router.replace('/login')}>
-            <Text style={styles.primaryText}>go to sign in</Text>
+            <Text style={styles.primaryText}>{t('profile.goToSignIn')}</Text>
           </Pressable>
         </View>
       ) : (
@@ -50,7 +52,7 @@ export default function ProfileScreen() {
             <View style={[styles.roleBadge, { borderColor: `${user.color}55` }]}>
               <View style={[styles.roleDot, { backgroundColor: user.color }]} />
               <Text style={[styles.roleBadgeText, { color: user.color }]}>
-                {ROLE_LABELS[user.role]}
+                {t(`role.${user.role}`)}
               </Text>
             </View>
             <Text style={styles.subtitle}>
@@ -61,10 +63,14 @@ export default function ProfileScreen() {
           {/* Linked child — parent only */}
           {user.role === 'parent' && child ? (
             <>
-              <Text style={styles.sectionLabel}>linked child</Text>
+              <Text style={styles.sectionLabel}>{t('profile.linkedChild')}</Text>
               <ListRow
                 title={child.name}
-                subtitle={`${child.position} · No. ${child.number} · age ${child.age}`}
+                subtitle={t('common.personMeta', {
+                  position: child.position,
+                  number: child.number,
+                  age: child.age,
+                })}
                 leading={<InitialsTile initials={child.initials} color={child.color} />}
                 onPress={() => router.push('/child')}
               />
@@ -72,34 +78,41 @@ export default function ProfileScreen() {
           ) : null}
 
           {/* Account */}
-          <Text style={styles.sectionLabel}>account</Text>
+          <Text style={styles.sectionLabel}>{t('profile.account')}</Text>
           <View style={styles.card}>
-            <SettingRow icon="mail" label="email" value={user.email} />
+            <SettingRow icon="mail" label={t('profile.email')} value={user.email} />
             <View style={styles.divider} />
-            <SettingRow icon="person.fill" label="role" value={ROLE_LABELS[user.role]} />
+            <SettingRow icon="person.fill" label={t('profile.role')} value={t(`role.${user.role}`)} />
           </View>
 
           {/* Preferences */}
-          <Text style={styles.sectionLabel}>preferences</Text>
+          <Text style={styles.sectionLabel}>{t('profile.preferences')}</Text>
           <View style={styles.card}>
-            <SettingRow icon="gearshape.fill" label="theme" value="dark mint" />
+            <SettingRow icon="gearshape.fill" label={t('profile.theme')} value={t('profile.darkMint')} />
+            <View style={styles.divider} />
+            <SettingRow
+              icon="globe"
+              label={t('profile.language')}
+              value={lang === 'en' ? t('profile.english') : t('profile.albanian')}
+              onPress={() => setLang(lang === 'en' ? 'sq' : 'en')}
+            />
           </View>
 
           {/* About */}
-          <Text style={styles.sectionLabel}>about</Text>
+          <Text style={styles.sectionLabel}>{t('profile.about')}</Text>
           <View style={styles.card}>
-            <SettingRow icon="info" label="app" value="goalhub" />
+            <SettingRow icon="info" label={t('profile.app')} value="goalhub" />
             <View style={styles.divider} />
-            <SettingRow icon="doc.text.fill" label="version" value={VERSION} />
+            <SettingRow icon="doc.text.fill" label={t('profile.version')} value={VERSION} />
           </View>
 
           {/* Sign out */}
           <Pressable style={styles.signOut} onPress={handleSignOut}>
             <IconSymbol name="logout" size={18} color={Colors.danger} />
-            <Text style={styles.signOutText}>sign out &amp; switch role</Text>
+            <Text style={styles.signOutText}>{t('profile.signOut')}</Text>
           </Pressable>
           <Text style={styles.footnote}>
-            demo preview · no data leaves this device
+            {t('profile.footnote')}
           </Text>
         </ScrollView>
       )}
@@ -107,16 +120,34 @@ export default function ProfileScreen() {
   );
 }
 
-function SettingRow({ icon, label, value }: { icon: IconSymbolName; label: string; value: string }) {
-  return (
-    <View style={styles.row}>
+function SettingRow({
+  icon,
+  label,
+  value,
+  onPress,
+}: {
+  icon: IconSymbolName;
+  label: string;
+  value: string;
+  onPress?: () => void;
+}) {
+  const row = (
+    <>
       <IconSymbol name={icon} size={18} color={Colors.textMuted} />
       <Text style={styles.rowLabel}>{label}</Text>
       <Text style={styles.rowValue} numberOfLines={1}>
         {value}
       </Text>
-    </View>
+    </>
   );
+  if (onPress) {
+    return (
+      <Pressable style={({ pressed }) => [styles.row, pressed && { opacity: 0.6 }]} onPress={onPress}>
+        {row}
+      </Pressable>
+    );
+  }
+  return <View style={styles.row}>{row}</View>;
 }
 
 const styles = StyleSheet.create({

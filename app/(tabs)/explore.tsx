@@ -6,12 +6,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { ThemedText } from '@/components/themed-text';
 import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
+import { useLanguage } from '@/lib/i18n';
 import { ALL_MODULES, modulesForRole } from '@/lib/modules';
 import { useSession } from '@/lib/session';
 
 export default function ModulesScreen() {
   const router = useRouter();
   const { user } = useSession();
+  const { t } = useLanguage();
   const modules = user ? modulesForRole(user.role) : ALL_MODULES;
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -32,10 +34,10 @@ export default function ModulesScreen() {
         </View>
 
         <View style={styles.hero}>
-          <ThemedText type="label">GoalHub · Modules</ThemedText>
-          <Text style={styles.heroTitle}>everything for your club</Text>
+          <ThemedText type="label">{t('explore.kicker')}</ThemedText>
+          <Text style={styles.heroTitle}>{t('explore.title')}</Text>
           <Text style={styles.heroSub}>
-            Each role gets its own view — players, trainers, parents and finance.
+            {t('explore.subtitle')}
           </Text>
         </View>
 
@@ -48,12 +50,12 @@ export default function ModulesScreen() {
               onPress={() =>
                 module.route
                   ? router.push(module.route as never)
-                  : alert(`${module.label} — coming soon`)
+                  : alert(t('common.comingSoon', { label: t(`module.${module.label}`) }))
               }>
               <View style={[styles.cellIcon, { backgroundColor: `${module.color}1F` }]}>
                 <IconSymbol name={module.icon} size={24} color={module.color} />
               </View>
-              <Text style={styles.cellLabel}>{module.label}</Text>
+              <Text style={styles.cellLabel}>{t(`module.${module.label}`)}</Text>
             </Pressable>
           ))}
         </View>

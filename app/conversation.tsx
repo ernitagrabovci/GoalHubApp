@@ -16,9 +16,11 @@ import { InitialsTile } from '@/components/list-row';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
 import { ALL_MESSAGES, CONVERSATIONS, type ChatBubble } from '@/lib/data';
+import { useLanguage } from '@/lib/i18n';
 
 export default function ConversationScreen() {
   const router = useRouter();
+  const { t } = useLanguage();
   const { id } = useLocalSearchParams<{ id?: string }>();
   const message =
     ALL_MESSAGES.find((m) => m.id === id) ?? ALL_MESSAGES[0];
@@ -55,7 +57,7 @@ export default function ConversationScreen() {
           <Text style={styles.headerName}>{message.sender}</Text>
           <View style={styles.statusRow}>
             <View style={styles.onlineDot} />
-            <Text style={styles.statusText}>online · now</Text>
+            <Text style={styles.statusText}>{t('conversation.onlineNow')}</Text>
           </View>
         </View>
       </View>
@@ -86,7 +88,7 @@ export default function ConversationScreen() {
         <View style={styles.composer}>
           <TextInput
             style={styles.input}
-            placeholder="Message…"
+            placeholder={t('conversation.messagePlaceholder')}
             placeholderTextColor={Colors.textMuted}
             value={draft}
             onChangeText={setDraft}

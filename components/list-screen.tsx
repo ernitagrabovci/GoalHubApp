@@ -16,7 +16,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { IconSymbol, type IconSymbolName } from '@/components/ui/icon-symbol';
 import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
-import { ROLE_LABELS, useSession } from '@/lib/session';
+import { useLanguage } from '@/lib/i18n';
+import { useSession } from '@/lib/session';
 
 type ListScreenProps<T> = {
   icon: IconSymbolName;
@@ -53,10 +54,11 @@ export function ListScreen<T>({
   actionLabel,
   onAction,
   actionForm,
-  emptyText = 'No results found.',
+  emptyText,
 }: ListScreenProps<T>) {
   const router = useRouter();
   const { user } = useSession();
+  const { t } = useLanguage();
   const [query, setQuery] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [fade] = useState(() => new Animated.Value(0));
@@ -95,7 +97,7 @@ export function ListScreen<T>({
         {back ? (
           <Pressable style={styles.backRow} onPress={() => router.back()} hitSlop={8}>
             <IconSymbol name="chevron-left" size={22} color={Colors.mint} />
-            <Text style={styles.backText}>back</Text>
+            <Text style={styles.backText}>{t('common.back')}</Text>
           </Pressable>
         ) : (
           <View style={styles.header}>
@@ -110,7 +112,7 @@ export function ListScreen<T>({
             {user ? (
               <View style={[styles.rolePill, { borderColor: `${user.color}55` }]}>
                 <View style={[styles.roleDot, { backgroundColor: user.color }]} />
-                <Text style={styles.rolePillText}>{ROLE_LABELS[user.role]}</Text>
+                <Text style={styles.rolePillText}>{t(`role.${user.role}`)}</Text>
               </View>
             ) : null}
           </View>
@@ -137,7 +139,7 @@ export function ListScreen<T>({
               <IconSymbol name="search" size={18} color={Colors.textMuted} />
               <TextInput
                 style={styles.searchInput}
-                placeholder={searchPlaceholder ?? 'Search…'}
+                placeholder={searchPlaceholder ?? t('common.search')}
                 placeholderTextColor={Colors.textMuted}
                 value={query}
                 onChangeText={setQuery}
@@ -158,7 +160,7 @@ export function ListScreen<T>({
           {filtered.length === 0 ? (
             <View style={styles.empty}>
               <IconSymbol name="search" size={26} color={Colors.textMuted} />
-              <Text style={styles.emptyText}>{emptyText}</Text>
+              <Text style={styles.emptyText}>{emptyText ?? t('common.noResults')}</Text>
             </View>
           ) : (
             <View style={styles.list}>
@@ -173,7 +175,7 @@ export function ListScreen<T>({
               style={styles.action}
               onPress={() => (actionForm ? setShowForm((s) => !s) : onAction?.())}>
               <IconSymbol name={showForm ? 'xmark' : 'plus'} size={18} color={Colors.textOnPrimary} />
-              <Text style={styles.actionText}>{showForm ? 'close form' : actionLabel}</Text>
+              <Text style={styles.actionText}>{showForm ? t('common.closeForm') : actionLabel}</Text>
             </Pressable>
           ) : null}
         </ScrollView>

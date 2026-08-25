@@ -19,6 +19,7 @@ import {
 } from '@expo-google-fonts/space-grotesk';
 
 import { navigationTheme } from '@/constants/theme';
+import { LanguageProvider } from '@/lib/i18n';
 import { SessionProvider } from '@/lib/session';
 
 SplashScreen.preventAutoHideAsync();
@@ -51,15 +52,17 @@ export default function RootLayout() {
 
   return (
     <ThemeProvider value={navigationTheme}>
-      <SessionProvider>
-        <Stack>
-          <Stack.Screen name="intro" options={{ headerShown: false }} />
-          <Stack.Screen name="login" options={{ headerShown: false }} />
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen name="conversation" options={{ headerShown: false }} />
-        </Stack>
-        <StatusBar style="light" />
-      </SessionProvider>
+      <LanguageProvider>
+        <SessionProvider>
+          <Stack>
+            <Stack.Screen name="intro" options={{ headerShown: false }} />
+            <Stack.Screen name="login" options={{ headerShown: false }} />
+            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            <Stack.Screen name="conversation" options={{ headerShown: false }} />
+          </Stack>
+          <StatusBar style="light" />
+        </SessionProvider>
+      </LanguageProvider>
     </ThemeProvider>
   );
 }

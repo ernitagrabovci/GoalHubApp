@@ -4,6 +4,7 @@ import { StyleSheet } from 'react-native';
 import { HapticTab } from '@/components/haptic-tab';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors, Fonts } from '@/constants/theme';
+import { useLanguage } from '@/lib/i18n';
 import { MAIN_TABS, SIGNED_OUT_TABS } from '@/lib/tabs';
 import { useSession } from '@/lib/session';
 
@@ -52,6 +53,7 @@ const HIDDEN_ROUTES = [
 
 export default function TabLayout() {
   const { user } = useSession();
+  const { t } = useLanguage();
   const tabs = user ? MAIN_TABS : SIGNED_OUT_TABS;
 
   return (
@@ -70,7 +72,7 @@ export default function TabLayout() {
           key={tab.name}
           name={tab.name}
           options={{
-            title: tab.title,
+            title: t(`tabs.${tab.name}`),
             tabBarIcon: ({ color }) => <IconSymbol size={26} name={tab.icon} color={color} />,
           }}
         />

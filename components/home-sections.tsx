@@ -8,6 +8,7 @@ import { StatCell } from '@/components/screen';
 import { StatusChip, TONE_COLORS, type StatusTone } from '@/components/status-chip';
 import { IconSymbol, type IconSymbolName } from '@/components/ui/icon-symbol';
 import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
+import { useLanguage } from '@/lib/i18n';
 import {
   ALL_INJURIES,
   ALL_MATCHES,
@@ -75,9 +76,9 @@ function feeAgg(fees: Fee[]) {
   return { counts, sums };
 }
 
-type Stat = { label: string; value: string; icon: IconSymbolName; tint: string };
+type Stat = { labelKey: string; value: string; icon: IconSymbolName; tint: string };
 
-function roleStats(role: Role): Stat[] {
+function roleStats(role: Role, t: (key: string) => string): Stat[] {
   const allFees = feesForRole(role);
   const agg = feeAgg(allFees);
   const ardit = ALL_PLAYERS.find((p) => p.name === 'Ardit Llapashtica') ?? ALL_PLAYERS[0];
@@ -90,36 +91,36 @@ function roleStats(role: Role): Stat[] {
   switch (role) {
     case 'administrator':
       return [
-        { label: 'players', value: String(ALL_PLAYERS.length), icon: 'person.2.fill', tint: '#B0E4CC' },
-        { label: 'teams', value: String(ALL_TEAMS.length), icon: 'trophy.fill', tint: '#408A71' },
-        { label: 'income (sep)', value: `€${sepIncome}`, icon: 'dollarsign.circle.fill', tint: '#2fbf71' },
-        { label: 'injuries', value: String(activeInjuries.length), icon: 'stethoscope', tint: '#E24B4A' },
+        { labelKey: 'stats.players', value: String(ALL_PLAYERS.length), icon: 'person.2.fill', tint: '#B0E4CC' },
+        { labelKey: 'stats.teams', value: String(ALL_TEAMS.length), icon: 'trophy.fill', tint: '#408A71' },
+        { labelKey: 'stats.income', value: `€${sepIncome}`, icon: 'dollarsign.circle.fill', tint: '#2fbf71' },
+        { labelKey: 'stats.injuries', value: String(activeInjuries.length), icon: 'stethoscope', tint: '#E24B4A' },
       ];
     case 'trainer':
       return [
-        { label: 'players', value: String(ALL_PLAYERS.length), icon: 'person.2.fill', tint: '#B0E4CC' },
-        { label: 'trainings', value: String(ALL_TRAININGS.length), icon: 'calendar', tint: '#408A71' },
-        { label: 'attendance', value: `${attendancePct}%`, icon: 'checkmark.circle.fill', tint: '#2fbf71' },
-        { label: 'injuries', value: String(activeInjuries.length), icon: 'stethoscope', tint: '#E24B4A' },
+        { labelKey: 'stats.players', value: String(ALL_PLAYERS.length), icon: 'person.2.fill', tint: '#B0E4CC' },
+        { labelKey: 'stats.trainings', value: String(ALL_TRAININGS.length), icon: 'calendar', tint: '#408A71' },
+        { labelKey: 'stats.attendance', value: `${attendancePct}%`, icon: 'checkmark.circle.fill', tint: '#2fbf71' },
+        { labelKey: 'stats.injuries', value: String(activeInjuries.length), icon: 'stethoscope', tint: '#E24B4A' },
       ];
     case 'player':
       return [
-        { label: 'jersey', value: `#${ardit.number}`, icon: 'figure.soccer', tint: '#B0E4CC' },
-        { label: 'attendance', value: `${playerAttendance}%`, icon: 'checkmark.circle.fill', tint: '#408A71' },
-        { label: 'rating', value: arditRating.toFixed(1), icon: 'star.fill', tint: '#f5a623' },
-        { label: 'health', value: ardit.health, icon: 'monitor-heart', tint: '#2fbf71' },
+        { labelKey: 'stats.jersey', value: `#${ardit.number}`, icon: 'figure.soccer', tint: '#B0E4CC' },
+        { labelKey: 'stats.attendance', value: `${playerAttendance}%`, icon: 'checkmark.circle.fill', tint: '#408A71' },
+        { labelKey: 'stats.rating', value: arditRating.toFixed(1), icon: 'star.fill', tint: '#f5a623' },
+        { labelKey: 'stats.health', value: t(`health.${ardit.health}`), icon: 'monitor-heart', tint: '#2fbf71' },
       ];
     case 'parent':
       return [
-        { label: 'children', value: '1', icon: 'person.2.fill', tint: '#B0E4CC' },
+        { labelKey: 'stats.children', value: '1', icon: 'person.2.fill', tint: '#B0E4CC' },
         {
-          label: 'unpaid fees',
+          labelKey: 'stats.unpaidFees',
           value: String(parentFees.filter((f) => f.status === 'unpaid').length),
           icon: 'dollarsign.circle.fill',
           tint: '#f5a623',
         },
         {
-          label: 'active injuries',
+          labelKey: 'stats.activeInjuries',
           value: String(
             ALL_INJURIES.filter((i) => i.player === 'Agon Gashi' && i.status !== 'recovered').length
           ),
@@ -129,10 +130,10 @@ function roleStats(role: Role): Stat[] {
       ];
     case 'financier':
       return [
-        { label: 'collected', value: `€${agg.sums.paid}`, icon: 'dollarsign.circle.fill', tint: '#2fbf71' },
-        { label: 'unpaid', value: `€${agg.sums.unpaid}`, icon: 'clock.fill', tint: '#f5a623' },
-        { label: 'delayed', value: `€${agg.sums.delayed}`, icon: 'warning', tint: '#8f86e8' },
-        { label: 'critical', value: `€${agg.sums.critical}`, icon: 'receipt', tint: '#E24B4A' },
+        { labelKey: 'stats.collected', value: `€${agg.sums.paid}`, icon: 'dollarsign.circle.fill', tint: '#2fbf71' },
+        { labelKey: 'stats.unpaid', value: `€${agg.sums.unpaid}`, icon: 'clock.fill', tint: '#f5a623' },
+        { labelKey: 'stats.delayed', value: `€${agg.sums.delayed}`, icon: 'warning', tint: '#8f86e8' },
+        { labelKey: 'stats.critical', value: `€${agg.sums.critical}`, icon: 'receipt', tint: '#E24B4A' },
       ];
   }
 }
@@ -142,16 +143,17 @@ function SectionTitle({ children }: { children: ReactNode }) {
 }
 
 function StatGrid({ role }: { role: Role }) {
+  const { t } = useLanguage();
   return (
     <View style={styles.statsGrid}>
-      {roleStats(role).map((s) => (
-        <View key={s.label} style={styles.statCard}>
+      {roleStats(role, t).map((s) => (
+        <View key={s.labelKey} style={styles.statCard}>
           <View style={[styles.statIcon, { backgroundColor: `${s.tint}1f` }]}>
             <IconSymbol name={s.icon} size={18} color={s.tint} />
           </View>
           <View>
             <Text style={styles.statValue}>{s.value}</Text>
-            <Text style={styles.statLabel}>{s.label}</Text>
+            <Text style={styles.statLabel}>{t(s.labelKey)}</Text>
           </View>
         </View>
       ))}
@@ -161,19 +163,21 @@ function StatGrid({ role }: { role: Role }) {
 
 function FinanceCard({ role }: { role: Role }) {
   const router = useRouter();
+  const { t } = useLanguage();
   const agg = feeAgg(feesForRole(role));
   return (
     <Pressable style={styles.financeCard} onPress={() => router.push('/fees')}>
-      <StatCell value={`€${agg.sums.paid}`} label="collected" color={TONE_COLORS.emerald} />
-      <StatCell value={`€${agg.sums.unpaid}`} label="unpaid" color={TONE_COLORS.warning} />
-      <StatCell value={`€${agg.sums.delayed}`} label="delayed" color={TONE_COLORS.purple} />
-      <StatCell value={`€${agg.sums.critical}`} label="critical" color={TONE_COLORS.danger} />
+      <StatCell value={`€${agg.sums.paid}`} label={t('stats.collected')} color={TONE_COLORS.emerald} />
+      <StatCell value={`€${agg.sums.unpaid}`} label={t('stats.unpaid')} color={TONE_COLORS.warning} />
+      <StatCell value={`€${agg.sums.delayed}`} label={t('stats.delayed')} color={TONE_COLORS.purple} />
+      <StatCell value={`€${agg.sums.critical}`} label={t('stats.critical')} color={TONE_COLORS.danger} />
     </Pressable>
   );
 }
 
 function UpcomingMatchList() {
   const router = useRouter();
+  const { t } = useLanguage();
   if (upcomingMatches.length === 0) return null;
   return (
     <View style={styles.list}>
@@ -181,7 +185,7 @@ function UpcomingMatchList() {
         <ListRow
           key={m.id}
           title={m.opponent}
-          subtitle={`${m.competition} · ${m.venue === 'home' ? 'Home' : 'Away'}`}
+          subtitle={`${t(`competition.${m.competition.toLowerCase()}`)} · ${t(`venue.${m.venue}`)}`}
           leading={<DateTile day={m.day} month={m.month} color={m.color} />}
           trailing={
             <View style={styles.timeRow}>
@@ -224,29 +228,30 @@ function NotifList() {
 
 function AdminSections() {
   const router = useRouter();
+  const { t } = useLanguage();
   return (
     <>
-      <SectionTitle>finances</SectionTitle>
+      <SectionTitle>{t('sections.finances')}</SectionTitle>
       <FinanceCard role="administrator" />
 
-      <SectionTitle>squad sizes</SectionTitle>
+      <SectionTitle>{t('sections.squadSizes')}</SectionTitle>
       <Pressable style={styles.card} onPress={() => router.push('/teams')}>
-        {ALL_TEAMS.map((t) => (
+        {ALL_TEAMS.map((team) => (
           <StatBar
-            key={t.id}
-            label={t.name}
-            value={t.members.length}
+            key={team.id}
+            label={team.name}
+            value={team.members.length}
             max={12}
-            color={t.color}
-            display={`${t.members.length} registered`}
+            color={team.color}
+            display={t('sections.registered', { count: team.members.length })}
           />
         ))}
       </Pressable>
 
-      <SectionTitle>upcoming matches</SectionTitle>
+      <SectionTitle>{t('sections.upcomingMatches')}</SectionTitle>
       <UpcomingMatchList />
 
-      <SectionTitle>recent activity</SectionTitle>
+      <SectionTitle>{t('sections.recentActivity')}</SectionTitle>
       <NotifList />
     </>
   );
@@ -254,6 +259,7 @@ function AdminSections() {
 
 function TrainerSections() {
   const router = useRouter();
+  const { t } = useLanguage();
   const today = ALL_TRAININGS[0];
   const rows = TRAINING_ATTENDANCE[today.id] ?? [];
   const counts = {
@@ -264,19 +270,20 @@ function TrainerSections() {
   const overdueNames = [
     ...new Set(feesForRole('trainer').filter((f) => f.status !== 'paid').map((f) => f.name)),
   ];
+  const fieldLabel = (field: string) => t(`field.${field.toLowerCase().replace(/\s+/g, '')}`);
 
   return (
     <>
-      <SectionTitle>next training</SectionTitle>
+      <SectionTitle>{t('sections.nextTraining')}</SectionTitle>
       <Pressable style={styles.infoCard} onPress={() => router.push('/trainings')}>
         <DateTile day={today.day} month={today.month} color={TONE_COLORS[today.tone]} />
         <View style={styles.infoBody}>
           <Text style={styles.infoLabel}>
-            {today.field} · {today.time}
+            {fieldLabel(today.field)} · {today.time}
           </Text>
-          <Text style={styles.infoTitle}>{today.type} training</Text>
+          <Text style={styles.infoTitle}>{t(`trainings.${today.type.toLowerCase()}`)}</Text>
           <Text style={styles.infoSub}>
-            {today.present}/{today.total} present
+            {t('sections.presentCount', { present: today.present, total: today.total })}
           </Text>
         </View>
         <IconSymbol name="chevron.right" size={18} color={Colors.textMuted} />
@@ -290,7 +297,7 @@ function TrainerSections() {
               style={[styles.attCount, { backgroundColor: `${TONE_COLORS[ATT_STATUS[s].tone]}1a` }]}>
               <IconSymbol name={ATT_STATUS[s].icon} size={13} color={TONE_COLORS[ATT_STATUS[s].tone]} />
               <Text style={[styles.attCountText, { color: TONE_COLORS[ATT_STATUS[s].tone] }]}>
-                {counts[s]} {s}
+                {counts[s]} {t(`attendance.${s}`)}
               </Text>
             </View>
           ))}
@@ -309,19 +316,19 @@ function TrainerSections() {
         </View>
       </View>
 
-      <SectionTitle>this week&apos;s trainings</SectionTitle>
+      <SectionTitle>{t('sections.thisWeekTrainings')}</SectionTitle>
       <View style={styles.list}>
-        {ALL_TRAININGS.map((t) => (
+        {ALL_TRAININGS.map((tr) => (
           <ListRow
-            key={t.id}
-            title={`${t.type} training`}
-            subtitle={`${t.field} · ${t.time}`}
-            leading={<DateTile day={t.day} month={t.month} color={TONE_COLORS[t.tone]} />}
+            key={tr.id}
+            title={t(`trainings.${tr.type.toLowerCase()}`)}
+            subtitle={`${fieldLabel(tr.field)} · ${tr.time}`}
+            leading={<DateTile day={tr.day} month={tr.month} color={TONE_COLORS[tr.tone]} />}
             trailing={
               <View style={styles.timeRow}>
-                <IconSymbol name="person.2.fill" size={13} color={TONE_COLORS[t.tone]} />
+                <IconSymbol name="person.2.fill" size={13} color={TONE_COLORS[tr.tone]} />
                 <Text style={styles.time}>
-                  {t.present}/{t.total}
+                  {tr.present}/{tr.total}
                 </Text>
               </View>
             }
@@ -330,35 +337,40 @@ function TrainerSections() {
         ))}
       </View>
 
-      <SectionTitle>upcoming matches</SectionTitle>
+      <SectionTitle>{t('sections.upcomingMatches')}</SectionTitle>
       <UpcomingMatchList />
 
-      <SectionTitle>active injuries</SectionTitle>
+      <SectionTitle>{t('sections.activeInjuries')}</SectionTitle>
       <View style={styles.list}>
         {activeInjuries.map((i) => (
           <ListRow
             key={i.id}
             title={i.player}
-            subtitle={`${i.type} · return ${i.expected}`}
+            subtitle={`${i.type} · ${t('injuries.return', { expected: i.expected })}`}
             leading={<InitialsTile initials={i.initials} color={i.color} />}
-            trailing={<StatusChip label={i.status} tone={i.status === 'injured' ? 'danger' : 'warning'} />}
+            trailing={
+              <StatusChip
+                label={t(`health.${i.status}`)}
+                tone={i.status === 'injured' ? 'danger' : 'warning'}
+              />
+            }
             onPress={() => router.push(`/injury?id=${i.id}`)}
           />
         ))}
       </View>
 
-      <SectionTitle>fees needing attention</SectionTitle>
+      <SectionTitle>{t('sections.feesNeedingAttention')}</SectionTitle>
       <Pressable style={styles.infoCard} onPress={() => router.push('/fees')}>
         <IconTile icon="clock.fill" color={TONE_COLORS.warning} />
         <View style={styles.infoBody}>
-          <Text style={styles.infoLabel}>overdue & unpaid</Text>
-          <Text style={styles.infoTitle}>{overdueNames.length} players</Text>
-          <Text style={styles.infoSub}>fees to follow up on</Text>
+          <Text style={styles.infoLabel}>{t('sections.overdueUnpaid')}</Text>
+          <Text style={styles.infoTitle}>{t('sections.playersCount', { count: overdueNames.length })}</Text>
+          <Text style={styles.infoSub}>{t('sections.followUp')}</Text>
         </View>
         <IconSymbol name="chevron.right" size={18} color={Colors.textMuted} />
       </Pressable>
 
-      <SectionTitle>recent notifications</SectionTitle>
+      <SectionTitle>{t('sections.recentNotifications')}</SectionTitle>
       <NotifList />
     </>
   );
@@ -366,15 +378,16 @@ function TrainerSections() {
 
 function PlayerSections() {
   const router = useRouter();
+  const { t } = useLanguage();
   const season = PLAYER_SEASON['Ardit Llapashtica'];
   return (
     <>
-      <SectionTitle>season so far</SectionTitle>
+      <SectionTitle>{t('sections.seasonSoFar')}</SectionTitle>
       <Pressable style={styles.financeCard} onPress={() => router.push('/stats')}>
-        <StatCell value={String(season.goals)} label="goals" color={Colors.mint} />
-        <StatCell value={String(season.assists)} label="assists" color={TONE_COLORS.emerald} />
-        <StatCell value={String(season.matches)} label="matches" color={TONE_COLORS.info} />
-        <StatCell value={`${season.minutes}m`} label="minutes" color={TONE_COLORS.warning} />
+        <StatCell value={String(season.goals)} label={t('stats.goals')} color={Colors.mint} />
+        <StatCell value={String(season.assists)} label={t('stats.assists')} color={TONE_COLORS.emerald} />
+        <StatCell value={String(season.matches)} label={t('stats.matches')} color={TONE_COLORS.info} />
+        <StatCell value={`${season.minutes}m`} label={t('stats.minutes')} color={TONE_COLORS.warning} />
       </Pressable>
     </>
   );
@@ -382,45 +395,46 @@ function PlayerSections() {
 
 function FinanceSections() {
   const router = useRouter();
+  const { t } = useLanguage();
   const fees = feesForRole('financier');
   const agg = feeAgg(fees);
   const recent = fees.filter((f) => f.month === 'Sep' && f.status === 'paid');
   const critical = fees.filter((f) => f.status === 'critical');
   return (
     <>
-      <SectionTitle>status breakdown</SectionTitle>
+      <SectionTitle>{t('sections.statusBreakdown')}</SectionTitle>
       <View style={styles.statusGrid}>
         {(['paid', 'unpaid', 'delayed', 'critical'] as const).map((s) => (
           <View key={s} style={styles.statusCard}>
             <Text style={[styles.statusCount, { color: TONE_COLORS[STATUS_TONE[s]] }]}>{agg.counts[s]}</Text>
-            <Text style={styles.statusLabel}>{s}</Text>
+            <Text style={styles.statusLabel}>{t(`status.${s}`)}</Text>
           </View>
         ))}
       </View>
 
-      <SectionTitle>recent payments</SectionTitle>
+      <SectionTitle>{t('sections.recentPayments')}</SectionTitle>
       <View style={styles.list}>
         {recent.map((f) => (
           <ListRow
             key={f.id}
             title={f.name}
-            subtitle={`${f.month} · ${f.amount}`}
+            subtitle={`${t(`month.${f.month.toUpperCase()}`)} · ${f.amount}`}
             leading={<InitialsTile initials={f.initials} color={f.color} />}
-            trailing={<StatusChip label="paid" tone="emerald" />}
+            trailing={<StatusChip label={t('status.paid')} tone="emerald" />}
             onPress={() => router.push('/fees')}
           />
         ))}
       </View>
 
-      <SectionTitle>critical fees</SectionTitle>
+      <SectionTitle>{t('sections.criticalFees')}</SectionTitle>
       <View style={styles.list}>
         {critical.map((f) => (
           <ListRow
             key={f.id}
             title={f.name}
-            subtitle={`${f.month} · ${f.amount}`}
+            subtitle={`${t(`month.${f.month.toUpperCase()}`)} · ${f.amount}`}
             leading={<InitialsTile initials={f.initials} color={f.color} />}
-            trailing={<StatusChip label="critical" tone="danger" />}
+            trailing={<StatusChip label={t('status.critical')} tone="danger" />}
             onPress={() => router.push('/fees')}
           />
         ))}

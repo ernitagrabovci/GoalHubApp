@@ -5,6 +5,7 @@ import { Animated, Easing, Image, Pressable, StyleSheet, Text, View } from 'reac
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Colors, Fonts, Spacing } from '@/constants/theme';
+import { useLanguage } from '@/lib/i18n';
 
 const PLAY_OFFSET_S = 3;
 const DISMISS_AFTER_PLAY_MS = 3500;
@@ -13,6 +14,7 @@ const MAX_WAIT_MS = 7000;
 export default function IntroScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { t } = useLanguage();
   const [videoReady, setVideoReady] = useState(false);
 
   const fade1 = useRef(new Animated.Value(0)).current;
@@ -103,18 +105,18 @@ export default function IntroScreen() {
 
       <View style={[styles.overlay, { top: insets.top + 96 }]} pointerEvents="none">
         <Animated.View style={[styles.line, { opacity: fade1, transform: [{ translateX: slide1 }] }]}>
-          <Text style={styles.kicker}>welcome to</Text>
+          <Text style={styles.kicker}>{t('intro.welcomeTo')}</Text>
         </Animated.View>
         <Animated.View style={[styles.line, styles.titleLine, { opacity: fade2, transform: [{ translateX: slide2 }] }]}>
           <Text style={styles.title}>goalhub</Text>
         </Animated.View>
         <Animated.View style={[styles.line, { opacity: fade3, transform: [{ translateX: slide3 }] }]}>
-          <Text style={styles.tagline}>elevate every match, track every moment</Text>
+          <Text style={styles.tagline}>{t('intro.tagline')}</Text>
         </Animated.View>
       </View>
 
       <View style={[styles.bottomRight, { bottom: insets.bottom + 24 }]} pointerEvents="none">
-        <Text style={styles.footerText}>football management reimagined</Text>
+        <Text style={styles.footerText}>{t('intro.footer')}</Text>
       </View>
 
       <Pressable
@@ -122,7 +124,7 @@ export default function IntroScreen() {
         hitSlop={12}
         style={[styles.skip, { top: insets.top + 12 }]}
       >
-        <Text style={styles.skipText}>skip</Text>
+        <Text style={styles.skipText}>{t('intro.skip')}</Text>
       </Pressable>
     </View>
   );

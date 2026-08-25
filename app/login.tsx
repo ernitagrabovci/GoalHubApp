@@ -15,6 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { IconSymbol, type IconSymbolName } from '@/components/ui/icon-symbol';
 import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
+import { useLanguage } from '@/lib/i18n';
 import { useSession, type Role } from '@/lib/session';
 
 type Mode = 'signin' | 'signup';
@@ -30,6 +31,7 @@ const ROLE_OPTIONS: { role: Role; icon: IconSymbolName; label: string; color: st
 export default function LoginScreen() {
   const router = useRouter();
   const { signIn } = useSession();
+  const { t } = useLanguage();
 
   const [mode, setMode] = useState<Mode>('signin');
   const [role, setRole] = useState<Role>('administrator');
@@ -81,17 +83,17 @@ export default function LoginScreen() {
             <Text style={styles.wordmark}>goalhub</Text>
           </View>
 
-          <Text style={styles.heroTitle}>{mode === 'signin' ? 'welcome back' : 'join the club'}</Text>
+          <Text style={styles.heroTitle}>
+            {mode === 'signin' ? t('login.welcomeBack') : t('login.joinClub')}
+          </Text>
           <Text style={styles.heroSubtitle}>
-            {mode === 'signin'
-              ? 'sign in to your club account'
-              : 'create your account to get started'}
+            {mode === 'signin' ? t('login.signInSub') : t('login.signUpSub')}
           </Text>
 
           {/* Mode switch */}
           <View style={styles.segment}>
-            <ModeTab active={mode === 'signin'} label="sign in" onPress={() => setMode('signin')} />
-            <ModeTab active={mode === 'signup'} label="create account" onPress={() => setMode('signup')} />
+            <ModeTab active={mode === 'signin'} label={t('login.signIn')} onPress={() => setMode('signin')} />
+            <ModeTab active={mode === 'signup'} label={t('login.createAccount')} onPress={() => setMode('signup')} />
           </View>
 
           <View style={styles.card}>
@@ -99,7 +101,7 @@ export default function LoginScreen() {
               <Field
                 id="name"
                 icon="person.fill"
-                placeholder="full name"
+                placeholder={t('login.fullName')}
                 value={name}
                 onChangeText={setName}
                 focused={focused}
@@ -110,7 +112,7 @@ export default function LoginScreen() {
             <Field
               id="email"
               icon="mail"
-              placeholder="email"
+              placeholder={t('login.email')}
               keyboardType="email-address"
               autoCapitalize="none"
               value={email}
@@ -122,7 +124,7 @@ export default function LoginScreen() {
             <Field
               id="password"
               icon="lock"
-              placeholder="password"
+              placeholder={t('login.password')}
               secureTextEntry={!showPassword}
               value={password}
               onChangeText={setPassword}
@@ -143,15 +145,15 @@ export default function LoginScreen() {
               <View style={styles.rowBetween}>
                 <View style={styles.row}>
                   <IconSymbol name="checkmark.circle.fill" size={14} color={Colors.textMuted} />
-                  <Text style={styles.hint}>remember me</Text>
+                  <Text style={styles.hint}>{t('login.rememberMe')}</Text>
                 </View>
-                <Text style={styles.link}>forgot password?</Text>
+                <Text style={styles.link}>{t('login.forgotPassword')}</Text>
               </View>
             )}
 
             {/* Demo role selection */}
             <View style={styles.roleSection}>
-              <Text style={styles.roleLabel}>demo preview — choose a role</Text>
+              <Text style={styles.roleLabel}>{t('login.chooseRole')}</Text>
               <View style={styles.roleGrid}>
                 {ROLE_OPTIONS.map((opt) => {
                   const active = role === opt.role;
@@ -167,7 +169,9 @@ export default function LoginScreen() {
                       <View style={[styles.roleIcon, { backgroundColor: `${opt.color}22` }]}>
                         <IconSymbol name={opt.icon} size={16} color={opt.color} />
                       </View>
-                      <Text style={[styles.roleText, active && { color: Colors.text }]}>{opt.label}</Text>
+                      <Text style={[styles.roleText, active && { color: Colors.text }]}>
+                        {t(`role.${opt.role}`)}
+                      </Text>
                     </Pressable>
                   );
                 })}
@@ -176,13 +180,13 @@ export default function LoginScreen() {
 
             <Pressable style={[styles.primary, { backgroundColor: role ? ROLE_OPTIONS.find((o) => o.role === role)!.color : Colors.mint }]} onPress={submit}>
               <Text style={styles.primaryText}>
-                {mode === 'signin' ? 'sign in' : 'create account'}
+                {mode === 'signin' ? t('login.signIn') : t('login.createAccount')}
               </Text>
               <IconSymbol name="arrow.right" size={20} color={Colors.textOnPrimary} />
             </Pressable>
 
             <Text style={styles.footerNote}>
-              demo preview · no account required · data stays on this device
+              {t('login.footer')}
             </Text>
           </View>
         </ScrollView>
