@@ -8,6 +8,7 @@ import { ListScreen } from '@/components/list-screen';
 import { StatusTone, TONE_COLORS } from '@/components/status-chip';
 import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
 import { ALL_TRAININGS, type Training } from '@/lib/data';
+import { useLanguage } from '@/lib/i18n';
 import { useSession } from '@/lib/session';
 import { usePersistedState } from '@/lib/storage';
 
@@ -21,6 +22,7 @@ const TONE_BY_TYPE: Record<string, StatusTone> = {
 const MONTHS = ['AUG', 'SEP'];
 
 function NewTrainingForm({ onDone }: { onDone: (t: Training) => void }) {
+  const { t } = useLanguage();
   const [type, setType] = useState<string>(TRAIN_TYPES[0]);
   const [day, setDay] = useState('');
   const [month, setMonth] = useState<string>(MONTHS[1]);
@@ -30,11 +32,11 @@ function NewTrainingForm({ onDone }: { onDone: (t: Training) => void }) {
   const submit = () => {
     const d = parseInt(day.trim(), 10);
     if (!Number.isFinite(d) || d < 1 || d > 31) {
-      alert('Enter a valid day of the month.');
+      alert(t('trainings.alertDay'));
       return;
     }
     if (!time.trim() || !field.trim()) {
-      alert('Enter a start time and a training field.');
+      alert(t('trainings.alertTime'));
       return;
     }
     onDone({
@@ -52,16 +54,18 @@ function NewTrainingForm({ onDone }: { onDone: (t: Training) => void }) {
 
   return (
     <View style={styles.formCard}>
-      <Text style={styles.fieldLabel}>type</Text>
+      <Text style={styles.fieldLabel}>{t('trainings.formType')}</Text>
       <View style={styles.wrap}>
-        {TRAIN_TYPES.map((t) => {
-          const selected = type === t;
+        {TRAIN_TYPES.map((ty) => {
+          const selected = type === ty;
           return (
             <Pressable
-              key={t}
-              onPress={() => setType(t)}
+              key={ty}
+              onPress={() => setType(ty)}
               style={[styles.chip, selected && styles.chipActive]}>
-              <Text style={[styles.chipText, selected && styles.chipTextActive]}>{t}</Text>
+              <Text style={[styles.chipText, selected && styles.chipTextActive]}>
+                {t(`trainings.${ty.toLowerCase()}`)}
+              </Text>
             </Pressable>
           );
         })}
@@ -70,7 +74,7 @@ function NewTrainingForm({ onDone }: { onDone: (t: Training) => void }) {
         <View style={[styles.inputBox, styles.dayBox]}>
           <TextInput
             style={styles.input}
-            placeholder="Day"
+            placeholder={t('trainings.formDay')}
             placeholderTextColor={Colors.textMuted}
             value={day}
             onChangeText={setDay}
@@ -85,7 +89,9 @@ function NewTrainingForm({ onDone }: { onDone: (t: Training) => void }) {
                 key={m}
                 onPress={() => setMonth(m)}
                 style={[styles.chip, selected && styles.chipActive]}>
-                <Text style={[styles.chipText, selected && styles.chipTextActive]}>{m}</Text>
+                <Text style={[styles.chipText, selected && styles.chipTextActive]}>
+                  {t(`month.${m}`)}
+                </Text>
               </Pressable>
             );
           })}
@@ -95,7 +101,7 @@ function NewTrainingForm({ onDone }: { onDone: (t: Training) => void }) {
         <View style={[styles.inputBox, styles.timeBox]}>
           <TextInput
             style={styles.input}
-            placeholder="Time e.g. 09:00"
+            placeholder={t('trainings.formTime')}
             placeholderTextColor={Colors.textMuted}
             value={time}
             onChangeText={setTime}
@@ -105,7 +111,7 @@ function NewTrainingForm({ onDone }: { onDone: (t: Training) => void }) {
         <View style={[styles.inputBox, styles.fieldBox]}>
           <TextInput
             style={styles.input}
-            placeholder="Field"
+            placeholder={t('trainings.formField')}
             placeholderTextColor={Colors.textMuted}
             value={field}
             onChangeText={setField}
@@ -115,7 +121,7 @@ function NewTrainingForm({ onDone }: { onDone: (t: Training) => void }) {
       </View>
       <Pressable style={styles.submitBtn} onPress={submit}>
         <IconSymbol name="plus" size={16} color={Colors.textOnPrimary} />
-        <Text style={styles.submitBtnText}>add training</Text>
+        <Text style={styles.submitBtnText}>{t('trainings.addTraining')}</Text>
       </Pressable>
     </View>
   );
@@ -123,6 +129,7 @@ function NewTrainingForm({ onDone }: { onDone: (t: Training) => void }) {
 
 export default function TrainingsScreen() {
   const router = useRouter();
+  const { t } = useLanguage();
   const { user } = useSession();
   const canPlan = user?.role === 'administrator' || user?.role === 'trainer';
   const [trainings, setTrainings] = usePersistedState<Training[]>('trainings:list', ALL_TRAININGS);
@@ -131,41 +138,47 @@ export default function TrainingsScreen() {
     <ListScreen back
       icon="calendar"
       accent="#B0E4CC"
-      title="trainings"
-      subtitle={`${trainings.length} this week · attendance tracked`}
+      title={t('trainings.title')}
+      subtitle={t('trainings.subtitle', { count: trainings.length })}
       searchable
-      searchPlaceholder="Search by type or field…"
+      searchPlaceholder={t('trainings.search')}
       items={trainings}
-      itemKey={(t) => t.id}
-      searchKeys={(t) => `${t.type} ${t.field}`}
-      renderItem={(t) => {
-        const color = TONE_COLORS[t.tone];
+      itemKey={(tr) => tr.id}
+      searchKeys={(tr) => `${tr.type} ${tr.field}`}
+      renderItem={(tr) => {
+        const color = TONE_COLORS[tr.tone];
         return (
           <ListRow
-            title={`${t.type} training`}
-            subtitle={`${t.field} · ${t.time}`}
-            leading={<DateTile day={t.day} month={t.month} color={color} />}
+            title={t(`trainings.${tr.type.toLowerCase()}`)}
+            subtitle={`${tr.field} · ${tr.time}`}
+            leading={<DateTile day={tr.day} month={tr.month} color={color} />}
             trailing={
               <View style={styles.presence}>
                 <IconSymbol name="person.2.fill" size={16} color={color} />
                 <Text style={[styles.presenceText, { color }]}>
-                  {t.present}/{t.total}
+                  {tr.present}/{tr.total}
                 </Text>
               </View>
             }
-            onPress={() => router.push(`/training?id=${t.id}`)}
+            onPress={() => router.push(`/training?id=${tr.id}`)}
           />
         );
       }}
-      actionLabel={canPlan ? 'new training' : undefined}
+      actionLabel={canPlan ? t('trainings.newTraining') : undefined}
       actionForm={
         canPlan
           ? (close) => (
               <NewTrainingForm
-                onDone={(t) => {
-                  setTrainings((prev) => [t, ...prev]);
+                onDone={(tr) => {
+                  setTrainings((prev) => [tr, ...prev]);
                   close();
-                  alert(`${t.type} training added for ${t.day} ${t.month}.`);
+                  alert(
+                    t('trainings.alertAdded', {
+                      type: t(`trainings.${tr.type.toLowerCase()}`),
+                      day: tr.day,
+                      month: tr.month,
+                    }),
+                  );
                 }}
               />
             )

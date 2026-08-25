@@ -4,7 +4,9 @@ import { StyleSheet, Text, View } from 'react-native';
 import { InitialsTile, ListRow } from '@/components/list-row';
 import { ListScreen } from '@/components/list-screen';
 import { Colors, Fonts, Radius } from '@/constants/theme';
-import { ALL_PLAYERS, ALL_RATINGS, type Rating } from '@/lib/data';
+import { ALL_PLAYERS, type Rating } from '@/lib/data';
+import { useLanguage } from '@/lib/i18n';
+import { ratingsStore, useCollection } from '@/lib/store';
 
 function playerId(name: string) {
   return ALL_PLAYERS.find((p) => p.name === name)?.id ?? '';
@@ -28,15 +30,17 @@ function RatingRow({ rating, onPress }: { rating: Rating; onPress: () => void })
 
 export default function RatingsScreen() {
   const router = useRouter();
-  const sorted = [...ALL_RATINGS].sort((a, b) => b.average - a.average);
+  const { t } = useLanguage();
+  const ratings = useCollection(ratingsStore);
+  const sorted = [...ratings].sort((a, b) => b.average - a.average);
   return (
     <ListScreen back
       icon="star.fill"
       accent="#f5a623"
-      title="ratings"
-      subtitle="5-criteria · ranked by average"
+      title={t('ratings.title')}
+      subtitle={t('ratings.subtitle')}
       searchable
-      searchPlaceholder="Search players…"
+      searchPlaceholder={t('ratings.search')}
       items={sorted}
       itemKey={(r) => r.id}
       searchKeys={(r) => `${r.player} ${r.by}`}
@@ -49,7 +53,7 @@ export default function RatingsScreen() {
           }}
         />
       )}
-      emptyText="No ratings match that search."
+      emptyText={t('ratings.empty')}
     />
   );
 }

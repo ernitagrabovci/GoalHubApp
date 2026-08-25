@@ -7,6 +7,7 @@ import { StatusChip, type StatusTone } from '@/components/status-chip';
 import { IconSymbol, type IconSymbolName } from '@/components/ui/icon-symbol';
 import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
 import { ALL_EXPENSES, type Expense, type ExpenseStatus } from '@/lib/data';
+import { useLanguage } from '@/lib/i18n';
 import { usePersistedState } from '@/lib/storage';
 
 const STATUS_TONE: Record<ExpenseStatus, StatusTone> = {
@@ -30,6 +31,7 @@ function amountOf(amount: string) {
 }
 
 export default function ExpensesScreen() {
+  const { t } = useLanguage();
   const month = 'Sep';
   const [expenses, setExpenses] = usePersistedState<Expense[]>('expenses:list', ALL_EXPENSES);
   const [title, setTitle] = useState('');
@@ -51,7 +53,7 @@ export default function ExpensesScreen() {
   const add = () => {
     const value = parseInt(amount.trim(), 10);
     if (!title.trim() || !Number.isFinite(value) || value <= 0) {
-      alert('Enter a title and an amount.');
+      alert(t('expenses.alertName'));
       return;
     }
     setExpenses((prev) => [
@@ -60,7 +62,7 @@ export default function ExpensesScreen() {
     ]);
     setTitle('');
     setAmount('');
-    alert(`"${title.trim()}" added to expenses.`);
+    alert(t('expenses.alertAdded', { title: title.trim() }));
   };
 
   return (
@@ -68,24 +70,24 @@ export default function ExpensesScreen() {
       <DetailHead
         icon="receipt"
         accent="#408A71"
-        title="expenses"
-        subtitle={`club spending · ${month} · FC Prishtina`}
+        title={t('expenses.title')}
+        subtitle={t('expenses.subtitle', { month })}
       />
 
       <View style={styles.statsRow}>
-        <StatCell value={`€${total}`} label="this month" color={Colors.emerald} />
-        <StatCell value={String(monthExpenses.length)} label="records" />
-        <StatCell value={String(pending)} label="pending" color="#f5a623" />
+        <StatCell value={`€${total}`} label={t('expenses.thisMonth')} color={Colors.emerald} />
+        <StatCell value={String(monthExpenses.length)} label={t('expenses.records')} />
+        <StatCell value={String(pending)} label={t('expenses.pending')} color="#f5a623" />
       </View>
 
-      <SectionLabel>by category · {month}</SectionLabel>
+      <SectionLabel>{t('expenses.byCategory', { month })}</SectionLabel>
       <View style={styles.rowsCard}>
         {byCategory.map(([cat, amount]) => {
           const meta = CATEGORY_META[cat] ?? { icon: 'receipt' as const, color: Colors.textMuted };
           return (
             <View key={cat} style={styles.row}>
               <IconTile icon={meta.icon} color={meta.color} size={34} />
-              <Text style={styles.rowLabel}>{cat}</Text>
+              <Text style={styles.rowLabel}>{t(`expenses.category.${cat}`)}</Text>
               <Text style={styles.rowAmount}>€{amount}</Text>
             </View>
           );
@@ -93,11 +95,11 @@ export default function ExpensesScreen() {
       </View>
 
       {/* Add expense */}
-      <SectionLabel>add expense</SectionLabel>
+      <SectionLabel>{t('expenses.addExpense')}</SectionLabel>
       <View style={styles.formCard}>
         <TextInput
           style={styles.input}
-          placeholder="e.g. Referee fees — home match"
+          placeholder={t('expenses.titlePlaceholder')}
           placeholderTextColor={Colors.textMuted}
           value={title}
           onChangeText={setTitle}
@@ -113,7 +115,7 @@ export default function ExpensesScreen() {
                 onPress={() => setCategory(c)}
                 style={[styles.chip, selected && { backgroundColor: meta.color, borderColor: meta.color }]}>
                 <IconSymbol name={meta.icon} size={13} color={selected ? Colors.textOnPrimary : meta.color} />
-                <Text style={[styles.chipText, selected && { color: Colors.textOnPrimary }]}>{c}</Text>
+                <Text style={[styles.chipText, selected && { color: Colors.textOnPrimary }]}>{t(`expenses.category.${c}`)}</Text>
               </Pressable>
             );
           })}
@@ -134,7 +136,7 @@ export default function ExpensesScreen() {
             style={[styles.statusBtn, newStatus === 'pending' && styles.statusBtnPending]}
             onPress={() => setNewStatus(newStatus === 'pending' ? 'paid' : 'pending')}>
             <Text style={[styles.statusBtnText, newStatus === 'pending' && { color: Colors.textOnPrimary }]}>
-              {newStatus}
+              {t(`expenses.status.${newStatus}`)}
             </Text>
           </Pressable>
           <Pressable style={styles.addBtn} onPress={add}>
@@ -143,10 +145,10 @@ export default function ExpensesScreen() {
         </View>
       </View>
 
-      <SectionLabel>all expenses</SectionLabel>
+      <SectionLabel>{t('expenses.allExpenses')}</SectionLabel>
       <View style={styles.list}>
         {expenses.length === 0 ? (
-          <Text style={styles.empty}>No expenses recorded yet.</Text>
+          <Text style={styles.empty}>{t('expenses.empty')}</Text>
         ) : (
           expenses.map((e) => {
             const meta = CATEGORY_META[e.category] ?? { icon: 'receipt' as const, color: Colors.textMuted };
@@ -156,11 +158,11 @@ export default function ExpensesScreen() {
                 <View style={styles.expenseBody}>
                   <Text style={styles.expenseTitle}>{e.title}</Text>
                   <Text style={styles.expenseMeta}>
-                    {e.month} · {e.category}
+                    {e.month} · {t(`expenses.category.${e.category}`)}
                   </Text>
                 </View>
                 <Text style={styles.expenseAmount}>{e.amount}</Text>
-                <StatusChip label={e.status} tone={STATUS_TONE[e.status]} />
+                <StatusChip label={t(`expenses.status.${e.status}`)} tone={STATUS_TONE[e.status]} />
               </View>
             );
           })

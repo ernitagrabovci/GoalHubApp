@@ -150,6 +150,7 @@ export function feesForRole(role: Role): Fee[] {
 
 export type Match = {
   id: string;
+  teamId: string;
   day: string;
   month: string;
   opponent: string;
@@ -162,11 +163,11 @@ export type Match = {
 };
 
 export const ALL_MATCHES: Match[] = [
-  { id: 'ma1', day: '20', month: 'AUG', opponent: 'FC Ballkani', competition: 'Superliga', venue: 'home', status: 'played', score: '2 – 1', color: '#B0E4CC' },
-  { id: 'ma2', day: '16', month: 'AUG', opponent: 'KF Drita', competition: 'Superliga', venue: 'away', status: 'played', score: '1 – 1', color: '#408A71' },
-  { id: 'ma3', day: '27', month: 'AUG', opponent: 'KF Llapi', competition: 'Superliga', venue: 'home', status: 'upcoming', time: '19:00', color: '#86C2A4' },
-  { id: 'ma4', day: '31', month: 'AUG', opponent: 'KF Feronikeli', competition: 'Cup', venue: 'away', status: 'upcoming', time: '17:00', color: '#f5a623' },
-  { id: 'ma5', day: '10', month: 'AUG', opponent: 'KF Gjilani', competition: 'Superliga', venue: 'home', status: 'played', score: '3 – 0', color: '#5aa7e6' },
+  { id: 'ma1', teamId: 'tm1', day: '20', month: 'AUG', opponent: 'FC Ballkani', competition: 'Superliga', venue: 'home', status: 'played', score: '2 – 1', color: '#B0E4CC' },
+  { id: 'ma2', teamId: 'tm1', day: '16', month: 'AUG', opponent: 'KF Drita', competition: 'Superliga', venue: 'away', status: 'played', score: '1 – 1', color: '#408A71' },
+  { id: 'ma3', teamId: 'tm1', day: '27', month: 'AUG', opponent: 'KF Llapi', competition: 'Superliga', venue: 'home', status: 'upcoming', time: '19:00', color: '#86C2A4' },
+  { id: 'ma4', teamId: 'tm1', day: '31', month: 'AUG', opponent: 'KF Feronikeli', competition: 'Cup', venue: 'away', status: 'upcoming', time: '17:00', color: '#f5a623' },
+  { id: 'ma5', teamId: 'tm1', day: '10', month: 'AUG', opponent: 'KF Gjilani', competition: 'Superliga', venue: 'home', status: 'played', score: '3 – 0', color: '#5aa7e6' },
 ];
 
 export type Drill = {

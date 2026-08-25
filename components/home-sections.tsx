@@ -10,11 +10,9 @@ import { IconSymbol, type IconSymbolName } from '@/components/ui/icon-symbol';
 import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
 import { useLanguage } from '@/lib/i18n';
 import {
-  ALL_INJURIES,
   ALL_MATCHES,
   ALL_NOTIFICATIONS,
   ALL_PLAYERS,
-  ALL_RATINGS,
   ALL_TEAMS,
   ALL_TRAININGS,
   PLAYER_SEASON,
@@ -23,8 +21,11 @@ import {
   type AttendanceStatus,
   type Fee,
   type FeeStatus,
+  type Injury,
+  type Rating,
 } from '@/lib/data';
 import type { Role } from '@/lib/session';
+import { injuriesStore, ratingsStore, useCollection } from '@/lib/store';
 
 const STATUS_TONE: Record<FeeStatus, StatusTone> = {
   paid: 'emerald',
@@ -46,7 +47,6 @@ const NOTIF_ICON: Record<string, { icon: IconSymbolName; color: string }> = {
   message: { icon: 'bubble.left.fill', color: TONE_COLORS.emerald },
 };
 
-const activeInjuries = ALL_INJURIES.filter((i) => i.status !== 'recovered');
 const upcomingMatches = ALL_MATCHES.filter((m) => m.status === 'upcoming');
 const attendancePct = Math.round(
   (ALL_TRAININGS.reduce((s, t) => s + t.present, 0) /
@@ -78,15 +78,16 @@ function feeAgg(fees: Fee[]) {
 
 type Stat = { labelKey: string; value: string; icon: IconSymbolName; tint: string };
 
-function roleStats(role: Role, t: (key: string) => string): Stat[] {
+function roleStats(role: Role, t: (key: string) => string, injuries: Injury[], ratings: Rating[]): Stat[] {
   const allFees = feesForRole(role);
   const agg = feeAgg(allFees);
   const ardit = ALL_PLAYERS.find((p) => p.name === 'Ardit Llapashtica') ?? ALL_PLAYERS[0];
-  const arditRating = ALL_RATINGS.find((r) => r.player === ardit.name)?.average ?? ardit.rating;
+  const arditRating = ratings.find((r) => r.player === ardit.name)?.average ?? ardit.rating;
   const parentFees = feesForRole('parent');
   const sepIncome = allFees
     .filter((f) => f.month === 'Sep' && f.status === 'paid')
     .reduce((s, f) => s + amount(f), 0);
+  const activeCount = injuries.filter((i) => i.status !== 'recovered').length;
 
   switch (role) {
     case 'administrator':
@@ -94,14 +95,14 @@ function roleStats(role: Role, t: (key: string) => string): Stat[] {
         { labelKey: 'stats.players', value: String(ALL_PLAYERS.length), icon: 'person.2.fill', tint: '#B0E4CC' },
         { labelKey: 'stats.teams', value: String(ALL_TEAMS.length), icon: 'trophy.fill', tint: '#408A71' },
         { labelKey: 'stats.income', value: `€${sepIncome}`, icon: 'dollarsign.circle.fill', tint: '#2fbf71' },
-        { labelKey: 'stats.injuries', value: String(activeInjuries.length), icon: 'stethoscope', tint: '#E24B4A' },
+        { labelKey: 'stats.injuries', value: String(activeCount), icon: 'stethoscope', tint: '#E24B4A' },
       ];
     case 'trainer':
       return [
         { labelKey: 'stats.players', value: String(ALL_PLAYERS.length), icon: 'person.2.fill', tint: '#B0E4CC' },
         { labelKey: 'stats.trainings', value: String(ALL_TRAININGS.length), icon: 'calendar', tint: '#408A71' },
         { labelKey: 'stats.attendance', value: `${attendancePct}%`, icon: 'checkmark.circle.fill', tint: '#2fbf71' },
-        { labelKey: 'stats.injuries', value: String(activeInjuries.length), icon: 'stethoscope', tint: '#E24B4A' },
+        { labelKey: 'stats.injuries', value: String(activeCount), icon: 'stethoscope', tint: '#E24B4A' },
       ];
     case 'player':
       return [
@@ -122,7 +123,7 @@ function roleStats(role: Role, t: (key: string) => string): Stat[] {
         {
           labelKey: 'stats.activeInjuries',
           value: String(
-            ALL_INJURIES.filter((i) => i.player === 'Agon Gashi' && i.status !== 'recovered').length
+            injuries.filter((i) => i.player === 'Agon Gashi' && i.status !== 'recovered').length
           ),
           icon: 'stethoscope',
           tint: '#E24B4A',
@@ -144,9 +145,11 @@ function SectionTitle({ children }: { children: ReactNode }) {
 
 function StatGrid({ role }: { role: Role }) {
   const { t } = useLanguage();
+  const injuries = useCollection(injuriesStore);
+  const ratings = useCollection(ratingsStore);
   return (
     <View style={styles.statsGrid}>
-      {roleStats(role, t).map((s) => (
+      {roleStats(role, t, injuries, ratings).map((s) => (
         <View key={s.labelKey} style={styles.statCard}>
           <View style={[styles.statIcon, { backgroundColor: `${s.tint}1f` }]}>
             <IconSymbol name={s.icon} size={18} color={s.tint} />
@@ -260,6 +263,7 @@ function AdminSections() {
 function TrainerSections() {
   const router = useRouter();
   const { t } = useLanguage();
+  const activeInjuries = useCollection(injuriesStore).filter((i) => i.status !== 'recovered');
   const today = ALL_TRAININGS[0];
   const rows = TRAINING_ATTENDANCE[today.id] ?? [];
   const counts = {

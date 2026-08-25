@@ -5,6 +5,7 @@ import { Screen, DetailHead, SectionLabel, StatCell } from '@/components/screen'
 import { StatusChip, type StatusTone } from '@/components/status-chip';
 import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
 import { ALL_TRAININGS, TRAINING_ATTENDANCE, type AttendanceStatus } from '@/lib/data';
+import { useLanguage } from '@/lib/i18n';
 
 const STATUS_TONE: Record<AttendanceStatus, StatusTone> = {
   present: 'emerald',
@@ -13,6 +14,7 @@ const STATUS_TONE: Record<AttendanceStatus, StatusTone> = {
 };
 
 export default function ChildAttendanceScreen() {
+  const { t } = useLanguage();
   const rows = ALL_TRAININGS.map((t) => {
     const roster = TRAINING_ATTENDANCE[t.id] ?? [];
     const mine = roster.find((r) => r.initials === 'AG');
@@ -26,31 +28,31 @@ export default function ChildAttendanceScreen() {
       <DetailHead
         icon="calendar"
         accent="#408A71"
-        title="attendance"
-        subtitle="Agon Gashi · training log"
+        title={t('childAttendance.title')}
+        subtitle={t('childAttendance.subtitle', { name: 'Agon Gashi' })}
       />
 
       <View style={styles.summary}>
-        <StatCell value={`${present}/${rows.length}`} label="present" color={Colors.emerald} />
+        <StatCell value={`${present}/${rows.length}`} label={t('childAttendance.present')} color={Colors.emerald} />
         <StatCell
           value={`${Math.round((present / Math.max(rows.length, 1)) * 100)}%`}
-          label="rate"
+          label={t('childAttendance.rate')}
         />
       </View>
 
-      <SectionLabel>training log</SectionLabel>
+      <SectionLabel>{t('childAttendance.trainingLog')}</SectionLabel>
       <View style={styles.list}>
         {rows.map(({ training, status, reason }) => (
           <View key={training.id} style={styles.row}>
             <DateTile day={training.day} month={training.month} color={Colors.mint} />
             <View style={styles.body}>
-              <Text style={styles.title}>{training.type} training</Text>
+              <Text style={styles.title}>{t(`trainings.${training.type.toLowerCase()}`)}</Text>
               <Text style={styles.meta}>
                 {training.field} · {training.time}
                 {reason ? ` · ${reason}` : ''}
               </Text>
             </View>
-            <StatusChip label={status} tone={STATUS_TONE[status]} />
+            <StatusChip label={t(`attendance.${status}`)} tone={STATUS_TONE[status]} />
           </View>
         ))}
       </View>

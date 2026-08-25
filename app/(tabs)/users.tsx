@@ -7,7 +7,8 @@ import { Screen, DetailHead, SectionLabel } from '@/components/screen';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
 import { ALL_USERS, type AppUser } from '@/lib/data';
-import { ROLE_LABELS, type Role } from '@/lib/session';
+import { useLanguage } from '@/lib/i18n';
+import { type Role } from '@/lib/session';
 import { usePersistedState } from '@/lib/storage';
 
 const ROLE_COLOR: Record<Role, string> = {
@@ -22,6 +23,7 @@ const ROLE_FILTERS: (Role | 'all')[] = ['all', 'administrator', 'trainer', 'play
 
 export default function UsersScreen() {
   const router = useRouter();
+  const { t } = useLanguage();
   const [users, setUsers] = usePersistedState<AppUser[]>('users:list', ALL_USERS);
   const [filter, setFilter] = useState<Role | 'all'>('all');
   const [showForm, setShowForm] = useState(false);
@@ -39,7 +41,7 @@ export default function UsersScreen() {
 
   const addUser = () => {
     if (!name.trim() || !email.trim()) {
-      alert('Enter a name and an email.');
+      alert(t('users.alertName'));
       return;
     }
     const initials = name
@@ -65,7 +67,7 @@ export default function UsersScreen() {
     setName('');
     setEmail('');
     setShowForm(false);
-    alert(`${name.trim()} added as ${ROLE_LABELS[newRole].toLowerCase()}.`);
+    alert(t('users.alertAdded', { name: name.trim(), role: t(`role.${newRole}`) }));
   };
 
   return (
@@ -73,8 +75,8 @@ export default function UsersScreen() {
       <DetailHead
         icon="person.fill"
         accent="#1a9e5c"
-        title="users"
-        subtitle={`${users.length} accounts · manage roles & access`}
+        title={t('users.title')}
+        subtitle={t('users.subtitle', { count: users.length })}
       />
 
       {/* Role filter */}
@@ -85,7 +87,7 @@ export default function UsersScreen() {
             onPress={() => setFilter(r)}
             style={[styles.filterChip, filter === r && styles.filterChipActive]}>
             <Text style={[styles.filterText, filter === r && styles.filterTextActive]}>
-              {r === 'all' ? 'all' : ROLE_LABELS[r]}
+              {r === 'all' ? t('users.all') : t(`role.${r}`)}
             </Text>
           </Pressable>
         ))}
@@ -93,10 +95,10 @@ export default function UsersScreen() {
 
       {showForm ? (
         <View style={styles.formCard}>
-          <Text style={styles.fieldLabel}>new account</Text>
+          <Text style={styles.fieldLabel}>{t('users.newAccount')}</Text>
           <TextInput
             style={styles.input}
-            placeholder="Full name"
+            placeholder={t('users.fullName')}
             placeholderTextColor={Colors.textMuted}
             value={name}
             onChangeText={setName}
@@ -104,14 +106,14 @@ export default function UsersScreen() {
           />
           <TextInput
             style={styles.input}
-            placeholder="Email"
+            placeholder={t('users.email')}
             placeholderTextColor={Colors.textMuted}
             value={email}
             onChangeText={setEmail}
             autoCapitalize="none"
             autoCorrect={false}
           />
-          <Text style={styles.fieldLabel}>role</Text>
+          <Text style={styles.fieldLabel}>{t('users.role')}</Text>
           <View style={styles.wrap}>
             {(Object.keys(ROLE_COLOR) as Role[]).map((r) => {
               const selected = newRole === r;
@@ -121,7 +123,7 @@ export default function UsersScreen() {
                   onPress={() => setNewRole(r)}
                   style={[styles.chip, selected && { backgroundColor: ROLE_COLOR[r], borderColor: ROLE_COLOR[r] }]}>
                   <Text style={[styles.chipText, selected && { color: Colors.textOnPrimary }]}>
-                    {ROLE_LABELS[r].toLowerCase()}
+                    {t(`role.${r}`)}
                   </Text>
                 </Pressable>
               );
@@ -129,30 +131,32 @@ export default function UsersScreen() {
           </View>
           <Pressable style={styles.submitBtn} onPress={addUser}>
             <IconSymbol name="plus" size={16} color={Colors.textOnPrimary} />
-            <Text style={styles.submitBtnText}>create account</Text>
+            <Text style={styles.submitBtnText}>{t('users.createAccount')}</Text>
           </Pressable>
         </View>
       ) : null}
 
-      <SectionLabel>{filter === 'all' ? 'accounts' : ROLE_LABELS[filter]} users</SectionLabel>
+      <SectionLabel>
+        {filter === 'all' ? t('users.sectionAll') : t('users.sectionRole', { role: t(`role.${filter}`) })}
+      </SectionLabel>
       <View style={styles.list}>
         {filtered.map((u) => (
           <ListRow
             key={u.id}
             title={u.name}
-            subtitle={`${u.email} · active ${u.lastLogin}`}
+            subtitle={t('users.rowMeta', { email: u.email, lastLogin: u.lastLogin })}
             leading={<InitialsTile initials={u.initials} color={ROLE_COLOR[u.role]} />}
             trailing={
               <View style={styles.trailing}>
                 <View style={[styles.roleChip, { borderColor: `${ROLE_COLOR[u.role]}55` }]}>
                   <View style={[styles.roleDot, { backgroundColor: ROLE_COLOR[u.role] }]} />
                   <Text style={[styles.roleText, { color: ROLE_COLOR[u.role] }]}>
-                    {ROLE_LABELS[u.role]}
+                    {t(`role.${u.role}`)}
                   </Text>
                 </View>
                 <Pressable onPress={() => toggleActive(u.id)} hitSlop={8}>
                   <Text style={[styles.activeText, { color: u.active ? Colors.emerald : Colors.textMuted }]}>
-                    {u.active ? 'active' : 'inactive'}
+                    {t(u.active ? 'users.active' : 'users.inactive')}
                   </Text>
                 </Pressable>
               </View>
@@ -164,7 +168,7 @@ export default function UsersScreen() {
 
       <Pressable style={styles.action} onPress={() => setShowForm((s) => !s)}>
         <IconSymbol name={showForm ? 'xmark' : 'plus'} size={18} color={Colors.textOnPrimary} />
-        <Text style={styles.actionText}>{showForm ? 'close form' : 'add user'}</Text>
+        <Text style={styles.actionText}>{showForm ? t('common.closeForm') : t('users.addUser')}</Text>
       </Pressable>
     </Screen>
   );

@@ -8,7 +8,8 @@ import { StatusChip } from '@/components/status-chip';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
 import { ALL_USERS } from '@/lib/data';
-import { ROLE_LABELS, ROLE_ORDER, type Role } from '@/lib/session';
+import { useLanguage } from '@/lib/i18n';
+import { ROLE_ORDER, type Role } from '@/lib/session';
 
 const ROLE_COLOR: Record<Role, string> = {
   administrator: '#1a9e5c',
@@ -20,16 +21,17 @@ const ROLE_COLOR: Record<Role, string> = {
 
 export default function UserScreen() {
   const router = useRouter();
+  const { t } = useLanguage();
   const { id } = useLocalSearchParams<{ id?: string }>();
   const source = ALL_USERS.find((u) => u.id === id) ?? ALL_USERS[0];
   const [role, setRole] = useState<Role>(source.role);
   const [active, setActive] = useState(source.active);
 
   const activity = [
-    { when: 'today', detail: 'Signed in' },
-    { when: '3d ago', detail: 'Updated profile picture' },
-    { when: '1w ago', detail: 'Signed in' },
-    { when: '2w ago', detail: 'Account created' },
+    { when: t('user.actToday'), detail: t('user.actSignedIn') },
+    { when: t('user.act3d'), detail: t('user.actProfile') },
+    { when: t('user.act1w'), detail: t('user.actSignedIn') },
+    { when: t('user.act2w'), detail: t('user.actCreated') },
   ];
 
   return (
@@ -42,46 +44,46 @@ export default function UserScreen() {
           <Text style={styles.email}>{source.email}</Text>
           <Text style={styles.club}>{source.club}</Text>
           <View style={styles.statusRow}>
-            <StatusChip label={active ? 'active' : 'inactive'} tone={active ? 'emerald' : 'muted'} />
+            <StatusChip label={t(active ? 'users.active' : 'users.inactive')} tone={active ? 'emerald' : 'muted'} />
             <View style={[styles.roleChip, { borderColor: `${ROLE_COLOR[role]}55` }]}>
               <View style={[styles.roleDot, { backgroundColor: ROLE_COLOR[role] }]} />
-              <Text style={[styles.roleText, { color: ROLE_COLOR[role] }]}>{ROLE_LABELS[role]}</Text>
+              <Text style={[styles.roleText, { color: ROLE_COLOR[role] }]}>{t(`role.${role}`)}</Text>
             </View>
           </View>
         </View>
       </View>
 
-      <SectionLabel>change role</SectionLabel>
+      <SectionLabel>{t('user.changeRole')}</SectionLabel>
       <View style={styles.chips}>
         {ROLE_ORDER.map((r) => (
           <Pressable
             key={r}
             onPress={() => {
               setRole(r);
-              alert(`${source.name} reassigned to ${ROLE_LABELS[r]}.`);
+              alert(t('user.alertReassign', { name: source.name, role: t(`role.${r}`) }));
             }}
             style={[styles.chip, role === r && { backgroundColor: ROLE_COLOR[r], borderColor: ROLE_COLOR[r] }]}>
             <Text style={[styles.chipText, role === r && styles.chipTextActive]}>
-              {ROLE_LABELS[r]}
+              {t(`role.${r}`)}
             </Text>
           </Pressable>
         ))}
       </View>
 
-      <SectionLabel>account</SectionLabel>
+      <SectionLabel>{t('user.account')}</SectionLabel>
       <Pressable style={styles.toggleRow} onPress={() => setActive((v) => !v)}>
         <View style={[styles.toggle, active && styles.toggleOn]}>
           <View style={[styles.toggleKnob, active && styles.toggleKnobOn]} />
         </View>
         <View style={styles.toggleBody}>
-          <Text style={styles.toggleTitle}>active account</Text>
+          <Text style={styles.toggleTitle}>{t('user.activeAccount')}</Text>
           <Text style={styles.toggleSub}>
-            {active ? 'This user can sign in and use the app.' : 'This user is blocked from signing in.'}
+            {t(active ? 'user.activeSub' : 'user.inactiveSub')}
           </Text>
         </View>
       </Pressable>
 
-      <SectionLabel>activity</SectionLabel>
+      <SectionLabel>{t('user.activity')}</SectionLabel>
       <View style={styles.rowsCard}>
         {activity.map((a) => (
           <View key={a.when} style={styles.row}>
@@ -94,11 +96,11 @@ export default function UserScreen() {
       <Pressable
         style={styles.deleteBtn}
         onPress={() => {
-          alert(`${source.name}'s account scheduled for deletion.`);
+          alert(t('user.alertDelete', { name: source.name }));
           router.back();
         }}>
         <IconSymbol name="trash" size={16} color={Colors.danger} />
-        <Text style={styles.deleteText}>remove account</Text>
+        <Text style={styles.deleteText}>{t('user.removeAccount')}</Text>
       </Pressable>
     </Screen>
   );

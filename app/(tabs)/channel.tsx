@@ -17,9 +17,11 @@ import { InitialsTile } from '@/components/list-row';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
 import { CHANNEL_POSTS, type ChannelPost } from '@/lib/data';
+import { useLanguage } from '@/lib/i18n';
 
 export default function ChannelScreen() {
   const router = useRouter();
+  const { t } = useLanguage();
   const [posts, setPosts] = useState<ChannelPost[]>(CHANNEL_POSTS);
   const [draft, setDraft] = useState('');
   const scrollRef = useRef<ScrollView>(null);
@@ -52,8 +54,8 @@ export default function ChannelScreen() {
         </Pressable>
         <InitialsTile initials="RH" color="#2fbf71" size={36} />
         <View style={styles.headerBody}>
-          <Text style={styles.headerTitle}>team channel</Text>
-          <Text style={styles.headerSub}>everyone in the squad sees this</Text>
+          <Text style={styles.headerTitle}>{t('channel.teamChannel')}</Text>
+          <Text style={styles.headerSub}>{t('channel.subtitle')}</Text>
         </View>
       </View>
 
@@ -87,7 +89,7 @@ export default function ChannelScreen() {
         <View style={styles.composer}>
           <TextInput
             style={styles.input}
-            placeholder="Message the squad…"
+            placeholder={t('channel.messagePlaceholder')}
             placeholderTextColor={Colors.textMuted}
             value={draft}
             onChangeText={setDraft}

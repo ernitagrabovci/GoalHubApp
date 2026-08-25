@@ -5,6 +5,7 @@ import { InitialsTile } from '@/components/list-row';
 import { Screen, SectionLabel, StatCell } from '@/components/screen';
 import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
 import { ALL_PLAYERS, TRAINING_ATTENDANCE } from '@/lib/data';
+import { useLanguage } from '@/lib/i18n';
 
 function barColor(pct: number) {
   if (pct >= 90) return '#2fbf71';
@@ -15,6 +16,7 @@ function barColor(pct: number) {
 
 export default function AttendanceScreen() {
   const router = useRouter();
+  const { t } = useLanguage();
   const trainings = Object.values(TRAINING_ATTENDANCE);
   const totalSessions = trainings.length;
 
@@ -36,12 +38,12 @@ export default function AttendanceScreen() {
   return (
     <Screen back>
       <View style={styles.summary}>
-        <StatCell value={`${teamPct}%`} label="team avg" />
-        <StatCell value={String(totalSessions)} label="sessions" />
-        <StatCell value={String(rows.filter((r) => r.pct >= 90).length)} label="≥ 90%" color="#2fbf71" />
+        <StatCell value={`${teamPct}%`} label={t('attendance.teamAvg')} />
+        <StatCell value={String(totalSessions)} label={t('attendance.sessions')} />
+        <StatCell value={String(rows.filter((r) => r.pct >= 90).length)} label={t('attendance.threshold')} color="#2fbf71" />
       </View>
 
-      <SectionLabel>by player</SectionLabel>
+      <SectionLabel>{t('attendance.byPlayer')}</SectionLabel>
       <View style={styles.list}>
         {rows.map(({ player, pct }) => (
           <Pressable

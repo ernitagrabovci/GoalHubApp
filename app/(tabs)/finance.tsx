@@ -6,7 +6,8 @@ import { Ring, StatBar } from '@/components/chart';
 import { Screen, DetailHead, StatCell, SectionLabel } from '@/components/screen';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
-import { feesForRole } from '@/lib/data';
+import { feesForRole, type Fee } from '@/lib/data';
+import { useLanguage } from '@/lib/i18n';
 
 const STATUS_COLOR: Record<'paid' | 'unpaid' | 'delayed' | 'critical', string> = {
   paid: Colors.emerald,
@@ -17,6 +18,7 @@ const STATUS_COLOR: Record<'paid' | 'unpaid' | 'delayed' | 'critical', string> =
 
 export default function FinanceScreen() {
   const router = useRouter();
+  const { t } = useLanguage();
   const fees = feesForRole('administrator');
 
   const stats = useMemo(() => {
@@ -27,28 +29,33 @@ export default function FinanceScreen() {
   }, [fees]);
 
   const summary = [
-    { status: 'paid' as const, label: 'paid', count: stats.paid },
-    { status: 'unpaid' as const, label: 'unpaid', count: fees.filter((f) => f.status === 'unpaid').length },
-    { status: 'delayed' as const, label: 'delayed', count: fees.filter((f) => f.status === 'delayed').length },
-    { status: 'critical' as const, label: 'critical', count: stats.critical },
+    { status: 'paid' as const, count: stats.paid },
+    { status: 'unpaid' as const, count: fees.filter((f) => f.status === 'unpaid').length },
+    { status: 'delayed' as const, count: fees.filter((f) => f.status === 'delayed').length },
+    { status: 'critical' as const, count: stats.critical },
   ];
 
   const month = fees[0]?.month ?? 'Sep';
+
+  const amountOf = (f: Fee) => parseInt(f.amount.replace(/\D/g, ''), 10) || 0;
+  const collected = fees
+    .filter((f) => f.month === month && f.status === 'paid')
+    .reduce((sum, f) => sum + amountOf(f), 0);
 
   return (
     <Screen back>
       <DetailHead
         icon="dollarsign.circle.fill"
         accent={Colors.emerald}
-        title="finance"
-        subtitle={`membership fees · ${month} · FC Prishtina`}
+        title={t('finance.title')}
+        subtitle={t('finance.subtitle', { month })}
       />
 
       {/* Overview */}
       <View style={styles.statsRow}>
-        <StatCell value={String(stats.paid)} label="paid" color={Colors.emerald} />
-        <StatCell value={String(stats.unpaid)} label="pending" color="#f5a623" />
-        <StatCell value={String(stats.critical)} label="critical" color={Colors.danger} />
+        <StatCell value={String(stats.paid)} label={t('status.paid')} color={Colors.emerald} />
+        <StatCell value={String(stats.unpaid)} label={t('finance.pending')} color="#f5a623" />
+        <StatCell value={String(stats.critical)} label={t('status.critical')} color={Colors.danger} />
       </View>
       <View style={styles.collectedCard}>
         <View style={styles.collectedLeft}>
@@ -56,9 +63,11 @@ export default function FinanceScreen() {
             <IconSymbol name="dollarsign.circle.fill" size={20} color={Colors.emerald} />
           </View>
           <View style={styles.collectedBody}>
-            <Text style={styles.collectedLabel}>collected this month</Text>
-            <Text style={styles.collectedValue}>€8,420</Text>
-            <Text style={styles.collectedSub}>{stats.total} fee records · {month}</Text>
+            <Text style={styles.collectedLabel}>{t('finance.collectedThisMonth')}</Text>
+            <Text style={styles.collectedValue}>€{collected.toLocaleString()}</Text>
+            <Text style={styles.collectedSub}>
+              {t('finance.feeRecords', { total: stats.total, month })}
+            </Text>
           </View>
         </View>
         <Ring
@@ -67,17 +76,17 @@ export default function FinanceScreen() {
           progress={stats.total ? stats.paid / stats.total : 0}
           color={Colors.emerald}
           label={`${stats.total ? Math.round((stats.paid / stats.total) * 100) : 0}%`}
-          sublabel="paid"
+          sublabel={t('status.paid')}
         />
       </View>
 
       {/* Status breakdown */}
-      <SectionLabel>status breakdown</SectionLabel>
+      <SectionLabel>{t('sections.statusBreakdown')}</SectionLabel>
       <View style={styles.breakdownCard}>
         {summary.map((s) => (
           <StatBar
             key={s.status}
-            label={s.label}
+            label={t(`status.${s.status}`)}
             value={s.count}
             max={stats.total || 1}
             color={STATUS_COLOR[s.status]}
@@ -88,15 +97,15 @@ export default function FinanceScreen() {
 
       <Pressable style={styles.primaryBtn} onPress={() => router.push('/fees')}>
         <IconSymbol name="receipt" size={18} color={Colors.textOnPrimary} />
-        <Text style={styles.primaryBtnText}>view all fees</Text>
+        <Text style={styles.primaryBtnText}>{t('finance.viewAllFees')}</Text>
       </Pressable>
       <Pressable style={styles.secondaryBtn} onPress={() => router.push('/expenses')}>
         <IconSymbol name="hammer.fill" size={18} color={Colors.mint} />
-        <Text style={styles.secondaryBtnText}>club expenses</Text>
+        <Text style={styles.secondaryBtnText}>{t('finance.clubExpenses')}</Text>
       </Pressable>
       <Pressable style={styles.secondaryBtn} onPress={() => router.push('/reports')}>
         <IconSymbol name="chart.bar.fill" size={18} color={Colors.mint} />
-        <Text style={styles.secondaryBtnText}>finance reports</Text>
+        <Text style={styles.secondaryBtnText}>{t('finance.financeReports')}</Text>
       </Pressable>
     </Screen>
   );

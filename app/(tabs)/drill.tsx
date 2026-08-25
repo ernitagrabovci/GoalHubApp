@@ -6,6 +6,7 @@ import { Screen, SectionLabel } from '@/components/screen';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
 import { ALL_DRILLS } from '@/lib/data';
+import { useLanguage } from '@/lib/i18n';
 
 const LEVEL_COLOR: Record<string, string> = {
   beginner: '#2fbf71',
@@ -15,23 +16,24 @@ const LEVEL_COLOR: Record<string, string> = {
 
 export default function DrillScreen() {
   const router = useRouter();
+  const { t } = useLanguage();
   const { id } = useLocalSearchParams<{ id?: string }>();
   const drill = ALL_DRILLS.find((d) => d.id === id) ?? ALL_DRILLS[0];
 
   const phases = [
     {
       time: '5 min',
-      title: 'Warm-up',
+      title: t('drill.warmup'),
       detail: `Light jog and progressive movement patterns to prepare the legs before the ${drill.category.toLowerCase()} work.`,
     },
     {
       time: drill.duration,
-      title: `Main — ${drill.title}`,
+      title: t('drill.phaseMain', { title: drill.title }),
       detail: `${drill.focus}. Organise ${drill.players} players, keep the tempo high and correct the details on the fly.`,
     },
     {
       time: '5 min',
-      title: 'Cool-down',
+      title: t('drill.coolDown'),
       detail: 'Slow jog and static stretching. Recap the two or three coaching points that mattered most today.',
     },
   ];
@@ -43,10 +45,10 @@ export default function DrillScreen() {
   ];
 
   const infoRows = [
-    { label: 'duration', value: drill.duration },
-    { label: 'players', value: drill.players },
-    { label: 'focus', value: drill.focus },
-    { label: 'level', value: drill.level },
+    { label: t('drill.duration'), value: drill.duration },
+    { label: t('drill.players'), value: drill.players },
+    { label: t('drill.focus'), value: drill.focus },
+    { label: t('drill.level'), value: t(`level.${drill.level}`) },
   ];
 
   return (
@@ -57,15 +59,15 @@ export default function DrillScreen() {
         <View style={styles.cardBody}>
           <Text style={styles.title}>{drill.title}</Text>
           <Text style={styles.subtitle}>
-            {drill.category} · {drill.focus}
+            {t(`category.${drill.category}`)} · {drill.focus}
           </Text>
           <View style={[styles.levelChip, { backgroundColor: `${LEVEL_COLOR[drill.level]}1a`, borderColor: `${LEVEL_COLOR[drill.level]}45` }]}>
-            <Text style={[styles.levelText, { color: LEVEL_COLOR[drill.level] }]}>{drill.level}</Text>
+            <Text style={[styles.levelText, { color: LEVEL_COLOR[drill.level] }]}>{t(`level.${drill.level}`)}</Text>
           </View>
         </View>
       </View>
 
-      <SectionLabel>details</SectionLabel>
+      <SectionLabel>{t('drill.details')}</SectionLabel>
       <View style={styles.rowsCard}>
         {infoRows.map((r) => (
           <View key={r.label} style={styles.row}>
@@ -75,7 +77,7 @@ export default function DrillScreen() {
         ))}
       </View>
 
-      <SectionLabel>session plan</SectionLabel>
+      <SectionLabel>{t('drill.sessionPlan')}</SectionLabel>
       <View style={styles.phasesCard}>
         {phases.map((p, i) => (
           <View key={p.title} style={[styles.phase, i < phases.length - 1 && styles.phaseBorder]}>
@@ -88,7 +90,7 @@ export default function DrillScreen() {
         ))}
       </View>
 
-      <SectionLabel>coaching points</SectionLabel>
+      <SectionLabel>{t('drill.coachingPoints')}</SectionLabel>
       <View style={styles.pointsCard}>
         {coaching.map((c, i) => (
           <View key={i} style={styles.pointRow}>
@@ -101,11 +103,11 @@ export default function DrillScreen() {
       <Pressable
         style={styles.runBtn}
         onPress={() => {
-          alert(`${drill.title} added to the next training session.`);
+          alert(t('drill.alertAdded', { title: drill.title }));
           router.back();
         }}>
         <IconSymbol name="plus" size={18} color={Colors.textOnPrimary} />
-        <Text style={styles.runBtnText}>add to session</Text>
+        <Text style={styles.runBtnText}>{t('drill.addToSession')}</Text>
       </Pressable>
     </Screen>
   );

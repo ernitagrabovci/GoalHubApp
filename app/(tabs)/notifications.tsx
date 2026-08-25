@@ -6,6 +6,7 @@ import { Screen, DetailHead, SectionLabel } from '@/components/screen';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
 import { ALL_NOTIFICATIONS, type AppNotification } from '@/lib/data';
+import { useLanguage } from '@/lib/i18n';
 
 const TYPE_ICON: Record<string, { icon: 'stethoscope' | 'figure.soccer' | 'star.fill' | 'bubble.left.fill'; color: string }> = {
   injury_registered: { icon: 'stethoscope', color: '#E24B4A' },
@@ -15,6 +16,7 @@ const TYPE_ICON: Record<string, { icon: 'stethoscope' | 'figure.soccer' | 'star.
 };
 
 export default function NotificationsScreen() {
+  const { t } = useLanguage();
   const [items, setItems] = useState<AppNotification[]>(ALL_NOTIFICATIONS);
   const unread = items.filter((n) => !n.read).length;
 
@@ -28,21 +30,21 @@ export default function NotificationsScreen() {
       <DetailHead
         icon="notifications"
         accent="#F5A623"
-        title="notifications"
-        subtitle={unread ? `${unread} unread · tap to mark read` : 'all caught up'}
+        title={t('notifications.title')}
+        subtitle={unread ? t('notifications.unreadTap', { unread }) : t('notifications.allCaughtUp')}
       />
 
       <View style={styles.links}>
         <Pressable style={styles.link} onPress={markAllRead}>
           <IconSymbol name="checkmark.circle.fill" size={16} color="#2fbf71" />
-          <Text style={styles.linkText}>mark all read</Text>
+          <Text style={styles.linkText}>{t('notifications.markAllRead')}</Text>
         </Pressable>
       </View>
 
-      <SectionLabel>{unread ? 'unread' : 'inbox'}</SectionLabel>
+      <SectionLabel>{t(unread ? 'notifications.unread' : 'notifications.inbox')}</SectionLabel>
       <View style={styles.list}>
         {items.length === 0 ? (
-          <Text style={styles.empty}>No notifications yet.</Text>
+          <Text style={styles.empty}>{t('notifications.empty')}</Text>
         ) : (
           items.map((n) => {
             const meta = TYPE_ICON[n.type] ?? { icon: 'notifications' as const, color: Colors.textMuted };

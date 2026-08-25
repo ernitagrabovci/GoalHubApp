@@ -7,6 +7,7 @@ import { StatusChip, type StatusTone } from '@/components/status-chip';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
 import { ALL_TRAININGS, TRAINING_ATTENDANCE, type AttendanceStatus, type AttRow } from '@/lib/data';
+import { useLanguage } from '@/lib/i18n';
 import { useSession } from '@/lib/session';
 import { usePersistedState } from '@/lib/storage';
 
@@ -14,12 +15,6 @@ const STATUS_TONE: Record<AttendanceStatus, StatusTone> = {
   present: 'emerald',
   absent: 'danger',
   unconfirmed: 'warning',
-};
-
-const STATUS_LABEL: Record<AttendanceStatus, string> = {
-  present: 'present',
-  absent: 'absent',
-  unconfirmed: 'unconfirmed',
 };
 
 const NEXT: Record<AttendanceStatus, AttendanceStatus> = {
@@ -30,6 +25,7 @@ const NEXT: Record<AttendanceStatus, AttendanceStatus> = {
 
 export default function TrainingScreen() {
   const router = useRouter();
+  const { t } = useLanguage();
   const { user } = useSession();
   const role = user?.role ?? 'administrator';
   const isPlayer = role === 'player';
@@ -67,13 +63,15 @@ export default function TrainingScreen() {
       <View style={styles.infoCard}>
         <DateTile day={training.day} month={training.month} color={Colors.mint} />
         <View style={styles.infoBody}>
-          <Text style={styles.type}>{training.type} training</Text>
+          <Text style={styles.type}>{t(`trainings.${training.type.toLowerCase()}`)}</Text>
           <Text style={styles.meta}>
             {training.field} · {training.time}
           </Text>
           <View style={styles.presentRow}>
             <IconSymbol name="person.2.fill" size={14} color={Colors.mint} />
-            <Text style={styles.presentText}>{present}/{rows.length} present</Text>
+            <Text style={styles.presentText}>
+              {t('sections.presentCount', { present, total: rows.length })}
+            </Text>
           </View>
         </View>
       </View>
@@ -81,19 +79,19 @@ export default function TrainingScreen() {
       {/* Player: my attendance confirmation */}
       {isPlayer ? (
         <>
-          <SectionLabel>my attendance</SectionLabel>
+          <SectionLabel>{t('training.myAttendance')}</SectionLabel>
           <View style={styles.myCard}>
             <InitialsTile initials="AL" color="#B0E4CC" size={42} />
             <View style={styles.myBody}>
               <Text style={styles.myName}>Ardit Llapashtica</Text>
               <Text style={styles.myMeta}>
-                {training.type} training · {training.day} {training.month}
+                {t(`trainings.${training.type.toLowerCase()}`)} · {training.day} {training.month}
               </Text>
               {myStatus === 'absent' && myReason ? (
                 <Text style={styles.myReason}>{myReason}</Text>
               ) : null}
             </View>
-            <StatusChip label={STATUS_LABEL[myStatus]} tone={STATUS_TONE[myStatus]} />
+            <StatusChip label={t(`attendance.${myStatus}`)} tone={STATUS_TONE[myStatus]} />
           </View>
 
           <View style={styles.myActions}>
@@ -103,10 +101,14 @@ export default function TrainingScreen() {
                 onPress={() => {
                   setMyStatus('present');
                   setMyReason(undefined);
-                  alert(`Presence confirmed for ${training.type} training.`);
+                  alert(
+                    t('training.alertConfirmed', {
+                      type: t(`trainings.${training.type.toLowerCase()}`),
+                    }),
+                  );
                 }}>
                 <IconSymbol name="checkmark.circle.fill" size={17} color={Colors.textOnPrimary} />
-                <Text style={styles.myBtnText}>confirm presence</Text>
+                <Text style={styles.myBtnText}>{t('training.confirmPresence')}</Text>
               </Pressable>
             ) : null}
             {myStatus !== 'absent' ? (
@@ -114,11 +116,13 @@ export default function TrainingScreen() {
                 style={[styles.myBtn, styles.myBtnAlt]}
                 onPress={() => {
                   setMyStatus('absent');
-                  setMyReason('reported by player');
-                  alert('Absence reported — the coach has been notified.');
+                  setMyReason(t('training.reportedByPlayer'));
+                  alert(t('training.alertAbsence'));
                 }}>
                 <IconSymbol name="warning" size={16} color={Colors.warning} />
-                <Text style={[styles.myBtnText, { color: Colors.warning }]}>report absence</Text>
+                <Text style={[styles.myBtnText, { color: Colors.warning }]}>
+                  {t('training.reportAbsence')}
+                </Text>
               </Pressable>
             ) : null}
             {myStatus === 'absent' ? (
@@ -127,10 +131,12 @@ export default function TrainingScreen() {
                 onPress={() => {
                   setMyStatus('unconfirmed');
                   setMyReason(undefined);
-                  alert('Absence cancelled.');
+                  alert(t('training.alertCancelled'));
                 }}>
                 <IconSymbol name="arrow-left" size={16} color={Colors.mint} />
-                <Text style={[styles.myBtnText, { color: Colors.mint }]}>cancel absence</Text>
+                <Text style={[styles.myBtnText, { color: Colors.mint }]}>
+                  {t('training.cancelAbsence')}
+                </Text>
               </Pressable>
             ) : null}
           </View>
@@ -140,28 +146,28 @@ export default function TrainingScreen() {
       {/* Parent: child attendance, read-only */}
       {isParent ? (
         <>
-          <SectionLabel>Agon Gashi · attendance</SectionLabel>
+          <SectionLabel>{t('training.attendanceTitle', { name: 'Agon Gashi' })}</SectionLabel>
           <View style={styles.myCard}>
             <InitialsTile initials="AG" color="#8f86e8" size={42} />
             <View style={styles.myBody}>
               <Text style={styles.myName}>Agon Gashi</Text>
               <Text style={styles.myMeta}>
-                {training.type} training · {training.day} {training.month}
+                {t(`trainings.${training.type.toLowerCase()}`)} · {training.day} {training.month}
               </Text>
               {myStatus === 'absent' && myReason ? (
                 <Text style={styles.myReason}>{myReason}</Text>
               ) : null}
             </View>
-            <StatusChip label={STATUS_LABEL[myStatus]} tone={STATUS_TONE[myStatus]} />
+            <StatusChip label={t(`attendance.${myStatus}`)} tone={STATUS_TONE[myStatus]} />
           </View>
-          <Text style={styles.readOnlyNote}>read-only · managed by the coaching staff</Text>
+          <Text style={styles.readOnlyNote}>{t('training.readOnly')}</Text>
         </>
       ) : null}
 
       {/* Staff: full roll-call */}
       {!isPlayer && !isParent ? (
         <>
-          <SectionLabel>attendance — tap a player to change status</SectionLabel>
+          <SectionLabel>{t('training.staffHint')}</SectionLabel>
           <View style={styles.list}>
             {rows.map((r) => (
               <Pressable key={r.initials} style={styles.row} onPress={() => toggle(r.initials)}>
@@ -172,7 +178,7 @@ export default function TrainingScreen() {
                     <Text style={styles.reason}>{r.reason}</Text>
                   ) : null}
                 </View>
-                <StatusChip label={STATUS_LABEL[r.status]} tone={STATUS_TONE[r.status]} />
+                <StatusChip label={t(`attendance.${r.status}`)} tone={STATUS_TONE[r.status]} />
               </Pressable>
             ))}
           </View>
@@ -180,11 +186,11 @@ export default function TrainingScreen() {
           <Pressable
             style={styles.finalizeBtn}
             onPress={() => {
-              alert(`Attendance saved — ${present}/${rows.length} present.`);
+              alert(t('training.alertFinalized', { present, total: rows.length }));
               router.back();
             }}>
             <IconSymbol name="checkmark.circle.fill" size={18} color={Colors.textOnPrimary} />
-            <Text style={styles.finalizeText}>finalize attendance</Text>
+            <Text style={styles.finalizeText}>{t('training.finalize')}</Text>
           </Pressable>
         </>
       ) : null}

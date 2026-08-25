@@ -6,6 +6,7 @@ import { Screen, DetailHead, SectionLabel, StatCell } from '@/components/screen'
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
 import { ALL_PLAYERS, ALL_TEAMS } from '@/lib/data';
+import { useLanguage } from '@/lib/i18n';
 import { usePersistedState } from '@/lib/storage';
 
 const REASONS = ['Promotion', 'Demotion', 'Reorganization', 'Other'];
@@ -15,6 +16,7 @@ function teamOf(roster: Record<string, string>, initials: string) {
 }
 
 export default function TransfersScreen() {
+  const { t } = useLanguage();
   const initialRoster: Record<string, string> = {};
   ALL_TEAMS.forEach((t) => {
     t.members.forEach((m) => {
@@ -34,19 +36,22 @@ export default function TransfersScreen() {
   const doTransfer = () => {
     const dest = ALL_TEAMS.find((t) => t.id === teamId);
     if (!player || !dest) {
-      alert('Select a player and a destination team.');
+      alert(t('transfers.alertSelect'));
       return;
     }
     if (currentTeam?.id === dest.id) {
-      alert(`${player.name} is already in ${dest.name}.`);
+      alert(t('transfers.alertAlready', { name: player.name, team: dest.name }));
       return;
     }
-    const fromName = currentTeam?.name ?? 'Unassigned';
+    const fromName = currentTeam?.name ?? t('transfers.unassigned');
     setRoster((prev) => ({ ...prev, [player.initials]: dest.id }));
-    setLog((prev) => [`${player.name} → ${dest.name} · ${reason}`, ...prev].slice(0, 8));
+    setLog((prev) => [
+      `${player.name} → ${dest.name} · ${t(`transfers.reason.${reason}`)}`,
+      ...prev,
+    ].slice(0, 8));
     setPlayerId(null);
     setTeamId(null);
-    alert(`${player.name} moved from ${fromName} to ${dest.name}.`);
+    alert(t('transfers.alertDone', { name: player.name, from: fromName, team: dest.name }));
   };
 
   const teamsWithPlayers = ALL_TEAMS.map((t) => ({
@@ -60,20 +65,20 @@ export default function TransfersScreen() {
       <DetailHead
         icon="arrow.right"
         accent={Colors.mint}
-        title="transfers"
-        subtitle="move players between teams · FC Prishtina"
+        title={t('transfers.title')}
+        subtitle={t('transfers.subtitle')}
       />
 
       <View style={styles.statsRow}>
-        <StatCell value={String(ALL_PLAYERS.length)} label="players" color={Colors.mint} />
-        <StatCell value={String(ALL_TEAMS.length)} label="teams" />
-        <StatCell value={String(log.length)} label="transfers" color={Colors.warning} />
+        <StatCell value={String(ALL_PLAYERS.length)} label={t('transfers.players')} color={Colors.mint} />
+        <StatCell value={String(ALL_TEAMS.length)} label={t('transfers.teams')} />
+        <StatCell value={String(log.length)} label={t('transfers.count')} color={Colors.warning} />
       </View>
 
       {/* Quick transfer */}
-      <SectionLabel>quick transfer</SectionLabel>
+      <SectionLabel>{t('transfers.quickTransfer')}</SectionLabel>
       <View style={styles.formCard}>
-        <Text style={styles.fieldLabel}>player</Text>
+        <Text style={styles.fieldLabel}>{t('transfers.player')}</Text>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -95,13 +100,13 @@ export default function TransfersScreen() {
         </ScrollView>
         {player ? (
           <Text style={styles.hint}>
-            currently: <Text style={styles.hintStrong}>{currentTeam?.name ?? 'Unassigned'}</Text>
+            {t('transfers.currently', { team: currentTeam?.name ?? t('transfers.unassigned') })}
           </Text>
         ) : (
-          <Text style={styles.hint}>tap a player to select</Text>
+          <Text style={styles.hint}>{t('transfers.tapPlayer')}</Text>
         )}
 
-        <Text style={styles.fieldLabel}>destination team</Text>
+        <Text style={styles.fieldLabel}>{t('transfers.destTeam')}</Text>
         <View style={styles.wrap}>
           {ALL_TEAMS.map((t) => {
             const selected = t.id === teamId;
@@ -118,7 +123,7 @@ export default function TransfersScreen() {
           })}
         </View>
 
-        <Text style={styles.fieldLabel}>reason</Text>
+        <Text style={styles.fieldLabel}>{t('transfers.reason')}</Text>
         <View style={styles.wrap}>
           {REASONS.map((r) => {
             const selected = r === reason;
@@ -127,7 +132,7 @@ export default function TransfersScreen() {
                 key={r}
                 onPress={() => setReason(r)}
                 style={[styles.reasonChip, selected && styles.reasonChipActive]}>
-                <Text style={[styles.reasonChipText, selected && styles.reasonChipTextActive]}>{r}</Text>
+                <Text style={[styles.reasonChipText, selected && styles.reasonChipTextActive]}>{t(`transfers.reason.${r}`)}</Text>
               </Pressable>
             );
           })}
@@ -135,29 +140,29 @@ export default function TransfersScreen() {
 
         <Pressable style={styles.transferBtn} onPress={doTransfer}>
           <IconSymbol name="arrow.right" size={16} color={Colors.textOnPrimary} />
-          <Text style={styles.transferBtnText}>execute transfer</Text>
+          <Text style={styles.transferBtnText}>{t('transfers.execute')}</Text>
         </Pressable>
       </View>
 
       {/* Squads */}
-      <SectionLabel>squads</SectionLabel>
+      <SectionLabel>{t('transfers.squads')}</SectionLabel>
       <View style={styles.list}>
-        {teamsWithPlayers.map((t) => (
-          <View key={t.id} style={styles.teamCard}>
+        {teamsWithPlayers.map((tw) => (
+          <View key={tw.id} style={styles.teamCard}>
             <View style={styles.teamHead}>
-              <View style={[styles.teamDot, { backgroundColor: t.color }]} />
-              <Text style={styles.teamName}>{t.name}</Text>
-              <Text style={styles.teamCount}>{t.squad.length}</Text>
+              <View style={[styles.teamDot, { backgroundColor: tw.color }]} />
+              <Text style={styles.teamName}>{tw.name}</Text>
+              <Text style={styles.teamCount}>{tw.squad.length}</Text>
             </View>
-            {t.squad.length === 0 ? (
-              <Text style={styles.emptySquad}>no players</Text>
+            {tw.squad.length === 0 ? (
+              <Text style={styles.emptySquad}>{t('transfers.noPlayers')}</Text>
             ) : (
-              t.squad.map((p) => (
+              tw.squad.map((p) => (
                 <View key={p.id} style={styles.memberRow}>
                   <InitialsTile initials={p.initials} color={p.color} size={30} />
                   <Text style={styles.memberName}>{p.name}</Text>
                   <Text style={styles.memberMeta}>
-                    {p.position} · No. {p.number}
+                    {t('transfers.memberMeta', { position: p.position, number: p.number })}
                   </Text>
                 </View>
               ))
@@ -168,7 +173,7 @@ export default function TransfersScreen() {
           <View style={styles.teamCard}>
             <View style={styles.teamHead}>
               <View style={[styles.teamDot, { backgroundColor: Colors.textMuted }]} />
-              <Text style={styles.teamName}>Unassigned</Text>
+              <Text style={styles.teamName}>{t('transfers.unassigned')}</Text>
               <Text style={styles.teamCount}>{unassigned.length}</Text>
             </View>
             {unassigned.map((p) => (
@@ -184,7 +189,7 @@ export default function TransfersScreen() {
 
       {log.length > 0 ? (
         <>
-          <SectionLabel>recent transfers</SectionLabel>
+          <SectionLabel>{t('transfers.recent')}</SectionLabel>
           <View style={styles.logCard}>
             {log.map((entry, i) => (
               <Text key={`${entry}-${i}`} style={styles.logEntry}>
@@ -250,11 +255,6 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.body,
     fontSize: 12,
     color: Colors.textMuted,
-  },
-  hintStrong: {
-    fontFamily: Fonts.bodySemiBold,
-    color: Colors.mint,
-    textTransform: 'capitalize',
   },
   wrap: {
     flexDirection: 'row',

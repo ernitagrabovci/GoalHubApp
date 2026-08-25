@@ -6,10 +6,12 @@ import { Screen, DetailHead, SectionLabel } from '@/components/screen';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
 import { DEFAULT_SCENES, type TacticalScene } from '@/lib/data';
+import { useLanguage } from '@/lib/i18n';
 import { useSession } from '@/lib/session';
 
 export default function TacticalScreen() {
   const router = useRouter();
+  const { t } = useLanguage();
   const { user } = useSession();
   const viewer = user?.role === 'player' || user?.role === 'parent';
   const [scenes, setScenes] = useState<TacticalScene[]>(DEFAULT_SCENES);
@@ -24,19 +26,19 @@ export default function TacticalScreen() {
       <DetailHead
         icon="map.fill"
         accent={Colors.mintDim}
-        title="tactical board"
+        title={t('tactical.title')}
         subtitle={
           viewer
-            ? `${visible.length} shared scenes · view only`
-            : `${visible.length} saved scenes · build a formation, then drag players`
+            ? t('tactical.subtitleShared', { count: visible.length })
+            : t('tactical.subtitleOwn', { count: visible.length })
         }
       />
 
-      <SectionLabel>{viewer ? 'shared scenes' : 'saved scenes'}</SectionLabel>
+      <SectionLabel>{viewer ? t('tactical.sharedScenes') : t('tactical.savedScenes')}</SectionLabel>
       <View style={styles.list}>
         {visible.length === 0 ? (
           <Text style={styles.empty}>
-            {viewer ? 'No shared scenes yet.' : 'No scenes yet — create one to start planning.'}
+            {viewer ? t('tactical.emptyShared') : t('tactical.emptyOwn')}
           </Text>
         ) : (
           visible.map((scene) => (
@@ -50,9 +52,11 @@ export default function TacticalScreen() {
               <View style={styles.body}>
                 <Text style={styles.name}>{scene.name}</Text>
                 <Text style={styles.meta}>
-                  {scene.formation} · {scene.players.length} players
+                  {t('tactical.metaPlayers', { formation: scene.formation, count: scene.players.length })}
                 </Text>
-                <Text style={styles.meta}>created {scene.created} · modified {scene.modified}</Text>
+                <Text style={styles.meta}>
+                  {t('tactical.createdModified', { created: scene.created, modified: scene.modified })}
+                </Text>
               </View>
               {viewer ? null : (
                 <Pressable
@@ -76,7 +80,7 @@ export default function TacticalScreen() {
           style={styles.action}
           onPress={() => router.push('/tactical-editor')}>
           <IconSymbol name="plus" size={18} color={Colors.textOnPrimary} />
-          <Text style={styles.actionText}>new scene</Text>
+          <Text style={styles.actionText}>{t('tactical.newScene')}</Text>
         </Pressable>
       )}
     </Screen>

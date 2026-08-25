@@ -6,6 +6,8 @@ import { Screen, SectionLabel } from '@/components/screen';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
 import { ALL_PLAYERS } from '@/lib/data';
+import { useLanguage } from '@/lib/i18n';
+import { injuriesStore } from '@/lib/store';
 
 const OCCURRED = ['training', 'match', 'other'] as const;
 const INITIAL_STATUS = ['injured', 'rehabilitation'] as const;
@@ -28,6 +30,7 @@ function Chip({
 
 export default function InjuryCreateScreen() {
   const router = useRouter();
+  const { t } = useLanguage();
   const [player, setPlayer] = useState(ALL_PLAYERS[0].name);
   const [type, setType] = useState('');
   const [occurred, setOccurred] = useState<string>('training');
@@ -38,9 +41,27 @@ export default function InjuryCreateScreen() {
   const [treatment, setTreatment] = useState('');
   const [notifyAdmin, setNotifyAdmin] = useState(true);
 
+  const save = () => {
+    if (!type.trim()) {
+      alert(t('injuryCreate.alertType'));
+      return;
+    }
+    const p = ALL_PLAYERS.find((pl) => pl.name === player) ?? ALL_PLAYERS[0];
+    injuriesStore.prepend({
+      id: `i-${Date.now()}`,
+      player,
+      initials: p.initials,
+      type: type.trim(),
+      status: status as 'injured' | 'rehabilitation',
+      expected: expected.trim() || '—',
+      color: p.color,
+    });
+    router.back();
+  };
+
   return (
     <Screen back>
-      <SectionLabel>player</SectionLabel>
+      <SectionLabel>{t('injuryCreate.player')}</SectionLabel>
       <View style={styles.chips}>
         {ALL_PLAYERS.map((p) => (
           <Chip
@@ -53,61 +74,61 @@ export default function InjuryCreateScreen() {
       </View>
       <Text style={styles.selected}>{player}</Text>
 
-      <SectionLabel>injury type</SectionLabel>
+      <SectionLabel>{t('injuryCreate.injuryType')}</SectionLabel>
       <TextInput
         style={styles.input}
-        placeholder="e.g. Hamstring strain"
+        placeholder={t('injuryCreate.typePlaceholder')}
         placeholderTextColor={Colors.textMuted}
         value={type}
         onChangeText={setType}
       />
 
-      <SectionLabel>occurred during</SectionLabel>
+      <SectionLabel>{t('injuryCreate.occurredDuring')}</SectionLabel>
       <View style={styles.chips}>
         {OCCURRED.map((o) => (
-          <Chip key={o} label={o} active={occurred === o} onPress={() => setOccurred(o)} />
+          <Chip key={o} label={t(`injuryCreate.occurred.${o}`)} active={occurred === o} onPress={() => setOccurred(o)} />
         ))}
       </View>
 
-      <SectionLabel>initial status</SectionLabel>
+      <SectionLabel>{t('injuryCreate.initialStatus')}</SectionLabel>
       <View style={styles.chips}>
         {INITIAL_STATUS.map((s) => (
-          <Chip key={s} label={s} active={status === s} onPress={() => setStatus(s)} />
+          <Chip key={s} label={t(`injuryCreate.status.${s}`)} active={status === s} onPress={() => setStatus(s)} />
         ))}
       </View>
 
-      <SectionLabel>dates</SectionLabel>
+      <SectionLabel>{t('injuryCreate.dates')}</SectionLabel>
       <View style={styles.dateRow}>
         <TextInput
           style={[styles.input, styles.flex]}
-          placeholder="Injury date (DD/MM/YYYY)"
+          placeholder={t('injuryCreate.datePlaceholder')}
           placeholderTextColor={Colors.textMuted}
           value={date}
           onChangeText={setDate}
         />
         <TextInput
           style={[styles.input, styles.flex]}
-          placeholder="Expected return"
+          placeholder={t('injuryCreate.expectedPlaceholder')}
           placeholderTextColor={Colors.textMuted}
           value={expected}
           onChangeText={setExpected}
         />
       </View>
 
-      <SectionLabel>description</SectionLabel>
+      <SectionLabel>{t('injuryCreate.description')}</SectionLabel>
       <TextInput
         style={[styles.input, styles.multiline]}
-        placeholder="What happened?"
+        placeholder={t('injuryCreate.descPlaceholder')}
         placeholderTextColor={Colors.textMuted}
         value={description}
         onChangeText={setDescription}
         multiline
       />
 
-      <SectionLabel>treatment</SectionLabel>
+      <SectionLabel>{t('injuryCreate.treatment')}</SectionLabel>
       <TextInput
         style={[styles.input, styles.multiline]}
-        placeholder="Recommended treatment / physio"
+        placeholder={t('injuryCreate.treatmentPlaceholder')}
         placeholderTextColor={Colors.textMuted}
         value={treatment}
         onChangeText={setTreatment}
@@ -119,25 +140,14 @@ export default function InjuryCreateScreen() {
           <View style={[styles.toggleKnob, notifyAdmin && styles.toggleKnobOn]} />
         </View>
         <View style={styles.toggleBody}>
-          <Text style={styles.toggleTitle}>notify admin</Text>
-          <Text style={styles.toggleSub}>
-            auto-sets {player}&apos;s health status and notifies the administrator
-          </Text>
+          <Text style={styles.toggleTitle}>{t('injuryCreate.notifyAdmin')}</Text>
+          <Text style={styles.toggleSub}>{t('injuryCreate.notifySub', { name: player })}</Text>
         </View>
       </Pressable>
 
-      <Pressable
-        style={styles.saveBtn}
-        onPress={() => {
-          if (!type.trim()) {
-            alert('Please enter the injury type.');
-            return;
-          }
-          alert(`${player} — ${type} registered. Health status set to ${status}.`);
-          router.back();
-        }}>
+      <Pressable style={styles.saveBtn} onPress={save}>
         <IconSymbol name="plus" size={18} color={Colors.textOnPrimary} />
-        <Text style={styles.saveBtnText}>register injury</Text>
+        <Text style={styles.saveBtnText}>{t('injuryCreate.save')}</Text>
       </Pressable>
     </Screen>
   );

@@ -6,6 +6,7 @@ import { Screen, DetailHead, SectionLabel } from '@/components/screen';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
 import { ALL_TEAMS, type Team } from '@/lib/data';
+import { useLanguage } from '@/lib/i18n';
 import { usePersistedState } from '@/lib/storage';
 
 const CATEGORIES = [
@@ -15,6 +16,7 @@ const CATEGORIES = [
 
 export default function TeamsScreen() {
   const router = useRouter();
+  const { t } = useLanguage();
   const [teams, setTeams] = usePersistedState<Team[]>('teams:list', ALL_TEAMS);
   const [showForm, setShowForm] = useState(false);
   const [name, setName] = useState('');
@@ -23,7 +25,7 @@ export default function TeamsScreen() {
 
   const addTeam = () => {
     if (!name.trim()) {
-      alert('Enter a team name.');
+      alert(t('teams.alertName'));
       return;
     }
     const meta = CATEGORIES.find((c) => c.label === category) ?? CATEGORIES[0];
@@ -42,7 +44,7 @@ export default function TeamsScreen() {
     setName('');
     setTrainer('');
     setShowForm(false);
-    alert(`"${name.trim()}" added as a new ${category.toLowerCase()} squad.`);
+    alert(t('teams.alertAdded', { name: name.trim(), category: t(`category.${category}`) }));
   };
 
   return (
@@ -50,16 +52,16 @@ export default function TeamsScreen() {
       <DetailHead
         icon="person.2.fill"
         accent="#1a9e5c"
-        title="teams"
-        subtitle={`${teams.length} squads · FC Prishtina`}
+        title={t('teams.title')}
+        subtitle={t('teams.subtitle', { count: teams.length })}
       />
 
       {showForm ? (
         <View style={styles.formCard}>
-          <Text style={styles.fieldLabel}>new team</Text>
+          <Text style={styles.fieldLabel}>{t('teams.newTeam')}</Text>
           <TextInput
             style={styles.input}
-            placeholder="Team name e.g. U19"
+            placeholder={t('teams.namePlaceholder')}
             placeholderTextColor={Colors.textMuted}
             value={name}
             onChangeText={setName}
@@ -74,7 +76,7 @@ export default function TeamsScreen() {
                   onPress={() => setCategory(c.label)}
                   style={[styles.chip, selected && { backgroundColor: c.color, borderColor: c.color }]}>
                   <Text style={[styles.chipText, selected && { color: Colors.textOnPrimary }]}>
-                    {c.label.toLowerCase()}
+                    {t(`category.${c.label}`)}
                   </Text>
                 </Pressable>
               );
@@ -82,7 +84,7 @@ export default function TeamsScreen() {
           </View>
           <TextInput
             style={styles.input}
-            placeholder="Head trainer e.g. Blerim Shala"
+            placeholder={t('teams.trainerPlaceholder')}
             placeholderTextColor={Colors.textMuted}
             value={trainer}
             onChangeText={setTrainer}
@@ -90,31 +92,33 @@ export default function TeamsScreen() {
           />
           <Pressable style={styles.submitBtn} onPress={addTeam}>
             <IconSymbol name="plus" size={16} color={Colors.textOnPrimary} />
-            <Text style={styles.submitBtnText}>create team</Text>
+            <Text style={styles.submitBtnText}>{t('teams.createTeam')}</Text>
           </Pressable>
         </View>
       ) : null}
 
-      <SectionLabel>squads</SectionLabel>
+      <SectionLabel>{t('teams.section')}</SectionLabel>
       <View style={styles.list}>
         {teams.length === 0 ? (
-          <Text style={styles.empty}>No teams yet — create the first squad.</Text>
+          <Text style={styles.empty}>{t('teams.empty')}</Text>
         ) : (
-          teams.map((t) => (
+          teams.map((team) => (
             <Pressable
-              key={t.id}
+              key={team.id}
               style={styles.card}
-              onPress={() => router.push(`/team?id=${t.id}`)}>
-              <View style={[styles.teamIcon, { backgroundColor: `${t.color}22` }]}>
-                <IconSymbol name="person.2.fill" size={20} color={t.color} />
+              onPress={() => router.push(`/team?id=${team.id}`)}>
+              <View style={[styles.teamIcon, { backgroundColor: `${team.color}22` }]}>
+                <IconSymbol name="person.2.fill" size={20} color={team.color} />
               </View>
               <View style={styles.body}>
-                <Text style={styles.name}>{t.name}</Text>
+                <Text style={styles.name}>{team.name}</Text>
                 <Text style={styles.meta}>
-                  {t.category} · {t.season}
+                  {t(`category.${team.category}`)} · {team.season}
                 </Text>
                 <Text style={styles.meta}>
-                  {t.members.length} player{t.members.length === 1 ? '' : 's'} · {t.trainer}
+                  {team.members.length}{' '}
+                  {team.members.length === 1 ? t('common.player') : t('common.players')} ·{' '}
+                  {team.trainer}
                 </Text>
               </View>
               <IconSymbol name="chevron.right" size={18} color={Colors.textMuted} />
@@ -125,7 +129,7 @@ export default function TeamsScreen() {
 
       <Pressable style={styles.action} onPress={() => setShowForm((s) => !s)}>
         <IconSymbol name={showForm ? 'xmark' : 'plus'} size={18} color={Colors.textOnPrimary} />
-        <Text style={styles.actionText}>{showForm ? 'close form' : 'new team'}</Text>
+        <Text style={styles.actionText}>{showForm ? t('common.closeForm') : t('teams.newTeam')}</Text>
       </Pressable>
     </Screen>
   );

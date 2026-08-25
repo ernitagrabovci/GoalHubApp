@@ -6,7 +6,9 @@ import { Screen, SectionLabel } from '@/components/screen';
 import { StatusChip, type StatusTone } from '@/components/status-chip';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
-import { ALL_INJURIES, INJURY_DETAILS } from '@/lib/data';
+import { INJURY_DETAILS } from '@/lib/data';
+import { useLanguage } from '@/lib/i18n';
+import { injuriesStore, useCollection } from '@/lib/store';
 
 const STATUS_TONE: Record<string, StatusTone> = {
   injured: 'danger',
@@ -16,16 +18,23 @@ const STATUS_TONE: Record<string, StatusTone> = {
 
 export default function InjuryScreen() {
   const router = useRouter();
+  const { t } = useLanguage();
   const { id } = useLocalSearchParams<{ id?: string }>();
-  const injury = ALL_INJURIES.find((i) => i.id === id) ?? ALL_INJURIES[0];
+  const injuries = useCollection(injuriesStore);
+  const injury = injuries.find((i) => i.id === id) ?? injuries[0];
   const detail = INJURY_DETAILS[injury.id] ?? INJURY_DETAILS.i1;
   const recovered = injury.status === 'recovered';
 
+  const markRecovered = () => {
+    injuriesStore.update(injury.id, (i) => ({ ...i, status: 'recovered', expected: '—' }));
+    router.back();
+  };
+
   const infoRows = [
-    { label: 'occurred during', value: detail.occurredDuring },
-    { label: 'injury date', value: detail.date },
-    { label: 'expected return', value: injury.expected },
-    { label: 'status', value: injury.status },
+    { label: t('injury.occurredDuring'), value: detail.occurredDuring },
+    { label: t('injury.injuryDate'), value: detail.date },
+    { label: t('injury.expectedReturn'), value: injury.expected },
+    { label: t('injury.status'), value: t(`health.${injury.status}`) },
   ];
 
   return (
@@ -37,12 +46,12 @@ export default function InjuryScreen() {
           <Text style={styles.name}>{injury.player}</Text>
           <Text style={styles.type}>{injury.type}</Text>
           <View style={styles.tagRow}>
-            <StatusChip label={injury.status} tone={STATUS_TONE[injury.status]} />
+            <StatusChip label={t(`health.${injury.status}`)} tone={STATUS_TONE[injury.status]} />
           </View>
         </View>
       </View>
 
-      <SectionLabel>details</SectionLabel>
+      <SectionLabel>{t('injury.details')}</SectionLabel>
       <View style={styles.rowsCard}>
         {infoRows.map((r) => (
           <View key={r.label} style={styles.row}>
@@ -52,17 +61,17 @@ export default function InjuryScreen() {
         ))}
       </View>
 
-      <SectionLabel>description</SectionLabel>
+      <SectionLabel>{t('injury.description')}</SectionLabel>
       <View style={styles.textCard}>
         <Text style={styles.text}>{detail.description}</Text>
       </View>
 
-      <SectionLabel>treatment</SectionLabel>
+      <SectionLabel>{t('injury.treatment')}</SectionLabel>
       <View style={styles.textCard}>
         <Text style={styles.text}>{detail.treatment}</Text>
       </View>
 
-      <SectionLabel>history</SectionLabel>
+      <SectionLabel>{t('injury.history')}</SectionLabel>
       <View style={styles.rowsCard}>
         {detail.history.map((h) => (
           <View key={h.date} style={styles.row}>
@@ -73,14 +82,9 @@ export default function InjuryScreen() {
       </View>
 
       {!recovered ? (
-        <Pressable
-          style={styles.recoverBtn}
-          onPress={() => {
-            alert(`${injury.player} marked as recovered — health status set to active.`);
-            router.back();
-          }}>
+        <Pressable style={styles.recoverBtn} onPress={markRecovered}>
           <IconSymbol name="checkmark.circle.fill" size={18} color={Colors.textOnPrimary} />
-          <Text style={styles.recoverBtnText}>mark recovered</Text>
+          <Text style={styles.recoverBtnText}>{t('injury.markRecovered')}</Text>
         </Pressable>
       ) : null}
     </Screen>

@@ -9,6 +9,7 @@ import { StatusChip } from '@/components/status-chip';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
 import { ALL_MATCHES, ALL_PLAYERS, ALL_TEAMS, MATCH_DETAILS } from '@/lib/data';
+import { useLanguage } from '@/lib/i18n';
 
 function playerId(name: string) {
   return ALL_PLAYERS.find((p) => p.name === name)?.id ?? '';
@@ -23,17 +24,18 @@ function resultOf(score: string): 'W' | 'D' | 'L' {
 
 export default function TeamScreen() {
   const router = useRouter();
+  const { t } = useLanguage();
   const { id } = useLocalSearchParams<{ id?: string }>();
   const team = ALL_TEAMS.find((t) => t.id === id) ?? ALL_TEAMS[0];
 
   const infoRows = [
-    { label: 'category', value: team.category },
-    { label: 'season', value: team.season },
-    { label: 'trainer', value: team.trainer },
-    { label: 'squad size', value: String(team.members.length) },
+    { label: t('team.category'), value: team.category },
+    { label: t('team.season'), value: team.season },
+    { label: t('team.trainer'), value: team.trainer },
+    { label: t('team.squadSize'), value: String(team.members.length) },
   ];
 
-  const playedMatches = ALL_MATCHES.filter((m) => m.status === 'played');
+  const playedMatches = ALL_MATCHES.filter((m) => m.status === 'played' && m.teamId === team.id);
   const results = playedMatches.map((m) => resultOf(m.score ?? '0 – 0'));
   const wins = results.filter((r) => r === 'W').length;
   const draws = results.filter((r) => r === 'D').length;
@@ -46,8 +48,11 @@ export default function TeamScreen() {
     goalsAgainst += b;
   });
 
+  const teamMatchIds = new Set(playedMatches.map((m) => m.id));
   const scorerTotals = new Map<string, { name: string; initials: string; color: string; goals: number; assists: number }>();
-  Object.values(MATCH_DETAILS).forEach((d) =>
+  Object.entries(MATCH_DETAILS)
+    .filter(([mid]) => teamMatchIds.has(mid))
+    .forEach(([, d]) =>
     d.stats.forEach((s) => {
       const cur = scorerTotals.get(s.player) ?? { name: s.player, initials: s.initials, color: s.color, goals: 0, assists: 0 };
       cur.goals += s.goals;
@@ -73,12 +78,12 @@ export default function TeamScreen() {
             {team.category} · {team.season}
           </Text>
           <View style={styles.tagRow}>
-            <StatusChip label={team.category.toLowerCase()} tone={team.category === 'Senior' ? 'emerald' : 'info'} />
+            <StatusChip label={t(`category.${team.category}`)} tone={team.category === 'Senior' ? 'emerald' : 'info'} />
           </View>
         </View>
       </View>
 
-      <SectionLabel>details</SectionLabel>
+      <SectionLabel>{t('team.details')}</SectionLabel>
       <View style={styles.rowsCard}>
         {infoRows.map((r) => (
           <View key={r.label} style={styles.row}>
@@ -88,13 +93,13 @@ export default function TeamScreen() {
         ))}
       </View>
 
-      <SectionLabel>players</SectionLabel>
+      <SectionLabel>{t('team.players')}</SectionLabel>
       <View style={styles.list}>
         {team.members.length === 0 ? (
           <EmptyState
             icon="person.2.fill"
-            title="No players registered"
-            subtitle="This squad has no players yet."
+            title={t('team.emptyPlayersTitle')}
+            subtitle={t('team.emptyPlayersSub')}
           />
         ) : (
           team.members.map((m) => {
@@ -108,7 +113,7 @@ export default function TeamScreen() {
                 onPress={() =>
                   pid
                     ? router.push(`/player?id=${pid}`)
-                    : alert(`${m.name} — full profile not synced to the app yet.`)
+                    : alert(t('team.alertNotSynced', { name: m.name }))
                 }
               />
             );
@@ -116,7 +121,7 @@ export default function TeamScreen() {
         )}
       </View>
 
-      <SectionLabel>statistics</SectionLabel>
+      <SectionLabel>{t('team.statistics')}</SectionLabel>
       <View style={styles.statsCard}>
         <Ring
           size={88}
@@ -124,27 +129,27 @@ export default function TeamScreen() {
           progress={playedMatches.length ? wins / playedMatches.length : 0}
           color={Colors.emerald}
           label={playedMatches.length ? `${Math.round((wins / playedMatches.length) * 100)}%` : '–'}
-          sublabel="win rate"
+          sublabel={t('team.winRate')}
         />
         <View style={styles.statsCol}>
-          <StatCell value={String(goalsFor)} label="goals for" color={Colors.emerald} />
-          <StatCell value={String(goalsAgainst)} label="against" color={Colors.danger} />
-          <StatCell value={String(goalsFor - goalsAgainst)} label="goal diff" color={Colors.mint} />
+          <StatCell value={String(goalsFor)} label={t('team.goalsFor')} color={Colors.emerald} />
+          <StatCell value={String(goalsAgainst)} label={t('team.goalsAgainst')} color={Colors.danger} />
+          <StatCell value={String(goalsFor - goalsAgainst)} label={t('team.goalDiff')} color={Colors.mint} />
         </View>
       </View>
       <View style={styles.recordRow}>
-        <StatCell value={String(wins)} label="won" color={Colors.emerald} />
-        <StatCell value={String(draws)} label="drawn" color={Colors.info} />
-        <StatCell value={String(losses)} label="lost" color={Colors.danger} />
+        <StatCell value={String(wins)} label={t('team.won')} color={Colors.emerald} />
+        <StatCell value={String(draws)} label={t('team.drawn')} color={Colors.info} />
+        <StatCell value={String(losses)} label={t('team.lost')} color={Colors.danger} />
       </View>
 
-      <SectionLabel>top scorers</SectionLabel>
+      <SectionLabel>{t('team.topScorers')}</SectionLabel>
       <View style={styles.list}>
         {scorers.length === 0 ? (
           <EmptyState
             icon="chart.bar.fill"
-            title="No match stats yet"
-            subtitle="Scoring data appears once matches are played."
+            title={t('team.emptyScorersTitle')}
+            subtitle={t('team.emptyScorersSub')}
           />
         ) : (
           scorers.map((s) => (
@@ -152,17 +157,18 @@ export default function TeamScreen() {
               <InitialsTile initials={s.initials} color={s.color} />
               <Text style={styles.scorerName}>{s.name}</Text>
               <Text style={styles.scorerStat}>
-                {s.goals} goal{s.goals === 1 ? '' : 's'} · {s.assists} assist{s.assists === 1 ? '' : 's'}
+                {s.goals} {s.goals === 1 ? t('team.goal') : t('team.goals')} · {s.assists}{' '}
+                {s.assists === 1 ? t('team.assist') : t('team.assists')}
               </Text>
             </View>
           ))
         )}
       </View>
 
-      <SectionLabel>management</SectionLabel>
+      <SectionLabel>{t('team.management')}</SectionLabel>
       <Pressable style={styles.mgmtBtn} onPress={() => router.push('/transfers')}>
         <IconSymbol name="arrow.right" size={16} color={Colors.mint} />
-        <Text style={styles.mgmtBtnText}>transfers</Text>
+        <Text style={styles.mgmtBtnText}>{t('team.transfers')}</Text>
       </Pressable>
     </Screen>
   );

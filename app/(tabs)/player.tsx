@@ -17,6 +17,7 @@ import {
   PLAYER_SEASON,
   type Health,
 } from '@/lib/data';
+import { useLanguage } from '@/lib/i18n';
 
 const HEALTH_TONE: Record<Health, StatusTone> = {
   active: 'emerald',
@@ -43,6 +44,7 @@ const CRITERION_COLOR: Record<(typeof CRITERIA)[number]['key'], string> = {
 
 export default function PlayerScreen() {
   const router = useRouter();
+  const { t } = useLanguage();
   const { id } = useLocalSearchParams<{ id?: string }>();
   const player = ALL_PLAYERS.find((p) => p.id === id) ?? ALL_PLAYERS[0];
   const profile = PLAYER_PROFILES[player.name];
@@ -53,11 +55,11 @@ export default function PlayerScreen() {
   const form = PLAYER_FORM[player.name] ?? [];
 
   const rows: { label: string; value: string }[] = [
-    { label: 'birth', value: profile.birth },
-    { label: 'nationality', value: profile.nationality },
-    { label: 'ffk license', value: profile.license },
-    { label: 'team', value: profile.team },
-    { label: 'contract', value: `${profile.contract} → ${profile.contractEnd}` },
+    { label: t('player.birth'), value: profile.birth },
+    { label: t('player.nationality'), value: profile.nationality },
+    { label: t('player.license'), value: profile.license },
+    { label: t('player.team'), value: profile.team },
+    { label: t('player.contract'), value: `${profile.contract} → ${profile.contractEnd}` },
   ];
 
   return (
@@ -69,10 +71,14 @@ export default function PlayerScreen() {
           <View style={styles.cardBody}>
             <Text style={styles.name}>{player.name}</Text>
             <Text style={styles.meta}>
-              {player.position} · No. {player.number} · age {player.age}
+              {t('common.personMeta', {
+                position: player.position,
+                number: player.number,
+                age: player.age,
+              })}
             </Text>
             <View style={styles.tags}>
-              <StatusChip label={player.health} tone={HEALTH_TONE[player.health]} />
+              <StatusChip label={t(`health.${player.health}`)} tone={HEALTH_TONE[player.health]} />
               <View style={styles.ratingChip}>
                 <IconSymbol name="star.fill" size={11} color="#f5a623" />
                 <Text style={styles.ratingText}>{player.rating.toFixed(1)}</Text>
@@ -83,16 +89,16 @@ export default function PlayerScreen() {
       </View>
 
       {/* Season stats */}
-      <SectionLabel>season stats</SectionLabel>
+      <SectionLabel>{t('player.seasonStats')}</SectionLabel>
       <View style={styles.statsRow}>
-        <StatCell value={String(season.goals)} label="goals" />
-        <StatCell value={String(season.assists)} label="assists" />
-        <StatCell value={String(season.matches)} label="matches" />
-        <StatCell value={`${Math.round(season.minutes / 90)}h`} label="played" />
+        <StatCell value={String(season.goals)} label={t('stats.goals')} />
+        <StatCell value={String(season.assists)} label={t('stats.assists')} />
+        <StatCell value={String(season.matches)} label={t('stats.matches')} />
+        <StatCell value={`${Math.round(season.minutes / 90)}h`} label={t('player.played')} />
       </View>
 
       {/* Profile rows */}
-      <SectionLabel>details</SectionLabel>
+      <SectionLabel>{t('player.details')}</SectionLabel>
       <View style={styles.rowsCard}>
         {rows.map((r) => (
           <View key={r.label} style={styles.row}>
@@ -103,7 +109,7 @@ export default function PlayerScreen() {
       </View>
 
       {/* Latest rating */}
-      <SectionLabel>rating</SectionLabel>
+      <SectionLabel>{t('player.rating')}</SectionLabel>
       {latestRating ? (
         <View style={styles.ratingCard}>
           <View style={styles.ratingHead}>
@@ -119,7 +125,7 @@ export default function PlayerScreen() {
             {CRITERIA.map((c) => (
               <StatBar
                 key={c.label}
-                label={c.label}
+                label={t(`rating.${c.key}`)}
                 value={latestRating[c.key]}
                 max={10}
                 color={CRITERION_COLOR[c.key]}
@@ -131,13 +137,13 @@ export default function PlayerScreen() {
       ) : (
         <EmptyState
           icon="star.fill"
-          title="No ratings yet"
-          subtitle="A coach assessment will appear here."
+          title={t('player.emptyRatings')}
+          subtitle={t('player.emptyRatingsSub')}
         />
       )}
 
       {/* Form trend */}
-      <SectionLabel>form</SectionLabel>
+      <SectionLabel>{t('player.form')}</SectionLabel>
       {form.length > 0 ? (
         <View style={styles.formCard}>
           {form.map((f, i) => {
@@ -165,36 +171,36 @@ export default function PlayerScreen() {
       ) : (
         <EmptyState
           icon="chart.bar.fill"
-          title="No form history"
-          subtitle="A trend appears after a few weekly assessments."
+          title={t('player.emptyForm')}
+          subtitle={t('player.emptyFormSub')}
         />
       )}
 
       {/* Injuries */}
-      <SectionLabel>medical</SectionLabel>
+      <SectionLabel>{t('player.medical')}</SectionLabel>
       {injuries.length > 0 ? (
         <View style={styles.rowsCard}>
           {injuries.map((i) => (
             <Pressable key={i.id} style={styles.row} onPress={() => router.push(`/injury?id=${i.id}`)}>
               <View>
                 <Text style={styles.rowValue}>{i.type}</Text>
-                <Text style={styles.rowSub}>return {i.expected}</Text>
+                <Text style={styles.rowSub}>{t('injuries.return', { expected: i.expected })}</Text>
               </View>
-              <StatusChip label={i.status} tone={HEALTH_TONE[i.status as Health] ?? 'muted'} />
+              <StatusChip label={t(`health.${i.status}`)} tone={HEALTH_TONE[i.status as Health] ?? 'muted'} />
             </Pressable>
           ))}
         </View>
       ) : (
         <EmptyState
           icon="stethoscope"
-          title="No active injuries"
-          subtitle="Medical records appear here when needed."
+          title={t('player.emptyMedical')}
+          subtitle={t('player.emptyMedicalSub')}
         />
       )}
 
       <Pressable style={styles.rateBtn} onPress={() => router.push(`/rate?id=${player.id}`)}>
         <IconSymbol name="star.fill" size={16} color={Colors.textOnPrimary} />
-        <Text style={styles.rateBtnText}>rate player</Text>
+        <Text style={styles.rateBtnText}>{t('player.ratePlayer')}</Text>
       </Pressable>
     </Screen>
   );

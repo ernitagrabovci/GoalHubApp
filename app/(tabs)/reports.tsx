@@ -7,6 +7,7 @@ import { StatusChip } from '@/components/status-chip';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
 import { ALL_MATCHES, ALL_NOTIFICATIONS, ALL_RATINGS, feesForRole } from '@/lib/data';
+import { useLanguage } from '@/lib/i18n';
 
 function resultOf(score: string): 'W' | 'D' | 'L' {
   const [a, b] = score.split('–').map((s) => parseInt(s.trim(), 10));
@@ -18,6 +19,7 @@ function resultOf(score: string): 'W' | 'D' | 'L' {
 const RESULT_TONE = { W: 'emerald', D: 'info', L: 'danger' } as const;
 
 export default function ReportsScreen() {
+  const { t } = useLanguage();
   const [generated, setGenerated] = useState<Record<string, string | null>>({
     match: null,
     finance: null,
@@ -29,7 +31,7 @@ export default function ReportsScreen() {
 
   const generate = (key: string, summary: string) => {
     setGenerated((prev) => ({ ...prev, [key]: summary }));
-    alert('Report generated — ready to export.');
+    alert(t('reports.alert'));
   };
 
   const played = ALL_MATCHES.filter((m) => m.status === 'played');
@@ -41,10 +43,19 @@ export default function ReportsScreen() {
   const pending = fees.filter((f) => f.status === 'unpaid' || f.status === 'delayed').length;
   const critical = fees.filter((f) => f.status === 'critical').length;
 
+  const byMonth = (month: string) => {
+    const rows = fees.filter((f) => f.month === month);
+    return {
+      collected: String(rows.filter((f) => f.status === 'paid').length),
+      pending: String(rows.filter((f) => f.status === 'unpaid' || f.status === 'delayed').length),
+      critical: String(rows.filter((f) => f.status === 'critical').length),
+    };
+  };
+
   const financeRows = [
-    { month: 'Sep', collected: String(paid), pending: String(pending), critical: String(critical) },
-    { month: 'Aug', collected: '14', pending: '3', critical: '1' },
-    { month: 'Jul', collected: '12', pending: '4', critical: '2' },
+    { month: 'Sep', ...byMonth('Sep') },
+    { month: 'Aug', ...byMonth('Aug') },
+    { month: 'Jul', ...byMonth('Jul') },
   ];
 
   const activity = ALL_NOTIFICATIONS;
@@ -54,18 +65,18 @@ export default function ReportsScreen() {
       <DetailHead
         icon="chart.bar.fill"
         accent="#B0E4CC"
-        title="reports"
-        subtitle="season summaries · matches, finance & activity"
+        title={t('reports.title')}
+        subtitle={t('reports.subtitle')}
       />
 
       {/* Overview */}
       <View style={styles.statsRow}>
-        <StatCell value={String(played.length)} label="matches" color="#B0E4CC" />
-        <StatCell value={String(wins)} label="wins" color={Colors.emerald} />
-        <StatCell value={`${ALL_RATINGS.length}`} label="ratings" color="#f5a623" />
+        <StatCell value={String(played.length)} label={t('reports.matches')} color="#B0E4CC" />
+        <StatCell value={String(wins)} label={t('reports.wins')} color={Colors.emerald} />
+        <StatCell value={`${ALL_RATINGS.length}`} label={t('reports.ratings')} color="#f5a623" />
       </View>
 
-      <SectionLabel>match report</SectionLabel>
+      <SectionLabel>{t('reports.matchReport')}</SectionLabel>
       <View style={styles.rowsCard}>
         {played.map((m) => {
           const res = resultOf(m.score ?? '0 – 0');
@@ -103,23 +114,29 @@ export default function ReportsScreen() {
         style={styles.exportBtn}
         onPress={() => generate('match', `${played.length} played · ${wins} wins · ${date}`)}>
         <IconSymbol name="square.and.arrow.up" size={15} color={Colors.mint} />
-        <Text style={styles.exportText}>export matches</Text>
+        <Text style={styles.exportText}>{t('reports.exportMatches')}</Text>
       </Pressable>
       {generated.match ? (
         <View style={styles.generatedCard}>
           <IconSymbol name="checkmark.circle.fill" size={14} color={Colors.emerald} />
-          <Text style={styles.generatedText}>match report · {generated.match}</Text>
+          <Text style={styles.generatedText}>
+            {t('reports.generatedMatch', { summary: generated.match })}
+          </Text>
         </View>
       ) : null}
 
-      <SectionLabel>finance report</SectionLabel>
+      <SectionLabel>{t('reports.financeReport')}</SectionLabel>
       <View style={styles.rowsCard}>
         {financeRows.map((r) => (
           <View key={r.month} style={styles.row}>
             <Text style={styles.rowTitle}>{r.month}</Text>
             <View style={styles.monthCol}>
-              <Text style={[styles.countText, { color: Colors.emerald }]}>{r.collected} paid</Text>
-              <Text style={styles.countSub}>{r.pending} pending · {r.critical} critical</Text>
+              <Text style={[styles.countText, { color: Colors.emerald }]}>
+                {t('reports.paid', { count: r.collected })}
+              </Text>
+              <Text style={styles.countSub}>
+                {r.pending} {t('finance.pending')} · {r.critical} {t('status.critical')}
+              </Text>
             </View>
           </View>
         ))}
@@ -128,16 +145,18 @@ export default function ReportsScreen() {
         style={styles.exportBtn}
         onPress={() => generate('finance', `${paid} paid · ${pending} pending · ${critical} critical · ${date}`)}>
         <IconSymbol name="square.and.arrow.up" size={15} color={Colors.mint} />
-        <Text style={styles.exportText}>export finance</Text>
+        <Text style={styles.exportText}>{t('reports.exportFinance')}</Text>
       </Pressable>
       {generated.finance ? (
         <View style={styles.generatedCard}>
           <IconSymbol name="checkmark.circle.fill" size={14} color={Colors.emerald} />
-          <Text style={styles.generatedText}>finance report · {generated.finance}</Text>
+          <Text style={styles.generatedText}>
+            {t('reports.generatedFinance', { summary: generated.finance })}
+          </Text>
         </View>
       ) : null}
 
-      <SectionLabel>platform activity</SectionLabel>
+      <SectionLabel>{t('reports.platformActivity')}</SectionLabel>
       <View style={styles.rowsCard}>
         {activity.map((a) => (
           <View key={a.id} style={styles.row}>
@@ -153,12 +172,14 @@ export default function ReportsScreen() {
         style={styles.exportBtn}
         onPress={() => generate('activity', `${activity.length} events · ${date}`)}>
         <IconSymbol name="square.and.arrow.up" size={15} color={Colors.mint} />
-        <Text style={styles.exportText}>export activity</Text>
+        <Text style={styles.exportText}>{t('reports.exportActivity')}</Text>
       </Pressable>
       {generated.activity ? (
         <View style={styles.generatedCard}>
           <IconSymbol name="checkmark.circle.fill" size={14} color={Colors.emerald} />
-          <Text style={styles.generatedText}>activity report · {generated.activity}</Text>
+          <Text style={styles.generatedText}>
+            {t('reports.generatedActivity', { summary: generated.activity })}
+          </Text>
         </View>
       ) : null}
     </Screen>

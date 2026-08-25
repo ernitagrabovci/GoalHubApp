@@ -5,6 +5,8 @@ import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Screen, SectionLabel } from '@/components/screen';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
+import { useLanguage } from '@/lib/i18n';
+import { academyStore } from '@/lib/store';
 
 const CATEGORIES = ['Tactical', 'Possession', 'Fitness', 'Shooting'] as const;
 const TYPES = ['video', 'session'] as const;
@@ -28,6 +30,7 @@ function Chip({
 
 export default function AcademyCreateScreen() {
   const router = useRouter();
+  const { t } = useLanguage();
   const [title, setTitle] = useState('');
   const [category, setCategory] = useState<string>(CATEGORIES[0]);
   const [type, setType] = useState<string>('video');
@@ -35,42 +38,60 @@ export default function AcademyCreateScreen() {
   const [duration, setDuration] = useState('');
   const [shared, setShared] = useState(true);
 
+  const save = () => {
+    if (!title.trim()) {
+      alert(t('academyCreate.alertTitle'));
+      return;
+    }
+    academyStore.prepend({
+      id: `a-${Date.now()}`,
+      title: title.trim(),
+      category,
+      level,
+      duration: duration.trim() || (type === 'video' ? '10:00' : '45 min'),
+      type: type as 'video' | 'session',
+      isShared: shared,
+      color: '#B0E4CC',
+    });
+    router.back();
+  };
+
   return (
     <Screen back>
-      <SectionLabel>title</SectionLabel>
+      <SectionLabel>{t('academyCreate.title')}</SectionLabel>
       <TextInput
         style={styles.input}
-        placeholder="e.g. Pressing triggers in a 4-3-3"
+        placeholder={t('academyCreate.titlePlaceholder')}
         placeholderTextColor={Colors.textMuted}
         value={title}
         onChangeText={setTitle}
       />
 
-      <SectionLabel>category</SectionLabel>
+      <SectionLabel>{t('academyCreate.category')}</SectionLabel>
       <View style={styles.chips}>
         {CATEGORIES.map((c) => (
-          <Chip key={c} label={c} active={category === c} onPress={() => setCategory(c)} />
+          <Chip key={c} label={t(`category.${c}`)} active={category === c} onPress={() => setCategory(c)} />
         ))}
       </View>
 
-      <SectionLabel>type</SectionLabel>
+      <SectionLabel>{t('academyCreate.type')}</SectionLabel>
       <View style={styles.chips}>
-        {TYPES.map((t) => (
-          <Chip key={t} label={t} active={type === t} onPress={() => setType(t)} />
+        {TYPES.map((ty) => (
+          <Chip key={ty} label={t(`academyCreate.type.${ty}`)} active={type === ty} onPress={() => setType(ty)} />
         ))}
       </View>
 
-      <SectionLabel>level</SectionLabel>
+      <SectionLabel>{t('academyCreate.level')}</SectionLabel>
       <View style={styles.chips}>
         {LEVELS.map((l) => (
-          <Chip key={l} label={l} active={level === l} onPress={() => setLevel(l)} />
+          <Chip key={l} label={t(`level.${l.toLowerCase()}`)} active={level === l} onPress={() => setLevel(l)} />
         ))}
       </View>
 
-      <SectionLabel>duration</SectionLabel>
+      <SectionLabel>{t('academyCreate.duration')}</SectionLabel>
       <TextInput
         style={styles.input}
-        placeholder={type === 'video' ? 'e.g. 12:40' : 'e.g. 45 min'}
+        placeholder={type === 'video' ? t('academyCreate.durationVideo') : t('academyCreate.durationSession')}
         placeholderTextColor={Colors.textMuted}
         value={duration}
         onChangeText={setDuration}
@@ -81,27 +102,14 @@ export default function AcademyCreateScreen() {
           <View style={[styles.toggleKnob, shared && styles.toggleKnobOn]} />
         </View>
         <View style={styles.toggleBody}>
-          <Text style={styles.toggleTitle}>share with squad</Text>
-          <Text style={styles.toggleSub}>
-            visible to all players and staff in the academy library
-          </Text>
+          <Text style={styles.toggleTitle}>{t('academyCreate.shareWithSquad')}</Text>
+          <Text style={styles.toggleSub}>{t('academyCreate.shareSub')}</Text>
         </View>
       </Pressable>
 
-      <Pressable
-        style={styles.saveBtn}
-        onPress={() => {
-          if (!title.trim()) {
-            alert('Please enter a title for the material.');
-            return;
-          }
-          alert(
-            `${title} added to the academy library${shared ? ' and shared with the squad' : ''}.`,
-          );
-          router.back();
-        }}>
+      <Pressable style={styles.saveBtn} onPress={save}>
         <IconSymbol name="plus" size={18} color={Colors.textOnPrimary} />
-        <Text style={styles.saveBtnText}>add material</Text>
+        <Text style={styles.saveBtnText}>{t('academyCreate.addMaterial')}</Text>
       </Pressable>
     </Screen>
   );

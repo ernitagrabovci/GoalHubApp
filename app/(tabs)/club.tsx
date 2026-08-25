@@ -12,9 +12,11 @@ import {
   type ClubField,
   type ClubSeason,
 } from '@/lib/data';
+import { useLanguage } from '@/lib/i18n';
 import { usePersistedState } from '@/lib/storage';
 
 export default function ClubScreen() {
+  const { t } = useLanguage();
   const [seasons, setSeasons] = usePersistedState<ClubSeason[]>('club:seasons', CLUB_SEASONS);
   const [fields, setFields] = usePersistedState<ClubField[]>('club:fields', CLUB_FIELDS);
   const [showSeason, setShowSeason] = useState(false);
@@ -28,7 +30,7 @@ export default function ClubScreen() {
 
   const addSeason = () => {
     if (!seasonLabel.trim()) {
-      alert('Enter a season label e.g. 2027/28.');
+      alert(t('club.alertSeasonLabel'));
       return;
     }
     setSeasons((prev) => [
@@ -37,12 +39,12 @@ export default function ClubScreen() {
     ]);
     setSeasonLabel('');
     setShowSeason(false);
-    alert(`Season ${seasonLabel.trim()} created and activated.`);
+    alert(t('club.alertSeasonCreated', { label: seasonLabel.trim() }));
   };
 
   const addField = () => {
     if (!fieldName.trim() || !fieldLocation.trim()) {
-      alert('Enter a field name and location.');
+      alert(t('club.alertField'));
       return;
     }
     setFields((prev) => [
@@ -52,16 +54,16 @@ export default function ClubScreen() {
     setFieldName('');
     setFieldLocation('');
     setShowField(false);
-    alert(`${fieldName.trim()} added as a training field.`);
+    alert(t('club.alertFieldAdded', { name: fieldName.trim() }));
   };
 
   const profileRows = [
-    { label: 'founded', value: String(CLUB_PROFILE.founded) },
-    { label: 'league', value: CLUB_PROFILE.league },
-    { label: 'stadium', value: CLUB_PROFILE.stadium },
-    { label: 'address', value: CLUB_PROFILE.address },
-    { label: 'phone', value: CLUB_PROFILE.phone },
-    { label: 'email', value: CLUB_PROFILE.email },
+    { label: t('club.founded'), value: String(CLUB_PROFILE.founded) },
+    { label: t('club.league'), value: CLUB_PROFILE.league },
+    { label: t('club.stadium'), value: CLUB_PROFILE.stadium },
+    { label: t('club.address'), value: CLUB_PROFILE.address },
+    { label: t('club.phone'), value: CLUB_PROFILE.phone },
+    { label: t('club.email'), value: CLUB_PROFILE.email },
   ];
 
   return (
@@ -69,8 +71,8 @@ export default function ClubScreen() {
       <DetailHead
         icon="trophy.fill"
         accent={Colors.mintDim}
-        title="club"
-        subtitle="profile, seasons & training fields"
+        title={t('club.title')}
+        subtitle={t('club.subtitle')}
       />
 
       {/* Club card */}
@@ -85,12 +87,12 @@ export default function ClubScreen() {
         <View style={styles.clubBody}>
           <Text style={styles.clubName}>{CLUB_PROFILE.name}</Text>
           <Text style={styles.clubSub}>
-            founded {CLUB_PROFILE.founded} · {CLUB_PROFILE.league}
+            {t('club.foundedMeta', { founded: CLUB_PROFILE.founded, league: CLUB_PROFILE.league })}
           </Text>
         </View>
       </View>
 
-      <SectionLabel>profile</SectionLabel>
+      <SectionLabel>{t('club.profile')}</SectionLabel>
       <View style={styles.rowsCard}>
         {profileRows.map((r) => (
           <View key={r.label} style={styles.row}>
@@ -100,7 +102,7 @@ export default function ClubScreen() {
         ))}
       </View>
 
-      <SectionLabel>season</SectionLabel>
+      <SectionLabel>{t('club.season')}</SectionLabel>
       <View style={styles.chips}>
         {seasons.map((s) => (
           <Pressable
@@ -108,7 +110,7 @@ export default function ClubScreen() {
             onPress={() => {
               if (!s.active) {
                 activate(s.id);
-                alert(`Season ${s.label} activated.`);
+                alert(t('club.alertSeasonActivated', { label: s.label }));
               }
             }}
             style={[styles.chip, s.active && styles.chipActive]}>
@@ -121,7 +123,7 @@ export default function ClubScreen() {
         <View style={styles.inlineForm}>
           <TextInput
             style={styles.input}
-            placeholder="e.g. 2027/28"
+            placeholder={t('club.seasonPlaceholder')}
             placeholderTextColor={Colors.textMuted}
             value={seasonLabel}
             onChangeText={setSeasonLabel}
@@ -129,20 +131,20 @@ export default function ClubScreen() {
           />
           <Pressable style={styles.inlineAdd} onPress={addSeason}>
             <IconSymbol name="plus" size={15} color={Colors.textOnPrimary} />
-            <Text style={styles.inlineAddText}>create season</Text>
+            <Text style={styles.inlineAddText}>{t('club.createSeason')}</Text>
           </Pressable>
         </View>
       ) : (
         <Pressable style={styles.addSeason} onPress={() => setShowSeason(true)}>
           <IconSymbol name="plus" size={15} color={Colors.mint} />
-          <Text style={styles.addSeasonText}>new season</Text>
+          <Text style={styles.addSeasonText}>{t('club.newSeason')}</Text>
         </Pressable>
       )}
 
-      <SectionLabel>training fields</SectionLabel>
+      <SectionLabel>{t('club.trainingFields')}</SectionLabel>
       <View style={styles.list}>
         {fields.length === 0 ? (
-          <Text style={styles.emptyText}>No training fields registered yet.</Text>
+          <Text style={styles.emptyText}>{t('club.emptyFields')}</Text>
         ) : (
           fields.map((f) => (
             <View key={f.id} style={styles.fieldCard}>
@@ -154,7 +156,7 @@ export default function ClubScreen() {
                 <Text style={styles.fieldMeta}>{f.location}</Text>
               </View>
               <StatusChip
-                label={f.status}
+                label={t(f.status === 'active' ? 'users.active' : 'users.inactive')}
                 tone={f.status === 'active' ? 'emerald' : 'warning'}
               />
             </View>
@@ -165,7 +167,7 @@ export default function ClubScreen() {
         <View style={styles.inlineForm}>
           <TextInput
             style={styles.input}
-            placeholder="Field name e.g. Field 3"
+            placeholder={t('club.fieldPlaceholder')}
             placeholderTextColor={Colors.textMuted}
             value={fieldName}
             onChangeText={setFieldName}
@@ -173,7 +175,7 @@ export default function ClubScreen() {
           />
           <TextInput
             style={styles.input}
-            placeholder="Location e.g. Training Centre"
+            placeholder={t('club.locationPlaceholder')}
             placeholderTextColor={Colors.textMuted}
             value={fieldLocation}
             onChangeText={setFieldLocation}
@@ -181,13 +183,13 @@ export default function ClubScreen() {
           />
           <Pressable style={styles.inlineAdd} onPress={addField}>
             <IconSymbol name="plus" size={15} color={Colors.textOnPrimary} />
-            <Text style={styles.inlineAddText}>add field</Text>
+            <Text style={styles.inlineAddText}>{t('club.addField')}</Text>
           </Pressable>
         </View>
       ) : (
         <Pressable style={styles.addField} onPress={() => setShowField(true)}>
           <IconSymbol name="plus" size={15} color={Colors.mint} />
-          <Text style={styles.addFieldText}>add field</Text>
+          <Text style={styles.addFieldText}>{t('club.addField')}</Text>
         </Pressable>
       )}
     </Screen>

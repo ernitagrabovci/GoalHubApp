@@ -15,6 +15,7 @@ import {
   type FeeStatus,
   type Health,
 } from '@/lib/data';
+import { useLanguage } from '@/lib/i18n';
 
 const HEALTH_TONE: Record<Health, StatusTone> = {
   active: 'emerald',
@@ -40,6 +41,7 @@ const SECTIONS: { label: string; icon: IconSymbolName; tint: string; route: stri
 
 export default function ChildScreen() {
   const router = useRouter();
+  const { t } = useLanguage();
   const child = ALL_PLAYERS.find((p) => p.name === 'Agon Gashi') ?? ALL_PLAYERS[0];
   const season = PLAYER_SEASON[child.name];
   const profile = PLAYER_PROFILES[child.name];
@@ -53,13 +55,13 @@ export default function ChildScreen() {
       <View style={styles.card}>
         <InitialsTile initials={child.initials} color={child.color} size={56} />
         <View style={styles.cardBody}>
-          <Text style={styles.kicker}>your child</Text>
+          <Text style={styles.kicker}>{t('child.yourChild')}</Text>
           <Text style={styles.name}>{child.name}</Text>
           <Text style={styles.meta}>
-            {child.position} · No. {child.number} · age {child.age} · {profile.team}
+            {t('common.personMeta', { position: child.position, number: child.number, age: child.age })} · {profile.team}
           </Text>
           <View style={styles.tags}>
-            <StatusChip label={child.health} tone={HEALTH_TONE[child.health]} />
+            <StatusChip label={t(`health.${child.health}`)} tone={HEALTH_TONE[child.health]} />
             <View style={styles.ratingChip}>
               <IconSymbol name="star.fill" size={11} color="#f5a623" />
               <Text style={styles.ratingText}>{child.rating.toFixed(1)}</Text>
@@ -68,33 +70,33 @@ export default function ChildScreen() {
         </View>
       </View>
 
-      <SectionLabel>season stats</SectionLabel>
+      <SectionLabel>{t('child.seasonStats')}</SectionLabel>
       <View style={styles.summary}>
-        <StatCell value={String(season.matches)} label="matches" />
-        <StatCell value={String(season.goals)} label="goals" color="#f5a623" />
-        <StatCell value={String(season.assists)} label="assists" />
-        <StatCell value={`${season.yellow}/${season.red}`} label="cards" color={Colors.warning} />
+        <StatCell value={String(season.matches)} label={t('stats.matches')} />
+        <StatCell value={String(season.goals)} label={t('stats.goals')} color="#f5a623" />
+        <StatCell value={String(season.assists)} label={t('stats.assists')} />
+        <StatCell value={`${season.yellow}/${season.red}`} label={t('stats.cards')} color={Colors.warning} />
       </View>
 
-      <SectionLabel>view</SectionLabel>
+      <SectionLabel>{t('child.view')}</SectionLabel>
       <View style={styles.grid}>
         {SECTIONS.map((s) => (
           <Pressable key={s.label} style={styles.cell} onPress={() => router.push(s.route as never)}>
             <View style={[styles.cellIcon, { backgroundColor: `${s.tint}1f` }]}>
               <IconSymbol name={s.icon} size={22} color={s.tint} />
             </View>
-            <Text style={styles.cellLabel}>{s.label}</Text>
+            <Text style={styles.cellLabel}>{t(`child.${s.label}`)}</Text>
           </Pressable>
         ))}
       </View>
 
       {rating ? (
         <>
-          <SectionLabel>latest rating</SectionLabel>
+          <SectionLabel>{t('child.latestRating')}</SectionLabel>
           <Pressable style={styles.ratingCard} onPress={() => router.push('/child-ratings')}>
             <Text style={styles.ratingAvg}>{rating.average.toFixed(1)}</Text>
             <View style={styles.ratingBody}>
-              <Text style={styles.ratingTitle}>rated by {rating.by}</Text>
+              <Text style={styles.ratingTitle}>{t('child.ratedBy', { name: rating.by })}</Text>
               <Text style={styles.ratingComment} numberOfLines={2}>
                 “{rating.comment}”
               </Text>
@@ -106,20 +108,20 @@ export default function ChildScreen() {
 
       {currentFee ? (
         <>
-          <SectionLabel>fee status</SectionLabel>
+          <SectionLabel>{t('child.feeStatus')}</SectionLabel>
           <Pressable style={styles.feeCard} onPress={() => router.push('/fees')}>
             <View style={styles.feeBody}>
               <Text style={styles.feeLabel}>
                 {currentFee.month} · {currentFee.amount}
               </Text>
-              <Text style={styles.feeSub}>membership fee · {currentFee.name}</Text>
+              <Text style={styles.feeSub}>{t('child.membershipFee', { name: currentFee.name })}</Text>
             </View>
-            <StatusChip label={currentFee.status} tone={FEE_TONE[currentFee.status]} />
+            <StatusChip label={t(`status.${currentFee.status}`)} tone={FEE_TONE[currentFee.status]} />
           </Pressable>
         </>
       ) : null}
 
-      <Text style={styles.note}>read-only · managed by the club</Text>
+      <Text style={styles.note}>{t('child.readOnly')}</Text>
     </Screen>
   );
 }

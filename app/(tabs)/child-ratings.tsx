@@ -3,23 +3,19 @@ import { StyleSheet, Text, View } from 'react-native';
 import { Screen, DetailHead } from '@/components/screen';
 import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
 import { ALL_RATINGS } from '@/lib/data';
+import { useLanguage } from '@/lib/i18n';
 
-const CRITERIA: { label: string; key: 'technique' | 'physical' | 'tactics' | 'consistency' | 'teamwork' }[] = [
-  { label: 'technique', key: 'technique' },
-  { label: 'physical', key: 'physical' },
-  { label: 'tactics', key: 'tactics' },
-  { label: 'consistency', key: 'consistency' },
-  { label: 'teamwork', key: 'teamwork' },
-];
+const CRITERIA = ['technique', 'physical', 'tactics', 'consistency', 'teamwork'] as const;
 
 export default function ChildRatingsScreen() {
+  const { t } = useLanguage();
   const rating = ALL_RATINGS.find((r) => r.player === 'Agon Gashi');
 
   if (!rating) {
     return (
       <Screen back>
-        <DetailHead icon="star.fill" accent="#f5a623" title="ratings" subtitle="Agon Gashi" />
-        <Text style={styles.empty}>No ratings yet for Agon Gashi.</Text>
+        <DetailHead icon="star.fill" accent="#f5a623" title={t('childRatings.title')} subtitle="Agon Gashi" />
+        <Text style={styles.empty}>{t('childRatings.empty', { name: 'Agon Gashi' })}</Text>
       </Screen>
     );
   }
@@ -29,32 +25,32 @@ export default function ChildRatingsScreen() {
       <DetailHead
         icon="star.fill"
         accent="#f5a623"
-        title="ratings"
-        subtitle={`Agon Gashi · rated by ${rating.by}`}
+        title={t('childRatings.title')}
+        subtitle={t('childRatings.ratedBySub', { name: 'Agon Gashi', by: rating.by })}
       />
 
       <View style={styles.card}>
         <View style={styles.head}>
           <Text style={styles.avg}>{rating.average.toFixed(1)}</Text>
           <View style={styles.headBody}>
-            <Text style={styles.headTitle}>season average</Text>
-            <Text style={styles.headDate}>{rating.rated} · 5-criteria</Text>
+            <Text style={styles.headTitle}>{t('childRatings.seasonAverage')}</Text>
+            <Text style={styles.headDate}>{t('childRatings.fiveCriteria', { date: rating.rated })}</Text>
           </View>
         </View>
 
         <View style={styles.criteria}>
           {CRITERIA.map((c) => (
-            <View key={c.label} style={styles.criterion}>
-              <Text style={styles.criterionLabel}>{c.label}</Text>
+            <View key={c} style={styles.criterion}>
+              <Text style={styles.criterionLabel}>{t(`rating.${c}`)}</Text>
               <View style={styles.barTrack}>
                 <View
                   style={[
                     styles.barFill,
-                    { width: `${Math.round((rating[c.key] / 10) * 100)}%` },
+                    { width: `${Math.round((rating[c] / 10) * 100)}%` },
                   ]}
                 />
               </View>
-              <Text style={styles.criterionValue}>{rating[c.key].toFixed(1)}</Text>
+              <Text style={styles.criterionValue}>{rating[c].toFixed(1)}</Text>
             </View>
           ))}
         </View>
@@ -64,7 +60,7 @@ export default function ChildRatingsScreen() {
         </View>
       </View>
 
-      <Text style={styles.note}>read-only · ratings are set by the coaching staff</Text>
+      <Text style={styles.note}>{t('childRatings.readOnly')}</Text>
     </Screen>
   );
 }

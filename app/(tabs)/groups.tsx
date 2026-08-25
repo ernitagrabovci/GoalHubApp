@@ -6,6 +6,7 @@ import { InitialsTile, ListRow } from '@/components/list-row';
 import { ListScreen } from '@/components/list-screen';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
+import { useLanguage } from '@/lib/i18n';
 import { ALL_GROUPS, ALL_PLAYERS, type Group } from '@/lib/data';
 import { usePersistedState } from '@/lib/storage';
 
@@ -13,6 +14,7 @@ const GROUP_TYPES = ['Position group', 'Specialist', 'Age group'];
 const GROUP_COLORS = ['#f5a623', '#5aa7e6', '#86C2A4', '#534AB7', '#408A71'];
 
 function NewGroupForm({ onDone }: { onDone: (g: Group) => void }) {
+  const { t } = useLanguage();
   const [name, setName] = useState('');
   const [type, setType] = useState<string>(GROUP_TYPES[0]);
   const [memberIds, setMemberIds] = useState<string[]>([]);
@@ -22,11 +24,11 @@ function NewGroupForm({ onDone }: { onDone: (g: Group) => void }) {
 
   const submit = () => {
     if (!name.trim()) {
-      alert('Enter a group name.');
+      alert(t('groups.alertName'));
       return;
     }
     if (memberIds.length === 0) {
-      alert('Select at least one member.');
+      alert(t('groups.alertMember'));
       return;
     }
     const members = ALL_PLAYERS.filter((p) => memberIds.includes(p.id)).map((p) => ({
@@ -45,32 +47,32 @@ function NewGroupForm({ onDone }: { onDone: (g: Group) => void }) {
 
   return (
     <View style={styles.formCard}>
-      <Text style={styles.fieldLabel}>group name</Text>
+      <Text style={styles.fieldLabel}>{t('groups.nameLabel')}</Text>
       <TextInput
         style={styles.input}
-        placeholder="e.g. Set-piece takers"
+        placeholder={t('groups.namePlaceholder')}
         placeholderTextColor={Colors.textMuted}
         value={name}
         onChangeText={setName}
         autoCorrect={false}
       />
-      <Text style={styles.fieldLabel}>type</Text>
+      <Text style={styles.fieldLabel}>{t('groups.typeLabel')}</Text>
       <View style={styles.wrap}>
-        {GROUP_TYPES.map((t) => {
-          const selected = type === t;
+        {GROUP_TYPES.map((ty) => {
+          const selected = type === ty;
           return (
             <Pressable
-              key={t}
-              onPress={() => setType(t)}
+              key={ty}
+              onPress={() => setType(ty)}
               style={[styles.chip, selected && styles.chipActive]}>
               <Text style={[styles.chipText, selected && styles.chipTextActive]}>
-                {t.toLowerCase()}
+                {t(`group.type.${ty}`)}
               </Text>
             </Pressable>
           );
         })}
       </View>
-      <Text style={styles.fieldLabel}>members · tap to select</Text>
+      <Text style={styles.fieldLabel}>{t('groups.membersLabel')}</Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.pickerRow}>
         {ALL_PLAYERS.map((p) => {
           const selected = memberIds.includes(p.id);
@@ -92,7 +94,7 @@ function NewGroupForm({ onDone }: { onDone: (g: Group) => void }) {
       </ScrollView>
       <Pressable style={styles.submitBtn} onPress={submit}>
         <IconSymbol name="plus" size={16} color={Colors.textOnPrimary} />
-        <Text style={styles.submitBtnText}>create group</Text>
+        <Text style={styles.submitBtnText}>{t('groups.createGroup')}</Text>
       </Pressable>
     </View>
   );
@@ -100,38 +102,39 @@ function NewGroupForm({ onDone }: { onDone: (g: Group) => void }) {
 
 export default function GroupsScreen() {
   const router = useRouter();
+  const { t } = useLanguage();
   const [groups, setGroups] = usePersistedState<Group[]>('groups:list', ALL_GROUPS);
 
   return (
     <ListScreen back
       icon="person.2.fill"
       accent={Colors.purple}
-      title="groups"
-      subtitle="squad groups for sessions & messages"
+      title={t('groups.title')}
+      subtitle={t('groups.subtitle')}
       searchable
-      searchPlaceholder="Search groups…"
+      searchPlaceholder={t('groups.search')}
       searchKeys={(g) => `${g.name} ${g.type} ${g.members.map((m) => m.name).join(' ')}`}
       items={groups}
       itemKey={(g) => g.id}
-      actionLabel="create group"
+      actionLabel={t('groups.createGroup')}
       actionForm={(close) => (
         <NewGroupForm
           onDone={(g) => {
             setGroups((prev) => [g, ...prev]);
             close();
-            alert(`"${g.name}" created with ${g.members.length} members.`);
+            alert(t('groups.alertCreated', { name: g.name, count: g.members.length }));
           }}
         />
       )}
       renderItem={(g) => (
         <ListRow
           title={g.name}
-          subtitle={`${g.type} · ${g.members.length} player${g.members.length === 1 ? '' : 's'}`}
+          subtitle={`${t(`group.type.${g.type}`)} · ${g.members.length} ${t(g.members.length === 1 ? 'common.player' : 'common.players')}`}
           leading={<InitialsTile initials={g.name.slice(0, 2).toUpperCase()} color={g.color} />}
           onPress={() => router.push(`/group?id=${g.id}`)}
         />
       )}
-      emptyText="No groups match that search."
+      emptyText={t('groups.empty')}
     />
   );
 }

@@ -6,18 +6,20 @@ import { StatusChip } from '@/components/status-chip';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
 import { ALL_COMPETITIONS, type Competition, type CompetitionType } from '@/lib/data';
+import { useLanguage } from '@/lib/i18n';
 import { useSession } from '@/lib/session';
 import { usePersistedState } from '@/lib/storage';
 
-const TYPE_META: Record<CompetitionType, { label: string; color: string }> = {
-  league: { label: 'league', color: '#185fa5' },
-  cup: { label: 'cup', color: '#f5a623' },
-  friendly: { label: 'friendly', color: '#1a9e5c' },
+const TYPE_META: Record<CompetitionType, { color: string }> = {
+  league: { color: '#185fa5' },
+  cup: { color: '#f5a623' },
+  friendly: { color: '#1a9e5c' },
 };
 
 const TYPE_ORDER: CompetitionType[] = ['league', 'cup', 'friendly'];
 
 export default function CompetitionsScreen() {
+  const { t } = useLanguage();
   const { user } = useSession();
   const canManage = user?.role === 'administrator';
 
@@ -30,7 +32,7 @@ export default function CompetitionsScreen() {
 
   const add = () => {
     if (!name.trim()) {
-      alert('Enter a competition name first.');
+      alert(t('comp.alertName'));
       return;
     }
     setComps((prev) => [
@@ -38,19 +40,19 @@ export default function CompetitionsScreen() {
       { id: `c-${Date.now()}`, name: name.trim(), type, active: true },
     ]);
     setName('');
-    alert(`"${name.trim()}" added to competitions.`);
+    alert(t('comp.alertAdded', { name: name.trim() }));
   };
 
   const toggle = (id: string) => {
     const target = comps.find((c) => c.id === id);
     setComps((prev) => prev.map((c) => (c.id === id ? { ...c, active: !c.active } : c)));
-    if (target) alert(`"${target.name}" ${target.active ? 'deactivated' : 'activated'}.`);
+    if (target) alert(t('comp.alertToggled', { name: target.name, state: t(target.active ? 'comp.deactivated' : 'comp.activated') }));
   };
 
   const remove = (id: string) => {
     const target = comps.find((c) => c.id === id);
     setComps((prev) => prev.filter((c) => c.id !== id));
-    if (target) alert(`"${target.name}" deleted.`);
+    if (target) alert(t('comp.alertDeleted', { name: target.name }));
   };
 
   return (
@@ -58,39 +60,39 @@ export default function CompetitionsScreen() {
       <DetailHead
         icon="trophy.fill"
         accent="#f5a623"
-        title="competitions"
-        subtitle="managed leagues & cups · FC Prishtina"
+        title={t('comp.title')}
+        subtitle={t('comp.subtitle')}
       />
 
       <View style={styles.statsRow}>
-        <StatCell value={String(active)} label="active" color={Colors.mint} />
-        <StatCell value={String(comps.length)} label="total" />
-        <StatCell value={String(cups)} label="cups" color="#f5a623" />
+        <StatCell value={String(active)} label={t('comp.active')} color={Colors.mint} />
+        <StatCell value={String(comps.length)} label={t('comp.total')} />
+        <StatCell value={String(cups)} label={t('comp.cups')} color="#f5a623" />
       </View>
 
       {canManage ? (
         <>
-          <SectionLabel>add competition</SectionLabel>
+          <SectionLabel>{t('comp.addCompetition')}</SectionLabel>
           <View style={styles.formCard}>
             <TextInput
               style={styles.input}
-              placeholder="e.g. Superliga e Kosovës"
+              placeholder={t('comp.namePlaceholder')}
               placeholderTextColor={Colors.textMuted}
               value={name}
               onChangeText={setName}
               autoCorrect={false}
             />
             <View style={styles.chips}>
-              {TYPE_ORDER.map((t) => {
-                const meta = TYPE_META[t];
-                const selected = type === t;
+              {TYPE_ORDER.map((ty) => {
+                const meta = TYPE_META[ty];
+                const selected = type === ty;
                 return (
                   <Pressable
-                    key={t}
-                    onPress={() => setType(t)}
+                    key={ty}
+                    onPress={() => setType(ty)}
                     style={[styles.chip, selected && { backgroundColor: meta.color, borderColor: meta.color }]}>
                     <Text style={[styles.chipText, selected && { color: Colors.textOnPrimary }]}>
-                      {meta.label}
+                      {t(`comp.${ty}`)}
                     </Text>
                   </Pressable>
                 );
@@ -98,30 +100,30 @@ export default function CompetitionsScreen() {
             </View>
             <Pressable style={styles.addBtn} onPress={add}>
               <IconSymbol name="plus" size={16} color={Colors.textOnPrimary} />
-              <Text style={styles.addBtnText}>add competition</Text>
+              <Text style={styles.addBtnText}>{t('comp.addCompetition')}</Text>
             </Pressable>
           </View>
         </>
       ) : null}
 
-      <SectionLabel>competitions</SectionLabel>
+      <SectionLabel>{t('comp.section')}</SectionLabel>
       <View style={styles.list}>
         {comps.map((c) => {
           const meta = TYPE_META[c.type];
           return (
             <View key={c.id} style={styles.row}>
               <View style={[styles.typePill, { backgroundColor: `${meta.color}1a` }]}>
-                <Text style={[styles.typePillText, { color: meta.color }]}>{meta.label}</Text>
+                <Text style={[styles.typePillText, { color: meta.color }]}>{t(`comp.${c.type}`)}</Text>
               </View>
               <View style={styles.rowBody}>
                 <Text style={styles.rowName}>{c.name}</Text>
-                <StatusChip label={c.active ? 'active' : 'inactive'} tone={c.active ? 'emerald' : 'muted'} />
+                <StatusChip label={t(c.active ? 'comp.active' : 'users.inactive')} tone={c.active ? 'emerald' : 'muted'} />
               </View>
               {canManage ? (
                 <View style={styles.rowActions}>
                   <Pressable onPress={() => toggle(c.id)} hitSlop={8}>
                     <Text style={c.active ? styles.deactText : styles.actText}>
-                      {c.active ? 'deactivate' : 'activate'}
+                      {t(c.active ? 'comp.deactivate' : 'comp.activate')}
                     </Text>
                   </Pressable>
                   <Pressable onPress={() => remove(c.id)} hitSlop={8}>

@@ -8,6 +8,7 @@ import { StatusChip, type StatusTone } from '@/components/status-chip';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
 import { ALL_PLAYERS, type Health } from '@/lib/data';
+import { useLanguage } from '@/lib/i18n';
 
 const HEALTH_TONE: Record<Health, StatusTone> = {
   active: 'emerald',
@@ -16,15 +17,9 @@ const HEALTH_TONE: Record<Health, StatusTone> = {
   suspended: 'muted',
 };
 
-const HEALTH_LABEL: Record<Health, string> = {
-  active: 'active',
-  injured: 'injured',
-  rehabilitation: 'rehab',
-  suspended: 'suspended',
-};
-
 export default function PlayersScreen() {
   const router = useRouter();
+  const { t } = useLanguage();
   const [query, setQuery] = useState('');
 
   const filtered = useMemo(() => {
@@ -43,19 +38,19 @@ export default function PlayersScreen() {
       <DetailHead
         icon="person.2.fill"
         accent={Colors.mint}
-        title="squad"
-        subtitle={`${ALL_PLAYERS.length} players · FC Prishtina`}
+        title={t('players.title')}
+        subtitle={t('players.subtitle', { count: ALL_PLAYERS.length })}
       />
 
       {/* Quick links */}
       <View style={styles.links}>
         <Pressable style={styles.link} onPress={() => router.push('/ratings')}>
           <IconSymbol name="star.fill" size={16} color="#f5a623" />
-          <Text style={styles.linkText}>ratings</Text>
+          <Text style={styles.linkText}>{t('players.ratings')}</Text>
         </Pressable>
         <Pressable style={styles.link} onPress={() => router.push('/attendance')}>
           <IconSymbol name="checkmark.circle.fill" size={16} color="#2fbf71" />
-          <Text style={styles.linkText}>attendance</Text>
+          <Text style={styles.linkText}>{t('players.attendance')}</Text>
         </Pressable>
       </View>
 
@@ -64,7 +59,7 @@ export default function PlayersScreen() {
         <IconSymbol name="search" size={18} color={Colors.textMuted} />
         <TextInput
           style={styles.searchInput}
-          placeholder="Search by name or position…"
+          placeholder={t('players.search')}
           placeholderTextColor={Colors.textMuted}
           value={query}
           onChangeText={setQuery}
@@ -77,10 +72,10 @@ export default function PlayersScreen() {
         ) : null}
       </View>
 
-      <SectionLabel>players</SectionLabel>
+      <SectionLabel>{t('players.section')}</SectionLabel>
       <View style={styles.list}>
         {filtered.length === 0 ? (
-          <Text style={styles.empty}>No players match that search.</Text>
+          <Text style={styles.empty}>{t('players.empty')}</Text>
         ) : (
           filtered.map((p) => (
             <ListRow
@@ -88,7 +83,7 @@ export default function PlayersScreen() {
               title={p.name}
               subtitle={`${p.position} · No. ${p.number} · ★ ${p.rating.toFixed(1)}`}
               leading={<InitialsTile initials={p.initials} color={p.color} />}
-              trailing={<StatusChip label={HEALTH_LABEL[p.health]} tone={HEALTH_TONE[p.health]} />}
+              trailing={<StatusChip label={t(`health.${p.health}`)} tone={HEALTH_TONE[p.health]} />}
               onPress={() => router.push(`/player?id=${p.id}`)}
             />
           ))

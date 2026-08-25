@@ -6,6 +6,7 @@ import { StatusChip, type StatusTone } from '@/components/status-chip';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
 import { ALL_PLAYERS, ALL_RATINGS, PLAYER_PROFILES, PLAYER_SEASON, type Health } from '@/lib/data';
+import { useLanguage } from '@/lib/i18n';
 
 const HEALTH_TONE: Record<Health, StatusTone> = {
   active: 'emerald',
@@ -14,26 +15,21 @@ const HEALTH_TONE: Record<Health, StatusTone> = {
   suspended: 'purple',
 };
 
-const CRITERIA: { label: string; key: 'technique' | 'physical' | 'tactics' | 'consistency' | 'teamwork' }[] = [
-  { label: 'technique', key: 'technique' },
-  { label: 'physical', key: 'physical' },
-  { label: 'tactics', key: 'tactics' },
-  { label: 'consistency', key: 'consistency' },
-  { label: 'teamwork', key: 'teamwork' },
-];
+const CRITERIA = ['technique', 'physical', 'tactics', 'consistency', 'teamwork'] as const;
 
 export default function StatsScreen() {
+  const { t } = useLanguage();
   const player = ALL_PLAYERS.find((p) => p.name === 'Ardit Llapashtica') ?? ALL_PLAYERS[0];
   const season = PLAYER_SEASON[player.name];
   const profile = PLAYER_PROFILES[player.name];
   const rating = ALL_RATINGS.find((r) => r.player === player.name);
 
   const profileRows = [
-    { label: 'birth', value: profile.birth },
-    { label: 'nationality', value: profile.nationality },
-    { label: 'license', value: profile.license },
-    { label: 'contract', value: `${profile.contract} → ${profile.contractEnd}` },
-    { label: 'team', value: profile.team },
+    { label: t('stats.birth'), value: profile.birth },
+    { label: t('stats.nationality'), value: profile.nationality },
+    { label: t('stats.license'), value: profile.license },
+    { label: t('stats.contract'), value: `${profile.contract} → ${profile.contractEnd}` },
+    { label: t('stats.team'), value: profile.team },
   ];
 
   return (
@@ -44,10 +40,10 @@ export default function StatsScreen() {
         <View style={styles.cardBody}>
           <Text style={styles.name}>{player.name}</Text>
           <Text style={styles.meta}>
-            {player.position} · No. {player.number} · age {player.age}
+            {t('common.personMeta', { position: player.position, number: player.number, age: player.age })}
           </Text>
           <View style={styles.tags}>
-            <StatusChip label={player.health} tone={HEALTH_TONE[player.health]} />
+            <StatusChip label={t(`health.${player.health}`)} tone={HEALTH_TONE[player.health]} />
             <View style={styles.ratingChip}>
               <IconSymbol name="star.fill" size={11} color="#f5a623" />
               <Text style={styles.ratingText}>{player.rating.toFixed(1)}</Text>
@@ -56,16 +52,16 @@ export default function StatsScreen() {
         </View>
       </View>
 
-      <SectionLabel>season stats</SectionLabel>
+      <SectionLabel>{t('stats.seasonStats')}</SectionLabel>
       <View style={styles.summary}>
-        <StatCell value={String(season.matches)} label="matches" />
-        <StatCell value={String(season.goals)} label="goals" color="#f5a623" />
-        <StatCell value={String(season.assists)} label="assists" />
-        <StatCell value={`${season.yellow}/${season.red}`} label="cards" color={Colors.warning} />
-        <StatCell value={`${season.minutes}`} label="minutes" />
+        <StatCell value={String(season.matches)} label={t('stats.matches')} />
+        <StatCell value={String(season.goals)} label={t('stats.goals')} color="#f5a623" />
+        <StatCell value={String(season.assists)} label={t('stats.assists')} />
+        <StatCell value={`${season.yellow}/${season.red}`} label={t('stats.cards')} color={Colors.warning} />
+        <StatCell value={`${season.minutes}`} label={t('stats.minutes')} />
       </View>
 
-      <SectionLabel>profile</SectionLabel>
+      <SectionLabel>{t('stats.profile')}</SectionLabel>
       <View style={styles.rowsCard}>
         {profileRows.map((r) => (
           <View key={r.label} style={styles.row}>
@@ -77,28 +73,28 @@ export default function StatsScreen() {
 
       {rating ? (
         <>
-          <SectionLabel>latest rating</SectionLabel>
+          <SectionLabel>{t('stats.latestRating')}</SectionLabel>
           <View style={styles.ratingCard}>
             <View style={styles.ratingHead}>
               <Text style={styles.ratingAvg}>{rating.average.toFixed(1)}</Text>
               <View style={styles.ratingHeadBody}>
-                <Text style={styles.ratingBy}>rated by {rating.by}</Text>
-                <Text style={styles.ratingDate}>{rating.rated} · 5-criteria</Text>
+                <Text style={styles.ratingBy}>{t('stats.ratedBy', { by: rating.by })}</Text>
+                <Text style={styles.ratingDate}>{t('stats.ratingDate', { rated: rating.rated })}</Text>
               </View>
             </View>
             <View style={styles.criteria}>
               {CRITERIA.map((c) => (
-                <View key={c.label} style={styles.criterion}>
-                  <Text style={styles.criterionLabel}>{c.label}</Text>
+                <View key={c} style={styles.criterion}>
+                  <Text style={styles.criterionLabel}>{t(`rating.${c}`)}</Text>
                   <View style={styles.barTrack}>
                     <View
                       style={[
                         styles.barFill,
-                        { width: `${Math.round((rating[c.key] / 10) * 100)}%` },
+                        { width: `${Math.round((rating[c] / 10) * 100)}%` },
                       ]}
                     />
                   </View>
-                  <Text style={styles.criterionValue}>{rating[c.key].toFixed(1)}</Text>
+                  <Text style={styles.criterionValue}>{rating[c].toFixed(1)}</Text>
                 </View>
               ))}
             </View>
@@ -107,7 +103,7 @@ export default function StatsScreen() {
         </>
       ) : null}
 
-      <Text style={styles.note}>read-only · your profile is managed by the club</Text>
+      <Text style={styles.note}>{t('stats.readOnly')}</Text>
     </Screen>
   );
 }

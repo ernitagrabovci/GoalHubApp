@@ -7,6 +7,7 @@ import { StatusChip, type StatusTone } from '@/components/status-chip';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
 import { feesForRole, type FeeStatus } from '@/lib/data';
+import { useLanguage } from '@/lib/i18n';
 import { useSession } from '@/lib/session';
 import { usePersistedState } from '@/lib/storage';
 
@@ -19,14 +20,15 @@ const STATUS_TONE: Record<FeeStatus, StatusTone> = {
 
 const METHODS = ['cash', 'bank transfer', 'card'] as const;
 
-const REF_LABEL: Record<string, string> = {
-  cash: 'invoice number',
-  'bank transfer': 'transaction number',
-  card: 'authorization number',
+const REF_KEY: Record<string, string> = {
+  cash: 'fee.ref.invoice number',
+  'bank transfer': 'fee.ref.transaction number',
+  card: 'fee.ref.authorization number',
 };
 
 export default function FeeScreen() {
   const router = useRouter();
+  const { t } = useLanguage();
   const { user } = useSession();
   const { id } = useLocalSearchParams<{ id?: string }>();
   const source = feesForRole('administrator').find((f) => f.id === id) ?? feesForRole('administrator')[0];
@@ -34,16 +36,16 @@ export default function FeeScreen() {
   const [method, setMethod] = usePersistedState<string>(`fee:${source.id}:method`, METHODS[0]);
   const [ref, setRef] = usePersistedState<string>(`fee:${source.id}:ref`, '');
   const [receipt, setReceipt] = usePersistedState<boolean>(`fee:${source.id}:receipt`, false);
-  const refLabel = REF_LABEL[method] ?? 'reference number';
+  const refLabel = t(REF_KEY[method] ?? 'fee.ref.reference');
 
   const paid = status === 'paid';
   const canManage = user?.role === 'administrator' || user?.role === 'financier';
 
   const infoRows = [
-    { label: 'member', value: source.name },
-    { label: 'month', value: source.month },
-    { label: 'amount', value: source.amount },
-    { label: 'status', value: status },
+    { label: t('fee.member'), value: source.name },
+    { label: t('fee.month'), value: source.month },
+    { label: t('fee.amount'), value: source.amount },
+    { label: t('fee.status'), value: t(`status.${status}`) },
   ];
 
   return (
@@ -54,16 +56,16 @@ export default function FeeScreen() {
         <View style={styles.cardBody}>
           <Text style={styles.name}>{source.name}</Text>
           <Text style={styles.meta}>
-            {source.month} membership · {source.amount}
+            {t('fee.membershipMeta', { month: source.month, amount: source.amount })}
           </Text>
           <View style={styles.statusRow}>
-            <StatusChip label={status} tone={STATUS_TONE[status]} />
-            {paid ? <Text style={styles.paidText}>payment received</Text> : null}
+            <StatusChip label={t(`status.${status}`)} tone={STATUS_TONE[status]} />
+            {paid ? <Text style={styles.paidText}>{t('fee.received')}</Text> : null}
           </View>
         </View>
       </View>
 
-      <SectionLabel>details</SectionLabel>
+      <SectionLabel>{t('fee.details')}</SectionLabel>
       <View style={styles.rowsCard}>
         {infoRows.map((r) => (
           <View key={r.label} style={styles.row}>
@@ -75,14 +77,14 @@ export default function FeeScreen() {
 
       {canManage && !paid ? (
         <>
-          <SectionLabel>register payment</SectionLabel>
+          <SectionLabel>{t('fee.registerPayment')}</SectionLabel>
           <View style={styles.chips}>
             {METHODS.map((m) => (
               <Pressable
                 key={m}
                 onPress={() => setMethod(m)}
                 style={[styles.chip, method === m && styles.chipActive]}>
-                <Text style={[styles.chipText, method === m && styles.chipTextActive]}>{m}</Text>
+                <Text style={[styles.chipText, method === m && styles.chipTextActive]}>{t(`fee.method.${m}`)}</Text>
               </Pressable>
             ))}
           </View>
@@ -90,7 +92,7 @@ export default function FeeScreen() {
             <Text style={styles.proofLabel}>{refLabel}</Text>
             <TextInput
               style={styles.proofInput}
-              placeholder={`e.g. ${refLabel}`}
+              placeholder={t('fee.refPlaceholder', { label: refLabel })}
               placeholderTextColor={Colors.textMuted}
               value={ref}
               onChangeText={setRef}
@@ -104,7 +106,7 @@ export default function FeeScreen() {
                 color={receipt ? Colors.emerald : Colors.textMuted}
               />
               <Text style={[styles.attachText, receipt && { color: Colors.emerald }]}>
-                {receipt ? 'receipt attached' : 'attach receipt (optional)'}
+                {t(receipt ? 'fee.receiptAttached' : 'fee.attachReceipt')}
               </Text>
               {receipt ? (
                 <IconSymbol name="checkmark.circle.fill" size={16} color={Colors.emerald} />
@@ -115,23 +117,28 @@ export default function FeeScreen() {
             style={styles.payBtn}
             onPress={() => {
               if (!ref.trim()) {
-                alert(`Enter the ${refLabel} to record this payment.`);
+                alert(t('fee.alertRef', { label: refLabel }));
                 return;
               }
               setStatus('paid');
               alert(
-                `${source.amount} marked as paid via ${method} — ${refLabel}: ${ref.trim()}.`,
+                t('fee.alertPaid', {
+                  amount: source.amount,
+                  method: t(`fee.method.${method}`),
+                  label: refLabel,
+                  ref: ref.trim(),
+                }),
               );
             }}>
             <IconSymbol name="checkmark.circle.fill" size={18} color={Colors.textOnPrimary} />
-            <Text style={styles.payBtnText}>mark as paid</Text>
+            <Text style={styles.payBtnText}>{t('fee.markAsPaid')}</Text>
           </Pressable>
         </>
       ) : (
         <Pressable
           style={styles.backBtn}
           onPress={() => router.back()}>
-          <Text style={styles.backBtnText}>back to fees</Text>
+          <Text style={styles.backBtnText}>{t('fee.backToFees')}</Text>
         </Pressable>
       )}
     </Screen>

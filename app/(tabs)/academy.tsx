@@ -1,20 +1,23 @@
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { IconTile, ListRow } from '@/components/list-row';
 import { IconSymbol, type IconSymbolName } from '@/components/ui/icon-symbol';
 import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
-import { ALL_ACADEMY, type AcademyItem } from '@/lib/data';
+import { type AcademyItem } from '@/lib/data';
+import { useLanguage } from '@/lib/i18n';
 import { useSession } from '@/lib/session';
+import { academyStore, useCollection } from '@/lib/store';
 
 function AcademyRow({ item, onPress }: { item: AcademyItem; onPress: () => void }) {
+  const { t } = useLanguage();
   const icon: IconSymbolName = item.type === 'video' ? 'play.fill' : 'calendar';
   return (
     <ListRow
       title={item.title}
-      subtitle={`${item.category} · ${item.level}`}
+      subtitle={`${t(`category.${item.category}`)} · ${t(`level.${item.level.toLowerCase()}`)}`}
       leading={<IconTile icon={icon} color={item.color} />}
       onPress={onPress}
       trailing={
@@ -23,10 +26,10 @@ function AcademyRow({ item, onPress }: { item: AcademyItem; onPress: () => void 
           {item.isShared ? (
             <View style={styles.sharedTag}>
               <IconSymbol name="link" size={10} color={Colors.mintDim} />
-              <Text style={styles.sharedText}>shared</Text>
+              <Text style={styles.sharedText}>{t('academy.shared')}</Text>
             </View>
           ) : (
-            <Text style={styles.privateText}>private</Text>
+            <Text style={styles.privateText}>{t('academy.private')}</Text>
           )}
         </View>
       }
@@ -37,8 +40,10 @@ function AcademyRow({ item, onPress }: { item: AcademyItem; onPress: () => void 
 export default function AcademyScreen() {
   const router = useRouter();
   const { user } = useSession();
+  const { t } = useLanguage();
   const viewer = user?.role === 'player' || user?.role === 'parent';
-  const library = viewer ? ALL_ACADEMY.filter((a) => a.isShared) : ALL_ACADEMY;
+  const all = useCollection(academyStore);
+  const library = viewer ? all.filter((a) => a.isShared) : all;
   const videos = library.filter((a) => a.type === 'video');
   const sessions = library.filter((a) => a.type === 'session');
 
@@ -48,17 +53,11 @@ export default function AcademyScreen() {
       <ScrollView
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}>
-        {/* Brand header */}
-        <View style={styles.header}>
-          <View style={styles.brand}>
-            <Image
-              source={require('@/assets/images/goalhub-logo.png')}
-              style={styles.brandLogo}
-              resizeMode="contain"
-            />
-            <Text style={styles.brandText}>goalhub</Text>
-          </View>
-        </View>
+        {/* Back */}
+        <Pressable style={styles.backRow} onPress={() => router.back()} hitSlop={8}>
+          <IconSymbol name="chevron-left" size={22} color={Colors.mint} />
+          <Text style={styles.backText}>{t('common.back')}</Text>
+        </Pressable>
 
         {/* Screen head */}
         <View style={styles.head}>
@@ -66,21 +65,21 @@ export default function AcademyScreen() {
             <IconSymbol name="trophy.fill" size={26} color={Colors.mintDim} />
           </View>
           <View style={styles.headBody}>
-            <Text style={styles.title}>academy</Text>
+            <Text style={styles.title}>{t('academy.title')}</Text>
             <Text style={styles.subtitle}>
-              {viewer ? 'shared videos & session plans' : 'training videos & session plans'}
+              {viewer ? t('academy.subtitleShared') : t('academy.subtitleOwn')}
             </Text>
           </View>
         </View>
 
-        <Text style={styles.sectionLabel}>videos</Text>
+        <Text style={styles.sectionLabel}>{t('academy.videos')}</Text>
         <View style={styles.list}>
           {videos.map((v) => (
             <AcademyRow key={v.id} item={v} onPress={() => router.push(`/academy-item?id=${v.id}`)} />
           ))}
         </View>
 
-        <Text style={styles.sectionLabel}>sessions</Text>
+        <Text style={styles.sectionLabel}>{t('academy.sessions')}</Text>
         <View style={styles.list}>
           {sessions.map((s) => (
             <AcademyRow key={s.id} item={s} onPress={() => router.push(`/academy-item?id=${s.id}`)} />
@@ -90,7 +89,7 @@ export default function AcademyScreen() {
         {viewer ? null : (
           <Pressable style={styles.action} onPress={() => router.push('/academy-create')}>
             <IconSymbol name="plus" size={18} color={Colors.textOnPrimary} />
-            <Text style={styles.actionText}>add training material</Text>
+            <Text style={styles.actionText}>{t('academy.addMaterial')}</Text>
           </Pressable>
         )}
       </ScrollView>
@@ -108,23 +107,16 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.sm,
     paddingBottom: Spacing.xxl,
   },
-  header: {
+  backRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 4,
+    paddingVertical: Spacing.xs,
   },
-  brand: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
-  },
-  brandLogo: {
-    width: 28,
-    height: 28,
-  },
-  brandText: {
-    fontFamily: Fonts.heading,
-    fontSize: 20,
-    letterSpacing: -0.5,
+  backText: {
+    fontFamily: Fonts.bodyMedium,
+    fontSize: 13,
     color: Colors.mint,
     textTransform: 'lowercase',
   },

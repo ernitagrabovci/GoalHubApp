@@ -7,6 +7,7 @@ import { Screen, SectionLabel } from '@/components/screen';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
 import { ALL_GROUPS, ALL_PLAYERS } from '@/lib/data';
+import { useLanguage } from '@/lib/i18n';
 import { usePersistedState } from '@/lib/storage';
 
 type ChatMsg = { id: string; text: string; time: string; mine: boolean };
@@ -22,6 +23,7 @@ function nowTime() {
 
 export default function GroupScreen() {
   const router = useRouter();
+  const { t } = useLanguage();
   const { id } = useLocalSearchParams<{ id?: string }>();
   const group = ALL_GROUPS.find((g) => g.id === id) ?? ALL_GROUPS[0];
 
@@ -48,17 +50,17 @@ export default function GroupScreen() {
         <InitialsTile initials={group.name.slice(0, 2).toUpperCase()} color={group.color} size={52} />
         <View style={styles.cardBody}>
           <Text style={styles.name}>{group.name}</Text>
-          <Text style={styles.type}>{group.type}</Text>
+          <Text style={styles.type}>{t(`group.type.${group.type}`)}</Text>
           <View style={styles.metaRow}>
             <IconSymbol name="person.fill" size={12} color={Colors.textMuted} />
             <Text style={styles.metaText}>
-              {group.members.length} player{group.members.length === 1 ? '' : 's'}
+              {group.members.length} {t(group.members.length === 1 ? 'common.player' : 'common.players')}
             </Text>
           </View>
         </View>
       </View>
 
-      <SectionLabel>members</SectionLabel>
+      <SectionLabel>{t('group.members')}</SectionLabel>
       <View style={styles.list}>
         {group.members.map((m) => (
           <ListRow
@@ -70,15 +72,14 @@ export default function GroupScreen() {
         ))}
       </View>
 
-      <SectionLabel>about</SectionLabel>
+      <SectionLabel>{t('group.about')}</SectionLabel>
       <View style={styles.aboutCard}>
         <Text style={styles.aboutText}>
-          {group.name} is a {group.type.toLowerCase()} for focused work. Use the chat below to send
-          targeted messages and share position-specific notes before the next session.
+          {t('group.aboutText', { name: group.name, type: t(`group.type.${group.type}`) })}
         </Text>
       </View>
 
-      <SectionLabel>group chat</SectionLabel>
+      <SectionLabel>{t('group.groupChat')}</SectionLabel>
       <View style={styles.thread}>
         {msgs.map((m) => (
           <View key={m.id} style={[styles.bubble, m.mine ? styles.bubbleMine : styles.bubbleTheirs]}>
@@ -91,7 +92,7 @@ export default function GroupScreen() {
       <View style={styles.inputBar}>
         <TextInput
           style={styles.input}
-          placeholder={`Message ${group.name}…`}
+          placeholder={t('group.messagePlaceholder', { name: group.name })}
           placeholderTextColor={Colors.textMuted}
           value={draft}
           onChangeText={setDraft}

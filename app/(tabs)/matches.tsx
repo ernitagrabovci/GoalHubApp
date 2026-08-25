@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { Image, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { DateTile, ListRow } from '@/components/list-row';
@@ -8,13 +8,15 @@ import { StatusChip } from '@/components/status-chip';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
 import { ALL_MATCHES, type Match } from '@/lib/data';
+import { useLanguage } from '@/lib/i18n';
 
 function MatchTrailing({ match }: { match: Match }) {
+  const { t } = useLanguage();
   if (match.status === 'played') {
     return (
       <View style={styles.resultCol}>
         <Text style={styles.score}>{match.score}</Text>
-        <StatusChip label="played" tone="emerald" />
+        <StatusChip label={t('match.played')} tone="emerald" />
       </View>
     );
   }
@@ -25,23 +27,24 @@ function MatchTrailing({ match }: { match: Match }) {
           <IconSymbol name="clock.fill" size={13} color={Colors.textMuted} />
           <Text style={styles.time}>{match.time}</Text>
         </View>
-        <StatusChip label={match.venue === 'home' ? 'home' : 'away'} tone="info" />
+        <StatusChip label={t(`venue.${match.venue}`)} tone="info" />
       </View>
     );
   }
   return (
     <View style={styles.resultCol}>
       <Text style={[styles.score, { color: Colors.textMuted }]}>—</Text>
-      <StatusChip label="cancelled" tone="danger" />
+      <StatusChip label={t('match.cancelled')} tone="danger" />
     </View>
   );
 }
 
 function MatchRow({ match, onPress }: { match: Match; onPress: () => void }) {
+  const { t } = useLanguage();
   return (
     <ListRow
       title={match.opponent}
-      subtitle={`${match.competition} · ${match.venue === 'home' ? 'Home' : 'Away'}`}
+      subtitle={`${match.competition} · ${t(`venue.${match.venue}`)}`}
       leading={<DateTile day={match.day} month={match.month} color={match.color} />}
       trailing={<MatchTrailing match={match} />}
       onPress={onPress}
@@ -51,6 +54,7 @@ function MatchRow({ match, onPress }: { match: Match; onPress: () => void }) {
 
 export default function MatchesScreen() {
   const router = useRouter();
+  const { t } = useLanguage();
   const upcoming = ALL_MATCHES.filter((m) => m.status === 'upcoming');
   const played = ALL_MATCHES.filter((m) => m.status === 'played');
   const cancelled = ALL_MATCHES.filter((m) => m.status === 'cancelled');
@@ -61,17 +65,11 @@ export default function MatchesScreen() {
       <ScrollView
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}>
-        {/* Brand header */}
-        <View style={styles.header}>
-          <View style={styles.brand}>
-            <Image
-              source={require('@/assets/images/goalhub-logo.png')}
-              style={styles.brandLogo}
-              resizeMode="contain"
-            />
-            <Text style={styles.brandText}>goalhub</Text>
-          </View>
-        </View>
+        {/* Back */}
+        <Pressable style={styles.backRow} onPress={() => router.back()} hitSlop={8}>
+          <IconSymbol name="chevron-left" size={22} color={Colors.mint} />
+          <Text style={styles.backText}>{t('common.back')}</Text>
+        </Pressable>
 
         {/* Screen head */}
         <View style={styles.head}>
@@ -79,14 +77,14 @@ export default function MatchesScreen() {
             <IconSymbol name="figure.soccer" size={26} color={Colors.warning} />
           </View>
           <View style={styles.headBody}>
-            <Text style={styles.title}>matches</Text>
-            <Text style={styles.subtitle}>fixtures & results for FC Prishtina</Text>
+            <Text style={styles.title}>{t('matches.title')}</Text>
+            <Text style={styles.subtitle}>{t('matches.subtitle')}</Text>
           </View>
         </View>
 
         {upcoming.length > 0 ? (
           <>
-            <Text style={styles.sectionLabel}>upcoming</Text>
+            <Text style={styles.sectionLabel}>{t('matches.upcoming')}</Text>
             <View style={styles.list}>
               {upcoming.map((m) => (
                 <MatchRow key={m.id} match={m} onPress={() => router.push(`/match?id=${m.id}`)} />
@@ -97,7 +95,7 @@ export default function MatchesScreen() {
 
         {played.length > 0 ? (
           <>
-            <Text style={styles.sectionLabel}>results</Text>
+            <Text style={styles.sectionLabel}>{t('matches.results')}</Text>
             <View style={styles.list}>
               {played.map((m) => (
                 <MatchRow key={m.id} match={m} onPress={() => router.push(`/match?id=${m.id}`)} />
@@ -108,7 +106,7 @@ export default function MatchesScreen() {
 
         {cancelled.length > 0 ? (
           <>
-            <Text style={styles.sectionLabel}>cancelled</Text>
+            <Text style={styles.sectionLabel}>{t('matches.cancelled')}</Text>
             <View style={styles.list}>
               {cancelled.map((m) => (
                 <MatchRow key={m.id} match={m} onPress={() => router.push(`/match?id=${m.id}`)} />
@@ -131,23 +129,16 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.sm,
     paddingBottom: Spacing.xxl,
   },
-  header: {
+  backRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 4,
+    paddingVertical: Spacing.xs,
   },
-  brand: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
-  },
-  brandLogo: {
-    width: 28,
-    height: 28,
-  },
-  brandText: {
-    fontFamily: Fonts.heading,
-    fontSize: 20,
-    letterSpacing: -0.5,
+  backText: {
+    fontFamily: Fonts.bodyMedium,
+    fontSize: 13,
     color: Colors.mint,
     textTransform: 'lowercase',
   },

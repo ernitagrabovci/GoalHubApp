@@ -7,6 +7,7 @@ import { StatusChip, type StatusTone } from '@/components/status-chip';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
 import { ALL_MATCHES, MATCH_DETAILS, TACTICAL_ROSTER } from '@/lib/data';
+import { useLanguage } from '@/lib/i18n';
 
 const STATUS_TONE: Record<string, StatusTone> = {
   upcoming: 'info',
@@ -19,6 +20,7 @@ function nameFor(initials: string) {
 }
 
 export default function MatchScreen() {
+  const { t } = useLanguage();
   const { id } = useLocalSearchParams<{ id?: string }>();
   const match = ALL_MATCHES.find((m) => m.id === id) ?? ALL_MATCHES[0];
   const detail = MATCH_DETAILS[match.id] ?? MATCH_DETAILS.ma1;
@@ -32,7 +34,7 @@ export default function MatchScreen() {
         <View style={styles.infoBody}>
           <Text style={styles.opponent}>{match.opponent}</Text>
           <Text style={styles.meta}>
-            {match.competition} · {match.venue === 'home' ? 'Home' : 'Away'}
+            {match.competition} · {t(`venue.${match.venue}`)}
           </Text>
           <View style={styles.infoRow}>
             {played ? (
@@ -43,7 +45,7 @@ export default function MatchScreen() {
                 <Text style={styles.time}>{match.time}</Text>
               </View>
             )}
-            <StatusChip label={match.status} tone={STATUS_TONE[match.status]} />
+            <StatusChip label={t(`match.${match.status}`)} tone={STATUS_TONE[match.status]} />
           </View>
         </View>
       </View>
@@ -58,25 +60,25 @@ export default function MatchScreen() {
       {/* Summary for played */}
       {played ? (
         <>
-          <SectionLabel>match summary</SectionLabel>
+          <SectionLabel>{t('match.summary')}</SectionLabel>
           <View style={styles.summary}>
-            <StatCell value={match.score ?? '—'} label="score" />
-            <StatCell value={String(detail.stats.length)} label="players" />
+            <StatCell value={match.score ?? '—'} label={t('match.score')} />
+            <StatCell value={String(detail.stats.length)} label={t('match.players')} />
             <StatCell
               value={String(detail.stats.reduce((s, p) => s + p.goals, 0))}
-              label="goals"
+              label={t('match.goals')}
               color="#f5a623"
             />
             <StatCell
               value={String(detail.stats.reduce((s, p) => s + p.assists, 0))}
-              label="assists"
+              label={t('match.assists')}
             />
           </View>
 
-          <SectionLabel>player stats</SectionLabel>
+          <SectionLabel>{t('match.playerStats')}</SectionLabel>
           <View style={styles.table}>
             <View style={styles.tableHead}>
-              <Text style={styles.headPlayer}>player</Text>
+              <Text style={styles.headPlayer}>{t('match.player')}</Text>
               <Text style={styles.headCol}>G</Text>
               <Text style={styles.headCol}>A</Text>
               <Text style={styles.headCol}>MIN</Text>
@@ -104,7 +106,7 @@ export default function MatchScreen() {
         </>
       ) : (
         <>
-          <SectionLabel>starting lineup</SectionLabel>
+          <SectionLabel>{t('match.startingLineup')}</SectionLabel>
           <View style={styles.lineup}>
             {detail.lineup.map((initials, i) => (
               <View key={initials} style={styles.lineupRow}>

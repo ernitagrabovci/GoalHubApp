@@ -7,21 +7,18 @@ import { Screen, SectionLabel } from '@/components/screen';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
 import { ALL_PLAYERS } from '@/lib/data';
+import { useLanguage } from '@/lib/i18n';
+import { ratingsStore } from '@/lib/store';
 
-const CRITERIA = [
-  { key: 'technique', label: 'technique' },
-  { key: 'physical', label: 'physical' },
-  { key: 'tactics', label: 'tactics' },
-  { key: 'consistency', label: 'consistency' },
-  { key: 'teamwork', label: 'teamwork' },
-] as const;
+const CRITERIA = ['technique', 'physical', 'tactics', 'consistency', 'teamwork'] as const;
 
-type CriteriaKey = (typeof CRITERIA)[number]['key'];
+type CriteriaKey = (typeof CRITERIA)[number];
 
 const clamp = (v: number) => Math.min(10, Math.max(1, v));
 
 export default function RateScreen() {
   const router = useRouter();
+  const { t } = useLanguage();
   const { id } = useLocalSearchParams<{ id?: string }>();
   const player = ALL_PLAYERS.find((p) => p.id === id) ?? ALL_PLAYERS[0];
   const [scores, setScores] = useState<Record<CriteriaKey, number>>({
@@ -32,10 +29,39 @@ export default function RateScreen() {
     teamwork: 7,
   });
 
-  const average = CRITERIA.reduce((sum, c) => sum + scores[c.key], 0) / CRITERIA.length;
+  const average = CRITERIA.reduce((sum, c) => sum + scores[c], 0) / CRITERIA.length;
+
+  const avgHint = t(
+    average >= 8
+      ? 'rate.hint.outstanding'
+      : average >= 7
+        ? 'rate.hint.solid'
+        : average >= 6
+          ? 'rate.hint.developing'
+          : 'rate.hint.below',
+  );
 
   const bump = (key: CriteriaKey, delta: number) => {
     setScores((prev) => ({ ...prev, [key]: clamp(prev[key] + delta) }));
+  };
+
+  const save = () => {
+    ratingsStore.prepend({
+      id: `r-${Date.now()}`,
+      player: player.name,
+      initials: player.initials,
+      color: player.color,
+      technique: scores.technique,
+      physical: scores.physical,
+      tactics: scores.tactics,
+      consistency: scores.consistency,
+      teamwork: scores.teamwork,
+      average,
+      comment: avgHint,
+      by: 'Rexhep Hyseni',
+      rated: `${new Date().getDate()} ${new Date().toLocaleString('en', { month: 'short' })}`,
+    });
+    router.back();
   };
 
   return (
@@ -45,24 +71,24 @@ export default function RateScreen() {
         <View style={styles.headBody}>
           <Text style={styles.name}>{player.name}</Text>
           <Text style={styles.meta}>
-            {player.position} · No. {player.number} · scale 1.0 – 10.0
+            {player.position} · No. {player.number} · {t('rate.scale')}
           </Text>
         </View>
       </View>
 
-      <SectionLabel>5 criteria</SectionLabel>
+      <SectionLabel>{t('rate.criteria')}</SectionLabel>
       <View style={styles.card}>
         {CRITERIA.map((c, i) => (
           <View
-            key={c.key}
+            key={c}
             style={[styles.criterion, i < CRITERIA.length - 1 && styles.criterionBorder]}>
-            <Text style={styles.criterionLabel}>{c.label}</Text>
+            <Text style={styles.criterionLabel}>{t(`rating.${c}`)}</Text>
             <View style={styles.stepper}>
-              <Pressable style={styles.stepBtn} onPress={() => bump(c.key, -0.5)} hitSlop={6}>
+              <Pressable style={styles.stepBtn} onPress={() => bump(c, -0.5)} hitSlop={6}>
                 <IconSymbol name="xmark" size={16} color={Colors.mint} />
               </Pressable>
-              <Text style={styles.stepValue}>{scores[c.key].toFixed(1)}</Text>
-              <Pressable style={styles.stepBtn} onPress={() => bump(c.key, 0.5)} hitSlop={6}>
+              <Text style={styles.stepValue}>{scores[c].toFixed(1)}</Text>
+              <Pressable style={styles.stepBtn} onPress={() => bump(c, 0.5)} hitSlop={6}>
                 <IconSymbol name="plus" size={16} color={Colors.mint} />
               </Pressable>
             </View>
@@ -71,28 +97,15 @@ export default function RateScreen() {
       </View>
 
       {/* Live average */}
-      <SectionLabel>average</SectionLabel>
+      <SectionLabel>{t('rate.average')}</SectionLabel>
       <View style={styles.avgCard}>
         <Text style={styles.avgValue}>{average.toFixed(1)}</Text>
-        <Text style={styles.avgHint}>
-          {average >= 8
-            ? 'Outstanding — inform the player.'
-            : average >= 7
-              ? 'Solid performance level.'
-              : average >= 6
-                ? 'Developing — needs consistency.'
-                : 'Below expectations — follow up with a plan.'}
-        </Text>
+        <Text style={styles.avgHint}>{avgHint}</Text>
       </View>
 
-      <Pressable
-        style={styles.saveBtn}
-        onPress={() => {
-          alert(`${player.name} rated ${average.toFixed(1)} — saved.`);
-          router.back();
-        }}>
+      <Pressable style={styles.saveBtn} onPress={save}>
         <IconSymbol name="checkmark.circle.fill" size={18} color={Colors.textOnPrimary} />
-        <Text style={styles.saveBtnText}>save rating</Text>
+        <Text style={styles.saveBtnText}>{t('rate.saveRating')}</Text>
       </Pressable>
     </Screen>
   );

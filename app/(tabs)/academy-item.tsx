@@ -1,35 +1,45 @@
+import { useVideoPlayer, VideoView } from 'expo-video';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { IconTile } from '@/components/list-row';
 import { Screen, SectionLabel } from '@/components/screen';
 import { IconSymbol, type IconSymbolName } from '@/components/ui/icon-symbol';
 import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
-import { ALL_ACADEMY } from '@/lib/data';
+import { useLanguage } from '@/lib/i18n';
+import { academyStore, useCollection } from '@/lib/store';
 
 export default function AcademyItemScreen() {
   const router = useRouter();
+  const { t } = useLanguage();
   const { id } = useLocalSearchParams<{ id?: string }>();
-  const item = ALL_ACADEMY.find((a) => a.id === id) ?? ALL_ACADEMY[0];
+  const items = useCollection(academyStore);
+  const item = items.find((a) => a.id === id) ?? items[0];
   const [shared, setShared] = useState(item.isShared);
+  const [playing, setPlaying] = useState(false);
+
+  const player = useVideoPlayer(require('@/assets/videos/intro.mp4'), (p) => {
+    p.loop = true;
+    p.muted = true;
+  });
 
   const icon: IconSymbolName = item.type === 'video' ? 'play.fill' : 'calendar';
 
   const phases =
     item.type === 'session'
       ? [
-          { time: '10 min', title: 'Activation', detail: `Dynamic warm-up linked to ${item.category.toLowerCase()} movements.` },
-          { time: item.duration, title: `Main — ${item.title}`, detail: `Run the session at match tempo. Focus on quality of execution and quick transitions.` },
-          { time: '10 min', title: 'Review', detail: 'Bring the squad in, replay the key moments, and set the target for the next session.' },
+          { time: '10 min', title: t('academyItem.activation'), detail: `Dynamic warm-up linked to ${item.category.toLowerCase()} movements.` },
+          { time: item.duration, title: t('academyItem.phaseMain', { title: item.title }), detail: `Run the session at match tempo. Focus on quality of execution and quick transitions.` },
+          { time: '10 min', title: t('academyItem.review'), detail: 'Bring the squad in, replay the key moments, and set the target for the next session.' },
         ]
       : [];
 
   const infoRows = [
-    { label: 'category', value: item.category },
-    { label: 'level', value: item.level },
-    { label: 'duration', value: item.duration },
-    { label: 'type', value: item.type },
+    { label: t('academyItem.category'), value: t(`category.${item.category}`) },
+    { label: t('academyItem.level'), value: t(`level.${item.level.toLowerCase()}`) },
+    { label: t('academyItem.duration'), value: item.duration },
+    { label: t('academyItem.type'), value: t(`academyCreate.type.${item.type}`) },
   ];
 
   return (
@@ -40,7 +50,7 @@ export default function AcademyItemScreen() {
         <View style={styles.cardBody}>
           <Text style={styles.title}>{item.title}</Text>
           <Text style={styles.subtitle}>
-            {item.category} · {item.level}
+            {t(`category.${item.category}`)} · {t(`level.${item.level.toLowerCase()}`)}
           </Text>
           <View style={[styles.sharedTag, shared ? styles.sharedTagOn : styles.sharedTagOff]}>
             <IconSymbol
@@ -49,7 +59,7 @@ export default function AcademyItemScreen() {
               color={shared ? Colors.mintDim : Colors.textMuted}
             />
             <Text style={[styles.sharedText, { color: shared ? Colors.mintDim : Colors.textMuted }]}>
-              {shared ? 'shared' : 'private'}
+              {shared ? t('academy.shared') : t('academy.private')}
             </Text>
           </View>
         </View>
@@ -57,8 +67,8 @@ export default function AcademyItemScreen() {
 
       {item.type === 'video' ? (
         <>
-          <SectionLabel>preview</SectionLabel>
-          <Pressable style={styles.player} onPress={() => alert(`Playing “${item.title}”…`)}>
+          <SectionLabel>{t('academyItem.preview')}</SectionLabel>
+          <Pressable style={styles.player} onPress={() => setPlaying(true)}>
             <View style={styles.playerTop}>
               <IconSymbol name="play.fill" size={34} color={Colors.mint} />
             </View>
@@ -67,13 +77,13 @@ export default function AcademyItemScreen() {
             </View>
             <View style={styles.playerMeta}>
               <Text style={styles.playerTime}>{item.duration}</Text>
-              <Text style={styles.playerHint}>tap to play</Text>
+              <Text style={styles.playerHint}>{t('academyItem.tapToPlay')}</Text>
             </View>
           </Pressable>
         </>
       ) : (
         <>
-          <SectionLabel>session plan</SectionLabel>
+          <SectionLabel>{t('academyItem.sessionPlan')}</SectionLabel>
           <View style={styles.phasesCard}>
             {phases.map((p, i) => (
               <View key={p.title} style={[styles.phase, i < phases.length - 1 && styles.phaseBorder]}>
@@ -88,7 +98,7 @@ export default function AcademyItemScreen() {
         </>
       )}
 
-      <SectionLabel>details</SectionLabel>
+      <SectionLabel>{t('academyItem.details')}</SectionLabel>
       <View style={styles.rowsCard}>
         {infoRows.map((r) => (
           <View key={r.label} style={styles.row}>
@@ -103,8 +113,8 @@ export default function AcademyItemScreen() {
           <View style={[styles.toggleKnob, shared && styles.toggleKnobOn]} />
         </View>
         <View style={styles.shareBody}>
-          <Text style={styles.shareTitle}>share with squad</Text>
-          <Text style={styles.shareSub}>visible to all players and staff in the library</Text>
+          <Text style={styles.shareTitle}>{t('academyItem.shareWithSquad')}</Text>
+          <Text style={styles.shareSub}>{t('academyItem.shareSub')}</Text>
         </View>
       </Pressable>
 
@@ -112,17 +122,37 @@ export default function AcademyItemScreen() {
         style={styles.primaryBtn}
         onPress={() => {
           alert(
-            item.type === 'video'
-              ? `${item.title} added to the next training watch-list.`
-              : `${item.title} scheduled into the next training plan.`,
+            t(item.type === 'video' ? 'academyItem.alertWatch' : 'academyItem.alertPlan', {
+              title: item.title,
+            }),
           );
           router.back();
         }}>
         <IconSymbol name="plus" size={18} color={Colors.textOnPrimary} />
         <Text style={styles.primaryBtnText}>
-          {item.type === 'video' ? 'add to watch list' : 'add to training plan'}
+          {t(item.type === 'video' ? 'academyItem.addToWatch' : 'academyItem.addToPlan')}
         </Text>
       </Pressable>
+
+      <Modal
+        visible={playing}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setPlaying(false)}>
+        <View style={styles.playerModal}>
+          <VideoView
+            player={player}
+            style={styles.playerVideo}
+            contentFit="cover"
+            nativeControls
+            allowsFullscreen
+          />
+          <Pressable style={styles.closePlayer} onPress={() => setPlaying(false)} hitSlop={8}>
+            <IconSymbol name="xmark" size={18} color={Colors.text} />
+            <Text style={styles.closePlayerText}>{t('academyItem.close')}</Text>
+          </Pressable>
+        </View>
+      </Modal>
     </Screen>
   );
 }
@@ -346,6 +376,37 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.bodySemiBold,
     fontSize: 15,
     color: Colors.textOnPrimary,
+    textTransform: 'lowercase',
+  },
+  playerModal: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.92)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: Spacing.lg,
+  },
+  playerVideo: {
+    width: '100%',
+    height: 240,
+    borderRadius: Radius.lg,
+    backgroundColor: '#000',
+  },
+  closePlayer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: Spacing.lg,
+    backgroundColor: Colors.surface,
+    borderColor: Colors.border,
+    borderWidth: 1,
+    borderRadius: Radius.pill,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.lg,
+  },
+  closePlayerText: {
+    fontFamily: Fonts.bodyMedium,
+    fontSize: 13,
+    color: Colors.text,
     textTransform: 'lowercase',
   },
 });

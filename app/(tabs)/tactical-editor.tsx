@@ -16,6 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
 import { DEFAULT_SCENES, FORMATION_SLOTS, TACTICAL_ROSTER } from '@/lib/data';
+import { useLanguage } from '@/lib/i18n';
 import { useSession } from '@/lib/session';
 
 const FORMATIONS = Object.keys(FORMATION_SLOTS);
@@ -34,25 +35,40 @@ type Placed = {
   y: number;
 };
 
-/** Formation-specific coaching notes so the analysis feels like it reacts to the shape. */
-const AI_TIPS: Record<string, { suggest: string; scan: string }> = {
-  '4-3-3': {
-    suggest: 'The 4-3-3 gives you width up front. Hug the touchlines with the wingers and push the full-backs high to overload the flanks in possession.',
-    scan: 'Vulnerability: the channel between your deepest CM and the full-back is exposed to diagonal runs. Tuck that CM inside when the ball is central.',
-  },
-  '4-4-2': {
-    suggest: 'Keep the two strikers narrow and let the wide midfielders stretch play. When defending, compact the middle block and shift as one line.',
-    scan: 'Vulnerability: the space between the midfield line and the strikers lets opponents receive between the lines. Push the whole block up together.',
-  },
-  '3-5-2': {
-    suggest: 'Your wing-backs are the main width. With the ball they stay high; without it they drop into a back five to protect the flanks.',
-    scan: 'Vulnerability: the channel behind the wing-backs is open on transitions. The nearest CM should drop to cover on the counter.',
-  },
-  '4-2-3-1': {
-    suggest: 'The double pivot protects the back line. Let the CAM drift into the space between the opponent lines to link midfield and attack.',
-    scan: 'Vulnerability: the half-space on the side of the less mobile pivot is open. Shift the entire block toward the ball side in defence.',
-  },
-};
+/** Reads the actual board and returns data-driven coaching notes for that shape. */
+function analyzeBoard(players: Placed[]): { suggest: string; scan: string } {
+  const def = players.filter((p) => p.y >= 0.66);
+  const atk = players.filter((p) => p.y < 0.33);
+  const left = players.filter((p) => p.x < 0.33).length;
+  const right = players.filter((p) => p.x > 0.67).length;
+  const centre = players.length - left - right;
+
+  const defXs = def.map((p) => p.x);
+  const defSpread = defXs.length > 1 ? Math.max(...defXs) - Math.min(...defXs) : 0;
+
+  let suggest: string;
+  if (atk.length >= 3) {
+    suggest = `${atk.length} players stay high in the final third — you are set up to press and win the ball up the pitch. Keep the wide players tight to the touchline.`;
+  } else if (atk.length === 0) {
+    suggest = 'Nobody occupies the final third. Push a midfielder into the space between the lines to link midfield and attack.';
+  } else {
+    suggest = `${atk.length} player${atk.length === 1 ? ' is' : 's are'} in the final third. Add a second runner so the front line is not isolated against the centre-backs.`;
+  }
+
+  let scan: string;
+  if (def.length <= 2) {
+    scan = `Only ${def.length} player${def.length === 1 ? '' : 's'} in the defensive third — the back line is thin for counters. Ask a pivot to screen in front of the centre-backs.`;
+  } else if (defSpread > 0.6) {
+    scan = `The defensive line is stretched across ${Math.round(defSpread * 100)}% of the pitch width, leaving the wide centre-back exposed in 1v1s. Tuck the line together.`;
+  } else if (left > right || right > left) {
+    const side = left > right ? 'left' : 'right';
+    scan = `You overload the ${side} side (${Math.max(left, right)} vs ${Math.min(left, right)}). Ask the weak-side player to hold their position to keep the shape.`;
+  } else {
+    scan = `The shape is balanced side to side with ${centre} central. Keep the block compact when the ball is lost.`;
+  }
+
+  return { suggest, scan };
+}
 
 function buildPlayers(formation: string): Placed[] {
   const slots = FORMATION_SLOTS[formation] ?? FORMATION_SLOTS['4-3-3'];
@@ -160,6 +176,7 @@ function PlayerMarker({
 
 export default function TacticalEditorScreen() {
   const router = useRouter();
+  const { t } = useLanguage();
   const { user } = useSession();
   const viewer = user?.role === 'player' || user?.role === 'parent';
   const { id } = useLocalSearchParams<{ id?: string }>();
@@ -181,9 +198,7 @@ export default function TacticalEditorScreen() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [pitchW, setPitchW] = useState(0);
   const [dragging, setDragging] = useState(false);
-  const [insight, setInsight] = useState(
-    'Pick a formation, then drag players to build your plan. Save a scene to reuse it later.',
-  );
+  const [insight, setInsight] = useState(t('tacticalEditor.insightInitial'));
 
   const pitchH = pitchW * 1.5;
 
@@ -199,11 +214,10 @@ export default function TacticalEditorScreen() {
   }, []);
 
   const selected = players.find((p) => p.id === selectedId) ?? null;
-  const tips = AI_TIPS[formation] ?? AI_TIPS['4-3-3'];
 
   const handleSave = () => {
     const sceneName = name.trim() || (source ? source.name : `${formation} plan`);
-    alert(`${sceneName} saved${shared ? ' and shared with the squad' : ''}.`);
+    alert(t(shared ? 'tacticalEditor.alertSavedShared' : 'tacticalEditor.alertSaved', { name: sceneName }));
     router.back();
   };
 
@@ -227,9 +241,9 @@ export default function TacticalEditorScreen() {
             <IconSymbol name="chevron-left" size={22} color={Colors.mint} />
           </Pressable>
           <View style={styles.headerBody}>
-            <Text style={styles.headerTitle}>tactical board</Text>
+            <Text style={styles.headerTitle}>{t('tactical.title')}</Text>
             <Text style={styles.headerSub}>
-              {viewer ? 'shared scene · view only' : source ? 'edit scene' : 'new scene'}
+              {viewer ? t('tacticalEditor.subShared') : source ? t('tacticalEditor.subEdit') : t('tacticalEditor.subNew')}
             </Text>
           </View>
           {viewer ? (
@@ -242,7 +256,7 @@ export default function TacticalEditorScreen() {
               onPress={() => setShared((v) => !v)}>
               <IconSymbol name="square.and.arrow.up" size={15} color={shared ? Colors.textOnPrimary : Colors.mint} />
               <Text style={[styles.shareText, shared && styles.shareTextOn]}>
-                {shared ? 'shared' : 'share'}
+                {t(shared ? 'tacticalEditor.shared' : 'tacticalEditor.share')}
               </Text>
             </Pressable>
           )}
@@ -251,13 +265,15 @@ export default function TacticalEditorScreen() {
         {/* Scene name */}
         {viewer ? (
           <View style={styles.nameStatic}>
-            <Text style={styles.nameStaticText}>{name.trim() || 'Untitled scene'}</Text>
-            <Text style={styles.nameStaticSub}>{formation} · {players.length} players</Text>
+            <Text style={styles.nameStaticText}>{name.trim() || t('tacticalEditor.untitled')}</Text>
+            <Text style={styles.nameStaticSub}>
+              {t('tactical.metaPlayers', { formation, count: players.length })}
+            </Text>
           </View>
         ) : (
           <TextInput
             style={styles.nameInput}
-            placeholder="Scene name…"
+            placeholder={t('tacticalEditor.namePlaceholder')}
             placeholderTextColor={Colors.textMuted}
             value={name}
             onChangeText={setName}
@@ -267,7 +283,7 @@ export default function TacticalEditorScreen() {
         {/* Formation picker */}
         {viewer ? null : (
           <>
-            <Text style={styles.sectionLabel}>formation</Text>
+            <Text style={styles.sectionLabel}>{t('tacticalEditor.formation')}</Text>
             <View style={styles.chips}>
               {FORMATIONS.map((f) => {
                 const active = f === formation;
@@ -321,7 +337,7 @@ export default function TacticalEditorScreen() {
                 ]}
               />
               <View style={styles.attackTag}>
-                <Text style={styles.attackText}>▲ attack</Text>
+                <Text style={styles.attackText}>{t('tacticalEditor.attack')}</Text>
               </View>
               {players.map((p) => (
                 <PlayerMarker
@@ -350,7 +366,7 @@ export default function TacticalEditorScreen() {
             </View>
             <View style={styles.selectedBody}>
               <Text style={styles.selectedName}>{selected.name}</Text>
-              <Text style={styles.selectedHint}>drag on the pitch to move · {formation}</Text>
+              <Text style={styles.selectedHint}>{t('tacticalEditor.selectedHint', { formation })}</Text>
             </View>
           </View>
         ) : null}
@@ -358,22 +374,22 @@ export default function TacticalEditorScreen() {
         <View style={styles.insightCard}>
           <IconSymbol name="query-stats" size={18} color={Colors.mintDim} />
           <Text style={styles.insightText}>
-            {viewer ? `${formation} shape — shared by the coaching staff.` : insight}
+            {viewer ? t('tacticalEditor.viewerInsight', { formation }) : insight}
           </Text>
           {viewer ? null : (
             <View style={styles.insightActions}>
               <Pressable
                 style={styles.insightBtn}
-                onPress={() => setInsight(`${tips.suggest}`)}>
+                onPress={() => setInsight(analyzeBoard(players).suggest)}>
                 <IconSymbol name="bolt.fill" size={14} color={Colors.mint} />
-                <Text style={styles.insightBtnText}>AI suggest</Text>
+                <Text style={styles.insightBtnText}>{t('tacticalEditor.aiSuggest')}</Text>
               </Pressable>
               <Pressable
                 style={styles.insightBtn}
-                onPress={() => setInsight(`${tips.scan}`)}>
+                onPress={() => setInsight(analyzeBoard(players).scan)}>
                 <IconSymbol name="warning" size={14} color={Colors.warning} />
                 <Text style={[styles.insightBtnText, { color: Colors.warning }]}>
-                  vulnerability scan
+                  {t('tacticalEditor.vulnScan')}
                 </Text>
               </Pressable>
             </View>
@@ -383,7 +399,7 @@ export default function TacticalEditorScreen() {
         {viewer ? null : (
           <Pressable style={styles.saveBtn} onPress={handleSave}>
             <IconSymbol name="checkmark.circle.fill" size={18} color={Colors.textOnPrimary} />
-            <Text style={styles.saveBtnText}>save scene</Text>
+            <Text style={styles.saveBtnText}>{t('tacticalEditor.saveScene')}</Text>
           </Pressable>
         )}
       </ScrollView>
