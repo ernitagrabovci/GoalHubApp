@@ -3,6 +3,7 @@ import { StatusBar } from 'expo-status-bar';
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { HomeSections } from '@/components/home-sections';
 import { DateTile, IconTile, InitialsTile, ListRow } from '@/components/list-row';
 import { StatusChip, type StatusTone } from '@/components/status-chip';
 import { IconSymbol } from '@/components/ui/icon-symbol';
@@ -53,7 +54,7 @@ export default function HomeScreen() {
     );
   }
 
-  const dash = ROLE_DASHBOARD[user.role];
+  const { greeting, subtitle } = ROLE_DASHBOARD[user.role];
   const child = ALL_PLAYERS.find((p) => p.name === 'Agon Gashi');
   const player = ALL_PLAYERS.find((p) => p.name === 'Ardit Llapashtica');
   const links = modulesForRole(user.role);
@@ -99,8 +100,8 @@ export default function HomeScreen() {
               <Text style={styles.rolePillText}>switch role</Text>
             </Pressable>
           </View>
-          <Text style={styles.heroTitle}>{dash.greeting}</Text>
-          <Text style={styles.heroSub}>{dash.subtitle}</Text>
+          <Text style={styles.heroTitle}>{greeting}</Text>
+          <Text style={styles.heroSub}>{subtitle}</Text>
         </View>
 
         {/* Child / person card */}
@@ -163,25 +164,11 @@ export default function HomeScreen() {
           </View>
         )}
 
-        {/* Key stats */}
-        {user.role === 'player' || user.role === 'trainer' ? (
-          <View style={styles.statsGrid}>
-            {dash.stats.map((stat) => (
-              <View key={stat.label} style={styles.statCard}>
-                <View style={[styles.statIcon, { backgroundColor: `${stat.tint}1f` }]}>
-                  <IconSymbol name={stat.icon} size={18} color={stat.tint} />
-                </View>
-                <View>
-                  <Text style={styles.statValue}>{stat.value}</Text>
-                  <Text style={styles.statLabel}>{stat.label}</Text>
-                </View>
-              </View>
-            ))}
-          </View>
-        ) : null}
+        {/* Role dashboard body — live stats + per-role sections */}
+        <HomeSections role={user.role} />
 
-        {/* Fee status — hidden for trainer, who doesn't manage club fees */}
-        {user.role !== 'trainer' && currentFee ? (
+        {/* Fee status — personal fee alert for player & parent only; admin/financier see the finance breakdown above */}
+        {(user.role === 'player' || user.role === 'parent') && currentFee ? (
           <Pressable style={styles.infoCard} onPress={() => router.push('/fees')}>
             <View style={[styles.infoIcon, { backgroundColor: `${Colors.emerald}22` }]}>
               <IconSymbol name="dollarsign.circle.fill" size={20} color={Colors.emerald} />
@@ -442,44 +429,6 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.body,
     fontSize: 12,
     color: Colors.textMuted,
-  },
-  statsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: Spacing.md,
-    marginTop: Spacing.md,
-  },
-  statCard: {
-    flexGrow: 1,
-    flexBasis: '45%',
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
-    borderWidth: 1,
-    borderRadius: Radius.lg,
-    padding: Spacing.lg,
-    gap: Spacing.md,
-    justifyContent: 'space-between',
-  },
-  statIcon: {
-    width: 34,
-    height: 34,
-    borderRadius: Radius.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  statValue: {
-    fontFamily: Fonts.heading,
-    fontSize: 26,
-    letterSpacing: -0.5,
-    color: Colors.mint,
-  },
-  statLabel: {
-    fontFamily: Fonts.bodyMedium,
-    fontSize: 11,
-    letterSpacing: 1,
-    textTransform: 'uppercase',
-    color: Colors.textSecondary,
-    marginTop: 2,
   },
   sectionLabel: {
     fontFamily: Fonts.headingSemiBold,
