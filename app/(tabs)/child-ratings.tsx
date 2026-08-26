@@ -1,3 +1,4 @@
+import { useLocalSearchParams } from 'expo-router';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { Screen, DetailHead } from '@/components/screen';
@@ -9,13 +10,14 @@ const CRITERIA = ['technique', 'physical', 'tactics', 'consistency', 'teamwork']
 
 export default function ChildRatingsScreen() {
   const { t } = useLanguage();
-  const rating = ALL_RATINGS.find((r) => r.player === 'Agon Gashi');
+  const { child = 'Agon Gashi' } = useLocalSearchParams<{ child?: string }>();
+  const rating = ALL_RATINGS.find((r) => r.player === child);
 
   if (!rating) {
     return (
       <Screen back>
-        <DetailHead icon="star.fill" accent="#f5a623" title={t('childRatings.title')} subtitle="Agon Gashi" />
-        <Text style={styles.empty}>{t('childRatings.empty', { name: 'Agon Gashi' })}</Text>
+        <DetailHead icon="star.fill" accent="#f5a623" title={t('childRatings.title')} subtitle={child} />
+        <Text style={styles.empty}>{t('childRatings.empty', { name: child })}</Text>
       </Screen>
     );
   }
@@ -26,7 +28,7 @@ export default function ChildRatingsScreen() {
         icon="star.fill"
         accent="#f5a623"
         title={t('childRatings.title')}
-        subtitle={t('childRatings.ratedBySub', { name: 'Agon Gashi', by: rating.by })}
+        subtitle={t('childRatings.ratedBySub', { name: child, by: rating.by })}
       />
 
       <View style={styles.card}>

@@ -7,7 +7,7 @@ import { DateTile, ListRow } from '@/components/list-row';
 import { ListScreen } from '@/components/list-screen';
 import { StatusTone, TONE_COLORS } from '@/components/status-chip';
 import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
-import { ALL_TRAININGS, type Training } from '@/lib/data';
+import { ALL_TRAININGS, CLUB_FIELDS, type Training } from '@/lib/data';
 import { useLanguage } from '@/lib/i18n';
 import { useSession } from '@/lib/session';
 import { usePersistedState } from '@/lib/storage';
@@ -21,13 +21,32 @@ const TONE_BY_TYPE: Record<string, StatusTone> = {
 };
 const MONTHS = ['AUG', 'SEP'];
 
-function NewTrainingForm({ onDone }: { onDone: (t: Training) => void }) {
+function NewTrainingForm({ existing, onDone }: { existing: Training[]; onDone: (t: Training) => void }) {
   const { t } = useLanguage();
   const [type, setType] = useState<string>(TRAIN_TYPES[0]);
   const [day, setDay] = useState('');
   const [month, setMonth] = useState<string>(MONTHS[1]);
   const [time, setTime] = useState('');
-  const [field, setField] = useState('');
+  const [field, setField] = useState<string>(CLUB_FIELDS.find((f) => f.status === 'active')?.name ?? 'Field 1');
+
+  const hasSlot = day.trim() !== '' && time.trim() !== '';
+  const bookedNames = new Set(
+    hasSlot
+      ? existing
+          .filter(
+            (tr) =>
+              parseInt(tr.day, 10) === parseInt(day.trim(), 10) &&
+              tr.month.toUpperCase() === month.toUpperCase() &&
+              tr.time.trim().toLowerCase() === time.trim().toLowerCase(),
+          )
+          .map((tr) => tr.field)
+      : [],
+  );
+  const freeFields = CLUB_FIELDS.filter((f) => f.status === 'active' && !bookedNames.has(f.name));
+  const availParts: string[] = [];
+  if (freeFields.length > 0) availParts.push(`${freeFields.map((f) => f.name).join(' & ')} ${t('trainings.free')}`);
+  if (bookedNames.size > 0) availParts.push(`${[...bookedNames].join(' & ')} ${t('trainings.booked')}`);
+  const availability = hasSlot && availParts.length > 0 ? availParts.join(' · ') : t('trainings.fieldAvailability');
 
   const submit = () => {
     const d = parseInt(day.trim(), 10);
@@ -108,16 +127,39 @@ function NewTrainingForm({ onDone }: { onDone: (t: Training) => void }) {
             autoCorrect={false}
           />
         </View>
-        <View style={[styles.inputBox, styles.fieldBox]}>
-          <TextInput
-            style={styles.input}
-            placeholder={t('trainings.formField')}
-            placeholderTextColor={Colors.textMuted}
-            value={field}
-            onChangeText={setField}
-            autoCorrect={false}
-          />
+      </View>
+      <Text style={styles.fieldLabel}>{t('trainings.formField')}</Text>
+      <View style={styles.fieldWrap}>
+        <View style={styles.wrap}>
+          {CLUB_FIELDS.map((f) => {
+            const maintenance = f.status === 'maintenance';
+            const booked = bookedNames.has(f.name);
+            const selected = field === f.name;
+            const disabled = booked || maintenance;
+            return (
+              <Pressable
+                key={f.id}
+                disabled={disabled}
+                onPress={() => setField(f.name)}
+                style={[styles.fieldChip, selected && styles.fieldChipActive, disabled && styles.fieldChipDisabled]}>
+                <Text
+                  style={[
+                    styles.fieldChipText,
+                    selected && styles.fieldChipTextActive,
+                    disabled && styles.fieldChipTextDisabled,
+                  ]}>
+                  {f.name}
+                </Text>
+                {booked ? (
+                  <Text style={styles.fieldTag}>{t('trainings.booked')}</Text>
+                ) : !maintenance ? (
+                  <Text style={[styles.fieldTag, styles.fieldTagFree]}>{t('trainings.free')}</Text>
+                ) : null}
+              </Pressable>
+            );
+          })}
         </View>
+        <Text style={styles.availabilityHint}>{availability}</Text>
       </View>
       <Pressable style={styles.submitBtn} onPress={submit}>
         <IconSymbol name="plus" size={16} color={Colors.textOnPrimary} />
@@ -169,6 +211,7 @@ export default function TrainingsScreen() {
         canPlan
           ? (close) => (
               <NewTrainingForm
+                existing={trainings}
                 onDone={(tr) => {
                   setTrainings((prev) => [tr, ...prev]);
                   close();
@@ -260,8 +303,51 @@ const styles = StyleSheet.create({
   timeBox: {
     flex: 1,
   },
-  fieldBox: {
-    flex: 1,
+  fieldWrap: {
+    gap: Spacing.sm,
+  },
+  fieldChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderColor: Colors.border,
+    borderWidth: 1,
+    borderRadius: Radius.pill,
+    paddingVertical: 6,
+    paddingHorizontal: Spacing.md,
+    backgroundColor: Colors.surfaceAlt,
+  },
+  fieldChipActive: {
+    backgroundColor: Colors.mint,
+    borderColor: Colors.mint,
+  },
+  fieldChipDisabled: {
+    opacity: 0.5,
+  },
+  fieldChipText: {
+    fontFamily: Fonts.bodyMedium,
+    fontSize: 12,
+    color: Colors.textSecondary,
+  },
+  fieldChipTextActive: {
+    color: Colors.textOnPrimary,
+  },
+  fieldChipTextDisabled: {
+    color: Colors.textMuted,
+  },
+  fieldTag: {
+    fontFamily: Fonts.body,
+    fontSize: 10,
+    textTransform: 'uppercase',
+    color: Colors.warning,
+  },
+  fieldTagFree: {
+    color: Colors.mint,
+  },
+  availabilityHint: {
+    fontFamily: Fonts.body,
+    fontSize: 12,
+    color: Colors.textMuted,
   },
   input: {
     color: Colors.text,

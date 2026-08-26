@@ -1,13 +1,15 @@
-import { useLocalSearchParams } from 'expo-router';
-import { StyleSheet, Text, View } from 'react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { DateTile, InitialsTile } from '@/components/list-row';
 import { Screen, SectionLabel, StatCell } from '@/components/screen';
 import { StatusChip, type StatusTone } from '@/components/status-chip';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
-import { ALL_MATCHES, MATCH_DETAILS, TACTICAL_ROSTER } from '@/lib/data';
+import { ALL_MATCHES, MATCH_DETAILS, TACTICAL_ROSTER, type MatchLineup } from '@/lib/data';
 import { useLanguage } from '@/lib/i18n';
+import { useSession } from '@/lib/session';
+import { usePersistedState } from '@/lib/storage';
 
 const STATUS_TONE: Record<string, StatusTone> = {
   upcoming: 'info',
@@ -20,11 +22,17 @@ function nameFor(initials: string) {
 }
 
 export default function MatchScreen() {
+  const router = useRouter();
   const { t } = useLanguage();
+  const { user } = useSession();
   const { id } = useLocalSearchParams<{ id?: string }>();
   const match = ALL_MATCHES.find((m) => m.id === id) ?? ALL_MATCHES[0];
   const detail = MATCH_DETAILS[match.id] ?? MATCH_DETAILS.ma1;
   const played = match.status === 'played';
+  const [lineups] = usePersistedState<Record<string, MatchLineup>>('matches:lineups', {});
+  const savedLineup = lineups[match.id];
+  const canEdit = user?.role === 'trainer' && !played;
+  const displayLineup = savedLineup?.lineup ?? detail.lineup;
 
   return (
     <Screen back>
@@ -106,9 +114,20 @@ export default function MatchScreen() {
         </>
       ) : (
         <>
+          {canEdit ? (
+            <Pressable style={styles.editBtn} onPress={() => router.push(`/lineup?matchId=${match.id}`)}>
+              <IconSymbol name="pencil" size={15} color={Colors.textOnPrimary} />
+              <Text style={styles.editBtnText}>{t('lineup.editLineup')}</Text>
+            </Pressable>
+          ) : null}
           <SectionLabel>{t('match.startingLineup')}</SectionLabel>
+          {savedLineup ? (
+            <Text style={styles.lineupFormation}>
+              {t('lineup.formation')} · {savedLineup.formation}
+            </Text>
+          ) : null}
           <View style={styles.lineup}>
-            {detail.lineup.map((initials, i) => (
+            {displayLineup.map((initials, i) => (
               <View key={initials} style={styles.lineupRow}>
                 <Text style={styles.lineupNum}>{i + 1}</Text>
                 <InitialsTile initials={initials} color={Colors.mint} size={34} />
@@ -254,6 +273,29 @@ const styles = StyleSheet.create({
   rtg: {
     fontFamily: Fonts.headingSemiBold,
     color: Colors.mint,
+  },
+  editBtn: {
+    marginTop: Spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.sm,
+    backgroundColor: Colors.mint,
+    borderRadius: Radius.md,
+    paddingVertical: Spacing.sm + 2,
+  },
+  editBtnText: {
+    fontFamily: Fonts.bodySemiBold,
+    fontSize: 13,
+    color: Colors.textOnPrimary,
+    textTransform: 'lowercase',
+  },
+  lineupFormation: {
+    fontFamily: Fonts.bodyMedium,
+    fontSize: 12,
+    color: Colors.mint,
+    marginBottom: Spacing.sm,
+    textTransform: 'lowercase',
   },
   lineup: {
     gap: Spacing.sm,

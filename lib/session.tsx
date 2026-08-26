@@ -47,7 +47,7 @@ export const DEMO_USERS: Record<Role, DemoUser> = {
     initials: 'BG',
     email: 'besnik@gmail.com',
     club: 'FC Prishtina Academy',
-    subtitle: 'Parent of Agon Gashi · No. 7',
+    subtitle: 'Parent · FC Prishtina Academy',
     color: '#8f86e8',
   },
   financier: {
@@ -75,6 +75,7 @@ type SessionValue = {
   user: DemoUser | null;
   signIn: (role: Role) => void;
   signOut: () => void;
+  updateProfile: (patch: { name: string; email: string }) => void;
 };
 
 const SessionContext = createContext<SessionValue | null>(null);
@@ -87,6 +88,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       user,
       signIn: (role: Role) => setUser(DEMO_USERS[role]),
       signOut: () => setUser(null),
+      updateProfile: (patch) =>
+        setUser((prev) => (prev ? { ...prev, ...patch } : prev)),
     }),
     [user]
   );

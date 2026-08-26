@@ -1,5 +1,6 @@
 import { useRouter } from 'expo-router';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { InitialsTile, ListRow } from '@/components/list-row';
@@ -8,17 +9,58 @@ import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
 import { ALL_PLAYERS } from '@/lib/data';
 import { useLanguage } from '@/lib/i18n';
 import { useSession } from '@/lib/session';
+import { usePersistedState } from '@/lib/storage';
 
 const VERSION = '1.0.0';
 
 export default function ProfileScreen() {
   const router = useRouter();
-  const { user, signOut } = useSession();
+  const { user, signOut, updateProfile } = useSession();
   const { t, lang, setLang } = useLanguage();
+  const [childName] = usePersistedState<string>('parent:selectedChild', 'Agon Gashi');
 
-  const child = ALL_PLAYERS.find((p) => p.name === 'Agon Gashi');
+  const [subOpen, setSubOpen] = useState(false);
+  const [securityOpen, setSecurityOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [curPass, setCurPass] = useState('');
+  const [newPass, setNewPass] = useState('');
+  const [confirmPass, setConfirmPass] = useState('');
+  const [nameDraft, setNameDraft] = useState('');
+  const [emailDraft, setEmailDraft] = useState('');
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+
+  const child = ALL_PLAYERS.find((p) => p.name === childName);
 
   const handleSignOut = () => {
+    signOut();
+    router.replace('/login');
+  };
+
+  const handlePassword = () => {
+    if (newPass && newPass === confirmPass) {
+      alert(t('profile.passwordUpdated'));
+      setSecurityOpen(false);
+      setCurPass('');
+      setNewPass('');
+      setConfirmPass('');
+    } else {
+      alert(t('profile.passwordMismatch'));
+    }
+  };
+
+  const handleEdit = () => {
+    if (!user) return;
+    updateProfile({
+      name: nameDraft.trim() || user.name,
+      email: emailDraft.trim() || user.email,
+    });
+    setEditOpen(false);
+    setNameDraft('');
+    setEmailDraft('');
+  };
+
+  const handleDelete = () => {
+    alert(t('profile.accountDeleted'));
     signOut();
     router.replace('/login');
   };
@@ -77,12 +119,98 @@ export default function ProfileScreen() {
             </>
           ) : null}
 
+          {/* Subscription */}
+          <Text style={styles.sectionLabel}>{t('profile.subscription')}</Text>
+          <View style={styles.card}>
+            <SettingRow
+              icon="verified-user"
+              label={t('profile.subscription')}
+              value="Club Pro · active"
+              onPress={() => setSubOpen(!subOpen)}
+            />
+            {subOpen ? (
+              <>
+                <View style={styles.divider} />
+                <View style={styles.inlineBody}>
+                  <Text style={styles.inlineTitle}>{t('profile.subscriptionSub')}</Text>
+                  <Text style={styles.inlineText}>{t('profile.plan')}</Text>
+                  <Text style={styles.inlineText}>{t('profile.renews', { date: 'Sep 1, 2026' })}</Text>
+                  <Pressable style={styles.inlineBtn} onPress={() => alert(t('profile.manageDemo'))}>
+                    <Text style={styles.inlineBtnText}>{t('profile.manage')}</Text>
+                  </Pressable>
+                </View>
+              </>
+            ) : null}
+          </View>
+
           {/* Account */}
           <Text style={styles.sectionLabel}>{t('profile.account')}</Text>
           <View style={styles.card}>
             <SettingRow icon="mail" label={t('profile.email')} value={user.email} />
             <View style={styles.divider} />
             <SettingRow icon="person.fill" label={t('profile.role')} value={t(`role.${user.role}`)} />
+            <View style={styles.divider} />
+            <SettingRow icon="pencil" label={t('profile.editProfile')} value="" onPress={() => setEditOpen(!editOpen)} />
+            {editOpen ? (
+              <View style={styles.inlineBody}>
+                <TextInput
+                  style={styles.input}
+                  placeholder={t('profile.name')}
+                  value={nameDraft}
+                  onChangeText={setNameDraft}
+                  placeholderTextColor={Colors.textMuted}
+                />
+                <TextInput
+                  style={styles.input}
+                  placeholder={t('profile.email')}
+                  value={emailDraft}
+                  onChangeText={setEmailDraft}
+                  autoCapitalize="none"
+                  keyboardType="email-address"
+                  placeholderTextColor={Colors.textMuted}
+                />
+                <Pressable style={styles.inlineBtn} onPress={handleEdit}>
+                  <Text style={styles.inlineBtnText}>{t('profile.save')}</Text>
+                </Pressable>
+              </View>
+            ) : null}
+          </View>
+
+          {/* Security */}
+          <Text style={styles.sectionLabel}>{t('profile.security')}</Text>
+          <View style={styles.card}>
+            <SettingRow icon="lock" label={t('profile.changePassword')} value="" onPress={() => setSecurityOpen(!securityOpen)} />
+            {securityOpen ? (
+              <View style={styles.inlineBody}>
+                <TextInput
+                  style={styles.input}
+                  placeholder={t('profile.currentPassword')}
+                  value={curPass}
+                  onChangeText={setCurPass}
+                  secureTextEntry
+                  placeholderTextColor={Colors.textMuted}
+                />
+                <TextInput
+                  style={styles.input}
+                  placeholder={t('profile.newPassword')}
+                  value={newPass}
+                  onChangeText={setNewPass}
+                  secureTextEntry
+                  placeholderTextColor={Colors.textMuted}
+                />
+                <TextInput
+                  style={styles.input}
+                  placeholder={t('profile.confirmPassword')}
+                  value={confirmPass}
+                  onChangeText={setConfirmPass}
+                  secureTextEntry
+                  placeholderTextColor={Colors.textMuted}
+                />
+                <Pressable style={styles.inlineBtn} onPress={handlePassword}>
+                  <Text style={styles.inlineBtnText}>{t('profile.save')}</Text>
+                </Pressable>
+              </View>
+            ) : null}
           </View>
 
           {/* Preferences */}
@@ -104,6 +232,24 @@ export default function ProfileScreen() {
             <SettingRow icon="info" label={t('profile.app')} value="goalhub" />
             <View style={styles.divider} />
             <SettingRow icon="doc.text.fill" label={t('profile.version')} value={VERSION} />
+          </View>
+
+          {/* Delete account */}
+          <Text style={styles.sectionLabel}>{t('profile.deleteAccount')}</Text>
+          <View style={styles.card}>
+            {confirmingDelete ? (
+              <View style={styles.inlineBody}>
+                <Text style={styles.inlineTitle}>{t('profile.deleteConfirm')}</Text>
+                <Pressable style={styles.dangerBtn} onPress={handleDelete}>
+                  <Text style={styles.dangerBtnText}>{t('profile.deleteAccount')}</Text>
+                </Pressable>
+                <Pressable style={styles.cancelBtn} onPress={() => setConfirmingDelete(false)}>
+                  <Text style={styles.cancelBtnText}>{t('profile.cancel')}</Text>
+                </Pressable>
+              </View>
+            ) : (
+              <SettingRow icon="trash" label={t('profile.deleteAccount')} value="" onPress={() => setConfirmingDelete(true)} />
+            )}
           </View>
 
           {/* Sign out */}
@@ -138,6 +284,7 @@ function SettingRow({
       <Text style={styles.rowValue} numberOfLines={1}>
         {value}
       </Text>
+      {onPress ? <IconSymbol name="chevron.right" size={16} color={Colors.textMuted} /> : null}
     </>
   );
   if (onPress) {
@@ -252,6 +399,77 @@ const styles = StyleSheet.create({
   divider: {
     height: StyleSheet.hairlineWidth,
     backgroundColor: Colors.borderSoft,
+  },
+  inlineBody: {
+    gap: Spacing.sm,
+    paddingVertical: Spacing.lg,
+  },
+  inlineTitle: {
+    fontFamily: Fonts.bodySemiBold,
+    fontSize: 13,
+    color: Colors.text,
+  },
+  inlineText: {
+    fontFamily: Fonts.body,
+    fontSize: 12,
+    color: Colors.textMuted,
+  },
+  inlineBtn: {
+    marginTop: Spacing.xs,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.sm,
+    backgroundColor: Colors.mint,
+    borderRadius: Radius.md,
+    paddingVertical: Spacing.sm,
+  },
+  inlineBtnText: {
+    fontFamily: Fonts.bodySemiBold,
+    fontSize: 13,
+    color: Colors.textOnPrimary,
+    textTransform: 'lowercase',
+  },
+  input: {
+    fontFamily: Fonts.body,
+    fontSize: 14,
+    color: Colors.text,
+    backgroundColor: Colors.surfaceAlt,
+    borderColor: Colors.border,
+    borderWidth: 1,
+    borderRadius: Radius.md,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm + 2,
+  },
+  dangerBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.danger,
+    borderRadius: Radius.md,
+    paddingVertical: Spacing.sm,
+  },
+  dangerBtnText: {
+    fontFamily: Fonts.bodySemiBold,
+    fontSize: 13,
+    color: Colors.textOnPrimary,
+    textTransform: 'lowercase',
+  },
+  cancelBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.surfaceAlt,
+    borderColor: Colors.border,
+    borderWidth: 1,
+    borderRadius: Radius.md,
+    paddingVertical: Spacing.sm,
+  },
+  cancelBtnText: {
+    fontFamily: Fonts.bodySemiBold,
+    fontSize: 13,
+    color: Colors.textSecondary,
+    textTransform: 'lowercase',
   },
   signOut: {
     marginTop: Spacing.xxl,

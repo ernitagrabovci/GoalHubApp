@@ -9,6 +9,7 @@ import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
 import {
   ALL_PLAYERS,
   ALL_RATINGS,
+  PARENT_CHILDREN,
   PLAYER_PROFILES,
   PLAYER_SEASON,
   feesForRole,
@@ -16,6 +17,7 @@ import {
   type Health,
 } from '@/lib/data';
 import { useLanguage } from '@/lib/i18n';
+import { usePersistedState } from '@/lib/storage';
 
 const HEALTH_TONE: Record<Health, StatusTone> = {
   active: 'emerald',
@@ -42,15 +44,33 @@ const SECTIONS: { label: string; icon: IconSymbolName; tint: string; route: stri
 export default function ChildScreen() {
   const router = useRouter();
   const { t } = useLanguage();
-  const child = ALL_PLAYERS.find((p) => p.name === 'Agon Gashi') ?? ALL_PLAYERS[0];
+  const [childName, setChildName] = usePersistedState<string>('parent:selectedChild', 'Agon Gashi');
+  const child = ALL_PLAYERS.find((p) => p.name === childName) ?? ALL_PLAYERS[0];
   const season = PLAYER_SEASON[child.name];
   const profile = PLAYER_PROFILES[child.name];
   const rating = ALL_RATINGS.find((r) => r.player === child.name);
   const fees = feesForRole('parent');
-  const currentFee = fees[0];
+  const currentFee = fees.find((f) => f.name === child.name) ?? fees[0];
 
   return (
     <Screen back>
+      <SectionLabel>{t('child.switchChild')}</SectionLabel>
+      <View style={styles.switchRow}>
+        {PARENT_CHILDREN.map((name) => {
+          const active = name === child.name;
+          const p = ALL_PLAYERS.find((x) => x.name === name);
+          return (
+            <Pressable
+              key={name}
+              onPress={() => setChildName(name)}
+              style={[styles.switchChip, active && styles.switchChipActive]}>
+              {p ? <InitialsTile initials={p.initials} color={p.color} size={24} /> : null}
+              <Text style={[styles.switchText, active && styles.switchTextActive]}>{name}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
+
       {/* Child card — read-only */}
       <View style={styles.card}>
         <InitialsTile initials={child.initials} color={child.color} size={56} />
@@ -81,7 +101,14 @@ export default function ChildScreen() {
       <SectionLabel>{t('child.view')}</SectionLabel>
       <View style={styles.grid}>
         {SECTIONS.map((s) => (
-          <Pressable key={s.label} style={styles.cell} onPress={() => router.push(s.route as never)}>
+          <Pressable
+            key={s.label}
+            style={styles.cell}
+            onPress={() =>
+              s.route === '/child-attendance' || s.route === '/child-ratings'
+                ? router.push({ pathname: s.route, params: { child: child.name } })
+                : router.push(s.route as never)
+            }>
             <View style={[styles.cellIcon, { backgroundColor: `${s.tint}1f` }]}>
               <IconSymbol name={s.icon} size={22} color={s.tint} />
             </View>
@@ -93,7 +120,9 @@ export default function ChildScreen() {
       {rating ? (
         <>
           <SectionLabel>{t('child.latestRating')}</SectionLabel>
-          <Pressable style={styles.ratingCard} onPress={() => router.push('/child-ratings')}>
+          <Pressable
+            style={styles.ratingCard}
+            onPress={() => router.push({ pathname: '/child-ratings', params: { child: child.name } })}>
             <Text style={styles.ratingAvg}>{rating.average.toFixed(1)}</Text>
             <View style={styles.ratingBody}>
               <Text style={styles.ratingTitle}>{t('child.ratedBy', { name: rating.by })}</Text>
@@ -127,6 +156,35 @@ export default function ChildScreen() {
 }
 
 const styles = StyleSheet.create({
+  switchRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.sm,
+    marginTop: Spacing.xs,
+  },
+  switchChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: Colors.surface,
+    borderColor: Colors.border,
+    borderWidth: 1,
+    borderRadius: Radius.pill,
+    paddingVertical: 6,
+    paddingHorizontal: Spacing.sm + 2,
+  },
+  switchChipActive: {
+    backgroundColor: Colors.mint,
+    borderColor: Colors.mint,
+  },
+  switchText: {
+    fontFamily: Fonts.bodyMedium,
+    fontSize: 12,
+    color: Colors.textSecondary,
+  },
+  switchTextActive: {
+    color: Colors.textOnPrimary,
+  },
   card: {
     flexDirection: 'row',
     alignItems: 'center',

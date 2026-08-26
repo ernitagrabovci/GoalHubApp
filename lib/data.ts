@@ -72,6 +72,8 @@ export const ALL_PLAYERS: Player[] = [
   { id: 'p6', name: 'Bekim Shala', initials: 'BS', position: 'CB', number: 3, age: 20, rating: 6.8, health: 'rehabilitation', color: '#f5a623' },
   { id: 'p7', name: 'Fatos Bytyqi', initials: 'FB', position: 'CM', number: 6, age: 22, rating: 7.0, health: 'active', color: '#86C2A4' },
   { id: 'p8', name: 'Erion Zeka', initials: 'EZ', position: 'ML', number: 11, age: 19, rating: 6.6, health: 'injured', color: '#E24B4A' },
+  { id: 'p9', name: 'Era Gashi', initials: 'EG', position: 'MF', number: 10, age: 14, rating: 7.4, health: 'active', color: '#8f86e8' },
+  { id: 'p10', name: 'Art Gashi', initials: 'AR', position: 'GK', number: 12, age: 12, rating: 6.8, health: 'active', color: '#5aa7e6' },
 ];
 
 export const ALL_TRAININGS: Training[] = [
@@ -96,6 +98,8 @@ const FEE_TEMPLATES: Omit<Fee, 'month' | 'status'>[] = [
   { id: 'f4', name: 'Agon Gashi', initials: 'AG', amount: '€120', color: '#8f86e8' },
   { id: 'f5', name: 'Luan Kryeziu', initials: 'LK', amount: '€150', color: '#5aa7e6' },
   { id: 'f6', name: 'Bekim Shala', initials: 'BS', amount: '€150', color: '#f5a623' },
+  { id: 'f7', name: 'Era Gashi', initials: 'EG', amount: '€110', color: '#8f86e8' },
+  { id: 'f8', name: 'Art Gashi', initials: 'AR', amount: '€110', color: '#5aa7e6' },
 ];
 
 const FEE_STATUS: Record<string, { status: FeeStatus; month: string }[]> = {
@@ -129,12 +133,25 @@ const FEE_STATUS: Record<string, { status: FeeStatus; month: string }[]> = {
     { status: 'critical', month: 'Aug' },
     { status: 'delayed', month: 'Jul' },
   ],
+  'Era Gashi': [
+    { status: 'paid', month: 'Sep' },
+    { status: 'paid', month: 'Aug' },
+    { status: 'unpaid', month: 'Jul' },
+  ],
+  'Art Gashi': [
+    { status: 'paid', month: 'Sep' },
+    { status: 'delayed', month: 'Aug' },
+    { status: 'paid', month: 'Jul' },
+  ],
 };
 
-/** Fees visible to each role: admin/financier see everyone, player sees own, parent sees child. */
+/** The children linked to the parent demo account. */
+export const PARENT_CHILDREN: string[] = ['Agon Gashi', 'Era Gashi', 'Art Gashi'];
+
+/** Fees visible to each role: admin/financier see everyone, player sees own, parent sees their children. */
 export function feesForRole(role: Role): Fee[] {
-  const owner = role === 'player' ? 'Ardit Llapashtica' : role === 'parent' ? 'Agon Gashi' : null;
-  const templates = owner ? FEE_TEMPLATES.filter((f) => f.name === owner) : FEE_TEMPLATES;
+  const owners = role === 'player' ? ['Ardit Llapashtica'] : role === 'parent' ? PARENT_CHILDREN : null;
+  const templates = owners ? FEE_TEMPLATES.filter((f) => owners.includes(f.name)) : FEE_TEMPLATES;
   return templates.flatMap((t) =>
     FEE_STATUS[t.name].map((s, i) => ({
       id: `${t.id}-${i}`,
@@ -377,6 +394,8 @@ export const PLAYER_SEASON: Record<string, PlayerSeason> = {
   'Bekim Shala': { goals: 1, assists: 0, minutes: 1080, yellow: 3, red: 0, matches: 15 },
   'Fatos Bytyqi': { goals: 3, assists: 7, minutes: 1750, yellow: 3, red: 0, matches: 21 },
   'Erion Zeka': { goals: 4, assists: 2, minutes: 640, yellow: 1, red: 0, matches: 12 },
+  'Era Gashi': { goals: 5, assists: 6, minutes: 1180, yellow: 0, red: 0, matches: 16 },
+  'Art Gashi': { goals: 0, assists: 1, minutes: 1440, yellow: 1, red: 0, matches: 16 },
 };
 
 export type PlayerProfile = {
@@ -397,6 +416,8 @@ export const PLAYER_PROFILES: Record<string, PlayerProfile> = {
   'Bekim Shala': { birth: '2004-09-17', nationality: 'Kosovo', license: 'FFK-1205', contract: '2024-01-15', contractEnd: '2026-12-31', team: 'First Team' },
   'Fatos Bytyqi': { birth: '2002-04-11', nationality: 'Kosovo', license: 'FFK-1042', contract: '2023-01-01', contractEnd: '2026-06-30', team: 'First Team' },
   'Erion Zeka': { birth: '2005-12-03', nationality: 'Kosovo', license: 'FFK-1318', contract: '2024-08-01', contractEnd: '2027-06-30', team: 'U21' },
+  'Era Gashi': { birth: '2010-09-22', nationality: 'Kosovo', license: 'FFK-1421', contract: '2025-02-01', contractEnd: '2028-06-30', team: 'U19' },
+  'Art Gashi': { birth: '2012-04-05', nationality: 'Kosovo', license: 'FFK-1496', contract: '2025-02-01', contractEnd: '2028-06-30', team: 'U19' },
 };
 
 export type Rating = {
@@ -424,6 +445,8 @@ export const ALL_RATINGS: Rating[] = [
   { id: 'r6', player: 'Agon Gashi', initials: 'AG', color: '#8f86e8', technique: 7.6, physical: 6.8, tactics: 7.2, consistency: 6.9, teamwork: 7.8, average: 7.3, comment: 'Huge potential — needs to impose himself more.', by: 'Rexhep Hyseni', rated: 'Aug 15' },
   { id: 'r7', player: 'Bekim Shala', initials: 'BS', color: '#f5a623', technique: 6.8, physical: 7.2, tactics: 7.0, consistency: 6.5, teamwork: 7.4, average: 7.0, comment: 'Solid, improving in possession.', by: 'Rexhep Hyseni', rated: 'Aug 14' },
   { id: 'r8', player: 'Erion Zeka', initials: 'EZ', color: '#E24B4A', technique: 7.5, physical: 7.1, tactics: 6.9, consistency: 6.4, teamwork: 7.3, average: 7.0, comment: 'Exciting on the ball, needs to track back more.', by: 'Rexhep Hyseni', rated: 'Aug 13' },
+  { id: 'r9', player: 'Era Gashi', initials: 'EG', color: '#8f86e8', technique: 7.9, physical: 6.8, tactics: 7.4, consistency: 7.1, teamwork: 7.9, average: 7.4, comment: 'Brave on the ball, great first touch for her age.', by: 'Rexhep Hyseni', rated: 'Aug 22' },
+  { id: 'r10', player: 'Art Gashi', initials: 'AR', color: '#5aa7e6', technique: 6.5, physical: 7.0, tactics: 6.8, consistency: 6.6, teamwork: 7.2, average: 6.8, comment: 'Quick reflexes — needs to be more vocal.', by: 'Rexhep Hyseni', rated: 'Aug 21' },
 ];
 
 /** Last five weekly coach assessments per player — powers the form trend on a profile. */
@@ -506,11 +529,11 @@ function att(overrides: Record<string, { status: AttendanceStatus; reason?: stri
 }
 
 export const TRAINING_ATTENDANCE: Record<string, AttRow[]> = {
-  t1: att({ EZ: { status: 'absent', reason: 'Hamstring — medical' }, BS: { status: 'unconfirmed' } }),
-  t2: att({ EZ: { status: 'absent', reason: 'Hamstring — medical' }, BS: { status: 'present' }, AG: { status: 'present' } }),
-  t3: att({ EZ: { status: 'absent', reason: 'Hamstring — medical' }, LK: { status: 'absent', reason: 'Shoulder — medical' }, BS: { status: 'present' } }),
-  t4: att({ EZ: { status: 'present' }, BS: { status: 'present' }, AG: { status: 'unconfirmed' } }),
-  t5: att({ EZ: { status: 'unconfirmed' }, BS: { status: 'present' } }),
+  t1: att({ EZ: { status: 'absent', reason: 'Hamstring — medical' }, BS: { status: 'unconfirmed' }, EG: { status: 'present' } }),
+  t2: att({ EZ: { status: 'absent', reason: 'Hamstring — medical' }, BS: { status: 'present' }, AG: { status: 'present' }, AR: { status: 'present' } }),
+  t3: att({ EZ: { status: 'absent', reason: 'Hamstring — medical' }, LK: { status: 'absent', reason: 'Shoulder — medical' }, BS: { status: 'present' }, EG: { status: 'present' } }),
+  t4: att({ EZ: { status: 'present' }, BS: { status: 'present' }, AG: { status: 'unconfirmed' }, AR: { status: 'unconfirmed' } }),
+  t5: att({ EZ: { status: 'unconfirmed' }, BS: { status: 'present' }, EG: { status: 'present' } }),
 };
 
 export type MatchStat = {
@@ -530,6 +553,12 @@ export type MatchDetail = {
   transport?: string;
   lineup: string[];
   stats: MatchStat[];
+};
+
+/** A saved trainer lineup for a match: a formation plus 11 starting initials. */
+export type MatchLineup = {
+  formation: string;
+  lineup: string[];
 };
 
 export const MATCH_DETAILS: Record<string, MatchDetail> = {

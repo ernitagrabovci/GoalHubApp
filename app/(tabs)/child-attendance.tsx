@@ -1,10 +1,11 @@
+import { useLocalSearchParams } from 'expo-router';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { DateTile } from '@/components/list-row';
 import { Screen, DetailHead, SectionLabel, StatCell } from '@/components/screen';
 import { StatusChip, type StatusTone } from '@/components/status-chip';
 import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
-import { ALL_TRAININGS, TRAINING_ATTENDANCE, type AttendanceStatus } from '@/lib/data';
+import { ALL_PLAYERS, ALL_TRAININGS, TRAINING_ATTENDANCE, type AttendanceStatus } from '@/lib/data';
 import { useLanguage } from '@/lib/i18n';
 
 const STATUS_TONE: Record<AttendanceStatus, StatusTone> = {
@@ -15,9 +16,11 @@ const STATUS_TONE: Record<AttendanceStatus, StatusTone> = {
 
 export default function ChildAttendanceScreen() {
   const { t } = useLanguage();
+  const { child = 'Agon Gashi' } = useLocalSearchParams<{ child?: string }>();
+  const childPlayer = ALL_PLAYERS.find((p) => p.name === child);
   const rows = ALL_TRAININGS.map((t) => {
     const roster = TRAINING_ATTENDANCE[t.id] ?? [];
-    const mine = roster.find((r) => r.initials === 'AG');
+    const mine = roster.find((r) => r.initials === childPlayer?.initials);
     return { training: t, status: (mine?.status ?? 'unconfirmed') as AttendanceStatus, reason: mine?.reason };
   });
 
@@ -29,7 +32,7 @@ export default function ChildAttendanceScreen() {
         icon="calendar"
         accent="#408A71"
         title={t('childAttendance.title')}
-        subtitle={t('childAttendance.subtitle', { name: 'Agon Gashi' })}
+        subtitle={t('childAttendance.subtitle', { name: child })}
       />
 
       <View style={styles.summary}>
