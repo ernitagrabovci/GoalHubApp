@@ -13,6 +13,8 @@ export type Player = {
   rating: number;
   health: Health;
   color: string;
+  /** Squad name for freshly registered players that have no PLAYER_PROFILE entry yet. */
+  team?: string;
 };
 
 export type Training = {
@@ -47,6 +49,8 @@ export type Fee = {
   amount: string;
   status: FeeStatus;
   color: string;
+  /** Payment method, set when an admin/financier registers the payment. */
+  method?: string;
 };
 
 export type MessageScope = 'trainer' | 'admin' | 'club';
@@ -163,6 +167,18 @@ export function feesForRole(role: Role): Fee[] {
       color: t.color,
     }))
   );
+}
+
+/** A payment registered by the admin/financier, keyed by `` `${name}|${month}` ``. */
+export type FeeOverride = { method: string; paidAt: string };
+
+/** Marks any fee with a matching override as paid, attaching the method used. */
+export function applyFeeOverrides(fees: Fee[], overrides: Record<string, FeeOverride>): Fee[] {
+  return fees.map((fee) => {
+    const ov = overrides[`${fee.name}|${fee.month}`];
+    if (!ov) return fee;
+    return { ...fee, status: 'paid' as FeeStatus, method: ov.method };
+  });
 }
 
 export type Match = {

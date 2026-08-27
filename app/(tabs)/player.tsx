@@ -16,8 +16,10 @@ import {
   PLAYER_PROFILES,
   PLAYER_SEASON,
   type Health,
+  type Player,
 } from '@/lib/data';
 import { useLanguage } from '@/lib/i18n';
+import { usePersistedState } from '@/lib/storage';
 
 const HEALTH_TONE: Record<Health, StatusTone> = {
   active: 'emerald',
@@ -46,7 +48,8 @@ export default function PlayerScreen() {
   const router = useRouter();
   const { t } = useLanguage();
   const { id } = useLocalSearchParams<{ id?: string }>();
-  const player = ALL_PLAYERS.find((p) => p.id === id) ?? ALL_PLAYERS[0];
+  const [players] = usePersistedState<Player[]>('players:list', ALL_PLAYERS);
+  const player = players.find((p) => p.id === id) ?? players[0] ?? ALL_PLAYERS[0];
   const profile = PLAYER_PROFILES[player.name];
   const season = PLAYER_SEASON[player.name];
   const ratings = ALL_RATINGS.filter((r) => r.player === player.name);
@@ -54,13 +57,15 @@ export default function PlayerScreen() {
   const latestRating = ratings[0];
   const form = PLAYER_FORM[player.name] ?? [];
 
-  const rows: { label: string; value: string }[] = [
-    { label: t('player.birth'), value: profile.birth },
-    { label: t('player.nationality'), value: profile.nationality },
-    { label: t('player.license'), value: profile.license },
-    { label: t('player.team'), value: profile.team },
-    { label: t('player.contract'), value: `${profile.contract} → ${profile.contractEnd}` },
-  ];
+  const rows: { label: string; value: string }[] = profile
+    ? [
+        { label: t('player.birth'), value: profile.birth },
+        { label: t('player.nationality'), value: profile.nationality },
+        { label: t('player.license'), value: profile.license },
+        { label: t('player.team'), value: profile.team ?? player.team ?? '—' },
+        { label: t('player.contract'), value: `${profile.contract} → ${profile.contractEnd}` },
+      ]
+    : [];
 
   return (
     <Screen back>
@@ -90,23 +95,31 @@ export default function PlayerScreen() {
 
       {/* Season stats */}
       <SectionLabel>{t('player.seasonStats')}</SectionLabel>
-      <View style={styles.statsRow}>
-        <StatCell value={String(season.goals)} label={t('stats.goals')} />
-        <StatCell value={String(season.assists)} label={t('stats.assists')} />
-        <StatCell value={String(season.matches)} label={t('stats.matches')} />
-        <StatCell value={`${Math.round(season.minutes / 90)}h`} label={t('player.played')} />
-      </View>
+      {season ? (
+        <View style={styles.statsRow}>
+          <StatCell value={String(season.goals)} label={t('stats.goals')} />
+          <StatCell value={String(season.assists)} label={t('stats.assists')} />
+          <StatCell value={String(season.matches)} label={t('stats.matches')} />
+          <StatCell value={`${Math.round(season.minutes / 90)}h`} label={t('player.played')} />
+        </View>
+      ) : (
+        <EmptyState icon="chart.bar.fill" title={t('player.emptySeason')} />
+      )}
 
       {/* Profile rows */}
       <SectionLabel>{t('player.details')}</SectionLabel>
-      <View style={styles.rowsCard}>
-        {rows.map((r) => (
-          <View key={r.label} style={styles.row}>
-            <Text style={styles.rowLabel}>{r.label}</Text>
-            <Text style={styles.rowValue}>{r.value}</Text>
-          </View>
-        ))}
-      </View>
+      {profile ? (
+        <View style={styles.rowsCard}>
+          {rows.map((r) => (
+            <View key={r.label} style={styles.row}>
+              <Text style={styles.rowLabel}>{r.label}</Text>
+              <Text style={styles.rowValue}>{r.value}</Text>
+            </View>
+          ))}
+        </View>
+      ) : (
+        <EmptyState icon="doc.text.fill" title={t('player.emptyProfile')} />
+      )}
 
       {/* Latest rating */}
       <SectionLabel>{t('player.rating')}</SectionLabel>

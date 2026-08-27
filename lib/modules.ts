@@ -31,11 +31,12 @@ export const ALL_MODULES: ModuleDef[] = [
   { label: 'Messages', icon: 'bubble.left.fill', color: Colors.info, route: '/chat' },
   { label: 'Reports', icon: 'chart.bar.fill', color: Colors.warning, route: '/reports' },
   { label: 'Settings', icon: 'gearshape.fill', color: Colors.textMuted, route: '/profile' },
+  { label: 'Admin', icon: 'gearshape.fill', color: Colors.mint, route: '/admin' },
 ];
 
 /** Which modules each role can see. */
 export const ROLE_MODULES: Record<Role, string[]> = {
-  administrator: ['Players', 'Teams', 'Users', 'Competitions', 'Matches', 'Trainings', 'Medical', 'Finance', 'Club', 'Reports', 'Messages', 'Settings'],
+  administrator: ['Players', 'Teams', 'Users', 'Competitions', 'Matches', 'Trainings', 'Medical', 'Finance', 'Club', 'Reports', 'Messages', 'Settings', 'Admin'],
   trainer: ['Players', 'Matches', 'Trainings', 'Medical', 'Academy', 'Tactical Board', 'Drills', 'Groups', 'Messages', 'Settings'],
   player: ['Matches', 'Trainings', 'Academy', 'Tactical Board', 'Groups', 'Payments', 'Messages', 'Settings'],
   parent: ['Matches', 'Trainings', 'Payments', 'Messages', 'Settings'],

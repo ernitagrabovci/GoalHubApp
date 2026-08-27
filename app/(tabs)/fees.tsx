@@ -2,9 +2,10 @@ import { useRouter } from 'expo-router';
 import { StatusChip, type StatusTone } from '@/components/status-chip';
 import { InitialsTile, ListRow } from '@/components/list-row';
 import { ListScreen } from '@/components/list-screen';
-import { feesForRole, type FeeStatus } from '@/lib/data';
+import { applyFeeOverrides, feesForRole, type FeeOverride, type FeeStatus } from '@/lib/data';
 import { useLanguage } from '@/lib/i18n';
 import { useSession } from '@/lib/session';
+import { usePersistedState } from '@/lib/storage';
 
 const STATUS_TONE: Record<FeeStatus, StatusTone> = {
   paid: 'emerald',
@@ -18,7 +19,8 @@ export default function FeesScreen() {
   const { t } = useLanguage();
   const { user } = useSession();
   const role = user?.role ?? 'administrator';
-  const fees = feesForRole(role);
+  const [overrides] = usePersistedState<Record<string, FeeOverride>>('payments:overrides', {});
+  const fees = applyFeeOverrides(feesForRole(role), overrides);
   const title =
     role === 'player'
       ? t('fees.title.player')

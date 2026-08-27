@@ -20,6 +20,7 @@ const HIDDEN_ROUTES = [
   'matches',
   'match',
   'lineup',
+  'admin',
   'academy',
   'academy-create',
   'academy-item',

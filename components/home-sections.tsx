@@ -234,6 +234,18 @@ function AdminSections() {
   const { t } = useLanguage();
   return (
     <>
+      {/* Admin panel hub */}
+      <Pressable style={styles.adminCard} onPress={() => router.push('/admin')}>
+        <View style={[styles.adminIcon, { backgroundColor: `${Colors.mint}22` }]}>
+          <IconSymbol name="gearshape.fill" size={22} color={Colors.mint} />
+        </View>
+        <View style={styles.adminBody}>
+          <Text style={styles.adminLabel}>{t('admin.panel')}</Text>
+          <Text style={styles.adminSub}>{t('admin.panelSub')}</Text>
+        </View>
+        <IconSymbol name="chevron.right" size={18} color={Colors.textMuted} />
+      </Pressable>
+
       <SectionTitle>{t('sections.finances')}</SectionTitle>
       <FinanceCard role="administrator" />
 
@@ -506,6 +518,39 @@ const styles = StyleSheet.create({
     textTransform: 'lowercase',
     marginTop: Spacing.xl,
     marginBottom: Spacing.sm,
+  },
+  adminCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+    backgroundColor: `${Colors.mint}1a`,
+    borderColor: Colors.mint,
+    borderWidth: 1,
+    borderRadius: Radius.lg,
+    padding: Spacing.md,
+    marginTop: Spacing.md,
+  },
+  adminIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: Radius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  adminBody: {
+    flex: 1,
+    gap: 1,
+  },
+  adminLabel: {
+    fontFamily: Fonts.headingSemiBold,
+    fontSize: 15,
+    color: Colors.mint,
+    textTransform: 'lowercase',
+  },
+  adminSub: {
+    fontFamily: Fonts.body,
+    fontSize: 12,
+    color: Colors.textMuted,
   },
   list: {
     gap: Spacing.md,

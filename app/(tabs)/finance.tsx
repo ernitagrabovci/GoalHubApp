@@ -1,13 +1,15 @@
 import { useRouter } from 'expo-router';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Ring, StatBar } from '@/components/chart';
 import { Screen, DetailHead, StatCell, SectionLabel } from '@/components/screen';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
-import { feesForRole, type Fee } from '@/lib/data';
+import { applyFeeOverrides, feesForRole, type Fee, type FeeOverride } from '@/lib/data';
 import { useLanguage } from '@/lib/i18n';
+import { useSession } from '@/lib/session';
+import { usePersistedState } from '@/lib/storage';
 
 const STATUS_COLOR: Record<'paid' | 'unpaid' | 'delayed' | 'critical', string> = {
   paid: Colors.emerald,
@@ -16,10 +18,23 @@ const STATUS_COLOR: Record<'paid' | 'unpaid' | 'delayed' | 'critical', string> =
   critical: Colors.danger,
 };
 
+const METHODS = ['cash', 'bank', 'card'] as const;
+
 export default function FinanceScreen() {
   const router = useRouter();
   const { t } = useLanguage();
-  const fees = feesForRole('administrator');
+  const { user } = useSession();
+  const canRegister = user?.role === 'administrator' || user?.role === 'financier';
+
+  const [overrides, setOverrides] = usePersistedState<Record<string, FeeOverride>>('payments:overrides', {});
+  const fees = useMemo(
+    () => applyFeeOverrides(feesForRole('administrator'), overrides),
+    [overrides],
+  );
+
+  const [showReg, setShowReg] = useState(false);
+  const [regKey, setRegKey] = useState<string | null>(null);
+  const [regMethod, setRegMethod] = useState<string>(METHODS[0]);
 
   const stats = useMemo(() => {
     const paid = fees.filter((f) => f.status === 'paid').length;
@@ -35,12 +50,25 @@ export default function FinanceScreen() {
     { status: 'critical' as const, count: stats.critical },
   ];
 
+  const unpaidFees = fees.filter((f) => f.status !== 'paid');
   const month = fees[0]?.month ?? 'Sep';
 
   const amountOf = (f: Fee) => parseInt(f.amount.replace(/\D/g, ''), 10) || 0;
   const collected = fees
     .filter((f) => f.month === month && f.status === 'paid')
     .reduce((sum, f) => sum + amountOf(f), 0);
+
+  const confirmPayment = () => {
+    if (!regKey) {
+      alert(t('finance.selectFee'));
+      return;
+    }
+    const [name, monthPart] = regKey.split('|');
+    setOverrides((prev) => ({ ...prev, [regKey]: { method: regMethod, paidAt: 'Today' } }));
+    setRegKey(null);
+    setShowReg(false);
+    alert(t('finance.alertPaid', { name, month: monthPart }));
+  };
 
   return (
     <Screen back>
@@ -50,6 +78,62 @@ export default function FinanceScreen() {
         title={t('finance.title')}
         subtitle={t('finance.subtitle', { month })}
       />
+
+      {canRegister ? (
+        <>
+          <Pressable style={styles.registerToggle} onPress={() => setShowReg((s) => !s)}>
+            <IconSymbol name={showReg ? 'xmark' : 'plus'} size={16} color={Colors.textOnPrimary} />
+            <Text style={styles.registerToggleText}>
+              {showReg ? t('common.closeForm') : t('finance.register')}
+            </Text>
+          </Pressable>
+          {showReg ? (
+            <View style={styles.regCard}>
+              <Text style={styles.fieldLabel}>{t('finance.selectFee')}</Text>
+              {unpaidFees.length === 0 ? (
+                <Text style={styles.regEmpty}>{t('finance.noUnpaid')}</Text>
+              ) : (
+                <View style={styles.wrap}>
+                  {unpaidFees.map((f) => {
+                    const key = `${f.name}|${f.month}`;
+                    const selected = regKey === key;
+                    return (
+                      <Pressable
+                        key={key}
+                        onPress={() => setRegKey(selected ? null : key)}
+                        style={[styles.chip, selected && styles.chipActive]}>
+                        <Text style={[styles.chipText, selected && styles.chipTextActive]}>
+                          {f.name} · {f.month}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              )}
+              <Text style={styles.fieldLabel}>{t('finance.method')}</Text>
+              <View style={styles.wrap}>
+                {METHODS.map((m) => {
+                  const selected = regMethod === m;
+                  return (
+                    <Pressable
+                      key={m}
+                      onPress={() => setRegMethod(m)}
+                      style={[styles.chip, selected && styles.chipActive]}>
+                      <Text style={[styles.chipText, selected && styles.chipTextActive]}>
+                        {t(`finance.${m}`)}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+              <Pressable style={styles.regBtn} onPress={confirmPayment}>
+                <IconSymbol name="checkmark.circle.fill" size={16} color={Colors.textOnPrimary} />
+                <Text style={styles.regBtnText}>{t('finance.confirm')}</Text>
+              </Pressable>
+            </View>
+          ) : null}
+        </>
+      ) : null}
 
       {/* Overview */}
       <View style={styles.statsRow}>
@@ -203,6 +287,84 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.bodySemiBold,
     fontSize: 15,
     color: Colors.mint,
+    textTransform: 'lowercase',
+  },
+  registerToggle: {
+    marginBottom: Spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.sm,
+    backgroundColor: Colors.mint,
+    borderRadius: Radius.md,
+    paddingVertical: Spacing.sm + 2,
+  },
+  registerToggleText: {
+    fontFamily: Fonts.bodySemiBold,
+    fontSize: 13,
+    color: Colors.textOnPrimary,
+    textTransform: 'lowercase',
+  },
+  regCard: {
+    backgroundColor: Colors.surface,
+    borderColor: Colors.border,
+    borderWidth: 1,
+    borderRadius: Radius.lg,
+    padding: Spacing.md,
+    gap: Spacing.sm,
+    marginBottom: Spacing.md,
+  },
+  fieldLabel: {
+    fontFamily: Fonts.bodyMedium,
+    fontSize: 11,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+    color: Colors.textMuted,
+  },
+  regEmpty: {
+    fontFamily: Fonts.body,
+    fontSize: 13,
+    color: Colors.textMuted,
+  },
+  wrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.sm,
+  },
+  chip: {
+    borderColor: Colors.border,
+    borderWidth: 1,
+    borderRadius: Radius.pill,
+    paddingVertical: 6,
+    paddingHorizontal: Spacing.md,
+    backgroundColor: Colors.surfaceAlt,
+  },
+  chipActive: {
+    backgroundColor: Colors.mint,
+    borderColor: Colors.mint,
+  },
+  chipText: {
+    fontFamily: Fonts.bodyMedium,
+    fontSize: 12,
+    color: Colors.textSecondary,
+  },
+  chipTextActive: {
+    color: Colors.textOnPrimary,
+  },
+  regBtn: {
+    marginTop: Spacing.xs,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.sm,
+    backgroundColor: Colors.mint,
+    borderRadius: Radius.md,
+    paddingVertical: Spacing.sm + 2,
+  },
+  regBtnText: {
+    fontFamily: Fonts.bodySemiBold,
+    fontSize: 13,
+    color: Colors.textOnPrimary,
     textTransform: 'lowercase',
   },
 });
