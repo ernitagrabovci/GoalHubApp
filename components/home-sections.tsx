@@ -7,8 +7,9 @@ import { DateTile, IconTile, InitialsTile, ListRow } from '@/components/list-row
 import { StatCell } from '@/components/screen';
 import { StatusChip, TONE_COLORS, type StatusTone } from '@/components/status-chip';
 import { IconSymbol, type IconSymbolName } from '@/components/ui/icon-symbol';
-import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
+import { Fonts, Radius, Spacing, type ThemeColors } from '@/constants/theme';
 import { useLanguage } from '@/lib/i18n';
+import { useTheme, useThemedStyles } from '@/lib/theme';
 import {
   ALL_MATCHES,
   ALL_NOTIFICATIONS,
@@ -140,11 +141,13 @@ function roleStats(role: Role, t: (key: string) => string, injuries: Injury[], r
 }
 
 function SectionTitle({ children }: { children: ReactNode }) {
+  const styles = useThemedStyles(createStyles);
   return <Text style={styles.sectionLabel}>{children}</Text>;
 }
 
 function StatGrid({ role }: { role: Role }) {
   const { t } = useLanguage();
+  const styles = useThemedStyles(createStyles);
   const injuries = useCollection(injuriesStore);
   const ratings = useCollection(ratingsStore);
   return (
@@ -167,6 +170,7 @@ function StatGrid({ role }: { role: Role }) {
 function FinanceCard({ role }: { role: Role }) {
   const router = useRouter();
   const { t } = useLanguage();
+  const styles = useThemedStyles(createStyles);
   const agg = feeAgg(feesForRole(role));
   return (
     <Pressable style={styles.financeCard} onPress={() => router.push('/fees')}>
@@ -181,6 +185,8 @@ function FinanceCard({ role }: { role: Role }) {
 function UpcomingMatchList() {
   const router = useRouter();
   const { t } = useLanguage();
+  const { colors } = useTheme();
+  const styles = useThemedStyles(createStyles);
   if (upcomingMatches.length === 0) return null;
   return (
     <View style={styles.list}>
@@ -192,7 +198,7 @@ function UpcomingMatchList() {
           leading={<DateTile day={m.day} month={m.month} color={m.color} />}
           trailing={
             <View style={styles.timeRow}>
-              <IconSymbol name="clock.fill" size={13} color={Colors.textMuted} />
+              <IconSymbol name="clock.fill" size={13} color={colors.textMuted} />
               <Text style={styles.time}>{m.time}</Text>
             </View>
           }
@@ -205,10 +211,12 @@ function UpcomingMatchList() {
 
 function NotifList() {
   const router = useRouter();
+  const { colors } = useTheme();
+  const styles = useThemedStyles(createStyles);
   return (
     <View style={styles.list}>
       {ALL_NOTIFICATIONS.map((n) => {
-        const meta = NOTIF_ICON[n.type] ?? { icon: 'notifications' as IconSymbolName, color: Colors.mint };
+        const meta = NOTIF_ICON[n.type] ?? { icon: 'notifications' as IconSymbolName, color: colors.mint };
         return (
           <ListRow
             key={n.id}
@@ -232,18 +240,20 @@ function NotifList() {
 function AdminSections() {
   const router = useRouter();
   const { t } = useLanguage();
+  const { colors } = useTheme();
+  const styles = useThemedStyles(createStyles);
   return (
     <>
       {/* Admin panel hub */}
       <Pressable style={styles.adminCard} onPress={() => router.push('/admin')}>
-        <View style={[styles.adminIcon, { backgroundColor: `${Colors.mint}22` }]}>
-          <IconSymbol name="gearshape.fill" size={22} color={Colors.mint} />
+        <View style={[styles.adminIcon, { backgroundColor: `${colors.mint}22` }]}>
+          <IconSymbol name="gearshape.fill" size={22} color={colors.mint} />
         </View>
         <View style={styles.adminBody}>
           <Text style={styles.adminLabel}>{t('admin.panel')}</Text>
           <Text style={styles.adminSub}>{t('admin.panelSub')}</Text>
         </View>
-        <IconSymbol name="chevron.right" size={18} color={Colors.textMuted} />
+        <IconSymbol name="chevron.right" size={18} color={colors.textMuted} />
       </Pressable>
 
       <SectionTitle>{t('sections.finances')}</SectionTitle>
@@ -275,6 +285,8 @@ function AdminSections() {
 function TrainerSections() {
   const router = useRouter();
   const { t } = useLanguage();
+  const { colors } = useTheme();
+  const styles = useThemedStyles(createStyles);
   const activeInjuries = useCollection(injuriesStore).filter((i) => i.status !== 'recovered');
   const today = ALL_TRAININGS[0];
   const rows = TRAINING_ATTENDANCE[today.id] ?? [];
@@ -302,7 +314,7 @@ function TrainerSections() {
             {t('sections.presentCount', { present: today.present, total: today.total })}
           </Text>
         </View>
-        <IconSymbol name="chevron.right" size={18} color={Colors.textMuted} />
+        <IconSymbol name="chevron.right" size={18} color={colors.textMuted} />
       </Pressable>
 
       <View style={styles.attCard}>
@@ -383,7 +395,7 @@ function TrainerSections() {
           <Text style={styles.infoTitle}>{t('sections.playersCount', { count: overdueNames.length })}</Text>
           <Text style={styles.infoSub}>{t('sections.followUp')}</Text>
         </View>
-        <IconSymbol name="chevron.right" size={18} color={Colors.textMuted} />
+        <IconSymbol name="chevron.right" size={18} color={colors.textMuted} />
       </Pressable>
 
       <SectionTitle>{t('sections.recentNotifications')}</SectionTitle>
@@ -395,12 +407,14 @@ function TrainerSections() {
 function PlayerSections() {
   const router = useRouter();
   const { t } = useLanguage();
+  const { colors } = useTheme();
+  const styles = useThemedStyles(createStyles);
   const season = PLAYER_SEASON['Ardit Llapashtica'];
   return (
     <>
       <SectionTitle>{t('sections.seasonSoFar')}</SectionTitle>
       <Pressable style={styles.financeCard} onPress={() => router.push('/stats')}>
-        <StatCell value={String(season.goals)} label={t('stats.goals')} color={Colors.mint} />
+        <StatCell value={String(season.goals)} label={t('stats.goals')} color={colors.mint} />
         <StatCell value={String(season.assists)} label={t('stats.assists')} color={TONE_COLORS.emerald} />
         <StatCell value={String(season.matches)} label={t('stats.matches')} color={TONE_COLORS.info} />
         <StatCell value={`${season.minutes}m`} label={t('stats.minutes')} color={TONE_COLORS.warning} />
@@ -412,6 +426,7 @@ function PlayerSections() {
 function FinanceSections() {
   const router = useRouter();
   const { t } = useLanguage();
+  const styles = useThemedStyles(createStyles);
   const fees = feesForRole('financier');
   const agg = feeAgg(fees);
   const recent = fees.filter((f) => f.month === 'Sep' && f.status === 'paid');
@@ -472,7 +487,7 @@ export function HomeSections({ role }: { role: Role }) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   statsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -482,8 +497,8 @@ const styles = StyleSheet.create({
   statCard: {
     flexGrow: 1,
     flexBasis: '45%',
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.md,
     padding: Spacing.md,
@@ -501,20 +516,20 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.heading,
     fontSize: 20,
     letterSpacing: -0.5,
-    color: Colors.mint,
+    color: colors.mint,
   },
   statLabel: {
     fontFamily: Fonts.bodyMedium,
     fontSize: 10,
     letterSpacing: 1,
     textTransform: 'uppercase',
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     marginTop: 2,
   },
   sectionLabel: {
     fontFamily: Fonts.headingSemiBold,
     fontSize: 14,
-    color: Colors.mint,
+    color: colors.mint,
     textTransform: 'lowercase',
     marginTop: Spacing.lg,
     marginBottom: Spacing.sm,
@@ -523,8 +538,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.md,
-    backgroundColor: `${Colors.mint}1a`,
-    borderColor: Colors.mint,
+    backgroundColor: `${colors.mint}1a`,
+    borderColor: colors.mint,
     borderWidth: 1,
     borderRadius: Radius.lg,
     padding: Spacing.md,
@@ -544,13 +559,13 @@ const styles = StyleSheet.create({
   adminLabel: {
     fontFamily: Fonts.headingSemiBold,
     fontSize: 15,
-    color: Colors.mint,
+    color: colors.mint,
     textTransform: 'lowercase',
   },
   adminSub: {
     fontFamily: Fonts.body,
     fontSize: 12,
-    color: Colors.textMuted,
+    color: colors.textMuted,
   },
   list: {
     gap: Spacing.md,
@@ -558,8 +573,8 @@ const styles = StyleSheet.create({
   financeCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.lg,
     paddingVertical: Spacing.md,
@@ -567,8 +582,8 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   card: {
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.lg,
     padding: Spacing.md,
@@ -578,8 +593,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.md,
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.lg,
     padding: Spacing.md,
@@ -593,17 +608,17 @@ const styles = StyleSheet.create({
     fontSize: 10,
     letterSpacing: 1,
     textTransform: 'uppercase',
-    color: Colors.textMuted,
+    color: colors.textMuted,
   },
   infoTitle: {
     fontFamily: Fonts.bodySemiBold,
     fontSize: 14,
-    color: Colors.text,
+    color: colors.text,
   },
   infoSub: {
     fontFamily: Fonts.body,
     fontSize: 12,
-    color: Colors.textMuted,
+    color: colors.textMuted,
   },
   timeRow: {
     flexDirection: 'row',
@@ -613,7 +628,7 @@ const styles = StyleSheet.create({
   time: {
     fontFamily: Fonts.bodyMedium,
     fontSize: 12,
-    color: Colors.textMuted,
+    color: colors.textMuted,
   },
   chatTrailing: {
     flexDirection: 'column',
@@ -623,17 +638,17 @@ const styles = StyleSheet.create({
   chatTime: {
     fontFamily: Fonts.bodyMedium,
     fontSize: 11,
-    color: Colors.textMuted,
+    color: colors.textMuted,
   },
   unreadDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: Colors.mint,
+    backgroundColor: colors.mint,
   },
   attCard: {
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.lg,
     padding: Spacing.md,
@@ -682,8 +697,8 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     flexBasis: '45%',
     alignItems: 'center',
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.lg,
     paddingVertical: Spacing.lg,
@@ -698,7 +713,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     letterSpacing: 1,
     textTransform: 'uppercase',
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     marginTop: 2,
   },
 });

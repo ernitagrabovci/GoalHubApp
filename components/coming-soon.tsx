@@ -3,7 +3,8 @@ import { Image, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { IconSymbol, type IconSymbolName } from '@/components/ui/icon-symbol';
-import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
+import { Fonts, Radius, Spacing, type ThemeColors } from '@/constants/theme';
+import { useTheme, useThemedStyles } from '@/lib/theme';
 
 export function ComingSoon({
   icon,
@@ -16,9 +17,11 @@ export function ComingSoon({
   title: string;
   description: string;
 }) {
+  const { isDark } = useTheme();
+  const styles = useThemedStyles(createStyles);
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      <StatusBar style="light" />
+      <StatusBar style={isDark ? 'light' : 'dark'} />
       <View style={styles.header}>
         <Image
           source={require('@/assets/images/goalhub-logo.png')}
@@ -38,10 +41,10 @@ export function ComingSoon({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: colors.background,
   },
   header: {
     flexDirection: 'row',
@@ -58,7 +61,7 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.heading,
     fontSize: 20,
     letterSpacing: -0.5,
-    color: Colors.mint,
+    color: colors.mint,
     textTransform: 'lowercase',
   },
   body: {
@@ -80,7 +83,7 @@ const styles = StyleSheet.create({
   title: {
     fontFamily: Fonts.heading,
     fontSize: 24,
-    color: Colors.mint,
+    color: colors.mint,
     textTransform: 'lowercase',
     textAlign: 'center',
   },
@@ -88,7 +91,7 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.body,
     fontSize: 14,
     lineHeight: 20,
-    color: Colors.textMuted,
+    color: colors.textMuted,
     textAlign: 'center',
     maxWidth: 280,
   },

@@ -7,7 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { StatusChip, type StatusTone } from '@/components/status-chip';
 import { IconSymbol, type IconSymbolName } from '@/components/ui/icon-symbol';
-import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
+import { Fonts, Radius, Spacing, type ThemeColors } from '@/constants/theme';
 import {
   ALL_MESSAGES,
   ALL_PLAYERS,
@@ -18,6 +18,7 @@ import {
 import { modulesForRole } from '@/lib/modules';
 import { useLanguage } from '@/lib/i18n';
 import { useSession } from '@/lib/session';
+import { useTheme, useThemedStyles } from '@/lib/theme';
 
 const HEALTH_TONE: Record<Health, StatusTone> = {
   active: 'emerald',
@@ -25,8 +26,6 @@ const HEALTH_TONE: Record<Health, StatusTone> = {
   rehabilitation: 'warning',
   suspended: 'purple',
 };
-
-const GLASS_BORDER = 'rgba(176, 228, 204, 0.16)';
 
 function QuickTile({
   icon,
@@ -41,8 +40,10 @@ function QuickTile({
   value: string;
   onPress: () => void;
 }) {
+  const { isDark } = useTheme();
+  const styles = useThemedStyles(createStyles);
   return (
-    <BlurView intensity={14} tint="dark" style={styles.quickTile}>
+    <BlurView intensity={14} tint={isDark ? 'dark' : 'light'} style={styles.quickTile}>
       <Pressable style={styles.quickTilePress} onPress={onPress}>
         <View style={[styles.quickIcon, { backgroundColor: `${tint}22` }]}>
           <IconSymbol name={icon} size={16} color={tint} />
@@ -60,11 +61,13 @@ export default function HomeScreen() {
   const router = useRouter();
   const { user, signOut } = useSession();
   const { t } = useLanguage();
+  const { colors, isDark } = useTheme();
+  const styles = useThemedStyles(createStyles);
 
   if (!user) {
     return (
       <SafeAreaView style={styles.safe} edges={['top']}>
-        <StatusBar style="light" />
+        <StatusBar style={isDark ? 'light' : 'dark'} />
         <View style={styles.signedOut}>
           <Image
             source={require('@/assets/images/goalhub-logo.png')}
@@ -77,7 +80,7 @@ export default function HomeScreen() {
           </Text>
           <Pressable style={styles.signedOutButton} onPress={() => router.replace('/login')}>
             <Text style={styles.signedOutButtonText}>{t('home.goToSignIn')}</Text>
-            <IconSymbol name="arrow.right" size={18} color={Colors.textOnPrimary} />
+            <IconSymbol name="arrow.right" size={18} color={colors.textOnPrimary} />
           </Pressable>
         </View>
       </SafeAreaView>
@@ -105,7 +108,7 @@ export default function HomeScreen() {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      <StatusBar style="light" />
+      <StatusBar style={isDark ? 'light' : 'dark'} />
       <View style={styles.content}>
         {/* Ambient blobs behind the glass */}
         <View pointerEvents="none" style={StyleSheet.absoluteFill}>
@@ -114,7 +117,7 @@ export default function HomeScreen() {
         </View>
 
         {/* Header */}
-        <BlurView intensity={12} tint="dark" style={styles.header}>
+        <BlurView intensity={12} tint={isDark ? 'dark' : 'light'} style={styles.header}>
           <View style={styles.brand}>
             <Image
               source={require('@/assets/images/goalhub-logo.png')}
@@ -125,7 +128,7 @@ export default function HomeScreen() {
           </View>
           <View style={styles.headerRight}>
             <Pressable style={styles.rolePill} onPress={handleSignOut}>
-              <IconSymbol name="logout" size={12} color={Colors.mint} />
+              <IconSymbol name="logout" size={12} color={colors.mint} />
               <Text style={styles.rolePillText}>{t('home.switchRole')}</Text>
             </Pressable>
             <Pressable onPress={() => router.navigate('/profile')} hitSlop={8}>
@@ -143,7 +146,7 @@ export default function HomeScreen() {
 
           {user.role === 'player' && player ? (
             <Pressable style={styles.heroPress} onPress={() => router.push('/stats')}>
-              <BlurView intensity={18} tint="dark" style={styles.hero}>
+              <BlurView intensity={18} tint={isDark ? 'dark' : 'light'} style={styles.hero}>
                 <View style={styles.jerseyBadge}>
                   <Text style={styles.jerseyNum}>{player.number}</Text>
                 </View>
@@ -164,12 +167,12 @@ export default function HomeScreen() {
                     </View>
                   </View>
                 </View>
-                <IconSymbol name="chevron.right" size={18} color={Colors.textMuted} />
+                <IconSymbol name="chevron.right" size={18} color={colors.textMuted} />
               </BlurView>
             </Pressable>
           ) : user.role === 'parent' && child ? (
             <Pressable style={styles.heroPress} onPress={() => router.push('/child')}>
-              <BlurView intensity={18} tint="dark" style={styles.hero}>
+              <BlurView intensity={18} tint={isDark ? 'dark' : 'light'} style={styles.hero}>
                 <View style={styles.jerseyBadge}>
                   <Text style={styles.jerseyNum}>{child.number}</Text>
                 </View>
@@ -190,24 +193,24 @@ export default function HomeScreen() {
                     </View>
                   </View>
                 </View>
-                <IconSymbol name="chevron.right" size={18} color={Colors.textMuted} />
+                <IconSymbol name="chevron.right" size={18} color={colors.textMuted} />
               </BlurView>
             </Pressable>
           ) : user.role === 'trainer' ? (
             <Pressable style={styles.heroPress} onPress={() => router.push('/players')}>
-              <BlurView intensity={18} tint="dark" style={styles.hero}>
-                <View style={[styles.jerseyBadge, { backgroundColor: `${Colors.mint}1f` }]}>
-                  <IconSymbol name="person.2.fill" size={32} color={Colors.mint} />
+              <BlurView intensity={18} tint={isDark ? 'dark' : 'light'} style={styles.hero}>
+                <View style={[styles.jerseyBadge, { backgroundColor: `${colors.mint}1f` }]}>
+                  <IconSymbol name="person.2.fill" size={32} color={colors.mint} />
                 </View>
                 <View style={styles.heroBody}>
                   <Text style={styles.heroName} numberOfLines={1}>{user.club}</Text>
                   <Text style={styles.heroMeta}>{subtitle}</Text>
                 </View>
-                <IconSymbol name="chevron.right" size={18} color={Colors.textMuted} />
+                <IconSymbol name="chevron.right" size={18} color={colors.textMuted} />
               </BlurView>
             </Pressable>
           ) : (
-            <BlurView intensity={18} tint="dark" style={styles.hero}>
+            <BlurView intensity={18} tint={isDark ? 'dark' : 'light'} style={styles.hero}>
               <View style={[styles.jerseyBadge, { backgroundColor: `${user.color}26` }]}>
                 <Text style={[styles.jerseyNum, { color: user.color }]}>{user.initials}</Text>
               </View>
@@ -221,7 +224,7 @@ export default function HomeScreen() {
 
         {/* Everything — floating glass frame, the biggest part */}
         <View style={styles.everythingWrap}>
-          <BlurView intensity={14} tint="dark" style={styles.everything}>
+          <BlurView intensity={14} tint={isDark ? 'dark' : 'light'} style={styles.everything}>
             <LinearGradient
               pointerEvents="none"
               style={StyleSheet.absoluteFill}
@@ -231,7 +234,7 @@ export default function HomeScreen() {
               end={{ x: 0, y: 1 }}
             />
             <View style={styles.everythingHead}>
-              <IconSymbol name="square.grid.2x2.fill" size={14} color={Colors.mint} />
+              <IconSymbol name="square.grid.2x2.fill" size={14} color={colors.mint} />
               <Text style={styles.everythingTitle}>{t('home.everything')}</Text>
             </View>
             <ScrollView
@@ -265,7 +268,7 @@ export default function HomeScreen() {
           {nextTraining ? (
             <QuickTile
               icon="calendar"
-              tint={Colors.mint}
+              tint={colors.mint}
               label={t('home.nextUp')}
               value={`${nextTraining.day} ${t(`month.${nextTraining.month.toUpperCase()}`)}`}
               onPress={() => router.push('/trainings')}
@@ -274,7 +277,7 @@ export default function HomeScreen() {
           {currentFee ? (
             <QuickTile
               icon="dollarsign.circle.fill"
-              tint={Colors.emerald}
+              tint={colors.emerald}
               label={t('home.feeStatus')}
               value={`${t(`month.${currentFee.month.toUpperCase()}`)} · ${currentFee.amount}`}
               onPress={() => router.push('/fees')}
@@ -283,7 +286,7 @@ export default function HomeScreen() {
           {latestMessage ? (
             <QuickTile
               icon="bubble.left.fill"
-              tint={Colors.info}
+              tint={colors.info}
               label={t('module.Messages')}
               value={latestMessage.sender}
               onPress={() => router.navigate('/chat')}
@@ -295,10 +298,10 @@ export default function HomeScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: colors.background,
   },
   content: {
     flex: 1,
@@ -311,7 +314,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     borderWidth: 1,
-    borderColor: GLASS_BORDER,
+    borderColor: colors.glassBorder,
     borderRadius: Radius.lg,
     overflow: 'hidden',
     paddingVertical: Spacing.xs,
@@ -335,15 +338,15 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.heading,
     fontSize: 20,
     letterSpacing: -0.5,
-    color: Colors.mint,
+    color: colors.mint,
     textTransform: 'lowercase',
   },
   rolePill: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    backgroundColor: Colors.surfaceAlt,
-    borderColor: Colors.border,
+    backgroundColor: colors.surfaceAlt,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.pill,
     paddingHorizontal: 9,
@@ -352,7 +355,7 @@ const styles = StyleSheet.create({
   rolePillText: {
     fontFamily: Fonts.bodyMedium,
     fontSize: 10,
-    color: Colors.mint,
+    color: colors.mint,
   },
   avatar: {
     width: 32,
@@ -378,28 +381,28 @@ const styles = StyleSheet.create({
     height: 200,
     top: -40,
     right: -40,
-    backgroundColor: 'rgba(176, 228, 204, 0.14)',
+    backgroundColor: 'rgba(176, 228, 204, 0.025)',
   },
   blobB: {
     width: 150,
     height: 150,
     bottom: -30,
     left: -30,
-    backgroundColor: 'rgba(83, 74, 183, 0.12)',
+    backgroundColor: 'rgba(83, 74, 183, 0.02)',
   },
   blobTop: {
     width: 180,
     height: 180,
     top: -40,
     right: -50,
-    backgroundColor: 'rgba(176, 228, 204, 0.10)',
+    backgroundColor: 'rgba(176, 228, 204, 0.02)',
   },
   blobBottom: {
     width: 200,
     height: 200,
     bottom: -50,
     left: -50,
-    backgroundColor: 'rgba(64, 138, 113, 0.12)',
+    backgroundColor: 'rgba(64, 138, 113, 0.025)',
   },
   heroPress: {
     borderRadius: Radius.xl,
@@ -410,7 +413,7 @@ const styles = StyleSheet.create({
     gap: Spacing.lg,
     borderRadius: Radius.xl,
     borderWidth: 1,
-    borderColor: GLASS_BORDER,
+    borderColor: colors.glassBorder,
     overflow: 'hidden',
     padding: Spacing.lg,
   },
@@ -420,15 +423,15 @@ const styles = StyleSheet.create({
     borderRadius: 30,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: `${Colors.mint}1f`,
+    backgroundColor: `${colors.mint}1f`,
     borderWidth: 1,
-    borderColor: `${Colors.mint}33`,
+    borderColor: `${colors.mint}33`,
   },
   jerseyNum: {
     fontFamily: Fonts.heading,
     fontSize: 26,
     letterSpacing: -1,
-    color: Colors.mint,
+    color: colors.mint,
   },
   heroBody: {
     flex: 1,
@@ -438,13 +441,13 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.heading,
     fontSize: 22,
     letterSpacing: -0.5,
-    color: Colors.mint,
+    color: colors.mint,
     textTransform: 'lowercase',
   },
   heroMeta: {
     fontFamily: Fonts.body,
     fontSize: 12,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
   },
   heroTags: {
     flexDirection: 'row',
@@ -456,8 +459,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    backgroundColor: Colors.surfaceAlt,
-    borderColor: Colors.border,
+    backgroundColor: colors.surfaceAlt,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.pill,
     paddingVertical: 3,
@@ -482,7 +485,7 @@ const styles = StyleSheet.create({
     flex: 1,
     borderRadius: Radius.xl,
     borderWidth: 1,
-    borderColor: 'rgba(176, 228, 204, 0.28)',
+    borderColor: colors.glassBorder,
     overflow: 'hidden',
     padding: Spacing.md,
     backgroundColor: 'rgba(176, 224, 204, 0.05)',
@@ -497,7 +500,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontFamily: Fonts.headingSemiBold,
     fontSize: 15,
-    color: Colors.mint,
+    color: colors.mint,
     textTransform: 'lowercase',
   },
   gridScroll: {
@@ -516,8 +519,8 @@ const styles = StyleSheet.create({
     aspectRatio: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(13, 31, 28, 0.45)',
-    borderColor: GLASS_BORDER,
+    backgroundColor: colors.surface,
+    borderColor: colors.glassBorder,
     borderWidth: 1,
     borderRadius: Radius.lg,
   },
@@ -528,7 +531,7 @@ const styles = StyleSheet.create({
   },
   cellLabel: {
     fontFamily: Fonts.bodyMedium,
-    color: Colors.text,
+    color: colors.text,
     textTransform: 'lowercase',
   },
   quickRow: {
@@ -538,7 +541,7 @@ const styles = StyleSheet.create({
   },
   quickTile: {
     flex: 1,
-    borderColor: GLASS_BORDER,
+    borderColor: colors.glassBorder,
     borderWidth: 1,
     borderRadius: Radius.lg,
     overflow: 'hidden',
@@ -567,12 +570,12 @@ const styles = StyleSheet.create({
     fontSize: 9,
     letterSpacing: 0.5,
     textTransform: 'uppercase',
-    color: Colors.textMuted,
+    color: colors.textMuted,
   },
   quickValue: {
     fontFamily: Fonts.bodySemiBold,
     fontSize: 11,
-    color: Colors.text,
+    color: colors.text,
   },
   signedOut: {
     flex: 1,
@@ -589,13 +592,13 @@ const styles = StyleSheet.create({
   signedOutTitle: {
     fontFamily: Fonts.heading,
     fontSize: 24,
-    color: Colors.mint,
+    color: colors.mint,
     textTransform: 'lowercase',
   },
   signedOutSub: {
     fontFamily: Fonts.body,
     fontSize: 14,
-    color: Colors.textMuted,
+    color: colors.textMuted,
     textAlign: 'center',
   },
   signedOutButton: {
@@ -603,7 +606,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.sm,
-    backgroundColor: Colors.mint,
+    backgroundColor: colors.mint,
     borderRadius: Radius.md,
     paddingVertical: Spacing.md,
     paddingHorizontal: Spacing.xl,
@@ -611,6 +614,6 @@ const styles = StyleSheet.create({
   signedOutButtonText: {
     fontFamily: Fonts.bodySemiBold,
     fontSize: 15,
-    color: Colors.textOnPrimary,
+    color: colors.textOnPrimary,
   },
 });

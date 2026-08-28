@@ -14,9 +14,10 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { IconSymbol, type IconSymbolName } from '@/components/ui/icon-symbol';
-import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
+import { Fonts, Radius, Spacing, type ThemeColors } from '@/constants/theme';
 import { useLanguage } from '@/lib/i18n';
 import { useSession, type Role } from '@/lib/session';
+import { useTheme, useThemedStyles } from '@/lib/theme';
 
 type Mode = 'signin' | 'signup';
 
@@ -32,6 +33,8 @@ export default function LoginScreen() {
   const router = useRouter();
   const { signIn } = useSession();
   const { t } = useLanguage();
+  const { colors } = useTheme();
+  const styles = useThemedStyles(createStyles);
 
   const [mode, setMode] = useState<Mode>('signin');
   const [role, setRole] = useState<Role>('administrator');
@@ -135,7 +138,7 @@ export default function LoginScreen() {
                   <IconSymbol
                     name={showPassword ? 'visibility-off' : 'visibility'}
                     size={20}
-                    color={Colors.textMuted}
+                    color={colors.textMuted}
                   />
                 </Pressable>
               }
@@ -144,7 +147,7 @@ export default function LoginScreen() {
             {mode === 'signin' && (
               <View style={styles.rowBetween}>
                 <View style={styles.row}>
-                  <IconSymbol name="checkmark.circle.fill" size={14} color={Colors.textMuted} />
+                  <IconSymbol name="checkmark.circle.fill" size={14} color={colors.textMuted} />
                   <Text style={styles.hint}>{t('login.rememberMe')}</Text>
                 </View>
                 <Text style={styles.link}>{t('login.forgotPassword')}</Text>
@@ -163,13 +166,13 @@ export default function LoginScreen() {
                       onPress={() => pickRole(opt.role)}
                       style={[
                         styles.roleChip,
-                        active && { borderColor: opt.color, backgroundColor: Colors.surfaceAlt },
+                        active && { borderColor: opt.color, backgroundColor: colors.surfaceAlt },
                       ]}
                     >
                       <View style={[styles.roleIcon, { backgroundColor: `${opt.color}22` }]}>
                         <IconSymbol name={opt.icon} size={16} color={opt.color} />
                       </View>
-                      <Text style={[styles.roleText, active && { color: Colors.text }]}>
+                      <Text style={[styles.roleText, active && { color: colors.text }]}>
                         {t(`role.${opt.role}`)}
                       </Text>
                     </Pressable>
@@ -178,11 +181,11 @@ export default function LoginScreen() {
               </View>
             </View>
 
-            <Pressable style={[styles.primary, { backgroundColor: role ? ROLE_OPTIONS.find((o) => o.role === role)!.color : Colors.mint }]} onPress={submit}>
+            <Pressable style={[styles.primary, { backgroundColor: role ? ROLE_OPTIONS.find((o) => o.role === role)!.color : colors.mint }]} onPress={submit}>
               <Text style={styles.primaryText}>
                 {mode === 'signin' ? t('login.signIn') : t('login.createAccount')}
               </Text>
-              <IconSymbol name="arrow.right" size={20} color={Colors.textOnPrimary} />
+              <IconSymbol name="arrow.right" size={20} color={colors.textOnPrimary} />
             </Pressable>
 
             <Text style={styles.footerNote}>
@@ -196,6 +199,7 @@ export default function LoginScreen() {
 }
 
 function ModeTab({ active, label, onPress }: { active: boolean; label: string; onPress: () => void }) {
+  const styles = useThemedStyles(createStyles);
   return (
     <Pressable style={[styles.modeTab, active && styles.modeTabActive]} onPress={onPress}>
       <Text style={[styles.modeTabText, active && styles.modeTabTextActive]}>{label}</Text>
@@ -228,14 +232,16 @@ function Field({
   onFocus: (id: string | null) => void;
   trailing?: React.ReactNode;
 }) {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(createStyles);
   const isFocused = focused === id;
   return (
     <View style={[styles.field, isFocused && styles.fieldFocused]}>
-      <IconSymbol name={icon} size={20} color={isFocused ? Colors.mint : Colors.textMuted} />
+      <IconSymbol name={icon} size={20} color={isFocused ? colors.mint : colors.textMuted} />
       <TextInput
         style={styles.input}
         placeholder={placeholder}
-        placeholderTextColor={Colors.textMuted}
+        placeholderTextColor={colors.textMuted}
         value={value}
         onChangeText={onChangeText}
         secureTextEntry={secureTextEntry}
@@ -250,10 +256,10 @@ function Field({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: colors.background,
   },
   flex: {
     flex: 1,
@@ -294,14 +300,14 @@ const styles = StyleSheet.create({
   wordmark: {
     fontSize: 28,
     fontFamily: Fonts.heading,
-    color: Colors.mint,
+    color: colors.mint,
     letterSpacing: -0.5,
     textTransform: 'lowercase',
   },
   heroTitle: {
     fontSize: 32,
     fontFamily: Fonts.heading,
-    color: Colors.text,
+    color: colors.text,
     letterSpacing: -0.5,
     textTransform: 'lowercase',
   },
@@ -309,15 +315,15 @@ const styles = StyleSheet.create({
     marginTop: Spacing.sm,
     fontSize: 15,
     fontFamily: Fonts.body,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
   },
   segment: {
     flexDirection: 'row',
     marginTop: Spacing.xl,
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.surface,
     borderRadius: Radius.md,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
     padding: Spacing.xs,
   },
   modeTab: {
@@ -327,16 +333,16 @@ const styles = StyleSheet.create({
     borderRadius: Radius.sm,
   },
   modeTabActive: {
-    backgroundColor: Colors.emerald,
+    backgroundColor: colors.emerald,
   },
   modeTabText: {
     fontSize: 14,
     fontFamily: Fonts.bodySemiBold,
-    color: Colors.textMuted,
+    color: colors.textMuted,
     textTransform: 'lowercase',
   },
   modeTabTextActive: {
-    color: Colors.textOnPrimary,
+    color: colors.textOnPrimary,
   },
   card: {
     marginTop: Spacing.lg,
@@ -346,19 +352,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.md,
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.surface,
     borderRadius: Radius.md,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md,
   },
   fieldFocused: {
-    borderColor: Colors.mint,
+    borderColor: colors.mint,
   },
   input: {
     flex: 1,
-    color: Colors.text,
+    color: colors.text,
     fontSize: 15,
     fontFamily: Fonts.body,
     padding: 0,
@@ -374,12 +380,12 @@ const styles = StyleSheet.create({
     gap: Spacing.xs,
   },
   hint: {
-    color: Colors.textMuted,
+    color: colors.textMuted,
     fontSize: 13,
     fontFamily: Fonts.body,
   },
   link: {
-    color: Colors.mint,
+    color: colors.mint,
     fontSize: 13,
     fontFamily: Fonts.bodySemiBold,
   },
@@ -390,7 +396,7 @@ const styles = StyleSheet.create({
   roleLabel: {
     fontSize: 12,
     fontFamily: Fonts.bodyMedium,
-    color: Colors.textMuted,
+    color: colors.textMuted,
     textTransform: 'uppercase',
     letterSpacing: 1.5,
   },
@@ -403,9 +409,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.sm,
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: Colors.borderSoft,
+    borderColor: colors.borderSoft,
     borderRadius: Radius.pill,
     paddingVertical: Spacing.sm,
     paddingHorizontal: Spacing.md,
@@ -418,7 +424,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   roleText: {
-    color: Colors.textMuted,
+    color: colors.textMuted,
     fontSize: 13,
     fontFamily: Fonts.bodyMedium,
   },
@@ -432,13 +438,13 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.lg,
   },
   primaryText: {
-    color: Colors.textOnPrimary,
+    color: colors.textOnPrimary,
     fontSize: 16,
     fontFamily: Fonts.bodySemiBold,
   },
   footerNote: {
     textAlign: 'center',
-    color: Colors.textMuted,
+    color: colors.textMuted,
     fontSize: 12,
     fontFamily: Fonts.body,
     marginTop: Spacing.xs,

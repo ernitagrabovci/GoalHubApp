@@ -6,11 +6,12 @@ import { IconSymbol } from '@/components/ui/icon-symbol';
 import { DateTile, ListRow } from '@/components/list-row';
 import { ListScreen } from '@/components/list-screen';
 import { StatusTone, TONE_COLORS } from '@/components/status-chip';
-import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
+import { Fonts, Radius, Spacing, type ThemeColors } from '@/constants/theme';
 import { ALL_TRAININGS, CLUB_FIELDS, type Training } from '@/lib/data';
 import { useLanguage } from '@/lib/i18n';
 import { useSession } from '@/lib/session';
 import { usePersistedState } from '@/lib/storage';
+import { useTheme, useThemedStyles } from '@/lib/theme';
 
 const TRAIN_TYPES = ['Tactical', 'Physical', 'Recovery', 'Regular'] as const;
 const TONE_BY_TYPE: Record<string, StatusTone> = {
@@ -22,6 +23,8 @@ const TONE_BY_TYPE: Record<string, StatusTone> = {
 const MONTHS = ['AUG', 'SEP'];
 
 function NewTrainingForm({ existing, onDone }: { existing: Training[]; onDone: (t: Training) => void }) {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(createStyles);
   const { t } = useLanguage();
   const [type, setType] = useState<string>(TRAIN_TYPES[0]);
   const [day, setDay] = useState('');
@@ -94,7 +97,7 @@ function NewTrainingForm({ existing, onDone }: { existing: Training[]; onDone: (
           <TextInput
             style={styles.input}
             placeholder={t('trainings.formDay')}
-            placeholderTextColor={Colors.textMuted}
+            placeholderTextColor={colors.textMuted}
             value={day}
             onChangeText={setDay}
             keyboardType="numeric"
@@ -121,7 +124,7 @@ function NewTrainingForm({ existing, onDone }: { existing: Training[]; onDone: (
           <TextInput
             style={styles.input}
             placeholder={t('trainings.formTime')}
-            placeholderTextColor={Colors.textMuted}
+            placeholderTextColor={colors.textMuted}
             value={time}
             onChangeText={setTime}
             autoCorrect={false}
@@ -162,7 +165,7 @@ function NewTrainingForm({ existing, onDone }: { existing: Training[]; onDone: (
         <Text style={styles.availabilityHint}>{availability}</Text>
       </View>
       <Pressable style={styles.submitBtn} onPress={submit}>
-        <IconSymbol name="plus" size={16} color={Colors.textOnPrimary} />
+        <IconSymbol name="plus" size={16} color={colors.textOnPrimary} />
         <Text style={styles.submitBtnText}>{t('trainings.addTraining')}</Text>
       </Pressable>
     </View>
@@ -170,6 +173,7 @@ function NewTrainingForm({ existing, onDone }: { existing: Training[]; onDone: (
 }
 
 export default function TrainingsScreen() {
+  const styles = useThemedStyles(createStyles);
   const router = useRouter();
   const { t } = useLanguage();
   const { user } = useSession();
@@ -231,12 +235,12 @@ export default function TrainingsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   presence: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: Colors.surfaceAlt,
+    backgroundColor: colors.surfaceAlt,
     borderRadius: 999,
     paddingVertical: 5,
     paddingHorizontal: 10,
@@ -246,8 +250,8 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   formCard: {
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.lg,
     padding: Spacing.md,
@@ -258,7 +262,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     letterSpacing: 1,
     textTransform: 'uppercase',
-    color: Colors.textMuted,
+    color: colors.textMuted,
   },
   wrap: {
     flexDirection: 'row',
@@ -266,24 +270,24 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   chip: {
-    borderColor: Colors.border,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.pill,
     paddingVertical: 6,
     paddingHorizontal: Spacing.md,
-    backgroundColor: Colors.surfaceAlt,
+    backgroundColor: colors.surfaceAlt,
   },
   chipActive: {
-    backgroundColor: Colors.mint,
-    borderColor: Colors.mint,
+    backgroundColor: colors.mint,
+    borderColor: colors.mint,
   },
   chipText: {
     fontFamily: Fonts.bodyMedium,
     fontSize: 12,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
   },
   chipTextActive: {
-    color: Colors.textOnPrimary,
+    color: colors.textOnPrimary,
   },
   formRow: {
     flexDirection: 'row',
@@ -291,8 +295,8 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   inputBox: {
-    backgroundColor: Colors.surfaceAlt,
-    borderColor: Colors.border,
+    backgroundColor: colors.surfaceAlt,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.md,
     paddingHorizontal: Spacing.md,
@@ -310,16 +314,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    borderColor: Colors.border,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.pill,
     paddingVertical: 6,
     paddingHorizontal: Spacing.md,
-    backgroundColor: Colors.surfaceAlt,
+    backgroundColor: colors.surfaceAlt,
   },
   fieldChipActive: {
-    backgroundColor: Colors.mint,
-    borderColor: Colors.mint,
+    backgroundColor: colors.mint,
+    borderColor: colors.mint,
   },
   fieldChipDisabled: {
     opacity: 0.5,
@@ -327,30 +331,30 @@ const styles = StyleSheet.create({
   fieldChipText: {
     fontFamily: Fonts.bodyMedium,
     fontSize: 12,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
   },
   fieldChipTextActive: {
-    color: Colors.textOnPrimary,
+    color: colors.textOnPrimary,
   },
   fieldChipTextDisabled: {
-    color: Colors.textMuted,
+    color: colors.textMuted,
   },
   fieldTag: {
     fontFamily: Fonts.body,
     fontSize: 10,
     textTransform: 'uppercase',
-    color: Colors.warning,
+    color: colors.warning,
   },
   fieldTagFree: {
-    color: Colors.mint,
+    color: colors.mint,
   },
   availabilityHint: {
     fontFamily: Fonts.body,
     fontSize: 12,
-    color: Colors.textMuted,
+    color: colors.textMuted,
   },
   input: {
-    color: Colors.text,
+    color: colors.text,
     fontFamily: Fonts.body,
     fontSize: 14,
     paddingVertical: Spacing.sm + 2,
@@ -361,14 +365,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: Spacing.sm,
-    backgroundColor: Colors.mint,
+    backgroundColor: colors.mint,
     borderRadius: Radius.md,
     paddingVertical: Spacing.sm + 2,
   },
   submitBtnText: {
     fontFamily: Fonts.bodySemiBold,
     fontSize: 13,
-    color: Colors.textOnPrimary,
+    color: colors.textOnPrimary,
     textTransform: 'lowercase',
   },
 });

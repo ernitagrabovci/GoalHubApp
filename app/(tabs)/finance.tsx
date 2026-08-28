@@ -5,23 +5,28 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ring, StatBar } from '@/components/chart';
 import { Screen, DetailHead, StatCell, SectionLabel } from '@/components/screen';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
+import { Fonts, Radius, Spacing, type ThemeColors } from '@/constants/theme';
 import { applyFeeOverrides, feesForRole, type Fee, type FeeOverride } from '@/lib/data';
 import { useLanguage } from '@/lib/i18n';
 import { useSession } from '@/lib/session';
 import { usePersistedState } from '@/lib/storage';
+import { useTheme, useThemedStyles } from '@/lib/theme';
 
-const STATUS_COLOR: Record<'paid' | 'unpaid' | 'delayed' | 'critical', string> = {
-  paid: Colors.emerald,
+const statusColor = (
+  colors: ThemeColors,
+): Record<'paid' | 'unpaid' | 'delayed' | 'critical', string> => ({
+  paid: colors.emerald,
   unpaid: '#f5a623',
-  delayed: Colors.purple,
-  critical: Colors.danger,
-};
+  delayed: colors.purple,
+  critical: colors.danger,
+});
 
 const METHODS = ['cash', 'bank', 'card'] as const;
 
 export default function FinanceScreen() {
   const router = useRouter();
+  const { colors } = useTheme();
+  const styles = useThemedStyles(createStyles);
   const { t } = useLanguage();
   const { user } = useSession();
   const canRegister = user?.role === 'administrator' || user?.role === 'financier';
@@ -74,7 +79,7 @@ export default function FinanceScreen() {
     <Screen back>
       <DetailHead
         icon="dollarsign.circle.fill"
-        accent={Colors.emerald}
+        accent={colors.emerald}
         title={t('finance.title')}
         subtitle={t('finance.subtitle', { month })}
       />
@@ -82,7 +87,7 @@ export default function FinanceScreen() {
       {canRegister ? (
         <>
           <Pressable style={styles.registerToggle} onPress={() => setShowReg((s) => !s)}>
-            <IconSymbol name={showReg ? 'xmark' : 'plus'} size={16} color={Colors.textOnPrimary} />
+            <IconSymbol name={showReg ? 'xmark' : 'plus'} size={16} color={colors.textOnPrimary} />
             <Text style={styles.registerToggleText}>
               {showReg ? t('common.closeForm') : t('finance.register')}
             </Text>
@@ -127,7 +132,7 @@ export default function FinanceScreen() {
                 })}
               </View>
               <Pressable style={styles.regBtn} onPress={confirmPayment}>
-                <IconSymbol name="checkmark.circle.fill" size={16} color={Colors.textOnPrimary} />
+                <IconSymbol name="checkmark.circle.fill" size={16} color={colors.textOnPrimary} />
                 <Text style={styles.regBtnText}>{t('finance.confirm')}</Text>
               </Pressable>
             </View>
@@ -137,14 +142,14 @@ export default function FinanceScreen() {
 
       {/* Overview */}
       <View style={styles.statsRow}>
-        <StatCell value={String(stats.paid)} label={t('status.paid')} color={Colors.emerald} />
+        <StatCell value={String(stats.paid)} label={t('status.paid')} color={colors.emerald} />
         <StatCell value={String(stats.unpaid)} label={t('finance.pending')} color="#f5a623" />
-        <StatCell value={String(stats.critical)} label={t('status.critical')} color={Colors.danger} />
+        <StatCell value={String(stats.critical)} label={t('status.critical')} color={colors.danger} />
       </View>
       <View style={styles.collectedCard}>
         <View style={styles.collectedLeft}>
-          <View style={[styles.collectedIcon, { backgroundColor: `${Colors.emerald}22` }]}>
-            <IconSymbol name="dollarsign.circle.fill" size={20} color={Colors.emerald} />
+          <View style={[styles.collectedIcon, { backgroundColor: `${colors.emerald}22` }]}>
+            <IconSymbol name="dollarsign.circle.fill" size={20} color={colors.emerald} />
           </View>
           <View style={styles.collectedBody}>
             <Text style={styles.collectedLabel}>{t('finance.collectedThisMonth')}</Text>
@@ -158,7 +163,7 @@ export default function FinanceScreen() {
           size={64}
           stroke={6}
           progress={stats.total ? stats.paid / stats.total : 0}
-          color={Colors.emerald}
+          color={colors.emerald}
           label={`${stats.total ? Math.round((stats.paid / stats.total) * 100) : 0}%`}
           sublabel={t('status.paid')}
         />
@@ -173,29 +178,29 @@ export default function FinanceScreen() {
             label={t(`status.${s.status}`)}
             value={s.count}
             max={stats.total || 1}
-            color={STATUS_COLOR[s.status]}
+            color={statusColor(colors)[s.status]}
             display={`${s.count} · ${stats.total ? Math.round((s.count / stats.total) * 100) : 0}%`}
           />
         ))}
       </View>
 
       <Pressable style={styles.primaryBtn} onPress={() => router.push('/fees')}>
-        <IconSymbol name="receipt" size={18} color={Colors.textOnPrimary} />
+        <IconSymbol name="receipt" size={18} color={colors.textOnPrimary} />
         <Text style={styles.primaryBtnText}>{t('finance.viewAllFees')}</Text>
       </Pressable>
       <Pressable style={styles.secondaryBtn} onPress={() => router.push('/expenses')}>
-        <IconSymbol name="hammer.fill" size={18} color={Colors.mint} />
+        <IconSymbol name="hammer.fill" size={18} color={colors.mint} />
         <Text style={styles.secondaryBtnText}>{t('finance.clubExpenses')}</Text>
       </Pressable>
       <Pressable style={styles.secondaryBtn} onPress={() => router.push('/reports')}>
-        <IconSymbol name="chart.bar.fill" size={18} color={Colors.mint} />
+        <IconSymbol name="chart.bar.fill" size={18} color={colors.mint} />
         <Text style={styles.secondaryBtnText}>{t('finance.financeReports')}</Text>
       </Pressable>
     </Screen>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   statsRow: {
     flexDirection: 'row',
     gap: Spacing.md,
@@ -206,8 +211,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: Spacing.md,
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.lg,
     padding: Spacing.lg,
@@ -234,22 +239,22 @@ const styles = StyleSheet.create({
     fontSize: 10,
     letterSpacing: 1,
     textTransform: 'uppercase',
-    color: Colors.textMuted,
+    color: colors.textMuted,
   },
   collectedValue: {
     fontFamily: Fonts.heading,
     fontSize: 24,
     letterSpacing: -0.5,
-    color: Colors.mint,
+    color: colors.mint,
   },
   collectedSub: {
     fontFamily: Fonts.body,
     fontSize: 12,
-    color: Colors.textMuted,
+    color: colors.textMuted,
   },
   breakdownCard: {
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.lg,
     padding: Spacing.lg,
@@ -261,14 +266,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: Spacing.sm,
-    backgroundColor: Colors.mint,
+    backgroundColor: colors.mint,
     borderRadius: Radius.md,
     paddingVertical: Spacing.lg,
   },
   primaryBtnText: {
     fontFamily: Fonts.bodySemiBold,
     fontSize: 15,
-    color: Colors.textOnPrimary,
+    color: colors.textOnPrimary,
     textTransform: 'lowercase',
   },
   secondaryBtn: {
@@ -277,8 +282,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: Spacing.sm,
-    backgroundColor: Colors.surface,
-    borderColor: Colors.mint,
+    backgroundColor: colors.surface,
+    borderColor: colors.mint,
     borderWidth: 1,
     borderRadius: Radius.md,
     paddingVertical: Spacing.lg,
@@ -286,7 +291,7 @@ const styles = StyleSheet.create({
   secondaryBtnText: {
     fontFamily: Fonts.bodySemiBold,
     fontSize: 15,
-    color: Colors.mint,
+    color: colors.mint,
     textTransform: 'lowercase',
   },
   registerToggle: {
@@ -295,19 +300,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: Spacing.sm,
-    backgroundColor: Colors.mint,
+    backgroundColor: colors.mint,
     borderRadius: Radius.md,
     paddingVertical: Spacing.sm + 2,
   },
   registerToggleText: {
     fontFamily: Fonts.bodySemiBold,
     fontSize: 13,
-    color: Colors.textOnPrimary,
+    color: colors.textOnPrimary,
     textTransform: 'lowercase',
   },
   regCard: {
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.lg,
     padding: Spacing.md,
@@ -319,12 +324,12 @@ const styles = StyleSheet.create({
     fontSize: 11,
     letterSpacing: 1,
     textTransform: 'uppercase',
-    color: Colors.textMuted,
+    color: colors.textMuted,
   },
   regEmpty: {
     fontFamily: Fonts.body,
     fontSize: 13,
-    color: Colors.textMuted,
+    color: colors.textMuted,
   },
   wrap: {
     flexDirection: 'row',
@@ -332,24 +337,24 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   chip: {
-    borderColor: Colors.border,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.pill,
     paddingVertical: 6,
     paddingHorizontal: Spacing.md,
-    backgroundColor: Colors.surfaceAlt,
+    backgroundColor: colors.surfaceAlt,
   },
   chipActive: {
-    backgroundColor: Colors.mint,
-    borderColor: Colors.mint,
+    backgroundColor: colors.mint,
+    borderColor: colors.mint,
   },
   chipText: {
     fontFamily: Fonts.bodyMedium,
     fontSize: 12,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
   },
   chipTextActive: {
-    color: Colors.textOnPrimary,
+    color: colors.textOnPrimary,
   },
   regBtn: {
     marginTop: Spacing.xs,
@@ -357,14 +362,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: Spacing.sm,
-    backgroundColor: Colors.mint,
+    backgroundColor: colors.mint,
     borderRadius: Radius.md,
     paddingVertical: Spacing.sm + 2,
   },
   regBtnText: {
     fontFamily: Fonts.bodySemiBold,
     fontSize: 13,
-    color: Colors.textOnPrimary,
+    color: colors.textOnPrimary,
     textTransform: 'lowercase',
   },
 });

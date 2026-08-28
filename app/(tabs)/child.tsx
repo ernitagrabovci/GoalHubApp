@@ -5,7 +5,7 @@ import { InitialsTile } from '@/components/list-row';
 import { Screen, SectionLabel, StatCell } from '@/components/screen';
 import { StatusChip, type StatusTone } from '@/components/status-chip';
 import { IconSymbol, type IconSymbolName } from '@/components/ui/icon-symbol';
-import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
+import { Fonts, Radius, Spacing, type ThemeColors } from '@/constants/theme';
 import {
   ALL_PLAYERS,
   ALL_RATINGS,
@@ -18,6 +18,7 @@ import {
 } from '@/lib/data';
 import { useLanguage } from '@/lib/i18n';
 import { usePersistedState } from '@/lib/storage';
+import { useTheme, useThemedStyles } from '@/lib/theme';
 
 const HEALTH_TONE: Record<Health, StatusTone> = {
   active: 'emerald',
@@ -42,6 +43,8 @@ const SECTIONS: { label: string; icon: IconSymbolName; tint: string; route: stri
 ];
 
 export default function ChildScreen() {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(createStyles);
   const router = useRouter();
   const { t } = useLanguage();
   const [childName, setChildName] = usePersistedState<string>('parent:selectedChild', 'Agon Gashi');
@@ -95,7 +98,7 @@ export default function ChildScreen() {
         <StatCell value={String(season.matches)} label={t('stats.matches')} />
         <StatCell value={String(season.goals)} label={t('stats.goals')} color="#f5a623" />
         <StatCell value={String(season.assists)} label={t('stats.assists')} />
-        <StatCell value={`${season.yellow}/${season.red}`} label={t('stats.cards')} color={Colors.warning} />
+        <StatCell value={`${season.yellow}/${season.red}`} label={t('stats.cards')} color={colors.warning} />
       </View>
 
       <SectionLabel>{t('child.view')}</SectionLabel>
@@ -130,7 +133,7 @@ export default function ChildScreen() {
                 “{rating.comment}”
               </Text>
             </View>
-            <IconSymbol name="chevron.right" size={18} color={Colors.textMuted} />
+            <IconSymbol name="chevron.right" size={18} color={colors.textMuted} />
           </Pressable>
         </>
       ) : null}
@@ -155,7 +158,7 @@ export default function ChildScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   switchRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -166,32 +169,32 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.pill,
     paddingVertical: 6,
     paddingHorizontal: Spacing.sm + 2,
   },
   switchChipActive: {
-    backgroundColor: Colors.mint,
-    borderColor: Colors.mint,
+    backgroundColor: colors.mint,
+    borderColor: colors.mint,
   },
   switchText: {
     fontFamily: Fonts.bodyMedium,
     fontSize: 12,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
   },
   switchTextActive: {
-    color: Colors.textOnPrimary,
+    color: colors.textOnPrimary,
   },
   card: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.md,
     marginTop: Spacing.md,
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.lg,
     padding: Spacing.lg,
@@ -205,17 +208,17 @@ const styles = StyleSheet.create({
     fontSize: 10,
     letterSpacing: 1,
     textTransform: 'uppercase',
-    color: Colors.textMuted,
+    color: colors.textMuted,
   },
   name: {
     fontFamily: Fonts.headingSemiBold,
     fontSize: 18,
-    color: Colors.mint,
+    color: colors.mint,
   },
   meta: {
     fontFamily: Fonts.body,
     fontSize: 12,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
   },
   tags: {
     flexDirection: 'row',
@@ -227,8 +230,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    backgroundColor: Colors.surfaceAlt,
-    borderColor: Colors.border,
+    backgroundColor: colors.surfaceAlt,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.pill,
     paddingVertical: 3,
@@ -241,8 +244,8 @@ const styles = StyleSheet.create({
   },
   summary: {
     flexDirection: 'row',
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.lg,
     padding: Spacing.lg,
@@ -258,8 +261,8 @@ const styles = StyleSheet.create({
     width: '31%',
     alignItems: 'center',
     gap: Spacing.sm,
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.lg,
     paddingVertical: Spacing.lg,
@@ -274,15 +277,15 @@ const styles = StyleSheet.create({
   cellLabel: {
     fontFamily: Fonts.bodyMedium,
     fontSize: 12,
-    color: Colors.text,
+    color: colors.text,
     textTransform: 'lowercase',
   },
   ratingCard: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.md,
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.lg,
     padding: Spacing.lg,
@@ -299,21 +302,21 @@ const styles = StyleSheet.create({
   ratingTitle: {
     fontFamily: Fonts.bodySemiBold,
     fontSize: 13,
-    color: Colors.text,
+    color: colors.text,
   },
   ratingComment: {
     fontFamily: Fonts.body,
     fontSize: 12,
     lineHeight: 17,
-    color: Colors.textMuted,
+    color: colors.textMuted,
     fontStyle: 'italic',
   },
   feeCard: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.md,
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.lg,
     padding: Spacing.md,
@@ -325,17 +328,17 @@ const styles = StyleSheet.create({
   feeLabel: {
     fontFamily: Fonts.bodySemiBold,
     fontSize: 14,
-    color: Colors.text,
+    color: colors.text,
   },
   feeSub: {
     fontFamily: Fonts.body,
     fontSize: 12,
-    color: Colors.textMuted,
+    color: colors.textMuted,
   },
   note: {
     fontFamily: Fonts.body,
     fontSize: 11,
-    color: Colors.textMuted,
+    color: colors.textMuted,
     textAlign: 'center',
     marginTop: Spacing.xl,
   },

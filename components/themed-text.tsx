@@ -1,7 +1,8 @@
 import { StyleSheet, Text, type TextProps } from 'react-native';
 
-import { Colors, Fonts } from '@/constants/theme';
+import { Fonts, type ThemeColors } from '@/constants/theme';
 import { useThemeColor } from '@/hooks/use-theme-color';
+import { useThemedStyles } from '@/lib/theme';
 
 export type ThemedTextProps = TextProps & {
   lightColor?: string;
@@ -17,6 +18,7 @@ export function ThemedText({
   ...rest
 }: ThemedTextProps) {
   const color = useThemeColor({ light: lightColor, dark: darkColor }, 'text');
+  const styles = useThemedStyles(createStyles);
 
   return (
     <Text
@@ -36,37 +38,37 @@ export function ThemedText({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   default: {
     fontFamily: Fonts.body,
     fontSize: 15,
     lineHeight: 22,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
   },
   defaultSemiBold: {
     fontFamily: Fonts.bodySemiBold,
     fontSize: 15,
     lineHeight: 22,
-    color: Colors.text,
+    color: colors.text,
   },
   title: {
     fontFamily: Fonts.heading,
     fontSize: 30,
     lineHeight: 34,
     letterSpacing: -0.5,
-    color: Colors.mint,
+    color: colors.mint,
   },
   subtitle: {
     fontFamily: Fonts.headingSemiBold,
     fontSize: 18,
     lineHeight: 24,
-    color: Colors.mint,
+    color: colors.mint,
   },
   link: {
     fontFamily: Fonts.bodySemiBold,
     lineHeight: 22,
     fontSize: 15,
-    color: Colors.mint,
+    color: colors.mint,
   },
   label: {
     fontFamily: Fonts.bodySemiBold,
@@ -74,12 +76,12 @@ const styles = StyleSheet.create({
     lineHeight: 16,
     letterSpacing: 1.5,
     textTransform: 'uppercase',
-    color: Colors.emerald,
+    color: colors.emerald,
   },
   muted: {
     fontFamily: Fonts.body,
     fontSize: 13,
     lineHeight: 18,
-    color: Colors.textMuted,
+    color: colors.textMuted,
   },
 });

@@ -14,13 +14,16 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { InitialsTile } from '@/components/list-row';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
+import { Fonts, Radius, Spacing, type ThemeColors } from '@/constants/theme';
 import { ALL_MESSAGES, CONVERSATIONS, type ChatBubble } from '@/lib/data';
 import { useLanguage } from '@/lib/i18n';
+import { useTheme, useThemedStyles } from '@/lib/theme';
 
 export default function ConversationScreen() {
   const router = useRouter();
   const { t } = useLanguage();
+  const { colors } = useTheme();
+  const styles = useThemedStyles(createStyles);
   const { id } = useLocalSearchParams<{ id?: string }>();
   const message =
     ALL_MESSAGES.find((m) => m.id === id) ?? ALL_MESSAGES[0];
@@ -50,7 +53,7 @@ export default function ConversationScreen() {
       {/* Header */}
       <View style={styles.header}>
         <Pressable onPress={() => router.back()} hitSlop={10} style={styles.backButton}>
-          <IconSymbol name="chevron-left" size={22} color={Colors.mint} />
+          <IconSymbol name="chevron-left" size={22} color={colors.mint} />
         </Pressable>
         <InitialsTile initials={message.initials} color={message.color} size={40} />
         <View style={styles.headerBody}>
@@ -89,7 +92,7 @@ export default function ConversationScreen() {
           <TextInput
             style={styles.input}
             placeholder={t('conversation.messagePlaceholder')}
-            placeholderTextColor={Colors.textMuted}
+            placeholderTextColor={colors.textMuted}
             value={draft}
             onChangeText={setDraft}
             onSubmitEditing={send}
@@ -99,7 +102,7 @@ export default function ConversationScreen() {
             onPress={send}
             disabled={!draft.trim()}
             style={[styles.send, !draft.trim() && styles.sendDisabled]}>
-            <IconSymbol name="paperplane.fill" size={20} color={Colors.textOnPrimary} />
+            <IconSymbol name="paperplane.fill" size={20} color={colors.textOnPrimary} />
           </Pressable>
         </View>
       </KeyboardAvoidingView>
@@ -107,10 +110,10 @@ export default function ConversationScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: colors.background,
   },
   flex: {
     flex: 1,
@@ -121,16 +124,16 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md,
-    backgroundColor: Colors.surface,
-    borderBottomColor: Colors.borderSoft,
+    backgroundColor: colors.surface,
+    borderBottomColor: colors.borderSoft,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   backButton: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: Colors.surfaceAlt,
-    borderColor: Colors.border,
+    backgroundColor: colors.surfaceAlt,
+    borderColor: colors.border,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
@@ -142,7 +145,7 @@ const styles = StyleSheet.create({
   headerName: {
     fontFamily: Fonts.headingSemiBold,
     fontSize: 16,
-    color: Colors.mint,
+    color: colors.mint,
   },
   statusRow: {
     flexDirection: 'row',
@@ -153,12 +156,12 @@ const styles = StyleSheet.create({
     width: 7,
     height: 7,
     borderRadius: 4,
-    backgroundColor: Colors.emerald,
+    backgroundColor: colors.emerald,
   },
   statusText: {
     fontFamily: Fonts.bodyMedium,
     fontSize: 11,
-    color: Colors.textMuted,
+    color: colors.textMuted,
   },
   thread: {
     paddingHorizontal: Spacing.lg,
@@ -181,12 +184,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
   },
   bubbleMine: {
-    backgroundColor: Colors.mint,
+    backgroundColor: colors.mint,
     borderBottomRightRadius: Radius.sm,
   },
   bubbleTheirs: {
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderWidth: 1,
     borderBottomLeftRadius: Radius.sm,
   },
@@ -194,18 +197,18 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.body,
     fontSize: 14,
     lineHeight: 19,
-    color: Colors.textOnPrimary,
+    color: colors.textOnPrimary,
   },
   bubbleTextTheirs: {
     fontFamily: Fonts.body,
     fontSize: 14,
     lineHeight: 19,
-    color: Colors.text,
+    color: colors.text,
   },
   bubbleTime: {
     fontFamily: Fonts.bodyMedium,
     fontSize: 9,
-    color: Colors.textMuted,
+    color: colors.textMuted,
     alignSelf: 'flex-end',
     marginTop: 3,
     marginLeft: Spacing.sm,
@@ -217,17 +220,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     paddingTop: Spacing.sm,
     paddingBottom: Spacing.sm,
-    backgroundColor: Colors.surface,
-    borderTopColor: Colors.borderSoft,
+    backgroundColor: colors.surface,
+    borderTopColor: colors.borderSoft,
     borderTopWidth: StyleSheet.hairlineWidth,
   },
   input: {
     flex: 1,
-    backgroundColor: Colors.surfaceAlt,
-    borderColor: Colors.border,
+    backgroundColor: colors.surfaceAlt,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.pill,
-    color: Colors.text,
+    color: colors.text,
     fontFamily: Fonts.body,
     fontSize: 14,
     paddingHorizontal: Spacing.lg,
@@ -237,7 +240,7 @@ const styles = StyleSheet.create({
     width: 42,
     height: 42,
     borderRadius: 21,
-    backgroundColor: Colors.mint,
+    backgroundColor: colors.mint,
     alignItems: 'center',
     justifyContent: 'center',
   },

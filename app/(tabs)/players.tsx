@@ -6,11 +6,12 @@ import { InitialsTile, ListRow } from '@/components/list-row';
 import { Screen, DetailHead, SectionLabel } from '@/components/screen';
 import { StatusChip, type StatusTone } from '@/components/status-chip';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
+import { Fonts, Radius, Spacing, type ThemeColors } from '@/constants/theme';
 import { ALL_PLAYERS, ALL_TEAMS, type Health, type Player, type Team } from '@/lib/data';
 import { useLanguage } from '@/lib/i18n';
 import { useSession } from '@/lib/session';
 import { usePersistedState } from '@/lib/storage';
+import { useTheme, useThemedStyles } from '@/lib/theme';
 
 const HEALTH_TONE: Record<Health, StatusTone> = {
   active: 'emerald',
@@ -24,6 +25,8 @@ const PALETTE = ['#B0E4CC', '#408A71', '#2fbf71', '#8f86e8', '#5aa7e6', '#f5a623
 
 function NewPlayerForm({ teams, onDone }: { teams: Team[]; onDone: (p: Player, teamId: string) => void }) {
   const { t } = useLanguage();
+  const { colors } = useTheme();
+  const styles = useThemedStyles(createStyles);
   const [name, setName] = useState('');
   const [teamId, setTeamId] = useState<string>(teams[0]?.id ?? '');
   const [position, setPosition] = useState<string>(POSITIONS[0]);
@@ -69,7 +72,7 @@ function NewPlayerForm({ teams, onDone }: { teams: Team[]; onDone: (p: Player, t
       <TextInput
         style={styles.input}
         placeholder={t('players.name')}
-        placeholderTextColor={Colors.textMuted}
+        placeholderTextColor={colors.textMuted}
         value={name}
         onChangeText={setName}
         autoCorrect={false}
@@ -107,7 +110,7 @@ function NewPlayerForm({ teams, onDone }: { teams: Team[]; onDone: (p: Player, t
           <TextInput
             style={styles.input}
             placeholder={t('players.number')}
-            placeholderTextColor={Colors.textMuted}
+            placeholderTextColor={colors.textMuted}
             value={number}
             onChangeText={setNumber}
             keyboardType="numeric"
@@ -117,7 +120,7 @@ function NewPlayerForm({ teams, onDone }: { teams: Team[]; onDone: (p: Player, t
           <TextInput
             style={styles.input}
             placeholder={t('players.age')}
-            placeholderTextColor={Colors.textMuted}
+            placeholderTextColor={colors.textMuted}
             value={age}
             onChangeText={setAge}
             keyboardType="numeric"
@@ -125,7 +128,7 @@ function NewPlayerForm({ teams, onDone }: { teams: Team[]; onDone: (p: Player, t
         </View>
       </View>
       <Pressable style={styles.submitBtn} onPress={submit}>
-        <IconSymbol name="plus" size={16} color={Colors.textOnPrimary} />
+        <IconSymbol name="plus" size={16} color={colors.textOnPrimary} />
         <Text style={styles.submitBtnText}>{t('players.registerPlayer')}</Text>
       </Pressable>
     </View>
@@ -134,6 +137,8 @@ function NewPlayerForm({ teams, onDone }: { teams: Team[]; onDone: (p: Player, t
 
 export default function PlayersScreen() {
   const router = useRouter();
+  const { colors } = useTheme();
+  const styles = useThemedStyles(createStyles);
   const { t } = useLanguage();
   const { user } = useSession();
   const canManage = user?.role === 'administrator' || user?.role === 'trainer';
@@ -176,7 +181,7 @@ export default function PlayersScreen() {
     <Screen back>
       <DetailHead
         icon="person.2.fill"
-        accent={Colors.mint}
+        accent={colors.mint}
         title={t('players.title')}
         subtitle={t('players.subtitle', { count: players.length })}
       />
@@ -195,18 +200,18 @@ export default function PlayersScreen() {
 
       {/* Search */}
       <View style={styles.search}>
-        <IconSymbol name="search" size={18} color={Colors.textMuted} />
+        <IconSymbol name="search" size={18} color={colors.textMuted} />
         <TextInput
           style={styles.searchInput}
           placeholder={t('players.search')}
-          placeholderTextColor={Colors.textMuted}
+          placeholderTextColor={colors.textMuted}
           value={query}
           onChangeText={setQuery}
           autoCorrect={false}
         />
         {query ? (
           <Pressable onPress={() => setQuery('')} hitSlop={10}>
-            <IconSymbol name="xmark" size={16} color={Colors.textMuted} />
+            <IconSymbol name="xmark" size={16} color={colors.textMuted} />
           </Pressable>
         ) : null}
       </View>
@@ -233,7 +238,7 @@ export default function PlayersScreen() {
 
       {canManage ? (
         <Pressable style={styles.action} onPress={() => setShowForm((s) => !s)}>
-          <IconSymbol name={showForm ? 'xmark' : 'plus'} size={18} color={Colors.textOnPrimary} />
+          <IconSymbol name={showForm ? 'xmark' : 'plus'} size={18} color={colors.textOnPrimary} />
           <Text style={styles.actionText}>
             {showForm ? t('common.closeForm') : t('players.registerPlayer')}
           </Text>
@@ -243,7 +248,7 @@ export default function PlayersScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   links: {
     flexDirection: 'row',
     gap: Spacing.sm,
@@ -253,8 +258,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.pill,
     paddingVertical: 8,
@@ -263,22 +268,22 @@ const styles = StyleSheet.create({
   linkText: {
     fontFamily: Fonts.bodyMedium,
     fontSize: 12,
-    color: Colors.text,
+    color: colors.text,
     textTransform: 'lowercase',
   },
   search: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.sm,
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.md,
     paddingHorizontal: Spacing.md,
   },
   searchInput: {
     flex: 1,
-    color: Colors.text,
+    color: colors.text,
     fontSize: 14,
     fontFamily: Fonts.body,
     paddingVertical: Spacing.md,
@@ -289,11 +294,11 @@ const styles = StyleSheet.create({
   empty: {
     fontFamily: Fonts.body,
     fontSize: 13,
-    color: Colors.textMuted,
+    color: colors.textMuted,
   },
   formCard: {
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.lg,
     padding: Spacing.md,
@@ -305,22 +310,22 @@ const styles = StyleSheet.create({
     fontSize: 11,
     letterSpacing: 1,
     textTransform: 'uppercase',
-    color: Colors.textMuted,
+    color: colors.textMuted,
   },
   input: {
-    backgroundColor: Colors.surfaceAlt,
-    borderColor: Colors.border,
+    backgroundColor: colors.surfaceAlt,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.md,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm + 2,
-    color: Colors.text,
+    color: colors.text,
     fontFamily: Fonts.body,
     fontSize: 14,
   },
   inputBox: {
-    backgroundColor: Colors.surfaceAlt,
-    borderColor: Colors.border,
+    backgroundColor: colors.surfaceAlt,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.md,
     paddingHorizontal: Spacing.md,
@@ -341,24 +346,24 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   chip: {
-    borderColor: Colors.border,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.pill,
     paddingVertical: 6,
     paddingHorizontal: Spacing.md,
-    backgroundColor: Colors.surfaceAlt,
+    backgroundColor: colors.surfaceAlt,
   },
   chipActive: {
-    backgroundColor: Colors.mint,
-    borderColor: Colors.mint,
+    backgroundColor: colors.mint,
+    borderColor: colors.mint,
   },
   chipText: {
     fontFamily: Fonts.bodyMedium,
     fontSize: 12,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
   },
   chipTextActive: {
-    color: Colors.textOnPrimary,
+    color: colors.textOnPrimary,
   },
   submitBtn: {
     marginTop: Spacing.xs,
@@ -366,14 +371,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: Spacing.sm,
-    backgroundColor: Colors.mint,
+    backgroundColor: colors.mint,
     borderRadius: Radius.md,
     paddingVertical: Spacing.sm + 2,
   },
   submitBtnText: {
     fontFamily: Fonts.bodySemiBold,
     fontSize: 13,
-    color: Colors.textOnPrimary,
+    color: colors.textOnPrimary,
     textTransform: 'lowercase',
   },
   action: {
@@ -382,14 +387,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: Spacing.sm,
-    backgroundColor: Colors.mint,
+    backgroundColor: colors.mint,
     borderRadius: Radius.md,
     paddingVertical: Spacing.lg,
   },
   actionText: {
     fontFamily: Fonts.bodySemiBold,
     fontSize: 15,
-    color: Colors.textOnPrimary,
+    color: colors.textOnPrimary,
     textTransform: 'lowercase',
   },
 });

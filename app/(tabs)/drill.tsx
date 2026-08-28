@@ -4,9 +4,10 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { IconTile } from '@/components/list-row';
 import { Screen, SectionLabel } from '@/components/screen';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
+import { Fonts, Radius, Spacing, type ThemeColors } from '@/constants/theme';
 import { ALL_DRILLS } from '@/lib/data';
 import { useLanguage } from '@/lib/i18n';
+import { useTheme, useThemedStyles } from '@/lib/theme';
 
 const LEVEL_COLOR: Record<string, string> = {
   beginner: '#2fbf71',
@@ -15,6 +16,8 @@ const LEVEL_COLOR: Record<string, string> = {
 };
 
 export default function DrillScreen() {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(createStyles);
   const router = useRouter();
   const { t } = useLanguage();
   const { id } = useLocalSearchParams<{ id?: string }>();
@@ -94,7 +97,7 @@ export default function DrillScreen() {
       <View style={styles.pointsCard}>
         {coaching.map((c, i) => (
           <View key={i} style={styles.pointRow}>
-            <IconSymbol name="checkmark.circle.fill" size={15} color={Colors.mint} />
+            <IconSymbol name="checkmark.circle.fill" size={15} color={colors.mint} />
             <Text style={styles.pointText}>{c}</Text>
           </View>
         ))}
@@ -106,21 +109,21 @@ export default function DrillScreen() {
           alert(t('drill.alertAdded', { title: drill.title }));
           router.back();
         }}>
-        <IconSymbol name="plus" size={18} color={Colors.textOnPrimary} />
+        <IconSymbol name="plus" size={18} color={colors.textOnPrimary} />
         <Text style={styles.runBtnText}>{t('drill.addToSession')}</Text>
       </Pressable>
     </Screen>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   card: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.md,
     marginTop: Spacing.md,
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.lg,
     padding: Spacing.lg,
@@ -132,12 +135,12 @@ const styles = StyleSheet.create({
   title: {
     fontFamily: Fonts.headingSemiBold,
     fontSize: 18,
-    color: Colors.mint,
+    color: colors.mint,
   },
   subtitle: {
     fontFamily: Fonts.body,
     fontSize: 13,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
   },
   levelChip: {
     alignSelf: 'flex-start',
@@ -154,8 +157,8 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   rowsCard: {
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.lg,
     overflow: 'hidden',
@@ -167,7 +170,7 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md,
-    borderBottomColor: Colors.borderSoft,
+    borderBottomColor: colors.borderSoft,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   rowLabel: {
@@ -175,19 +178,19 @@ const styles = StyleSheet.create({
     fontSize: 11,
     letterSpacing: 1,
     textTransform: 'uppercase',
-    color: Colors.textMuted,
+    color: colors.textMuted,
   },
   rowValue: {
     fontFamily: Fonts.bodySemiBold,
     fontSize: 13,
-    color: Colors.text,
+    color: colors.text,
     textTransform: 'capitalize',
     flexShrink: 1,
     textAlign: 'right',
   },
   phasesCard: {
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.lg,
     overflow: 'hidden',
@@ -196,7 +199,7 @@ const styles = StyleSheet.create({
     padding: Spacing.lg,
   },
   phaseBorder: {
-    borderBottomColor: Colors.borderSoft,
+    borderBottomColor: colors.borderSoft,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   phaseHead: {
@@ -208,23 +211,23 @@ const styles = StyleSheet.create({
   phaseTitle: {
     fontFamily: Fonts.bodySemiBold,
     fontSize: 13,
-    color: Colors.text,
+    color: colors.text,
   },
   phaseTime: {
     fontFamily: Fonts.bodyMedium,
     fontSize: 11,
-    color: Colors.mint,
+    color: colors.mint,
   },
   phaseDetail: {
     fontFamily: Fonts.body,
     fontSize: 12,
     lineHeight: 18,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     marginTop: 4,
   },
   pointsCard: {
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.lg,
     padding: Spacing.lg,
@@ -240,7 +243,7 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.body,
     fontSize: 12,
     lineHeight: 18,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
   },
   runBtn: {
     marginTop: Spacing.xl,
@@ -248,14 +251,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: Spacing.sm,
-    backgroundColor: Colors.mint,
+    backgroundColor: colors.mint,
     borderRadius: Radius.md,
     paddingVertical: Spacing.lg,
   },
   runBtnText: {
     fontFamily: Fonts.bodySemiBold,
     fontSize: 15,
-    color: Colors.textOnPrimary,
+    color: colors.textOnPrimary,
     textTransform: 'lowercase',
   },
 });

@@ -4,10 +4,11 @@ import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { Screen, DetailHead, SectionLabel } from '@/components/screen';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
+import { Fonts, Radius, Spacing, type ThemeColors } from '@/constants/theme';
 import { ALL_TEAMS, type Team } from '@/lib/data';
 import { useLanguage } from '@/lib/i18n';
 import { usePersistedState } from '@/lib/storage';
+import { useTheme, useThemedStyles } from '@/lib/theme';
 
 const CATEGORIES = [
   { label: 'Senior', color: '#1a9e5c' },
@@ -15,6 +16,8 @@ const CATEGORIES = [
 ];
 
 export default function TeamsScreen() {
+  const styles = useThemedStyles(createStyles);
+  const { colors } = useTheme();
   const router = useRouter();
   const { t } = useLanguage();
   const [teams, setTeams] = usePersistedState<Team[]>('teams:list', ALL_TEAMS);
@@ -62,7 +65,7 @@ export default function TeamsScreen() {
           <TextInput
             style={styles.input}
             placeholder={t('teams.namePlaceholder')}
-            placeholderTextColor={Colors.textMuted}
+            placeholderTextColor={colors.textMuted}
             value={name}
             onChangeText={setName}
             autoCorrect={false}
@@ -75,7 +78,7 @@ export default function TeamsScreen() {
                   key={c.label}
                   onPress={() => setCategory(c.label)}
                   style={[styles.chip, selected && { backgroundColor: c.color, borderColor: c.color }]}>
-                  <Text style={[styles.chipText, selected && { color: Colors.textOnPrimary }]}>
+                  <Text style={[styles.chipText, selected && { color: colors.textOnPrimary }]}>
                     {t(`category.${c.label}`)}
                   </Text>
                 </Pressable>
@@ -85,13 +88,13 @@ export default function TeamsScreen() {
           <TextInput
             style={styles.input}
             placeholder={t('teams.trainerPlaceholder')}
-            placeholderTextColor={Colors.textMuted}
+            placeholderTextColor={colors.textMuted}
             value={trainer}
             onChangeText={setTrainer}
             autoCorrect={false}
           />
           <Pressable style={styles.submitBtn} onPress={addTeam}>
-            <IconSymbol name="plus" size={16} color={Colors.textOnPrimary} />
+            <IconSymbol name="plus" size={16} color={colors.textOnPrimary} />
             <Text style={styles.submitBtnText}>{t('teams.createTeam')}</Text>
           </Pressable>
         </View>
@@ -121,24 +124,24 @@ export default function TeamsScreen() {
                   {team.trainer}
                 </Text>
               </View>
-              <IconSymbol name="chevron.right" size={18} color={Colors.textMuted} />
+              <IconSymbol name="chevron.right" size={18} color={colors.textMuted} />
             </Pressable>
           ))
         )}
       </View>
 
       <Pressable style={styles.action} onPress={() => setShowForm((s) => !s)}>
-        <IconSymbol name={showForm ? 'xmark' : 'plus'} size={18} color={Colors.textOnPrimary} />
+        <IconSymbol name={showForm ? 'xmark' : 'plus'} size={18} color={colors.textOnPrimary} />
         <Text style={styles.actionText}>{showForm ? t('common.closeForm') : t('teams.newTeam')}</Text>
       </Pressable>
     </Screen>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   formCard: {
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.lg,
     padding: Spacing.md,
@@ -150,16 +153,16 @@ const styles = StyleSheet.create({
     fontSize: 11,
     letterSpacing: 1,
     textTransform: 'uppercase',
-    color: Colors.textMuted,
+    color: colors.textMuted,
   },
   input: {
-    backgroundColor: Colors.surfaceAlt,
-    borderColor: Colors.border,
+    backgroundColor: colors.surfaceAlt,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.md,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm + 2,
-    color: Colors.text,
+    color: colors.text,
     fontFamily: Fonts.body,
     fontSize: 14,
   },
@@ -168,17 +171,17 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   chip: {
-    borderColor: Colors.border,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.pill,
     paddingVertical: 6,
     paddingHorizontal: Spacing.md,
-    backgroundColor: Colors.surfaceAlt,
+    backgroundColor: colors.surfaceAlt,
   },
   chipText: {
     fontFamily: Fonts.bodyMedium,
     fontSize: 12,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     textTransform: 'lowercase',
   },
   submitBtn: {
@@ -187,14 +190,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: Spacing.sm,
-    backgroundColor: Colors.mint,
+    backgroundColor: colors.mint,
     borderRadius: Radius.md,
     paddingVertical: Spacing.sm + 2,
   },
   submitBtnText: {
     fontFamily: Fonts.bodySemiBold,
     fontSize: 13,
-    color: Colors.textOnPrimary,
+    color: colors.textOnPrimary,
     textTransform: 'lowercase',
   },
   list: {
@@ -203,14 +206,14 @@ const styles = StyleSheet.create({
   empty: {
     fontFamily: Fonts.body,
     fontSize: 13,
-    color: Colors.textMuted,
+    color: colors.textMuted,
   },
   card: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.md,
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.lg,
     padding: Spacing.md,
@@ -229,12 +232,12 @@ const styles = StyleSheet.create({
   name: {
     fontFamily: Fonts.bodySemiBold,
     fontSize: 15,
-    color: Colors.text,
+    color: colors.text,
   },
   meta: {
     fontFamily: Fonts.body,
     fontSize: 11,
-    color: Colors.textMuted,
+    color: colors.textMuted,
   },
   action: {
     marginTop: Spacing.xl,
@@ -242,14 +245,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: Spacing.sm,
-    backgroundColor: Colors.mint,
+    backgroundColor: colors.mint,
     borderRadius: Radius.md,
     paddingVertical: Spacing.lg,
   },
   actionText: {
     fontFamily: Fonts.bodySemiBold,
     fontSize: 15,
-    color: Colors.textOnPrimary,
+    color: colors.textOnPrimary,
     textTransform: 'lowercase',
   },
 });

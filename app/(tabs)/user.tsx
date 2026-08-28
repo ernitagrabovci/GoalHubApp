@@ -6,10 +6,11 @@ import { InitialsTile } from '@/components/list-row';
 import { Screen, SectionLabel } from '@/components/screen';
 import { StatusChip } from '@/components/status-chip';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
+import { Fonts, Radius, Spacing, type ThemeColors } from '@/constants/theme';
 import { ALL_USERS } from '@/lib/data';
 import { useLanguage } from '@/lib/i18n';
 import { ROLE_ORDER, type Role } from '@/lib/session';
+import { useTheme, useThemedStyles } from '@/lib/theme';
 
 const ROLE_COLOR: Record<Role, string> = {
   administrator: '#1a9e5c',
@@ -20,6 +21,8 @@ const ROLE_COLOR: Record<Role, string> = {
 };
 
 export default function UserScreen() {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(createStyles);
   const router = useRouter();
   const { t } = useLanguage();
   const { id } = useLocalSearchParams<{ id?: string }>();
@@ -99,21 +102,21 @@ export default function UserScreen() {
           alert(t('user.alertDelete', { name: source.name }));
           router.back();
         }}>
-        <IconSymbol name="trash" size={16} color={Colors.danger} />
+        <IconSymbol name="trash" size={16} color={colors.danger} />
         <Text style={styles.deleteText}>{t('user.removeAccount')}</Text>
       </Pressable>
     </Screen>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   card: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.md,
     marginTop: Spacing.md,
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.lg,
     padding: Spacing.lg,
@@ -125,17 +128,17 @@ const styles = StyleSheet.create({
   name: {
     fontFamily: Fonts.headingSemiBold,
     fontSize: 18,
-    color: Colors.mint,
+    color: colors.mint,
   },
   email: {
     fontFamily: Fonts.body,
     fontSize: 12,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
   },
   club: {
     fontFamily: Fonts.body,
     fontSize: 12,
-    color: Colors.textMuted,
+    color: colors.textMuted,
   },
   statusRow: {
     flexDirection: 'row',
@@ -169,28 +172,28 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   chip: {
-    borderColor: Colors.border,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.pill,
     paddingVertical: 7,
     paddingHorizontal: Spacing.md,
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.surface,
   },
   chipText: {
     fontFamily: Fonts.bodyMedium,
     fontSize: 12,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     textTransform: 'lowercase',
   },
   chipTextActive: {
-    color: Colors.textOnPrimary,
+    color: colors.textOnPrimary,
   },
   toggleRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.md,
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.lg,
     padding: Spacing.md,
@@ -199,20 +202,20 @@ const styles = StyleSheet.create({
     width: 46,
     height: 28,
     borderRadius: 14,
-    backgroundColor: Colors.surfaceAlt,
+    backgroundColor: colors.surfaceAlt,
     padding: 2,
   },
   toggleOn: {
-    backgroundColor: Colors.mint,
+    backgroundColor: colors.mint,
   },
   toggleKnob: {
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: Colors.textMuted,
+    backgroundColor: colors.textMuted,
   },
   toggleKnobOn: {
-    backgroundColor: Colors.textOnPrimary,
+    backgroundColor: colors.textOnPrimary,
     marginLeft: 18,
   },
   toggleBody: {
@@ -222,17 +225,17 @@ const styles = StyleSheet.create({
   toggleTitle: {
     fontFamily: Fonts.bodySemiBold,
     fontSize: 14,
-    color: Colors.text,
+    color: colors.text,
     textTransform: 'lowercase',
   },
   toggleSub: {
     fontFamily: Fonts.body,
     fontSize: 12,
-    color: Colors.textMuted,
+    color: colors.textMuted,
   },
   rowsCard: {
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.lg,
     overflow: 'hidden',
@@ -244,7 +247,7 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md,
-    borderBottomColor: Colors.borderSoft,
+    borderBottomColor: colors.borderSoft,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   rowLabel: {
@@ -252,12 +255,12 @@ const styles = StyleSheet.create({
     fontSize: 11,
     letterSpacing: 1,
     textTransform: 'uppercase',
-    color: Colors.textMuted,
+    color: colors.textMuted,
   },
   rowValue: {
     fontFamily: Fonts.bodySemiBold,
     fontSize: 13,
-    color: Colors.text,
+    color: colors.text,
     flexShrink: 1,
     textAlign: 'right',
   },
@@ -267,8 +270,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: Spacing.sm,
-    backgroundColor: Colors.surface,
-    borderColor: Colors.danger,
+    backgroundColor: colors.surface,
+    borderColor: colors.danger,
     borderWidth: 1,
     borderRadius: Radius.md,
     paddingVertical: Spacing.lg,
@@ -276,7 +279,7 @@ const styles = StyleSheet.create({
   deleteText: {
     fontFamily: Fonts.bodySemiBold,
     fontSize: 14,
-    color: Colors.danger,
+    color: colors.danger,
     textTransform: 'lowercase',
   },
 });

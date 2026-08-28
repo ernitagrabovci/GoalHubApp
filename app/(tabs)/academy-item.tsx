@@ -6,11 +6,14 @@ import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { IconTile } from '@/components/list-row';
 import { Screen, SectionLabel } from '@/components/screen';
 import { IconSymbol, type IconSymbolName } from '@/components/ui/icon-symbol';
-import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
+import { Fonts, Radius, Spacing, type ThemeColors } from '@/constants/theme';
 import { useLanguage } from '@/lib/i18n';
 import { academyStore, useCollection } from '@/lib/store';
+import { useTheme, useThemedStyles } from '@/lib/theme';
 
 export default function AcademyItemScreen() {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(createStyles);
   const router = useRouter();
   const { t } = useLanguage();
   const { id } = useLocalSearchParams<{ id?: string }>();
@@ -56,9 +59,9 @@ export default function AcademyItemScreen() {
             <IconSymbol
               name={shared ? 'link' : 'lock'}
               size={10}
-              color={shared ? Colors.mintDim : Colors.textMuted}
+              color={shared ? colors.mintDim : colors.textMuted}
             />
-            <Text style={[styles.sharedText, { color: shared ? Colors.mintDim : Colors.textMuted }]}>
+            <Text style={[styles.sharedText, { color: shared ? colors.mintDim : colors.textMuted }]}>
               {shared ? t('academy.shared') : t('academy.private')}
             </Text>
           </View>
@@ -70,7 +73,7 @@ export default function AcademyItemScreen() {
           <SectionLabel>{t('academyItem.preview')}</SectionLabel>
           <Pressable style={styles.player} onPress={() => setPlaying(true)}>
             <View style={styles.playerTop}>
-              <IconSymbol name="play.fill" size={34} color={Colors.mint} />
+              <IconSymbol name="play.fill" size={34} color={colors.mint} />
             </View>
             <View style={styles.playerBar}>
               <View style={styles.playerProgress} />
@@ -128,7 +131,7 @@ export default function AcademyItemScreen() {
           );
           router.back();
         }}>
-        <IconSymbol name="plus" size={18} color={Colors.textOnPrimary} />
+        <IconSymbol name="plus" size={18} color={colors.textOnPrimary} />
         <Text style={styles.primaryBtnText}>
           {t(item.type === 'video' ? 'academyItem.addToWatch' : 'academyItem.addToPlan')}
         </Text>
@@ -148,7 +151,7 @@ export default function AcademyItemScreen() {
             allowsFullscreen
           />
           <Pressable style={styles.closePlayer} onPress={() => setPlaying(false)} hitSlop={8}>
-            <IconSymbol name="xmark" size={18} color={Colors.text} />
+            <IconSymbol name="xmark" size={18} color={colors.text} />
             <Text style={styles.closePlayerText}>{t('academyItem.close')}</Text>
           </Pressable>
         </View>
@@ -157,14 +160,14 @@ export default function AcademyItemScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   card: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.md,
     marginTop: Spacing.md,
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.lg,
     padding: Spacing.lg,
@@ -176,12 +179,12 @@ const styles = StyleSheet.create({
   title: {
     fontFamily: Fonts.headingSemiBold,
     fontSize: 18,
-    color: Colors.mint,
+    color: colors.mint,
   },
   subtitle: {
     fontFamily: Fonts.body,
     fontSize: 13,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
   },
   sharedTag: {
     alignSelf: 'flex-start',
@@ -195,12 +198,12 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   sharedTagOn: {
-    borderColor: `${Colors.mintDim}55`,
-    backgroundColor: `${Colors.mintDim}1a`,
+    borderColor: `${colors.mintDim}55`,
+    backgroundColor: `${colors.mintDim}1a`,
   },
   sharedTagOff: {
-    borderColor: Colors.border,
-    backgroundColor: Colors.surfaceAlt,
+    borderColor: colors.border,
+    backgroundColor: colors.surfaceAlt,
   },
   sharedText: {
     fontFamily: Fonts.bodyMedium,
@@ -210,7 +213,7 @@ const styles = StyleSheet.create({
   },
   player: {
     backgroundColor: '#0B1D18',
-    borderColor: Colors.border,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.lg,
     overflow: 'hidden',
@@ -222,12 +225,12 @@ const styles = StyleSheet.create({
   },
   playerBar: {
     height: 3,
-    backgroundColor: Colors.surfaceAlt,
+    backgroundColor: colors.surfaceAlt,
   },
   playerProgress: {
     width: '38%',
     height: 3,
-    backgroundColor: Colors.mint,
+    backgroundColor: colors.mint,
   },
   playerMeta: {
     flexDirection: 'row',
@@ -239,17 +242,17 @@ const styles = StyleSheet.create({
   playerTime: {
     fontFamily: Fonts.bodyMedium,
     fontSize: 12,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
   },
   playerHint: {
     fontFamily: Fonts.bodyMedium,
     fontSize: 11,
-    color: Colors.textMuted,
+    color: colors.textMuted,
     textTransform: 'lowercase',
   },
   phasesCard: {
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.lg,
     overflow: 'hidden',
@@ -258,7 +261,7 @@ const styles = StyleSheet.create({
     padding: Spacing.lg,
   },
   phaseBorder: {
-    borderBottomColor: Colors.borderSoft,
+    borderBottomColor: colors.borderSoft,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   phaseHead: {
@@ -270,23 +273,23 @@ const styles = StyleSheet.create({
   phaseTitle: {
     fontFamily: Fonts.bodySemiBold,
     fontSize: 13,
-    color: Colors.text,
+    color: colors.text,
   },
   phaseTime: {
     fontFamily: Fonts.bodyMedium,
     fontSize: 11,
-    color: Colors.mint,
+    color: colors.mint,
   },
   phaseDetail: {
     fontFamily: Fonts.body,
     fontSize: 12,
     lineHeight: 18,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     marginTop: 4,
   },
   rowsCard: {
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.lg,
     overflow: 'hidden',
@@ -298,7 +301,7 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md,
-    borderBottomColor: Colors.borderSoft,
+    borderBottomColor: colors.borderSoft,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   rowLabel: {
@@ -306,12 +309,12 @@ const styles = StyleSheet.create({
     fontSize: 11,
     letterSpacing: 1,
     textTransform: 'uppercase',
-    color: Colors.textMuted,
+    color: colors.textMuted,
   },
   rowValue: {
     fontFamily: Fonts.bodySemiBold,
     fontSize: 13,
-    color: Colors.text,
+    color: colors.text,
     textTransform: 'capitalize',
     flexShrink: 1,
     textAlign: 'right',
@@ -321,8 +324,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: Spacing.md,
     marginTop: Spacing.xl,
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.lg,
     padding: Spacing.md,
@@ -331,20 +334,20 @@ const styles = StyleSheet.create({
     width: 46,
     height: 28,
     borderRadius: 14,
-    backgroundColor: Colors.surfaceAlt,
+    backgroundColor: colors.surfaceAlt,
     padding: 2,
   },
   toggleOn: {
-    backgroundColor: Colors.mint,
+    backgroundColor: colors.mint,
   },
   toggleKnob: {
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: Colors.textMuted,
+    backgroundColor: colors.textMuted,
   },
   toggleKnobOn: {
-    backgroundColor: Colors.textOnPrimary,
+    backgroundColor: colors.textOnPrimary,
     marginLeft: 18,
   },
   shareBody: {
@@ -354,13 +357,13 @@ const styles = StyleSheet.create({
   shareTitle: {
     fontFamily: Fonts.bodySemiBold,
     fontSize: 14,
-    color: Colors.text,
+    color: colors.text,
     textTransform: 'lowercase',
   },
   shareSub: {
     fontFamily: Fonts.body,
     fontSize: 12,
-    color: Colors.textMuted,
+    color: colors.textMuted,
   },
   primaryBtn: {
     marginTop: Spacing.xl,
@@ -368,14 +371,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: Spacing.sm,
-    backgroundColor: Colors.mint,
+    backgroundColor: colors.mint,
     borderRadius: Radius.md,
     paddingVertical: Spacing.lg,
   },
   primaryBtnText: {
     fontFamily: Fonts.bodySemiBold,
     fontSize: 15,
-    color: Colors.textOnPrimary,
+    color: colors.textOnPrimary,
     textTransform: 'lowercase',
   },
   playerModal: {
@@ -396,8 +399,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     marginTop: Spacing.lg,
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.pill,
     paddingVertical: Spacing.sm,
@@ -406,7 +409,7 @@ const styles = StyleSheet.create({
   closePlayerText: {
     fontFamily: Fonts.bodyMedium,
     fontSize: 13,
-    color: Colors.text,
+    color: colors.text,
     textTransform: 'lowercase',
   },
 });

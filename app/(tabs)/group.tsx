@@ -5,10 +5,11 @@ import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { InitialsTile, ListRow } from '@/components/list-row';
 import { Screen, SectionLabel } from '@/components/screen';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
+import { Fonts, Radius, Spacing, type ThemeColors } from '@/constants/theme';
 import { ALL_GROUPS, ALL_PLAYERS } from '@/lib/data';
 import { useLanguage } from '@/lib/i18n';
 import { usePersistedState } from '@/lib/storage';
+import { useTheme, useThemedStyles } from '@/lib/theme';
 
 type ChatMsg = { id: string; text: string; time: string; mine: boolean };
 
@@ -22,6 +23,8 @@ function nowTime() {
 }
 
 export default function GroupScreen() {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(createStyles);
   const router = useRouter();
   const { t } = useLanguage();
   const { id } = useLocalSearchParams<{ id?: string }>();
@@ -52,7 +55,7 @@ export default function GroupScreen() {
           <Text style={styles.name}>{group.name}</Text>
           <Text style={styles.type}>{t(`group.type.${group.type}`)}</Text>
           <View style={styles.metaRow}>
-            <IconSymbol name="person.fill" size={12} color={Colors.textMuted} />
+            <IconSymbol name="person.fill" size={12} color={colors.textMuted} />
             <Text style={styles.metaText}>
               {group.members.length} {t(group.members.length === 1 ? 'common.player' : 'common.players')}
             </Text>
@@ -93,7 +96,7 @@ export default function GroupScreen() {
         <TextInput
           style={styles.input}
           placeholder={t('group.messagePlaceholder', { name: group.name })}
-          placeholderTextColor={Colors.textMuted}
+          placeholderTextColor={colors.textMuted}
           value={draft}
           onChangeText={setDraft}
           autoCorrect={false}
@@ -101,21 +104,21 @@ export default function GroupScreen() {
           returnKeyType="send"
         />
         <Pressable style={styles.sendBtn} onPress={send} hitSlop={6}>
-          <IconSymbol name="paperplane.fill" size={18} color={Colors.textOnPrimary} />
+          <IconSymbol name="paperplane.fill" size={18} color={colors.textOnPrimary} />
         </Pressable>
       </View>
     </Screen>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   card: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.md,
     marginTop: Spacing.md,
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.lg,
     padding: Spacing.lg,
@@ -127,12 +130,12 @@ const styles = StyleSheet.create({
   name: {
     fontFamily: Fonts.headingSemiBold,
     fontSize: 18,
-    color: Colors.mint,
+    color: colors.mint,
   },
   type: {
     fontFamily: Fonts.body,
     fontSize: 13,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     textTransform: 'capitalize',
   },
   metaRow: {
@@ -144,14 +147,14 @@ const styles = StyleSheet.create({
   metaText: {
     fontFamily: Fonts.bodyMedium,
     fontSize: 11,
-    color: Colors.textMuted,
+    color: colors.textMuted,
   },
   list: {
     gap: Spacing.md,
   },
   aboutCard: {
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.lg,
     padding: Spacing.lg,
@@ -160,7 +163,7 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.body,
     fontSize: 13,
     lineHeight: 19,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
   },
   thread: {
     gap: Spacing.sm,
@@ -174,41 +177,41 @@ const styles = StyleSheet.create({
   },
   bubbleMine: {
     alignSelf: 'flex-end',
-    backgroundColor: Colors.mint,
+    backgroundColor: colors.mint,
     borderBottomRightRadius: 4,
   },
   bubbleTheirs: {
     alignSelf: 'flex-start',
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderWidth: 1,
     borderBottomLeftRadius: 4,
   },
   bubbleText: {
     fontFamily: Fonts.body,
     fontSize: 13,
-    color: Colors.text,
+    color: colors.text,
     lineHeight: 18,
   },
   bubbleTextMine: {
-    color: Colors.textOnPrimary,
+    color: colors.textOnPrimary,
   },
   bubbleTime: {
     fontFamily: Fonts.bodyMedium,
     fontSize: 9,
-    color: Colors.textMuted,
+    color: colors.textMuted,
     alignSelf: 'flex-end',
   },
   bubbleTimeMine: {
-    color: `${Colors.textOnPrimary}99`,
+    color: `${colors.textOnPrimary}99`,
   },
   inputBar: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.sm,
     marginTop: Spacing.md,
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.lg,
     paddingHorizontal: Spacing.md,
@@ -216,7 +219,7 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    color: Colors.text,
+    color: colors.text,
     fontFamily: Fonts.body,
     fontSize: 14,
     paddingVertical: Spacing.sm,
@@ -227,6 +230,6 @@ const styles = StyleSheet.create({
     borderRadius: Radius.md,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: Colors.mint,
+    backgroundColor: colors.mint,
   },
 });

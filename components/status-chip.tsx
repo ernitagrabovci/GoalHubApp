@@ -1,17 +1,18 @@
 import { StyleSheet, Text, View } from 'react-native';
 
-import { Colors, Fonts, Radius } from '@/constants/theme';
+import { Fonts, Radius } from '@/constants/theme';
 
 export type StatusTone = 'mint' | 'emerald' | 'warning' | 'danger' | 'info' | 'purple' | 'muted';
 
+/** Static mid-tone brand colors so chips stay readable in both themes. */
 export const TONE_COLORS: Record<StatusTone, string> = {
-  mint: Colors.mint,
+  mint: '#2fbf71',
   emerald: '#2fbf71',
   warning: '#f5a623',
   danger: '#E24B4A',
   info: '#5aa7e6',
   purple: '#8f86e8',
-  muted: Colors.textMuted,
+  muted: '#6B887B',
 };
 
 export function StatusChip({ label, tone }: { label: string; tone: StatusTone }) {

@@ -5,11 +5,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { InitialsTile, ListRow } from '@/components/list-row';
 import { IconSymbol, type IconSymbolName } from '@/components/ui/icon-symbol';
-import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
+import { Fonts, Radius, Spacing, type ThemeColors } from '@/constants/theme';
 import { ALL_PLAYERS } from '@/lib/data';
 import { useLanguage } from '@/lib/i18n';
 import { useSession } from '@/lib/session';
 import { usePersistedState } from '@/lib/storage';
+import { useTheme, useThemedStyles } from '@/lib/theme';
 
 const VERSION = '1.0.0';
 
@@ -17,6 +18,8 @@ export default function ProfileScreen() {
   const router = useRouter();
   const { user, signOut, updateProfile } = useSession();
   const { t, lang, setLang } = useLanguage();
+  const { colors, isDark, toggleTheme } = useTheme();
+  const styles = useThemedStyles(createStyles);
   const [childName] = usePersistedState<string>('parent:selectedChild', 'Agon Gashi');
 
   const [subOpen, setSubOpen] = useState(false);
@@ -158,7 +161,7 @@ export default function ProfileScreen() {
                   placeholder={t('profile.name')}
                   value={nameDraft}
                   onChangeText={setNameDraft}
-                  placeholderTextColor={Colors.textMuted}
+                  placeholderTextColor={colors.textMuted}
                 />
                 <TextInput
                   style={styles.input}
@@ -167,7 +170,7 @@ export default function ProfileScreen() {
                   onChangeText={setEmailDraft}
                   autoCapitalize="none"
                   keyboardType="email-address"
-                  placeholderTextColor={Colors.textMuted}
+                  placeholderTextColor={colors.textMuted}
                 />
                 <Pressable style={styles.inlineBtn} onPress={handleEdit}>
                   <Text style={styles.inlineBtnText}>{t('profile.save')}</Text>
@@ -188,7 +191,7 @@ export default function ProfileScreen() {
                   value={curPass}
                   onChangeText={setCurPass}
                   secureTextEntry
-                  placeholderTextColor={Colors.textMuted}
+                  placeholderTextColor={colors.textMuted}
                 />
                 <TextInput
                   style={styles.input}
@@ -196,7 +199,7 @@ export default function ProfileScreen() {
                   value={newPass}
                   onChangeText={setNewPass}
                   secureTextEntry
-                  placeholderTextColor={Colors.textMuted}
+                  placeholderTextColor={colors.textMuted}
                 />
                 <TextInput
                   style={styles.input}
@@ -204,7 +207,7 @@ export default function ProfileScreen() {
                   value={confirmPass}
                   onChangeText={setConfirmPass}
                   secureTextEntry
-                  placeholderTextColor={Colors.textMuted}
+                  placeholderTextColor={colors.textMuted}
                 />
                 <Pressable style={styles.inlineBtn} onPress={handlePassword}>
                   <Text style={styles.inlineBtnText}>{t('profile.save')}</Text>
@@ -216,7 +219,12 @@ export default function ProfileScreen() {
           {/* Preferences */}
           <Text style={styles.sectionLabel}>{t('profile.preferences')}</Text>
           <View style={styles.card}>
-            <SettingRow icon="gearshape.fill" label={t('profile.theme')} value={t('profile.darkMint')} />
+            <SettingRow
+              icon="gearshape.fill"
+              label={t('profile.theme')}
+              value={isDark ? t('profile.darkMint') : t('profile.lightMint')}
+              onPress={toggleTheme}
+            />
             <View style={styles.divider} />
             <SettingRow
               icon="globe"
@@ -254,7 +262,7 @@ export default function ProfileScreen() {
 
           {/* Sign out */}
           <Pressable style={styles.signOut} onPress={handleSignOut}>
-            <IconSymbol name="logout" size={18} color={Colors.danger} />
+            <IconSymbol name="logout" size={18} color={colors.danger} />
             <Text style={styles.signOutText}>{t('profile.signOut')}</Text>
           </Pressable>
           <Text style={styles.footnote}>
@@ -277,14 +285,16 @@ function SettingRow({
   value: string;
   onPress?: () => void;
 }) {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(createStyles);
   const row = (
     <>
-      <IconSymbol name={icon} size={18} color={Colors.textMuted} />
+      <IconSymbol name={icon} size={18} color={colors.textMuted} />
       <Text style={styles.rowLabel}>{label}</Text>
       <Text style={styles.rowValue} numberOfLines={1}>
         {value}
       </Text>
-      {onPress ? <IconSymbol name="chevron.right" size={16} color={Colors.textMuted} /> : null}
+      {onPress ? <IconSymbol name="chevron.right" size={16} color={colors.textMuted} /> : null}
     </>
   );
   if (onPress) {
@@ -297,10 +307,10 @@ function SettingRow({
   return <View style={styles.row}>{row}</View>;
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: colors.background,
   },
   header: {
     paddingHorizontal: Spacing.lg,
@@ -309,7 +319,7 @@ const styles = StyleSheet.create({
   title: {
     fontFamily: Fonts.heading,
     fontSize: 26,
-    color: Colors.mint,
+    color: colors.mint,
     textTransform: 'lowercase',
   },
   content: {
@@ -336,7 +346,7 @@ const styles = StyleSheet.create({
   name: {
     fontFamily: Fonts.heading,
     fontSize: 24,
-    color: Colors.mint,
+    color: colors.mint,
   },
   roleBadge: {
     flexDirection: 'row',
@@ -361,20 +371,20 @@ const styles = StyleSheet.create({
   subtitle: {
     fontFamily: Fonts.body,
     fontSize: 13,
-    color: Colors.textMuted,
+    color: colors.textMuted,
   },
   sectionLabel: {
     fontFamily: Fonts.bodyMedium,
     fontSize: 11,
     letterSpacing: 1.5,
     textTransform: 'uppercase',
-    color: Colors.emerald,
+    color: colors.emerald,
     marginBottom: Spacing.sm,
     marginTop: Spacing.lg,
   },
   card: {
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.lg,
     paddingHorizontal: Spacing.lg,
@@ -389,16 +399,16 @@ const styles = StyleSheet.create({
     flex: 1,
     fontFamily: Fonts.body,
     fontSize: 14,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
   },
   rowValue: {
     fontFamily: Fonts.bodySemiBold,
     fontSize: 14,
-    color: Colors.text,
+    color: colors.text,
   },
   divider: {
     height: StyleSheet.hairlineWidth,
-    backgroundColor: Colors.borderSoft,
+    backgroundColor: colors.borderSoft,
   },
   inlineBody: {
     gap: Spacing.sm,
@@ -407,12 +417,12 @@ const styles = StyleSheet.create({
   inlineTitle: {
     fontFamily: Fonts.bodySemiBold,
     fontSize: 13,
-    color: Colors.text,
+    color: colors.text,
   },
   inlineText: {
     fontFamily: Fonts.body,
     fontSize: 12,
-    color: Colors.textMuted,
+    color: colors.textMuted,
   },
   inlineBtn: {
     marginTop: Spacing.xs,
@@ -420,22 +430,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: Spacing.sm,
-    backgroundColor: Colors.mint,
+    backgroundColor: colors.mint,
     borderRadius: Radius.md,
     paddingVertical: Spacing.sm,
   },
   inlineBtnText: {
     fontFamily: Fonts.bodySemiBold,
     fontSize: 13,
-    color: Colors.textOnPrimary,
+    color: colors.textOnPrimary,
     textTransform: 'lowercase',
   },
   input: {
     fontFamily: Fonts.body,
     fontSize: 14,
-    color: Colors.text,
-    backgroundColor: Colors.surfaceAlt,
-    borderColor: Colors.border,
+    color: colors.text,
+    backgroundColor: colors.surfaceAlt,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.md,
     paddingHorizontal: Spacing.md,
@@ -445,22 +455,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: Colors.danger,
+    backgroundColor: colors.danger,
     borderRadius: Radius.md,
     paddingVertical: Spacing.sm,
   },
   dangerBtnText: {
     fontFamily: Fonts.bodySemiBold,
     fontSize: 13,
-    color: Colors.textOnPrimary,
+    color: colors.textOnPrimary,
     textTransform: 'lowercase',
   },
   cancelBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: Colors.surfaceAlt,
-    borderColor: Colors.border,
+    backgroundColor: colors.surfaceAlt,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.md,
     paddingVertical: Spacing.sm,
@@ -468,7 +478,7 @@ const styles = StyleSheet.create({
   cancelBtnText: {
     fontFamily: Fonts.bodySemiBold,
     fontSize: 13,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     textTransform: 'lowercase',
   },
   signOut: {
@@ -477,8 +487,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: Spacing.sm,
-    backgroundColor: `${Colors.danger}1a`,
-    borderColor: `${Colors.danger}55`,
+    backgroundColor: `${colors.danger}1a`,
+    borderColor: `${colors.danger}55`,
     borderWidth: 1,
     borderRadius: Radius.md,
     paddingVertical: Spacing.lg,
@@ -486,12 +496,12 @@ const styles = StyleSheet.create({
   signOutText: {
     fontFamily: Fonts.bodySemiBold,
     fontSize: 15,
-    color: Colors.danger,
+    color: colors.danger,
   },
   footnote: {
     fontFamily: Fonts.body,
     fontSize: 12,
-    color: Colors.textMuted,
+    color: colors.textMuted,
     textAlign: 'center',
     marginTop: Spacing.lg,
   },
@@ -505,18 +515,18 @@ const styles = StyleSheet.create({
   signedOutTitle: {
     fontFamily: Fonts.heading,
     fontSize: 24,
-    color: Colors.mint,
+    color: colors.mint,
     textTransform: 'lowercase',
   },
   signedOutSub: {
     fontFamily: Fonts.body,
     fontSize: 14,
-    color: Colors.textMuted,
+    color: colors.textMuted,
     textAlign: 'center',
   },
   primary: {
     marginTop: Spacing.lg,
-    backgroundColor: Colors.mint,
+    backgroundColor: colors.mint,
     borderRadius: Radius.md,
     paddingVertical: Spacing.md,
     paddingHorizontal: Spacing.xl,
@@ -524,6 +534,6 @@ const styles = StyleSheet.create({
   primaryText: {
     fontFamily: Fonts.bodySemiBold,
     fontSize: 15,
-    color: Colors.textOnPrimary,
+    color: colors.textOnPrimary,
   },
 });

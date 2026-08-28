@@ -1,14 +1,15 @@
 import { StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 
-import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
+import { Fonts, Radius, Spacing, type ThemeColors } from '@/constants/theme';
+import { useTheme, useThemedStyles } from '@/lib/theme';
 
 /** Horizontal progress bar — label + value on top, fill below. */
 export function StatBar({
   label,
   value,
   max = 10,
-  color = Colors.mint,
+  color,
   display,
 }: {
   label: string;
@@ -18,16 +19,19 @@ export function StatBar({
   /** Text shown next to the label; defaults to the numeric value. */
   display?: string;
 }) {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(createStyles);
+  const accent = color ?? colors.mint;
   const pct = Math.min(Math.max(value / max, 0), 1) * 100;
   const width = `${pct}%` as const;
   return (
     <View style={styles.barRow}>
       <View style={styles.barLabels}>
         <Text style={styles.barLabel}>{label}</Text>
-        <Text style={[styles.barValue, { color }]}>{display ?? value}</Text>
+        <Text style={[styles.barValue, { color: accent }]}>{display ?? value}</Text>
       </View>
       <View style={styles.barTrack}>
-        <View style={[styles.barFill, { width, backgroundColor: color }]} />
+        <View style={[styles.barFill, { width, backgroundColor: accent }]} />
       </View>
     </View>
   );
@@ -38,7 +42,7 @@ export function Ring({
   size = 76,
   stroke = 6,
   progress,
-  color = Colors.mint,
+  color,
   label,
   sublabel,
 }: {
@@ -50,6 +54,9 @@ export function Ring({
   label?: string;
   sublabel?: string;
 }) {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(createStyles);
+  const accent = color ?? colors.mint;
   const r = (size - stroke) / 2;
   const circumference = 2 * Math.PI * r;
   const clamped = Math.min(Math.max(progress, 0), 1);
@@ -63,7 +70,7 @@ export function Ring({
           cx={center}
           cy={center}
           r={r}
-          stroke={Colors.surfaceAlt}
+          stroke={colors.surfaceAlt}
           strokeWidth={stroke}
           fill="none"
         />
@@ -71,7 +78,7 @@ export function Ring({
           cx={center}
           cy={center}
           r={r}
-          stroke={color}
+          stroke={accent}
           strokeWidth={stroke}
           fill="none"
           strokeDasharray={circumference}
@@ -81,14 +88,14 @@ export function Ring({
         />
       </Svg>
       <View style={styles.ringLabel}>
-        {label ? <Text style={[styles.ringLabelText, { color }]}>{label}</Text> : null}
+        {label ? <Text style={[styles.ringLabelText, { color: accent }]}>{label}</Text> : null}
         {sublabel ? <Text style={styles.ringSubText}>{sublabel}</Text> : null}
       </View>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   barRow: {
     gap: 4,
   },
@@ -100,7 +107,7 @@ const styles = StyleSheet.create({
   barLabel: {
     fontFamily: Fonts.body,
     fontSize: 12,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     textTransform: 'lowercase',
   },
   barValue: {
@@ -110,7 +117,7 @@ const styles = StyleSheet.create({
   barTrack: {
     height: 6,
     borderRadius: Radius.pill,
-    backgroundColor: Colors.surfaceAlt,
+    backgroundColor: colors.surfaceAlt,
     overflow: 'hidden',
   },
   barFill: {
@@ -131,7 +138,7 @@ const styles = StyleSheet.create({
     fontSize: 9,
     letterSpacing: 1,
     textTransform: 'uppercase',
-    color: Colors.textMuted,
+    color: colors.textMuted,
     marginTop: Spacing.xs,
   },
 });

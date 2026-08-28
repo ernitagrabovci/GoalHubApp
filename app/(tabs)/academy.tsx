@@ -5,14 +5,17 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { IconTile, ListRow } from '@/components/list-row';
 import { IconSymbol, type IconSymbolName } from '@/components/ui/icon-symbol';
-import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
+import { Fonts, Radius, Spacing, type ThemeColors } from '@/constants/theme';
 import { type AcademyItem } from '@/lib/data';
 import { useLanguage } from '@/lib/i18n';
 import { useSession } from '@/lib/session';
 import { academyStore, useCollection } from '@/lib/store';
+import { useTheme, useThemedStyles } from '@/lib/theme';
 
 function AcademyRow({ item, onPress }: { item: AcademyItem; onPress: () => void }) {
   const { t } = useLanguage();
+  const { colors } = useTheme();
+  const styles = useThemedStyles(createStyles);
   const icon: IconSymbolName = item.type === 'video' ? 'play.fill' : 'calendar';
   return (
     <ListRow
@@ -25,7 +28,7 @@ function AcademyRow({ item, onPress }: { item: AcademyItem; onPress: () => void 
           <Text style={styles.duration}>{item.duration}</Text>
           {item.isShared ? (
             <View style={styles.sharedTag}>
-              <IconSymbol name="link" size={10} color={Colors.mintDim} />
+              <IconSymbol name="link" size={10} color={colors.mintDim} />
               <Text style={styles.sharedText}>{t('academy.shared')}</Text>
             </View>
           ) : (
@@ -39,6 +42,8 @@ function AcademyRow({ item, onPress }: { item: AcademyItem; onPress: () => void 
 
 export default function AcademyScreen() {
   const router = useRouter();
+  const { colors, isDark } = useTheme();
+  const styles = useThemedStyles(createStyles);
   const { user } = useSession();
   const { t } = useLanguage();
   const viewer = user?.role === 'player' || user?.role === 'parent';
@@ -49,20 +54,20 @@ export default function AcademyScreen() {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      <StatusBar style="light" />
+      <StatusBar style={isDark ? 'light' : 'dark'} />
       <ScrollView
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}>
         {/* Back */}
         <Pressable style={styles.backRow} onPress={() => router.back()} hitSlop={8}>
-          <IconSymbol name="chevron-left" size={22} color={Colors.mint} />
+          <IconSymbol name="chevron-left" size={22} color={colors.mint} />
           <Text style={styles.backText}>{t('common.back')}</Text>
         </Pressable>
 
         {/* Screen head */}
         <View style={styles.head}>
-          <View style={[styles.headIcon, { backgroundColor: `${Colors.mintDim}22` }]}>
-            <IconSymbol name="trophy.fill" size={26} color={Colors.mintDim} />
+          <View style={[styles.headIcon, { backgroundColor: `${colors.mintDim}22` }]}>
+            <IconSymbol name="trophy.fill" size={26} color={colors.mintDim} />
           </View>
           <View style={styles.headBody}>
             <Text style={styles.title}>{t('academy.title')}</Text>
@@ -88,7 +93,7 @@ export default function AcademyScreen() {
 
         {viewer ? null : (
           <Pressable style={styles.action} onPress={() => router.push('/academy-create')}>
-            <IconSymbol name="plus" size={18} color={Colors.textOnPrimary} />
+            <IconSymbol name="plus" size={18} color={colors.textOnPrimary} />
             <Text style={styles.actionText}>{t('academy.addMaterial')}</Text>
           </Pressable>
         )}
@@ -97,10 +102,10 @@ export default function AcademyScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: colors.background,
   },
   content: {
     paddingHorizontal: Spacing.lg,
@@ -117,7 +122,7 @@ const styles = StyleSheet.create({
   backText: {
     fontFamily: Fonts.bodyMedium,
     fontSize: 13,
-    color: Colors.mint,
+    color: colors.mint,
     textTransform: 'lowercase',
   },
   head: {
@@ -142,18 +147,18 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.heading,
     fontSize: 26,
     letterSpacing: -0.5,
-    color: Colors.mint,
+    color: colors.mint,
     textTransform: 'lowercase',
   },
   subtitle: {
     fontFamily: Fonts.body,
     fontSize: 13,
-    color: Colors.textMuted,
+    color: colors.textMuted,
   },
   sectionLabel: {
     fontFamily: Fonts.headingSemiBold,
     fontSize: 16,
-    color: Colors.mint,
+    color: colors.mint,
     textTransform: 'lowercase',
     marginTop: Spacing.xl,
     marginBottom: Spacing.sm,
@@ -168,7 +173,7 @@ const styles = StyleSheet.create({
   duration: {
     fontFamily: Fonts.bodyMedium,
     fontSize: 12,
-    color: Colors.text,
+    color: colors.text,
   },
   sharedTag: {
     flexDirection: 'row',
@@ -180,14 +185,14 @@ const styles = StyleSheet.create({
     fontSize: 10,
     letterSpacing: 0.5,
     textTransform: 'uppercase',
-    color: Colors.mintDim,
+    color: colors.mintDim,
   },
   privateText: {
     fontFamily: Fonts.bodyMedium,
     fontSize: 10,
     letterSpacing: 0.5,
     textTransform: 'uppercase',
-    color: Colors.textMuted,
+    color: colors.textMuted,
   },
   action: {
     marginTop: Spacing.xl,
@@ -195,14 +200,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: Spacing.sm,
-    backgroundColor: Colors.mint,
+    backgroundColor: colors.mint,
     borderRadius: Radius.md,
     paddingVertical: Spacing.lg,
   },
   actionText: {
     fontFamily: Fonts.bodySemiBold,
     fontSize: 15,
-    color: Colors.textOnPrimary,
+    color: colors.textOnPrimary,
     textTransform: 'lowercase',
   },
 });

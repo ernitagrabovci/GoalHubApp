@@ -5,9 +5,10 @@ import { Ring, StatBar } from '@/components/chart';
 import { Screen, DetailHead, StatCell, SectionLabel } from '@/components/screen';
 import { StatusChip } from '@/components/status-chip';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
+import { Fonts, Radius, Spacing, type ThemeColors } from '@/constants/theme';
 import { ALL_MATCHES, ALL_NOTIFICATIONS, ALL_RATINGS, feesForRole } from '@/lib/data';
 import { useLanguage } from '@/lib/i18n';
+import { useTheme, useThemedStyles } from '@/lib/theme';
 
 function resultOf(score: string): 'W' | 'D' | 'L' {
   const [a, b] = score.split('–').map((s) => parseInt(s.trim(), 10));
@@ -19,6 +20,8 @@ function resultOf(score: string): 'W' | 'D' | 'L' {
 const RESULT_TONE = { W: 'emerald', D: 'info', L: 'danger' } as const;
 
 export default function ReportsScreen() {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(createStyles);
   const { t } = useLanguage();
   const [generated, setGenerated] = useState<Record<string, string | null>>({
     match: null,
@@ -72,7 +75,7 @@ export default function ReportsScreen() {
       {/* Overview */}
       <View style={styles.statsRow}>
         <StatCell value={String(played.length)} label={t('reports.matches')} color="#B0E4CC" />
-        <StatCell value={String(wins)} label={t('reports.wins')} color={Colors.emerald} />
+        <StatCell value={String(wins)} label={t('reports.wins')} color={colors.emerald} />
         <StatCell value={`${ALL_RATINGS.length}`} label={t('reports.ratings')} color="#f5a623" />
       </View>
 
@@ -99,26 +102,26 @@ export default function ReportsScreen() {
           size={88}
           stroke={7}
           progress={played.length ? wins / played.length : 0}
-          color={Colors.emerald}
+          color={colors.emerald}
           label={played.length ? `${Math.round((wins / played.length) * 100)}%` : '–'}
           sublabel="win rate"
         />
         <View style={styles.resultsBars}>
-          <StatBar label="wins" value={wins} max={played.length || 1} color={Colors.emerald} display={String(wins)} />
-          <StatBar label="draws" value={draws} max={played.length || 1} color={Colors.info} display={String(draws)} />
-          <StatBar label="losses" value={losses} max={played.length || 1} color={Colors.danger} display={String(losses)} />
+          <StatBar label="wins" value={wins} max={played.length || 1} color={colors.emerald} display={String(wins)} />
+          <StatBar label="draws" value={draws} max={played.length || 1} color={colors.info} display={String(draws)} />
+          <StatBar label="losses" value={losses} max={played.length || 1} color={colors.danger} display={String(losses)} />
         </View>
       </View>
 
       <Pressable
         style={styles.exportBtn}
         onPress={() => generate('match', `${played.length} played · ${wins} wins · ${date}`)}>
-        <IconSymbol name="square.and.arrow.up" size={15} color={Colors.mint} />
+        <IconSymbol name="square.and.arrow.up" size={15} color={colors.mint} />
         <Text style={styles.exportText}>{t('reports.exportMatches')}</Text>
       </Pressable>
       {generated.match ? (
         <View style={styles.generatedCard}>
-          <IconSymbol name="checkmark.circle.fill" size={14} color={Colors.emerald} />
+          <IconSymbol name="checkmark.circle.fill" size={14} color={colors.emerald} />
           <Text style={styles.generatedText}>
             {t('reports.generatedMatch', { summary: generated.match })}
           </Text>
@@ -131,7 +134,7 @@ export default function ReportsScreen() {
           <View key={r.month} style={styles.row}>
             <Text style={styles.rowTitle}>{r.month}</Text>
             <View style={styles.monthCol}>
-              <Text style={[styles.countText, { color: Colors.emerald }]}>
+              <Text style={[styles.countText, { color: colors.emerald }]}>
                 {t('reports.paid', { count: r.collected })}
               </Text>
               <Text style={styles.countSub}>
@@ -144,12 +147,12 @@ export default function ReportsScreen() {
       <Pressable
         style={styles.exportBtn}
         onPress={() => generate('finance', `${paid} paid · ${pending} pending · ${critical} critical · ${date}`)}>
-        <IconSymbol name="square.and.arrow.up" size={15} color={Colors.mint} />
+        <IconSymbol name="square.and.arrow.up" size={15} color={colors.mint} />
         <Text style={styles.exportText}>{t('reports.exportFinance')}</Text>
       </Pressable>
       {generated.finance ? (
         <View style={styles.generatedCard}>
-          <IconSymbol name="checkmark.circle.fill" size={14} color={Colors.emerald} />
+          <IconSymbol name="checkmark.circle.fill" size={14} color={colors.emerald} />
           <Text style={styles.generatedText}>
             {t('reports.generatedFinance', { summary: generated.finance })}
           </Text>
@@ -164,19 +167,19 @@ export default function ReportsScreen() {
               <Text style={styles.rowTitle}>{a.title}</Text>
               <Text style={styles.rowMeta}>{a.source} · {a.time}</Text>
             </View>
-            <IconSymbol name="chevron.right" size={16} color={Colors.textMuted} />
+            <IconSymbol name="chevron.right" size={16} color={colors.textMuted} />
           </View>
         ))}
       </View>
       <Pressable
         style={styles.exportBtn}
         onPress={() => generate('activity', `${activity.length} events · ${date}`)}>
-        <IconSymbol name="square.and.arrow.up" size={15} color={Colors.mint} />
+        <IconSymbol name="square.and.arrow.up" size={15} color={colors.mint} />
         <Text style={styles.exportText}>{t('reports.exportActivity')}</Text>
       </Pressable>
       {generated.activity ? (
         <View style={styles.generatedCard}>
-          <IconSymbol name="checkmark.circle.fill" size={14} color={Colors.emerald} />
+          <IconSymbol name="checkmark.circle.fill" size={14} color={colors.emerald} />
           <Text style={styles.generatedText}>
             {t('reports.generatedActivity', { summary: generated.activity })}
           </Text>
@@ -186,15 +189,15 @@ export default function ReportsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   statsRow: {
     flexDirection: 'row',
     gap: Spacing.md,
     marginBottom: Spacing.md,
   },
   rowsCard: {
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.lg,
     overflow: 'hidden',
@@ -204,8 +207,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: Spacing.lg,
     marginTop: Spacing.sm,
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.lg,
     padding: Spacing.lg,
@@ -221,7 +224,7 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md,
-    borderBottomColor: Colors.borderSoft,
+    borderBottomColor: colors.borderSoft,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   rowBody: {
@@ -231,17 +234,17 @@ const styles = StyleSheet.create({
   rowTitle: {
     fontFamily: Fonts.bodySemiBold,
     fontSize: 13,
-    color: Colors.text,
+    color: colors.text,
   },
   rowMeta: {
     fontFamily: Fonts.body,
     fontSize: 11,
-    color: Colors.textMuted,
+    color: colors.textMuted,
   },
   score: {
     fontFamily: Fonts.headingSemiBold,
     fontSize: 15,
-    color: Colors.mint,
+    color: colors.mint,
   },
   monthCol: {
     alignItems: 'flex-end',
@@ -254,7 +257,7 @@ const styles = StyleSheet.create({
   countSub: {
     fontFamily: Fonts.body,
     fontSize: 11,
-    color: Colors.textMuted,
+    color: colors.textMuted,
   },
   exportBtn: {
     flexDirection: 'row',
@@ -263,8 +266,8 @@ const styles = StyleSheet.create({
     gap: 6,
     marginTop: Spacing.sm,
     marginBottom: Spacing.xs,
-    backgroundColor: Colors.surfaceAlt,
-    borderColor: Colors.border,
+    backgroundColor: colors.surfaceAlt,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.md,
     paddingVertical: Spacing.sm,
@@ -272,7 +275,7 @@ const styles = StyleSheet.create({
   exportText: {
     fontFamily: Fonts.bodyMedium,
     fontSize: 12,
-    color: Colors.mint,
+    color: colors.mint,
     textTransform: 'lowercase',
   },
   generatedCard: {
@@ -281,8 +284,8 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
     marginTop: Spacing.sm,
     marginBottom: Spacing.xs,
-    backgroundColor: `${Colors.emerald}1a`,
-    borderColor: `${Colors.emerald}55`,
+    backgroundColor: `${colors.emerald}1a`,
+    borderColor: `${colors.emerald}55`,
     borderWidth: 1,
     borderRadius: Radius.md,
     paddingVertical: Spacing.sm,
@@ -292,6 +295,6 @@ const styles = StyleSheet.create({
     flex: 1,
     fontFamily: Fonts.bodyMedium,
     fontSize: 12,
-    color: Colors.emerald,
+    color: colors.emerald,
   },
 });

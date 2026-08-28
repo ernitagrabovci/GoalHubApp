@@ -4,7 +4,7 @@ import { Image, Pressable, StyleSheet, Text, TextInput, View } from 'react-nativ
 import { Screen, DetailHead, SectionLabel } from '@/components/screen';
 import { StatusChip } from '@/components/status-chip';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
+import { Fonts, Radius, Spacing, type ThemeColors } from '@/constants/theme';
 import {
   CLUB_FIELDS,
   CLUB_PROFILE,
@@ -14,8 +14,11 @@ import {
 } from '@/lib/data';
 import { useLanguage } from '@/lib/i18n';
 import { usePersistedState } from '@/lib/storage';
+import { useTheme, useThemedStyles } from '@/lib/theme';
 
 export default function ClubScreen() {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(createStyles);
   const { t } = useLanguage();
   const [seasons, setSeasons] = usePersistedState<ClubSeason[]>('club:seasons', CLUB_SEASONS);
   const [fields, setFields] = usePersistedState<ClubField[]>('club:fields', CLUB_FIELDS);
@@ -70,7 +73,7 @@ export default function ClubScreen() {
     <Screen back>
       <DetailHead
         icon="trophy.fill"
-        accent={Colors.mintDim}
+        accent={colors.mintDim}
         title={t('club.title')}
         subtitle={t('club.subtitle')}
       />
@@ -115,7 +118,7 @@ export default function ClubScreen() {
             }}
             style={[styles.chip, s.active && styles.chipActive]}>
             <Text style={[styles.chipText, s.active && styles.chipTextActive]}>{s.label}</Text>
-            {s.active ? <IconSymbol name="checkmark.circle.fill" size={13} color={Colors.textOnPrimary} /> : null}
+            {s.active ? <IconSymbol name="checkmark.circle.fill" size={13} color={colors.textOnPrimary} /> : null}
           </Pressable>
         ))}
       </View>
@@ -124,19 +127,19 @@ export default function ClubScreen() {
           <TextInput
             style={styles.input}
             placeholder={t('club.seasonPlaceholder')}
-            placeholderTextColor={Colors.textMuted}
+            placeholderTextColor={colors.textMuted}
             value={seasonLabel}
             onChangeText={setSeasonLabel}
             autoCorrect={false}
           />
           <Pressable style={styles.inlineAdd} onPress={addSeason}>
-            <IconSymbol name="plus" size={15} color={Colors.textOnPrimary} />
+            <IconSymbol name="plus" size={15} color={colors.textOnPrimary} />
             <Text style={styles.inlineAddText}>{t('club.createSeason')}</Text>
           </Pressable>
         </View>
       ) : (
         <Pressable style={styles.addSeason} onPress={() => setShowSeason(true)}>
-          <IconSymbol name="plus" size={15} color={Colors.mint} />
+          <IconSymbol name="plus" size={15} color={colors.mint} />
           <Text style={styles.addSeasonText}>{t('club.newSeason')}</Text>
         </Pressable>
       )}
@@ -148,8 +151,8 @@ export default function ClubScreen() {
         ) : (
           fields.map((f) => (
             <View key={f.id} style={styles.fieldCard}>
-              <View style={[styles.fieldIcon, { backgroundColor: `${Colors.mint}22` }]}>
-                <IconSymbol name="map.fill" size={18} color={Colors.mint} />
+              <View style={[styles.fieldIcon, { backgroundColor: `${colors.mint}22` }]}>
+                <IconSymbol name="map.fill" size={18} color={colors.mint} />
               </View>
               <View style={styles.fieldBody}>
                 <Text style={styles.fieldName}>{f.name}</Text>
@@ -168,7 +171,7 @@ export default function ClubScreen() {
           <TextInput
             style={styles.input}
             placeholder={t('club.fieldPlaceholder')}
-            placeholderTextColor={Colors.textMuted}
+            placeholderTextColor={colors.textMuted}
             value={fieldName}
             onChangeText={setFieldName}
             autoCorrect={false}
@@ -176,19 +179,19 @@ export default function ClubScreen() {
           <TextInput
             style={styles.input}
             placeholder={t('club.locationPlaceholder')}
-            placeholderTextColor={Colors.textMuted}
+            placeholderTextColor={colors.textMuted}
             value={fieldLocation}
             onChangeText={setFieldLocation}
             autoCorrect={false}
           />
           <Pressable style={styles.inlineAdd} onPress={addField}>
-            <IconSymbol name="plus" size={15} color={Colors.textOnPrimary} />
+            <IconSymbol name="plus" size={15} color={colors.textOnPrimary} />
             <Text style={styles.inlineAddText}>{t('club.addField')}</Text>
           </Pressable>
         </View>
       ) : (
         <Pressable style={styles.addField} onPress={() => setShowField(true)}>
-          <IconSymbol name="plus" size={15} color={Colors.mint} />
+          <IconSymbol name="plus" size={15} color={colors.mint} />
           <Text style={styles.addFieldText}>{t('club.addField')}</Text>
         </Pressable>
       )}
@@ -196,13 +199,13 @@ export default function ClubScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   clubCard: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.md,
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.lg,
     padding: Spacing.lg,
@@ -213,7 +216,7 @@ const styles = StyleSheet.create({
     borderRadius: Radius.lg,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: `${Colors.mint}22`,
+    backgroundColor: `${colors.mint}22`,
   },
   logo: {
     width: 34,
@@ -226,16 +229,16 @@ const styles = StyleSheet.create({
   clubName: {
     fontFamily: Fonts.headingSemiBold,
     fontSize: 18,
-    color: Colors.mint,
+    color: colors.mint,
   },
   clubSub: {
     fontFamily: Fonts.body,
     fontSize: 12,
-    color: Colors.textMuted,
+    color: colors.textMuted,
   },
   rowsCard: {
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.lg,
     overflow: 'hidden',
@@ -247,7 +250,7 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md,
-    borderBottomColor: Colors.borderSoft,
+    borderBottomColor: colors.borderSoft,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   rowLabel: {
@@ -255,12 +258,12 @@ const styles = StyleSheet.create({
     fontSize: 11,
     letterSpacing: 1,
     textTransform: 'uppercase',
-    color: Colors.textMuted,
+    color: colors.textMuted,
   },
   rowValue: {
     fontFamily: Fonts.bodySemiBold,
     fontSize: 13,
-    color: Colors.text,
+    color: colors.text,
     flexShrink: 1,
     textAlign: 'right',
   },
@@ -273,42 +276,42 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    borderColor: Colors.border,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.pill,
     paddingVertical: 7,
     paddingHorizontal: Spacing.md,
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.surface,
   },
   chipActive: {
-    backgroundColor: Colors.mint,
-    borderColor: Colors.mint,
+    backgroundColor: colors.mint,
+    borderColor: colors.mint,
   },
   chipText: {
     fontFamily: Fonts.bodyMedium,
     fontSize: 12,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
   },
   chipTextActive: {
-    color: Colors.textOnPrimary,
+    color: colors.textOnPrimary,
   },
   inlineForm: {
     marginTop: Spacing.sm,
-    backgroundColor: Colors.surfaceAlt,
-    borderColor: Colors.border,
+    backgroundColor: colors.surfaceAlt,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.lg,
     padding: Spacing.md,
     gap: Spacing.sm,
   },
   input: {
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.md,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm + 2,
-    color: Colors.text,
+    color: colors.text,
     fontFamily: Fonts.body,
     fontSize: 14,
   },
@@ -317,14 +320,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    backgroundColor: Colors.mint,
+    backgroundColor: colors.mint,
     borderRadius: Radius.md,
     paddingVertical: Spacing.sm + 2,
   },
   inlineAddText: {
     fontFamily: Fonts.bodySemiBold,
     fontSize: 13,
-    color: Colors.textOnPrimary,
+    color: colors.textOnPrimary,
     textTransform: 'lowercase',
   },
   addSeason: {
@@ -336,7 +339,7 @@ const styles = StyleSheet.create({
   addSeasonText: {
     fontFamily: Fonts.bodyMedium,
     fontSize: 12,
-    color: Colors.mint,
+    color: colors.mint,
     textTransform: 'lowercase',
   },
   list: {
@@ -345,14 +348,14 @@ const styles = StyleSheet.create({
   emptyText: {
     fontFamily: Fonts.body,
     fontSize: 13,
-    color: Colors.textMuted,
+    color: colors.textMuted,
   },
   fieldCard: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.md,
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.lg,
     padding: Spacing.md,
@@ -371,12 +374,12 @@ const styles = StyleSheet.create({
   fieldName: {
     fontFamily: Fonts.bodySemiBold,
     fontSize: 14,
-    color: Colors.text,
+    color: colors.text,
   },
   fieldMeta: {
     fontFamily: Fonts.body,
     fontSize: 12,
-    color: Colors.textMuted,
+    color: colors.textMuted,
   },
   addField: {
     flexDirection: 'row',
@@ -387,7 +390,7 @@ const styles = StyleSheet.create({
   addFieldText: {
     fontFamily: Fonts.bodyMedium,
     fontSize: 12,
-    color: Colors.mint,
+    color: colors.mint,
     textTransform: 'lowercase',
   },
 });

@@ -5,10 +5,11 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { InitialsTile } from '@/components/list-row';
 import { Screen, SectionLabel } from '@/components/screen';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
+import { Fonts, Radius, Spacing, type ThemeColors } from '@/constants/theme';
 import { ALL_PLAYERS } from '@/lib/data';
 import { useLanguage } from '@/lib/i18n';
 import { ratingsStore } from '@/lib/store';
+import { useTheme, useThemedStyles } from '@/lib/theme';
 
 const CRITERIA = ['technique', 'physical', 'tactics', 'consistency', 'teamwork'] as const;
 
@@ -17,6 +18,8 @@ type CriteriaKey = (typeof CRITERIA)[number];
 const clamp = (v: number) => Math.min(10, Math.max(1, v));
 
 export default function RateScreen() {
+  const styles = useThemedStyles(createStyles);
+  const { colors } = useTheme();
   const router = useRouter();
   const { t } = useLanguage();
   const { id } = useLocalSearchParams<{ id?: string }>();
@@ -85,11 +88,11 @@ export default function RateScreen() {
             <Text style={styles.criterionLabel}>{t(`rating.${c}`)}</Text>
             <View style={styles.stepper}>
               <Pressable style={styles.stepBtn} onPress={() => bump(c, -0.5)} hitSlop={6}>
-                <IconSymbol name="xmark" size={16} color={Colors.mint} />
+                <IconSymbol name="xmark" size={16} color={colors.mint} />
               </Pressable>
               <Text style={styles.stepValue}>{scores[c].toFixed(1)}</Text>
               <Pressable style={styles.stepBtn} onPress={() => bump(c, 0.5)} hitSlop={6}>
-                <IconSymbol name="plus" size={16} color={Colors.mint} />
+                <IconSymbol name="plus" size={16} color={colors.mint} />
               </Pressable>
             </View>
           </View>
@@ -104,14 +107,14 @@ export default function RateScreen() {
       </View>
 
       <Pressable style={styles.saveBtn} onPress={save}>
-        <IconSymbol name="checkmark.circle.fill" size={18} color={Colors.textOnPrimary} />
+        <IconSymbol name="checkmark.circle.fill" size={18} color={colors.textOnPrimary} />
         <Text style={styles.saveBtnText}>{t('rate.saveRating')}</Text>
       </Pressable>
     </Screen>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   headRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -125,16 +128,16 @@ const styles = StyleSheet.create({
   name: {
     fontFamily: Fonts.headingSemiBold,
     fontSize: 18,
-    color: Colors.mint,
+    color: colors.mint,
   },
   meta: {
     fontFamily: Fonts.body,
     fontSize: 12,
-    color: Colors.textMuted,
+    color: colors.textMuted,
   },
   card: {
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.lg,
     paddingHorizontal: Spacing.lg,
@@ -146,13 +149,13 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.md,
   },
   criterionBorder: {
-    borderBottomColor: Colors.borderSoft,
+    borderBottomColor: colors.borderSoft,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   criterionLabel: {
     fontFamily: Fonts.bodyMedium,
     fontSize: 14,
-    color: Colors.text,
+    color: colors.text,
     textTransform: 'lowercase',
   },
   stepper: {
@@ -166,20 +169,20 @@ const styles = StyleSheet.create({
     borderRadius: Radius.sm,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: Colors.surfaceAlt,
-    borderColor: Colors.border,
+    backgroundColor: colors.surfaceAlt,
+    borderColor: colors.border,
     borderWidth: 1,
   },
   stepValue: {
     fontFamily: Fonts.headingSemiBold,
     fontSize: 16,
-    color: Colors.mint,
+    color: colors.mint,
     minWidth: 40,
     textAlign: 'center',
   },
   avgCard: {
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.lg,
     padding: Spacing.lg,
@@ -189,13 +192,13 @@ const styles = StyleSheet.create({
   avgValue: {
     fontFamily: Fonts.heading,
     fontSize: 44,
-    color: Colors.mint,
+    color: colors.mint,
     letterSpacing: -1,
   },
   avgHint: {
     fontFamily: Fonts.body,
     fontSize: 12,
-    color: Colors.textMuted,
+    color: colors.textMuted,
     textAlign: 'center',
   },
   saveBtn: {
@@ -204,14 +207,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: Spacing.sm,
-    backgroundColor: Colors.mint,
+    backgroundColor: colors.mint,
     borderRadius: Radius.md,
     paddingVertical: Spacing.lg,
   },
   saveBtnText: {
     fontFamily: Fonts.bodySemiBold,
     fontSize: 15,
-    color: Colors.textOnPrimary,
+    color: colors.textOnPrimary,
     textTransform: 'lowercase',
   },
 });

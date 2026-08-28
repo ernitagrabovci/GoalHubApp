@@ -3,9 +3,10 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { InitialsTile } from '@/components/list-row';
 import { Screen, SectionLabel, StatCell } from '@/components/screen';
-import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
+import { Fonts, Radius, Spacing, type ThemeColors } from '@/constants/theme';
 import { ALL_PLAYERS, TRAINING_ATTENDANCE } from '@/lib/data';
 import { useLanguage } from '@/lib/i18n';
+import { useThemedStyles } from '@/lib/theme';
 
 function barColor(pct: number) {
   if (pct >= 90) return '#2fbf71';
@@ -15,6 +16,7 @@ function barColor(pct: number) {
 }
 
 export default function AttendanceScreen() {
+  const styles = useThemedStyles(createStyles);
   const router = useRouter();
   const { t } = useLanguage();
   const trainings = Object.values(TRAINING_ATTENDANCE);
@@ -72,12 +74,12 @@ export default function AttendanceScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   summary: {
     flexDirection: 'row',
     marginTop: Spacing.md,
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.lg,
     padding: Spacing.lg,
@@ -90,8 +92,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.md,
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.lg,
     padding: Spacing.md,
@@ -107,7 +109,7 @@ const styles = StyleSheet.create({
   name: {
     fontFamily: Fonts.bodySemiBold,
     fontSize: 14,
-    color: Colors.text,
+    color: colors.text,
   },
   pct: {
     fontFamily: Fonts.headingSemiBold,
@@ -116,7 +118,7 @@ const styles = StyleSheet.create({
   bar: {
     height: 6,
     borderRadius: 3,
-    backgroundColor: Colors.surfaceAlt,
+    backgroundColor: colors.surfaceAlt,
     overflow: 'hidden',
   },
   barFill: {

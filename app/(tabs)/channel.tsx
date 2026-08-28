@@ -15,9 +15,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { InitialsTile } from '@/components/list-row';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
+import { Fonts, Radius, Spacing, type ThemeColors } from '@/constants/theme';
 import { CHANNEL_POSTS, type ChannelPost } from '@/lib/data';
 import { useLanguage } from '@/lib/i18n';
+import { useTheme, useThemedStyles } from '@/lib/theme';
 
 export default function ChannelScreen() {
   const router = useRouter();
@@ -25,6 +26,8 @@ export default function ChannelScreen() {
   const [posts, setPosts] = useState<ChannelPost[]>(CHANNEL_POSTS);
   const [draft, setDraft] = useState('');
   const scrollRef = useRef<ScrollView>(null);
+  const { colors, isDark } = useTheme();
+  const styles = useThemedStyles(createStyles);
 
   const send = () => {
     const text = draft.trim();
@@ -46,11 +49,11 @@ export default function ChannelScreen() {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      <StatusBar style="light" />
+      <StatusBar style={isDark ? 'light' : 'dark'} />
       {/* Channel header */}
       <View style={styles.header}>
         <Pressable onPress={() => router.back()} hitSlop={8} style={styles.backBtn}>
-          <IconSymbol name="chevron-left" size={22} color={Colors.mint} />
+          <IconSymbol name="chevron-left" size={22} color={colors.mint} />
         </Pressable>
         <InitialsTile initials="RH" color="#2fbf71" size={36} />
         <View style={styles.headerBody}>
@@ -90,13 +93,13 @@ export default function ChannelScreen() {
           <TextInput
             style={styles.input}
             placeholder={t('channel.messagePlaceholder')}
-            placeholderTextColor={Colors.textMuted}
+            placeholderTextColor={colors.textMuted}
             value={draft}
             onChangeText={setDraft}
             multiline
           />
           <Pressable style={styles.sendBtn} onPress={send} hitSlop={6}>
-            <IconSymbol name="paperplane.fill" size={18} color={Colors.textOnPrimary} />
+            <IconSymbol name="paperplane.fill" size={18} color={colors.textOnPrimary} />
           </Pressable>
         </View>
       </KeyboardAvoidingView>
@@ -104,10 +107,10 @@ export default function ChannelScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: colors.background,
   },
   flex: {
     flex: 1,
@@ -118,7 +121,7 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.sm,
-    borderBottomColor: Colors.borderSoft,
+    borderBottomColor: colors.borderSoft,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   backBtn: {
@@ -131,13 +134,13 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontFamily: Fonts.headingSemiBold,
     fontSize: 16,
-    color: Colors.mint,
+    color: colors.mint,
     textTransform: 'lowercase',
   },
   headerSub: {
     fontFamily: Fonts.body,
     fontSize: 12,
-    color: Colors.textMuted,
+    color: colors.textMuted,
   },
   posts: {
     padding: Spacing.lg,
@@ -161,23 +164,23 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
   },
   bubbleMineBox: {
-    backgroundColor: Colors.mint,
+    backgroundColor: colors.mint,
   },
   bubbleTheirsBox: {
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderWidth: 1,
   },
   bubbleText: {
     fontFamily: Fonts.body,
     fontSize: 14,
     lineHeight: 20,
-    color: Colors.text,
+    color: colors.text,
   },
   bubbleTime: {
     fontFamily: Fonts.bodyMedium,
     fontSize: 10,
-    color: Colors.textMuted,
+    color: colors.textMuted,
     marginTop: 3,
     textAlign: 'right',
   },
@@ -187,19 +190,19 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.sm,
-    borderTopColor: Colors.borderSoft,
+    borderTopColor: colors.borderSoft,
     borderTopWidth: StyleSheet.hairlineWidth,
   },
   input: {
     flex: 1,
     maxHeight: 100,
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.md,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
-    color: Colors.text,
+    color: colors.text,
     fontSize: 14,
     fontFamily: Fonts.body,
   },
@@ -209,6 +212,6 @@ const styles = StyleSheet.create({
     borderRadius: Radius.md,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: Colors.mint,
+    backgroundColor: colors.mint,
   },
 });

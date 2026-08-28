@@ -4,9 +4,10 @@ import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { Screen, SectionLabel } from '@/components/screen';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
+import { Fonts, Radius, Spacing, type ThemeColors } from '@/constants/theme';
 import { useLanguage } from '@/lib/i18n';
 import { academyStore } from '@/lib/store';
+import { useTheme, useThemedStyles } from '@/lib/theme';
 
 const CATEGORIES = ['Tactical', 'Possession', 'Fitness', 'Shooting'] as const;
 const TYPES = ['video', 'session'] as const;
@@ -21,6 +22,7 @@ function Chip({
   active: boolean;
   onPress: () => void;
 }) {
+  const styles = useThemedStyles(createStyles);
   return (
     <Pressable onPress={onPress} style={[styles.chip, active && styles.chipActive]}>
       <Text style={[styles.chipText, active && styles.chipTextActive]}>{label}</Text>
@@ -29,6 +31,8 @@ function Chip({
 }
 
 export default function AcademyCreateScreen() {
+  const styles = useThemedStyles(createStyles);
+  const { colors } = useTheme();
   const router = useRouter();
   const { t } = useLanguage();
   const [title, setTitle] = useState('');
@@ -62,7 +66,7 @@ export default function AcademyCreateScreen() {
       <TextInput
         style={styles.input}
         placeholder={t('academyCreate.titlePlaceholder')}
-        placeholderTextColor={Colors.textMuted}
+        placeholderTextColor={colors.textMuted}
         value={title}
         onChangeText={setTitle}
       />
@@ -92,7 +96,7 @@ export default function AcademyCreateScreen() {
       <TextInput
         style={styles.input}
         placeholder={type === 'video' ? t('academyCreate.durationVideo') : t('academyCreate.durationSession')}
-        placeholderTextColor={Colors.textMuted}
+        placeholderTextColor={colors.textMuted}
         value={duration}
         onChangeText={setDuration}
       />
@@ -108,48 +112,48 @@ export default function AcademyCreateScreen() {
       </Pressable>
 
       <Pressable style={styles.saveBtn} onPress={save}>
-        <IconSymbol name="plus" size={18} color={Colors.textOnPrimary} />
+        <IconSymbol name="plus" size={18} color={colors.textOnPrimary} />
         <Text style={styles.saveBtnText}>{t('academyCreate.addMaterial')}</Text>
       </Pressable>
     </Screen>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   chips: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: Spacing.sm,
   },
   chip: {
-    borderColor: Colors.border,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.pill,
     paddingVertical: 7,
     paddingHorizontal: Spacing.md,
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.surface,
   },
   chipActive: {
-    backgroundColor: Colors.mint,
-    borderColor: Colors.mint,
+    backgroundColor: colors.mint,
+    borderColor: colors.mint,
   },
   chipText: {
     fontFamily: Fonts.bodyMedium,
     fontSize: 12,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     textTransform: 'lowercase',
   },
   chipTextActive: {
-    color: Colors.textOnPrimary,
+    color: colors.textOnPrimary,
   },
   input: {
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.md,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.md,
-    color: Colors.text,
+    color: colors.text,
     fontSize: 14,
     fontFamily: Fonts.body,
   },
@@ -158,8 +162,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: Spacing.md,
     marginTop: Spacing.xl,
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.lg,
     padding: Spacing.md,
@@ -168,20 +172,20 @@ const styles = StyleSheet.create({
     width: 46,
     height: 28,
     borderRadius: 14,
-    backgroundColor: Colors.surfaceAlt,
+    backgroundColor: colors.surfaceAlt,
     padding: 2,
   },
   toggleOn: {
-    backgroundColor: Colors.mint,
+    backgroundColor: colors.mint,
   },
   toggleKnob: {
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: Colors.textMuted,
+    backgroundColor: colors.textMuted,
   },
   toggleKnobOn: {
-    backgroundColor: Colors.textOnPrimary,
+    backgroundColor: colors.textOnPrimary,
     marginLeft: 18,
   },
   toggleBody: {
@@ -191,13 +195,13 @@ const styles = StyleSheet.create({
   toggleTitle: {
     fontFamily: Fonts.bodySemiBold,
     fontSize: 14,
-    color: Colors.text,
+    color: colors.text,
     textTransform: 'lowercase',
   },
   toggleSub: {
     fontFamily: Fonts.body,
     fontSize: 12,
-    color: Colors.textMuted,
+    color: colors.textMuted,
   },
   saveBtn: {
     marginTop: Spacing.xl,
@@ -205,14 +209,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: Spacing.sm,
-    backgroundColor: Colors.mint,
+    backgroundColor: colors.mint,
     borderRadius: Radius.md,
     paddingVertical: Spacing.lg,
   },
   saveBtnText: {
     fontFamily: Fonts.bodySemiBold,
     fontSize: 15,
-    color: Colors.textOnPrimary,
+    color: colors.textOnPrimary,
     textTransform: 'lowercase',
   },
 });

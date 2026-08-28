@@ -5,19 +5,22 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { ThemedText } from '@/components/themed-text';
-import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
+import { Fonts, Radius, Spacing, type ThemeColors } from '@/constants/theme';
 import { useLanguage } from '@/lib/i18n';
 import { ALL_MODULES, modulesForRole } from '@/lib/modules';
 import { useSession } from '@/lib/session';
+import { useTheme, useThemedStyles } from '@/lib/theme';
 
 export default function ModulesScreen() {
   const router = useRouter();
+  const { isDark } = useTheme();
+  const styles = useThemedStyles(createStyles);
   const { user } = useSession();
   const { t } = useLanguage();
   const modules = user ? modulesForRole(user.role) : ALL_MODULES;
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      <StatusBar style="light" />
+      <StatusBar style={isDark ? 'light' : 'dark'} />
       <ScrollView
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}>
@@ -64,10 +67,10 @@ export default function ModulesScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: colors.background,
   },
   content: {
     paddingHorizontal: Spacing.lg,
@@ -91,7 +94,7 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.heading,
     fontSize: 22,
     letterSpacing: -0.5,
-    color: Colors.mint,
+    color: colors.mint,
     textTransform: 'lowercase',
   },
   hero: {
@@ -104,14 +107,14 @@ const styles = StyleSheet.create({
     fontSize: 30,
     lineHeight: 34,
     letterSpacing: -1,
-    color: Colors.mint,
+    color: colors.mint,
     textTransform: 'lowercase',
   },
   heroSub: {
     fontFamily: Fonts.body,
     fontSize: 14,
     lineHeight: 20,
-    color: Colors.textMuted,
+    color: colors.textMuted,
     maxWidth: 320,
   },
   grid: {
@@ -124,8 +127,8 @@ const styles = StyleSheet.create({
     width: '31%',
     alignItems: 'center',
     gap: Spacing.sm,
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.lg,
     paddingVertical: Spacing.lg,
@@ -140,7 +143,7 @@ const styles = StyleSheet.create({
   cellLabel: {
     fontFamily: Fonts.bodyMedium,
     fontSize: 12,
-    color: Colors.text,
+    color: colors.text,
     textTransform: 'lowercase',
   },
 });

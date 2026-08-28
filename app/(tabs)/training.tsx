@@ -5,11 +5,12 @@ import { DateTile, InitialsTile } from '@/components/list-row';
 import { Screen, SectionLabel } from '@/components/screen';
 import { StatusChip, type StatusTone } from '@/components/status-chip';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
+import { Fonts, Radius, Spacing, type ThemeColors } from '@/constants/theme';
 import { ALL_TRAININGS, TRAINING_ATTENDANCE, type AttendanceStatus, type AttRow } from '@/lib/data';
 import { useLanguage } from '@/lib/i18n';
 import { useSession } from '@/lib/session';
 import { usePersistedState } from '@/lib/storage';
+import { useTheme, useThemedStyles } from '@/lib/theme';
 
 const STATUS_TONE: Record<AttendanceStatus, StatusTone> = {
   present: 'emerald',
@@ -24,6 +25,8 @@ const NEXT: Record<AttendanceStatus, AttendanceStatus> = {
 };
 
 export default function TrainingScreen() {
+  const styles = useThemedStyles(createStyles);
+  const { colors } = useTheme();
   const router = useRouter();
   const { t } = useLanguage();
   const { user } = useSession();
@@ -61,14 +64,14 @@ export default function TrainingScreen() {
     <Screen back>
       {/* Training info */}
       <View style={styles.infoCard}>
-        <DateTile day={training.day} month={training.month} color={Colors.mint} />
+        <DateTile day={training.day} month={training.month} color={colors.mint} />
         <View style={styles.infoBody}>
           <Text style={styles.type}>{t(`trainings.${training.type.toLowerCase()}`)}</Text>
           <Text style={styles.meta}>
             {training.field} · {training.time}
           </Text>
           <View style={styles.presentRow}>
-            <IconSymbol name="person.2.fill" size={14} color={Colors.mint} />
+            <IconSymbol name="person.2.fill" size={14} color={colors.mint} />
             <Text style={styles.presentText}>
               {t('sections.presentCount', { present, total: rows.length })}
             </Text>
@@ -107,7 +110,7 @@ export default function TrainingScreen() {
                     }),
                   );
                 }}>
-                <IconSymbol name="checkmark.circle.fill" size={17} color={Colors.textOnPrimary} />
+                <IconSymbol name="checkmark.circle.fill" size={17} color={colors.textOnPrimary} />
                 <Text style={styles.myBtnText}>{t('training.confirmPresence')}</Text>
               </Pressable>
             ) : null}
@@ -119,8 +122,8 @@ export default function TrainingScreen() {
                   setMyReason(t('training.reportedByPlayer'));
                   alert(t('training.alertAbsence'));
                 }}>
-                <IconSymbol name="warning" size={16} color={Colors.warning} />
-                <Text style={[styles.myBtnText, { color: Colors.warning }]}>
+                <IconSymbol name="warning" size={16} color={colors.warning} />
+                <Text style={[styles.myBtnText, { color: colors.warning }]}>
                   {t('training.reportAbsence')}
                 </Text>
               </Pressable>
@@ -133,8 +136,8 @@ export default function TrainingScreen() {
                   setMyReason(undefined);
                   alert(t('training.alertCancelled'));
                 }}>
-                <IconSymbol name="arrow-left" size={16} color={Colors.mint} />
-                <Text style={[styles.myBtnText, { color: Colors.mint }]}>
+                <IconSymbol name="arrow-left" size={16} color={colors.mint} />
+                <Text style={[styles.myBtnText, { color: colors.mint }]}>
                   {t('training.cancelAbsence')}
                 </Text>
               </Pressable>
@@ -189,7 +192,7 @@ export default function TrainingScreen() {
               alert(t('training.alertFinalized', { present, total: rows.length }));
               router.back();
             }}>
-            <IconSymbol name="checkmark.circle.fill" size={18} color={Colors.textOnPrimary} />
+            <IconSymbol name="checkmark.circle.fill" size={18} color={colors.textOnPrimary} />
             <Text style={styles.finalizeText}>{t('training.finalize')}</Text>
           </Pressable>
         </>
@@ -198,14 +201,14 @@ export default function TrainingScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   infoCard: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.md,
     marginTop: Spacing.md,
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.lg,
     padding: Spacing.lg,
@@ -217,13 +220,13 @@ const styles = StyleSheet.create({
   type: {
     fontFamily: Fonts.headingSemiBold,
     fontSize: 18,
-    color: Colors.mint,
+    color: colors.mint,
     textTransform: 'lowercase',
   },
   meta: {
     fontFamily: Fonts.body,
     fontSize: 13,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
   },
   presentRow: {
     flexDirection: 'row',
@@ -234,14 +237,14 @@ const styles = StyleSheet.create({
   presentText: {
     fontFamily: Fonts.bodyMedium,
     fontSize: 12,
-    color: Colors.mint,
+    color: colors.mint,
   },
   myCard: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.md,
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.lg,
     padding: Spacing.md,
@@ -253,17 +256,17 @@ const styles = StyleSheet.create({
   myName: {
     fontFamily: Fonts.bodySemiBold,
     fontSize: 14,
-    color: Colors.text,
+    color: colors.text,
   },
   myMeta: {
     fontFamily: Fonts.body,
     fontSize: 12,
-    color: Colors.textMuted,
+    color: colors.textMuted,
   },
   myReason: {
     fontFamily: Fonts.body,
     fontSize: 12,
-    color: Colors.textMuted,
+    color: colors.textMuted,
   },
   myActions: {
     flexDirection: 'row',
@@ -275,31 +278,31 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: Colors.mint,
+    backgroundColor: colors.mint,
     borderRadius: Radius.md,
     paddingVertical: Spacing.sm + 2,
     paddingHorizontal: Spacing.md,
   },
   myBtnAlt: {
-    backgroundColor: `${Colors.warning}1a`,
-    borderColor: `${Colors.warning}55`,
+    backgroundColor: `${colors.warning}1a`,
+    borderColor: `${colors.warning}55`,
     borderWidth: 1,
   },
   myBtnGhost: {
-    backgroundColor: Colors.surfaceAlt,
-    borderColor: Colors.border,
+    backgroundColor: colors.surfaceAlt,
+    borderColor: colors.border,
     borderWidth: 1,
   },
   myBtnText: {
     fontFamily: Fonts.bodySemiBold,
     fontSize: 12,
-    color: Colors.textOnPrimary,
+    color: colors.textOnPrimary,
     textTransform: 'lowercase',
   },
   readOnlyNote: {
     fontFamily: Fonts.body,
     fontSize: 11,
-    color: Colors.textMuted,
+    color: colors.textMuted,
     textAlign: 'center',
     marginTop: Spacing.lg,
   },
@@ -310,8 +313,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.md,
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.lg,
     padding: Spacing.md,
@@ -323,12 +326,12 @@ const styles = StyleSheet.create({
   name: {
     fontFamily: Fonts.bodySemiBold,
     fontSize: 14,
-    color: Colors.text,
+    color: colors.text,
   },
   reason: {
     fontFamily: Fonts.body,
     fontSize: 12,
-    color: Colors.textMuted,
+    color: colors.textMuted,
   },
   finalizeBtn: {
     marginTop: Spacing.xl,
@@ -336,14 +339,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: Spacing.sm,
-    backgroundColor: Colors.mint,
+    backgroundColor: colors.mint,
     borderRadius: Radius.md,
     paddingVertical: Spacing.lg,
   },
   finalizeText: {
     fontFamily: Fonts.bodySemiBold,
     fontSize: 15,
-    color: Colors.textOnPrimary,
+    color: colors.textOnPrimary,
     textTransform: 'lowercase',
   },
 });

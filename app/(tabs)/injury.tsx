@@ -5,10 +5,11 @@ import { InitialsTile } from '@/components/list-row';
 import { Screen, SectionLabel } from '@/components/screen';
 import { StatusChip, type StatusTone } from '@/components/status-chip';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
+import { Fonts, Radius, Spacing, type ThemeColors } from '@/constants/theme';
 import { INJURY_DETAILS } from '@/lib/data';
 import { useLanguage } from '@/lib/i18n';
 import { injuriesStore, useCollection } from '@/lib/store';
+import { useTheme, useThemedStyles } from '@/lib/theme';
 
 const STATUS_TONE: Record<string, StatusTone> = {
   injured: 'danger',
@@ -17,6 +18,8 @@ const STATUS_TONE: Record<string, StatusTone> = {
 };
 
 export default function InjuryScreen() {
+  const styles = useThemedStyles(createStyles);
+  const { colors } = useTheme();
   const router = useRouter();
   const { t } = useLanguage();
   const { id } = useLocalSearchParams<{ id?: string }>();
@@ -83,7 +86,7 @@ export default function InjuryScreen() {
 
       {!recovered ? (
         <Pressable style={styles.recoverBtn} onPress={markRecovered}>
-          <IconSymbol name="checkmark.circle.fill" size={18} color={Colors.textOnPrimary} />
+          <IconSymbol name="checkmark.circle.fill" size={18} color={colors.textOnPrimary} />
           <Text style={styles.recoverBtnText}>{t('injury.markRecovered')}</Text>
         </Pressable>
       ) : null}
@@ -91,14 +94,14 @@ export default function InjuryScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   card: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.md,
     marginTop: Spacing.md,
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.lg,
     padding: Spacing.lg,
@@ -110,19 +113,19 @@ const styles = StyleSheet.create({
   name: {
     fontFamily: Fonts.headingSemiBold,
     fontSize: 18,
-    color: Colors.mint,
+    color: colors.mint,
   },
   type: {
     fontFamily: Fonts.body,
     fontSize: 13,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
   },
   tagRow: {
     marginTop: 2,
   },
   rowsCard: {
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.lg,
     overflow: 'hidden',
@@ -134,7 +137,7 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md,
-    borderBottomColor: Colors.borderSoft,
+    borderBottomColor: colors.borderSoft,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   rowLabel: {
@@ -142,12 +145,12 @@ const styles = StyleSheet.create({
     fontSize: 11,
     letterSpacing: 1,
     textTransform: 'uppercase',
-    color: Colors.textMuted,
+    color: colors.textMuted,
   },
   rowValue: {
     fontFamily: Fonts.bodySemiBold,
     fontSize: 13,
-    color: Colors.text,
+    color: colors.text,
     textTransform: 'capitalize',
     flexShrink: 1,
     textAlign: 'right',
@@ -155,12 +158,12 @@ const styles = StyleSheet.create({
   historyText: {
     fontFamily: Fonts.body,
     textTransform: 'none',
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     flex: 1,
   },
   textCard: {
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.lg,
     padding: Spacing.lg,
@@ -169,7 +172,7 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.body,
     fontSize: 13,
     lineHeight: 19,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
   },
   recoverBtn: {
     marginTop: Spacing.xl,
@@ -177,14 +180,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: Spacing.sm,
-    backgroundColor: Colors.mint,
+    backgroundColor: colors.mint,
     borderRadius: Radius.md,
     paddingVertical: Spacing.lg,
   },
   recoverBtnText: {
     fontFamily: Fonts.bodySemiBold,
     fontSize: 15,
-    color: Colors.textOnPrimary,
+    color: colors.textOnPrimary,
     textTransform: 'lowercase',
   },
 });

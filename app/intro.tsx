@@ -4,8 +4,9 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Animated, Easing, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Colors, Fonts, Spacing } from '@/constants/theme';
+import { Fonts, Spacing, type ThemeColors } from '@/constants/theme';
 import { useLanguage } from '@/lib/i18n';
+import { useThemedStyles } from '@/lib/theme';
 
 const PLAY_OFFSET_S = 3;
 const DISMISS_AFTER_PLAY_MS = 3500;
@@ -15,6 +16,7 @@ export default function IntroScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { t } = useLanguage();
+  const styles = useThemedStyles(createStyles);
   const [videoReady, setVideoReady] = useState(false);
 
   const fade1 = useRef(new Animated.Value(0)).current;
@@ -130,10 +132,10 @@ export default function IntroScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: colors.background,
   },
   dim: {
     ...StyleSheet.absoluteFillObject,
@@ -167,7 +169,7 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.bodyMedium,
   },
   title: {
-    color: Colors.white,
+    color: colors.white,
     fontSize: 46,
     fontFamily: Fonts.heading,
     letterSpacing: -1,

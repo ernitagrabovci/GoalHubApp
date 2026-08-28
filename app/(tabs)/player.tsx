@@ -7,7 +7,7 @@ import { InitialsTile } from '@/components/list-row';
 import { Screen, SectionLabel, StatCell } from '@/components/screen';
 import { StatusChip, type StatusTone } from '@/components/status-chip';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
+import { Fonts, Radius, Spacing, type ThemeColors } from '@/constants/theme';
 import {
   ALL_INJURIES,
   ALL_PLAYERS,
@@ -20,6 +20,7 @@ import {
 } from '@/lib/data';
 import { useLanguage } from '@/lib/i18n';
 import { usePersistedState } from '@/lib/storage';
+import { useTheme, useThemedStyles } from '@/lib/theme';
 
 const HEALTH_TONE: Record<Health, StatusTone> = {
   active: 'emerald',
@@ -46,6 +47,8 @@ const CRITERION_COLOR: Record<(typeof CRITERIA)[number]['key'], string> = {
 
 export default function PlayerScreen() {
   const router = useRouter();
+  const { colors } = useTheme();
+  const styles = useThemedStyles(createStyles);
   const { t } = useLanguage();
   const { id } = useLocalSearchParams<{ id?: string }>();
   const [players] = usePersistedState<Player[]>('players:list', ALL_PLAYERS);
@@ -163,12 +166,12 @@ export default function PlayerScreen() {
             const prev = form[i - 1]?.value;
             const color =
               prev == null
-                ? Colors.mint
+                ? colors.mint
                 : f.value > prev
-                  ? Colors.emerald
+                  ? colors.emerald
                   : f.value < prev
-                    ? Colors.danger
-                    : Colors.textMuted;
+                    ? colors.danger
+                    : colors.textMuted;
             return (
               <StatBar
                 key={f.period}
@@ -212,18 +215,18 @@ export default function PlayerScreen() {
       )}
 
       <Pressable style={styles.rateBtn} onPress={() => router.push(`/rate?id=${player.id}`)}>
-        <IconSymbol name="star.fill" size={16} color={Colors.textOnPrimary} />
+        <IconSymbol name="star.fill" size={16} color={colors.textOnPrimary} />
         <Text style={styles.rateBtnText}>{t('player.ratePlayer')}</Text>
       </Pressable>
     </Screen>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   card: {
     marginTop: Spacing.md,
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.lg,
     padding: Spacing.lg,
@@ -240,12 +243,12 @@ const styles = StyleSheet.create({
   name: {
     fontFamily: Fonts.headingSemiBold,
     fontSize: 20,
-    color: Colors.mint,
+    color: colors.mint,
   },
   meta: {
     fontFamily: Fonts.body,
     fontSize: 12,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
   },
   tags: {
     flexDirection: 'row',
@@ -257,8 +260,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    backgroundColor: Colors.surfaceAlt,
-    borderColor: Colors.border,
+    backgroundColor: colors.surfaceAlt,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.pill,
     paddingVertical: 3,
@@ -271,16 +274,16 @@ const styles = StyleSheet.create({
   },
   statsRow: {
     flexDirection: 'row',
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.lg,
     padding: Spacing.lg,
     gap: Spacing.sm,
   },
   rowsCard: {
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.lg,
     overflow: 'hidden',
@@ -291,7 +294,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md,
-    borderBottomColor: Colors.borderSoft,
+    borderBottomColor: colors.borderSoft,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   rowLabel: {
@@ -299,22 +302,22 @@ const styles = StyleSheet.create({
     fontSize: 11,
     letterSpacing: 1,
     textTransform: 'uppercase',
-    color: Colors.textMuted,
+    color: colors.textMuted,
   },
   rowValue: {
     fontFamily: Fonts.bodySemiBold,
     fontSize: 13,
-    color: Colors.text,
+    color: colors.text,
   },
   rowSub: {
     fontFamily: Fonts.body,
     fontSize: 12,
-    color: Colors.textMuted,
+    color: colors.textMuted,
     marginTop: 2,
   },
   ratingCard: {
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.lg,
     padding: Spacing.lg,
@@ -328,7 +331,7 @@ const styles = StyleSheet.create({
   ratingAvg: {
     fontFamily: Fonts.heading,
     fontSize: 44,
-    color: Colors.mint,
+    color: colors.mint,
     letterSpacing: -1,
   },
   ratingHeadBody: {
@@ -341,17 +344,17 @@ const styles = StyleSheet.create({
   ratingComment: {
     fontFamily: Fonts.body,
     fontSize: 12,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     fontStyle: 'italic',
   },
   ratingBy: {
     fontFamily: Fonts.bodyMedium,
     fontSize: 11,
-    color: Colors.textMuted,
+    color: colors.textMuted,
   },
   formCard: {
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.lg,
     padding: Spacing.lg,
@@ -363,14 +366,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: Spacing.sm,
-    backgroundColor: Colors.mint,
+    backgroundColor: colors.mint,
     borderRadius: Radius.md,
     paddingVertical: Spacing.lg,
   },
   rateBtnText: {
     fontFamily: Fonts.bodySemiBold,
     fontSize: 15,
-    color: Colors.textOnPrimary,
+    color: colors.textOnPrimary,
     textTransform: 'lowercase',
   },
 });

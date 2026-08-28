@@ -4,10 +4,11 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { InitialsTile } from '@/components/list-row';
 import { Screen, DetailHead, SectionLabel, StatCell } from '@/components/screen';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
+import { Fonts, Radius, Spacing, type ThemeColors } from '@/constants/theme';
 import { ALL_PLAYERS, ALL_TEAMS } from '@/lib/data';
 import { useLanguage } from '@/lib/i18n';
 import { usePersistedState } from '@/lib/storage';
+import { useTheme, useThemedStyles } from '@/lib/theme';
 
 const REASONS = ['Promotion', 'Demotion', 'Reorganization', 'Other'];
 
@@ -16,6 +17,8 @@ function teamOf(roster: Record<string, string>, initials: string) {
 }
 
 export default function TransfersScreen() {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(createStyles);
   const { t } = useLanguage();
   const initialRoster: Record<string, string> = {};
   ALL_TEAMS.forEach((t) => {
@@ -64,15 +67,15 @@ export default function TransfersScreen() {
     <Screen back>
       <DetailHead
         icon="arrow.right"
-        accent={Colors.mint}
+        accent={colors.mint}
         title={t('transfers.title')}
         subtitle={t('transfers.subtitle')}
       />
 
       <View style={styles.statsRow}>
-        <StatCell value={String(ALL_PLAYERS.length)} label={t('transfers.players')} color={Colors.mint} />
+        <StatCell value={String(ALL_PLAYERS.length)} label={t('transfers.players')} color={colors.mint} />
         <StatCell value={String(ALL_TEAMS.length)} label={t('transfers.teams')} />
-        <StatCell value={String(log.length)} label={t('transfers.count')} color={Colors.warning} />
+        <StatCell value={String(log.length)} label={t('transfers.count')} color={colors.warning} />
       </View>
 
       {/* Quick transfer */}
@@ -115,7 +118,7 @@ export default function TransfersScreen() {
                 key={t.id}
                 onPress={() => setTeamId(t.id)}
                 style={[styles.teamChip, selected && { backgroundColor: t.color, borderColor: t.color }]}>
-                <Text style={[styles.teamChipText, selected && { color: Colors.textOnPrimary }]}>
+                <Text style={[styles.teamChipText, selected && { color: colors.textOnPrimary }]}>
                   {t.name}
                 </Text>
               </Pressable>
@@ -139,7 +142,7 @@ export default function TransfersScreen() {
         </View>
 
         <Pressable style={styles.transferBtn} onPress={doTransfer}>
-          <IconSymbol name="arrow.right" size={16} color={Colors.textOnPrimary} />
+          <IconSymbol name="arrow.right" size={16} color={colors.textOnPrimary} />
           <Text style={styles.transferBtnText}>{t('transfers.execute')}</Text>
         </Pressable>
       </View>
@@ -172,7 +175,7 @@ export default function TransfersScreen() {
         {unassigned.length > 0 ? (
           <View style={styles.teamCard}>
             <View style={styles.teamHead}>
-              <View style={[styles.teamDot, { backgroundColor: Colors.textMuted }]} />
+              <View style={[styles.teamDot, { backgroundColor: colors.textMuted }]} />
               <Text style={styles.teamName}>{t('transfers.unassigned')}</Text>
               <Text style={styles.teamCount}>{unassigned.length}</Text>
             </View>
@@ -203,14 +206,14 @@ export default function TransfersScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   statsRow: {
     flexDirection: 'row',
     gap: Spacing.md,
   },
   formCard: {
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.lg,
     padding: Spacing.md,
@@ -221,7 +224,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     letterSpacing: 1,
     textTransform: 'uppercase',
-    color: Colors.textMuted,
+    color: colors.textMuted,
     marginTop: 2,
   },
   pickerRow: {
@@ -232,29 +235,29 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: Colors.surfaceAlt,
-    borderColor: Colors.border,
+    backgroundColor: colors.surfaceAlt,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.pill,
     paddingVertical: 6,
     paddingHorizontal: Spacing.sm + 2,
   },
   playerChipActive: {
-    backgroundColor: Colors.mint,
-    borderColor: Colors.mint,
+    backgroundColor: colors.mint,
+    borderColor: colors.mint,
   },
   playerChipText: {
     fontFamily: Fonts.bodyMedium,
     fontSize: 12,
-    color: Colors.text,
+    color: colors.text,
   },
   playerChipTextActive: {
-    color: Colors.textOnPrimary,
+    color: colors.textOnPrimary,
   },
   hint: {
     fontFamily: Fonts.body,
     fontSize: 12,
-    color: Colors.textMuted,
+    color: colors.textMuted,
   },
   wrap: {
     flexDirection: 'row',
@@ -262,37 +265,37 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   teamChip: {
-    borderColor: Colors.border,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.pill,
     paddingVertical: 6,
     paddingHorizontal: Spacing.md,
-    backgroundColor: Colors.surfaceAlt,
+    backgroundColor: colors.surfaceAlt,
   },
   teamChipText: {
     fontFamily: Fonts.bodyMedium,
     fontSize: 12,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
   },
   reasonChip: {
-    borderColor: Colors.border,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.pill,
     paddingVertical: 6,
     paddingHorizontal: Spacing.md,
-    backgroundColor: Colors.surfaceAlt,
+    backgroundColor: colors.surfaceAlt,
   },
   reasonChipActive: {
-    backgroundColor: Colors.mint,
-    borderColor: Colors.mint,
+    backgroundColor: colors.mint,
+    borderColor: colors.mint,
   },
   reasonChipText: {
     fontFamily: Fonts.bodyMedium,
     fontSize: 12,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
   },
   reasonChipTextActive: {
-    color: Colors.textOnPrimary,
+    color: colors.textOnPrimary,
   },
   transferBtn: {
     marginTop: Spacing.xs,
@@ -300,22 +303,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: Spacing.sm,
-    backgroundColor: Colors.mint,
+    backgroundColor: colors.mint,
     borderRadius: Radius.md,
     paddingVertical: Spacing.sm + 2,
   },
   transferBtnText: {
     fontFamily: Fonts.bodySemiBold,
     fontSize: 13,
-    color: Colors.textOnPrimary,
+    color: colors.textOnPrimary,
     textTransform: 'lowercase',
   },
   list: {
     gap: Spacing.md,
   },
   teamCard: {
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.lg,
     overflow: 'hidden',
@@ -326,7 +329,7 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm + 2,
-    borderBottomColor: Colors.borderSoft,
+    borderBottomColor: colors.borderSoft,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   teamDot: {
@@ -338,18 +341,18 @@ const styles = StyleSheet.create({
     flex: 1,
     fontFamily: Fonts.bodySemiBold,
     fontSize: 13,
-    color: Colors.text,
+    color: colors.text,
     textTransform: 'capitalize',
   },
   teamCount: {
     fontFamily: Fonts.headingSemiBold,
     fontSize: 14,
-    color: Colors.mint,
+    color: colors.mint,
   },
   emptySquad: {
     fontFamily: Fonts.body,
     fontSize: 12,
-    color: Colors.textMuted,
+    color: colors.textMuted,
     padding: Spacing.md,
   },
   memberRow: {
@@ -358,23 +361,23 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
-    borderBottomColor: Colors.borderSoft,
+    borderBottomColor: colors.borderSoft,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   memberName: {
     flex: 1,
     fontFamily: Fonts.bodySemiBold,
     fontSize: 13,
-    color: Colors.text,
+    color: colors.text,
   },
   memberMeta: {
     fontFamily: Fonts.body,
     fontSize: 12,
-    color: Colors.textMuted,
+    color: colors.textMuted,
   },
   logCard: {
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.lg,
     padding: Spacing.md,
@@ -383,6 +386,6 @@ const styles = StyleSheet.create({
   logEntry: {
     fontFamily: Fonts.body,
     fontSize: 12,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
   },
 });

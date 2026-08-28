@@ -4,9 +4,10 @@ import { StyleSheet, Text, View } from 'react-native';
 import { DateTile } from '@/components/list-row';
 import { Screen, DetailHead, SectionLabel, StatCell } from '@/components/screen';
 import { StatusChip, type StatusTone } from '@/components/status-chip';
-import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
+import { Fonts, Radius, Spacing, type ThemeColors } from '@/constants/theme';
 import { ALL_PLAYERS, ALL_TRAININGS, TRAINING_ATTENDANCE, type AttendanceStatus } from '@/lib/data';
 import { useLanguage } from '@/lib/i18n';
+import { useTheme, useThemedStyles } from '@/lib/theme';
 
 const STATUS_TONE: Record<AttendanceStatus, StatusTone> = {
   present: 'emerald',
@@ -15,6 +16,8 @@ const STATUS_TONE: Record<AttendanceStatus, StatusTone> = {
 };
 
 export default function ChildAttendanceScreen() {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(createStyles);
   const { t } = useLanguage();
   const { child = 'Agon Gashi' } = useLocalSearchParams<{ child?: string }>();
   const childPlayer = ALL_PLAYERS.find((p) => p.name === child);
@@ -36,7 +39,7 @@ export default function ChildAttendanceScreen() {
       />
 
       <View style={styles.summary}>
-        <StatCell value={`${present}/${rows.length}`} label={t('childAttendance.present')} color={Colors.emerald} />
+        <StatCell value={`${present}/${rows.length}`} label={t('childAttendance.present')} color={colors.emerald} />
         <StatCell
           value={`${Math.round((present / Math.max(rows.length, 1)) * 100)}%`}
           label={t('childAttendance.rate')}
@@ -47,7 +50,7 @@ export default function ChildAttendanceScreen() {
       <View style={styles.list}>
         {rows.map(({ training, status, reason }) => (
           <View key={training.id} style={styles.row}>
-            <DateTile day={training.day} month={training.month} color={Colors.mint} />
+            <DateTile day={training.day} month={training.month} color={colors.mint} />
             <View style={styles.body}>
               <Text style={styles.title}>{t(`trainings.${training.type.toLowerCase()}`)}</Text>
               <Text style={styles.meta}>
@@ -63,11 +66,11 @@ export default function ChildAttendanceScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   summary: {
     flexDirection: 'row',
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.lg,
     padding: Spacing.lg,
@@ -80,8 +83,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.md,
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.lg,
     padding: Spacing.md,
@@ -93,11 +96,11 @@ const styles = StyleSheet.create({
   title: {
     fontFamily: Fonts.bodySemiBold,
     fontSize: 14,
-    color: Colors.text,
+    color: colors.text,
   },
   meta: {
     fontFamily: Fonts.body,
     fontSize: 12,
-    color: Colors.textMuted,
+    color: colors.textMuted,
   },
 });

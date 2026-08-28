@@ -14,10 +14,11 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
+import { Fonts, Radius, Spacing, type ThemeColors } from '@/constants/theme';
 import { DEFAULT_SCENES, FORMATION_SLOTS, TACTICAL_ROSTER } from '@/lib/data';
 import { useLanguage } from '@/lib/i18n';
 import { useSession } from '@/lib/session';
+import { useTheme, useThemedStyles } from '@/lib/theme';
 
 const FORMATIONS = Object.keys(FORMATION_SLOTS);
 
@@ -106,6 +107,8 @@ function PlayerMarker({
   onDragStart: () => void;
   onDragEnd: () => void;
 }) {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(createStyles);
   const wRef = useRef(width);
   const hRef = useRef(height);
   const baseRef = useRef({ x: p.x, y: p.y });
@@ -164,7 +167,7 @@ function PlayerMarker({
           styles.marker,
           {
             backgroundColor: p.color,
-            borderColor: selected ? Colors.mint : 'rgba(9,20,19,0.45)',
+            borderColor: selected ? colors.mint : 'rgba(9,20,19,0.45)',
           },
         ]}>
         <Text style={styles.markerNum}>{p.number}</Text>
@@ -176,6 +179,8 @@ function PlayerMarker({
 
 export default function TacticalEditorScreen() {
   const router = useRouter();
+  const { colors, isDark } = useTheme();
+  const styles = useThemedStyles(createStyles);
   const { t } = useLanguage();
   const { user } = useSession();
   const viewer = user?.role === 'player' || user?.role === 'parent';
@@ -229,7 +234,7 @@ export default function TacticalEditorScreen() {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      <StatusBar style="light" />
+      <StatusBar style={isDark ? 'light' : 'dark'} />
       <ScrollView
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
@@ -238,7 +243,7 @@ export default function TacticalEditorScreen() {
         {/* Back header */}
         <View style={styles.header}>
           <Pressable onPress={() => router.back()} hitSlop={8} style={styles.backBtn}>
-            <IconSymbol name="chevron-left" size={22} color={Colors.mint} />
+            <IconSymbol name="chevron-left" size={22} color={colors.mint} />
           </Pressable>
           <View style={styles.headerBody}>
             <Text style={styles.headerTitle}>{t('tactical.title')}</Text>
@@ -248,13 +253,13 @@ export default function TacticalEditorScreen() {
           </View>
           {viewer ? (
             <View style={styles.viewTag}>
-              <IconSymbol name="visibility" size={14} color={Colors.mintDim} />
+              <IconSymbol name="visibility" size={14} color={colors.mintDim} />
             </View>
           ) : (
             <Pressable
               style={[styles.shareBtn, shared && styles.shareBtnOn]}
               onPress={() => setShared((v) => !v)}>
-              <IconSymbol name="square.and.arrow.up" size={15} color={shared ? Colors.textOnPrimary : Colors.mint} />
+              <IconSymbol name="square.and.arrow.up" size={15} color={shared ? colors.textOnPrimary : colors.mint} />
               <Text style={[styles.shareText, shared && styles.shareTextOn]}>
                 {t(shared ? 'tacticalEditor.shared' : 'tacticalEditor.share')}
               </Text>
@@ -274,7 +279,7 @@ export default function TacticalEditorScreen() {
           <TextInput
             style={styles.nameInput}
             placeholder={t('tacticalEditor.namePlaceholder')}
-            placeholderTextColor={Colors.textMuted}
+            placeholderTextColor={colors.textMuted}
             value={name}
             onChangeText={setName}
           />
@@ -372,7 +377,7 @@ export default function TacticalEditorScreen() {
         ) : null}
 
         <View style={styles.insightCard}>
-          <IconSymbol name="query-stats" size={18} color={Colors.mintDim} />
+          <IconSymbol name="query-stats" size={18} color={colors.mintDim} />
           <Text style={styles.insightText}>
             {viewer ? t('tacticalEditor.viewerInsight', { formation }) : insight}
           </Text>
@@ -381,14 +386,14 @@ export default function TacticalEditorScreen() {
               <Pressable
                 style={styles.insightBtn}
                 onPress={() => setInsight(analyzeBoard(players).suggest)}>
-                <IconSymbol name="bolt.fill" size={14} color={Colors.mint} />
+                <IconSymbol name="bolt.fill" size={14} color={colors.mint} />
                 <Text style={styles.insightBtnText}>{t('tacticalEditor.aiSuggest')}</Text>
               </Pressable>
               <Pressable
                 style={styles.insightBtn}
                 onPress={() => setInsight(analyzeBoard(players).scan)}>
-                <IconSymbol name="warning" size={14} color={Colors.warning} />
-                <Text style={[styles.insightBtnText, { color: Colors.warning }]}>
+                <IconSymbol name="warning" size={14} color={colors.warning} />
+                <Text style={[styles.insightBtnText, { color: colors.warning }]}>
                   {t('tacticalEditor.vulnScan')}
                 </Text>
               </Pressable>
@@ -398,7 +403,7 @@ export default function TacticalEditorScreen() {
 
         {viewer ? null : (
           <Pressable style={styles.saveBtn} onPress={handleSave}>
-            <IconSymbol name="checkmark.circle.fill" size={18} color={Colors.textOnPrimary} />
+            <IconSymbol name="checkmark.circle.fill" size={18} color={colors.textOnPrimary} />
             <Text style={styles.saveBtnText}>{t('tacticalEditor.saveScene')}</Text>
           </Pressable>
         )}
@@ -407,10 +412,10 @@ export default function TacticalEditorScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: colors.background,
   },
   content: {
     paddingHorizontal: Spacing.lg,
@@ -432,38 +437,38 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontFamily: Fonts.headingSemiBold,
     fontSize: 16,
-    color: Colors.mint,
+    color: colors.mint,
     textTransform: 'lowercase',
   },
   headerSub: {
     fontFamily: Fonts.body,
     fontSize: 12,
-    color: Colors.textMuted,
+    color: colors.textMuted,
     textTransform: 'lowercase',
   },
   shareBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.pill,
     paddingVertical: 6,
     paddingHorizontal: Spacing.md,
   },
   shareBtnOn: {
-    backgroundColor: Colors.mint,
-    borderColor: Colors.mint,
+    backgroundColor: colors.mint,
+    borderColor: colors.mint,
   },
   shareText: {
     fontFamily: Fonts.bodyMedium,
     fontSize: 11,
-    color: Colors.mint,
+    color: colors.mint,
     textTransform: 'lowercase',
   },
   shareTextOn: {
-    color: Colors.textOnPrimary,
+    color: colors.textOnPrimary,
   },
   viewTag: {
     width: 34,
@@ -471,14 +476,14 @@ const styles = StyleSheet.create({
     borderRadius: 17,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: Colors.surfaceAlt,
-    borderColor: Colors.border,
+    backgroundColor: colors.surfaceAlt,
+    borderColor: colors.border,
     borderWidth: 1,
   },
   nameStatic: {
     marginTop: Spacing.lg,
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.md,
     paddingHorizontal: Spacing.md,
@@ -488,29 +493,29 @@ const styles = StyleSheet.create({
   nameStaticText: {
     fontFamily: Fonts.bodySemiBold,
     fontSize: 15,
-    color: Colors.text,
+    color: colors.text,
   },
   nameStaticSub: {
     fontFamily: Fonts.body,
     fontSize: 12,
-    color: Colors.textMuted,
+    color: colors.textMuted,
   },
   nameInput: {
     marginTop: Spacing.lg,
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.md,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.md,
-    color: Colors.text,
+    color: colors.text,
     fontSize: 14,
     fontFamily: Fonts.body,
   },
   sectionLabel: {
     fontFamily: Fonts.headingSemiBold,
     fontSize: 16,
-    color: Colors.mint,
+    color: colors.mint,
     textTransform: 'lowercase',
     marginTop: Spacing.xl,
     marginBottom: Spacing.sm,
@@ -521,34 +526,34 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   chip: {
-    borderColor: Colors.border,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.pill,
     paddingVertical: 7,
     paddingHorizontal: Spacing.md,
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.surface,
   },
   chipActive: {
-    backgroundColor: Colors.mint,
-    borderColor: Colors.mint,
+    backgroundColor: colors.mint,
+    borderColor: colors.mint,
   },
   chipText: {
     fontFamily: Fonts.bodyMedium,
     fontSize: 13,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
   },
   chipTextActive: {
-    color: Colors.textOnPrimary,
+    color: colors.textOnPrimary,
   },
   pitchOuter: {
     marginTop: Spacing.md,
     borderRadius: Radius.lg,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
   },
   pitchActive: {
-    borderColor: Colors.mint,
+    borderColor: colors.mint,
   },
   pitch: {
     width: '100%',
@@ -621,7 +626,7 @@ const styles = StyleSheet.create({
   markerLabel: {
     fontFamily: Fonts.bodyMedium,
     fontSize: 9,
-    color: Colors.mintDim,
+    color: colors.mintDim,
     marginTop: 2,
   },
   selectedBar: {
@@ -629,8 +634,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: Spacing.md,
     marginTop: Spacing.md,
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.lg,
     padding: Spacing.md,
@@ -654,17 +659,17 @@ const styles = StyleSheet.create({
   selectedName: {
     fontFamily: Fonts.bodySemiBold,
     fontSize: 14,
-    color: Colors.text,
+    color: colors.text,
   },
   selectedHint: {
     fontFamily: Fonts.body,
     fontSize: 12,
-    color: Colors.textMuted,
+    color: colors.textMuted,
   },
   insightCard: {
     marginTop: Spacing.md,
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.lg,
     padding: Spacing.md,
@@ -674,7 +679,7 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.body,
     fontSize: 13,
     lineHeight: 19,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
   },
   insightActions: {
     flexDirection: 'row',
@@ -685,8 +690,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: Colors.surfaceAlt,
-    borderColor: Colors.border,
+    backgroundColor: colors.surfaceAlt,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.pill,
     paddingVertical: 7,
@@ -695,7 +700,7 @@ const styles = StyleSheet.create({
   insightBtnText: {
     fontFamily: Fonts.bodyMedium,
     fontSize: 12,
-    color: Colors.mint,
+    color: colors.mint,
   },
   saveBtn: {
     marginTop: Spacing.xl,
@@ -703,14 +708,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: Spacing.sm,
-    backgroundColor: Colors.mint,
+    backgroundColor: colors.mint,
     borderRadius: Radius.md,
     paddingVertical: Spacing.lg,
   },
   saveBtnText: {
     fontFamily: Fonts.bodySemiBold,
     fontSize: 15,
-    color: Colors.textOnPrimary,
+    color: colors.textOnPrimary,
     textTransform: 'lowercase',
   },
 });

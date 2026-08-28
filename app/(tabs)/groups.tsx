@@ -5,15 +5,18 @@ import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-
 import { InitialsTile, ListRow } from '@/components/list-row';
 import { ListScreen } from '@/components/list-screen';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
+import { Fonts, Radius, Spacing, type ThemeColors } from '@/constants/theme';
 import { useLanguage } from '@/lib/i18n';
 import { ALL_GROUPS, ALL_PLAYERS, type Group } from '@/lib/data';
 import { usePersistedState } from '@/lib/storage';
+import { useTheme, useThemedStyles } from '@/lib/theme';
 
 const GROUP_TYPES = ['Position group', 'Specialist', 'Age group'];
 const GROUP_COLORS = ['#f5a623', '#5aa7e6', '#86C2A4', '#534AB7', '#408A71'];
 
 function NewGroupForm({ onDone }: { onDone: (g: Group) => void }) {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(createStyles);
   const { t } = useLanguage();
   const [name, setName] = useState('');
   const [type, setType] = useState<string>(GROUP_TYPES[0]);
@@ -51,7 +54,7 @@ function NewGroupForm({ onDone }: { onDone: (g: Group) => void }) {
       <TextInput
         style={styles.input}
         placeholder={t('groups.namePlaceholder')}
-        placeholderTextColor={Colors.textMuted}
+        placeholderTextColor={colors.textMuted}
         value={name}
         onChangeText={setName}
         autoCorrect={false}
@@ -86,14 +89,14 @@ function NewGroupForm({ onDone }: { onDone: (g: Group) => void }) {
                 {p.name.split(' ')[0]}
               </Text>
               {selected ? (
-                <IconSymbol name="checkmark.circle.fill" size={14} color={Colors.textOnPrimary} />
+                <IconSymbol name="checkmark.circle.fill" size={14} color={colors.textOnPrimary} />
               ) : null}
             </Pressable>
           );
         })}
       </ScrollView>
       <Pressable style={styles.submitBtn} onPress={submit}>
-        <IconSymbol name="plus" size={16} color={Colors.textOnPrimary} />
+        <IconSymbol name="plus" size={16} color={colors.textOnPrimary} />
         <Text style={styles.submitBtnText}>{t('groups.createGroup')}</Text>
       </Pressable>
     </View>
@@ -101,6 +104,7 @@ function NewGroupForm({ onDone }: { onDone: (g: Group) => void }) {
 }
 
 export default function GroupsScreen() {
+  const { colors } = useTheme();
   const router = useRouter();
   const { t } = useLanguage();
   const [groups, setGroups] = usePersistedState<Group[]>('groups:list', ALL_GROUPS);
@@ -108,7 +112,7 @@ export default function GroupsScreen() {
   return (
     <ListScreen back
       icon="person.2.fill"
-      accent={Colors.purple}
+      accent={colors.purple}
       title={t('groups.title')}
       subtitle={t('groups.subtitle')}
       searchable
@@ -139,10 +143,10 @@ export default function GroupsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   formCard: {
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.lg,
     padding: Spacing.md,
@@ -153,16 +157,16 @@ const styles = StyleSheet.create({
     fontSize: 11,
     letterSpacing: 1,
     textTransform: 'uppercase',
-    color: Colors.textMuted,
+    color: colors.textMuted,
   },
   input: {
-    backgroundColor: Colors.surfaceAlt,
-    borderColor: Colors.border,
+    backgroundColor: colors.surfaceAlt,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.md,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm + 2,
-    color: Colors.text,
+    color: colors.text,
     fontFamily: Fonts.body,
     fontSize: 14,
   },
@@ -172,25 +176,25 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   chip: {
-    borderColor: Colors.border,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.pill,
     paddingVertical: 6,
     paddingHorizontal: Spacing.md,
-    backgroundColor: Colors.surfaceAlt,
+    backgroundColor: colors.surfaceAlt,
   },
   chipActive: {
-    backgroundColor: Colors.mint,
-    borderColor: Colors.mint,
+    backgroundColor: colors.mint,
+    borderColor: colors.mint,
   },
   chipText: {
     fontFamily: Fonts.bodyMedium,
     fontSize: 12,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     textTransform: 'lowercase',
   },
   chipTextActive: {
-    color: Colors.textOnPrimary,
+    color: colors.textOnPrimary,
   },
   pickerRow: {
     gap: Spacing.sm,
@@ -200,24 +204,24 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: Colors.surfaceAlt,
-    borderColor: Colors.border,
+    backgroundColor: colors.surfaceAlt,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.pill,
     paddingVertical: 6,
     paddingHorizontal: Spacing.sm + 2,
   },
   memberChipActive: {
-    backgroundColor: Colors.mint,
-    borderColor: Colors.mint,
+    backgroundColor: colors.mint,
+    borderColor: colors.mint,
   },
   memberChipText: {
     fontFamily: Fonts.bodyMedium,
     fontSize: 12,
-    color: Colors.text,
+    color: colors.text,
   },
   memberChipTextActive: {
-    color: Colors.textOnPrimary,
+    color: colors.textOnPrimary,
   },
   submitBtn: {
     marginTop: Spacing.xs,
@@ -225,14 +229,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: Spacing.sm,
-    backgroundColor: Colors.mint,
+    backgroundColor: colors.mint,
     borderRadius: Radius.md,
     paddingVertical: Spacing.sm + 2,
   },
   submitBtnText: {
     fontFamily: Fonts.bodySemiBold,
     fontSize: 13,
-    color: Colors.textOnPrimary,
+    color: colors.textOnPrimary,
     textTransform: 'lowercase',
   },
 });

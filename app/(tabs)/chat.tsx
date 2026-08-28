@@ -5,12 +5,15 @@ import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { InitialsTile, ListRow } from '@/components/list-row';
 import { Screen, DetailHead, SectionLabel } from '@/components/screen';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
+import { Fonts, Radius, Spacing, type ThemeColors } from '@/constants/theme';
 import { messagesForRole } from '@/lib/data';
 import { useLanguage } from '@/lib/i18n';
 import { useSession } from '@/lib/session';
+import { useTheme, useThemedStyles } from '@/lib/theme';
 
 export default function ChatScreen() {
+  const styles = useThemedStyles(createStyles);
+  const { colors } = useTheme();
   const router = useRouter();
   const { user } = useSession();
   const { t } = useLanguage();
@@ -58,18 +61,18 @@ export default function ChatScreen() {
 
       {/* Search */}
       <View style={styles.search}>
-        <IconSymbol name="search" size={18} color={Colors.textMuted} />
+        <IconSymbol name="search" size={18} color={colors.textMuted} />
         <TextInput
           style={styles.searchInput}
           placeholder={t('chat.searchPlaceholder')}
-          placeholderTextColor={Colors.textMuted}
+          placeholderTextColor={colors.textMuted}
           value={query}
           onChangeText={setQuery}
           autoCorrect={false}
         />
         {query ? (
           <Pressable onPress={() => setQuery('')} hitSlop={10}>
-            <IconSymbol name="xmark" size={16} color={Colors.textMuted} />
+            <IconSymbol name="xmark" size={16} color={colors.textMuted} />
           </Pressable>
         ) : null}
       </View>
@@ -100,7 +103,7 @@ export default function ChatScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   links: {
     flexDirection: 'row',
     gap: Spacing.sm,
@@ -110,8 +113,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.pill,
     paddingVertical: 8,
@@ -120,22 +123,22 @@ const styles = StyleSheet.create({
   linkText: {
     fontFamily: Fonts.bodyMedium,
     fontSize: 12,
-    color: Colors.text,
+    color: colors.text,
     textTransform: 'lowercase',
   },
   search: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.sm,
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.md,
     paddingHorizontal: Spacing.md,
   },
   searchInput: {
     flex: 1,
-    color: Colors.text,
+    color: colors.text,
     fontSize: 14,
     fontFamily: Fonts.body,
     paddingVertical: Spacing.md,
@@ -151,13 +154,13 @@ const styles = StyleSheet.create({
   time: {
     fontFamily: Fonts.bodyMedium,
     fontSize: 11,
-    color: Colors.textMuted,
+    color: colors.textMuted,
   },
   unreadDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: Colors.mint,
+    backgroundColor: colors.mint,
   },
   readDot: {
     width: 8,
@@ -168,6 +171,6 @@ const styles = StyleSheet.create({
   empty: {
     fontFamily: Fonts.body,
     fontSize: 13,
-    color: Colors.textMuted,
+    color: colors.textMuted,
   },
 });

@@ -4,8 +4,9 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Screen, DetailHead } from '@/components/screen';
 import { IconSymbol, type IconSymbolName } from '@/components/ui/icon-symbol';
-import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
+import { Fonts, Radius, Spacing, type ThemeColors } from '@/constants/theme';
 import { useLanguage } from '@/lib/i18n';
+import { useTheme, useThemedStyles } from '@/lib/theme';
 
 type AdminItem = {
   key: string;
@@ -127,6 +128,8 @@ const SECTIONS: AdminSection[] = [
 
 export default function AdminScreen() {
   const router = useRouter();
+  const { colors } = useTheme();
+  const styles = useThemedStyles(createStyles);
   const { t } = useLanguage();
   const [open, setOpen] = useState<string | null>('lojtaret');
 
@@ -141,7 +144,7 @@ export default function AdminScreen() {
     <Screen back>
       <DetailHead
         icon="gearshape.fill"
-        accent={Colors.mint}
+        accent={colors.mint}
         title={t('admin.title')}
         subtitle={t('admin.subtitle')}
       />
@@ -152,14 +155,14 @@ export default function AdminScreen() {
           return (
             <View key={section.key} style={styles.card}>
               <Pressable style={styles.head} onPress={() => toggle(section.key)}>
-                <View style={[styles.headIcon, { backgroundColor: `${Colors.mint}1f` }]}>
-                  <IconSymbol name={section.icon} size={18} color={Colors.mint} />
+                <View style={[styles.headIcon, { backgroundColor: `${colors.mint}1f` }]}>
+                  <IconSymbol name={section.icon} size={18} color={colors.mint} />
                 </View>
                 <Text style={styles.headLabel}>{t(section.labelKey)}</Text>
                 <IconSymbol
                   name="chevron.right"
                   size={16}
-                  color={Colors.textMuted}
+                  color={colors.textMuted}
                   style={expanded ? styles.chevronOpen : undefined}
                 />
               </Pressable>
@@ -167,11 +170,11 @@ export default function AdminScreen() {
                 <View style={styles.items}>
                   {section.items.map((item) => (
                     <Pressable key={item.key} style={styles.item} onPress={() => handleItem(item)}>
-                      <View style={[styles.itemIcon, { backgroundColor: `${Colors.mint}14` }]}>
-                        <IconSymbol name={item.icon} size={15} color={Colors.textSecondary} />
+                      <View style={[styles.itemIcon, { backgroundColor: `${colors.mint}14` }]}>
+                        <IconSymbol name={item.icon} size={15} color={colors.textSecondary} />
                       </View>
                       <Text style={styles.itemLabel}>{t(item.labelKey)}</Text>
-                      <IconSymbol name="chevron.right" size={14} color={Colors.textMuted} />
+                      <IconSymbol name="chevron.right" size={14} color={colors.textMuted} />
                     </Pressable>
                   ))}
                 </View>
@@ -184,14 +187,14 @@ export default function AdminScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   list: {
     gap: Spacing.sm,
     marginTop: Spacing.sm,
   },
   card: {
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.lg,
     overflow: 'hidden',
@@ -214,14 +217,14 @@ const styles = StyleSheet.create({
     flex: 1,
     fontFamily: Fonts.headingSemiBold,
     fontSize: 15,
-    color: Colors.text,
+    color: colors.text,
     textTransform: 'lowercase',
   },
   chevronOpen: {
     transform: [{ rotate: '90deg' }],
   },
   items: {
-    borderTopColor: Colors.borderSoft,
+    borderTopColor: colors.borderSoft,
     borderTopWidth: StyleSheet.hairlineWidth,
     paddingVertical: Spacing.xs,
   },
@@ -244,7 +247,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontFamily: Fonts.bodyMedium,
     fontSize: 13,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     textTransform: 'lowercase',
   },
 });

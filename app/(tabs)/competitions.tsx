@@ -4,11 +4,12 @@ import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Screen, DetailHead, SectionLabel, StatCell } from '@/components/screen';
 import { StatusChip } from '@/components/status-chip';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
+import { Fonts, Radius, Spacing, type ThemeColors } from '@/constants/theme';
 import { ALL_COMPETITIONS, type Competition, type CompetitionType } from '@/lib/data';
 import { useLanguage } from '@/lib/i18n';
 import { useSession } from '@/lib/session';
 import { usePersistedState } from '@/lib/storage';
+import { useTheme, useThemedStyles } from '@/lib/theme';
 
 const TYPE_META: Record<CompetitionType, { color: string }> = {
   league: { color: '#185fa5' },
@@ -19,6 +20,8 @@ const TYPE_META: Record<CompetitionType, { color: string }> = {
 const TYPE_ORDER: CompetitionType[] = ['league', 'cup', 'friendly'];
 
 export default function CompetitionsScreen() {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(createStyles);
   const { t } = useLanguage();
   const { user } = useSession();
   const canManage = user?.role === 'administrator';
@@ -65,7 +68,7 @@ export default function CompetitionsScreen() {
       />
 
       <View style={styles.statsRow}>
-        <StatCell value={String(active)} label={t('comp.active')} color={Colors.mint} />
+        <StatCell value={String(active)} label={t('comp.active')} color={colors.mint} />
         <StatCell value={String(comps.length)} label={t('comp.total')} />
         <StatCell value={String(cups)} label={t('comp.cups')} color="#f5a623" />
       </View>
@@ -77,7 +80,7 @@ export default function CompetitionsScreen() {
             <TextInput
               style={styles.input}
               placeholder={t('comp.namePlaceholder')}
-              placeholderTextColor={Colors.textMuted}
+              placeholderTextColor={colors.textMuted}
               value={name}
               onChangeText={setName}
               autoCorrect={false}
@@ -91,7 +94,7 @@ export default function CompetitionsScreen() {
                     key={ty}
                     onPress={() => setType(ty)}
                     style={[styles.chip, selected && { backgroundColor: meta.color, borderColor: meta.color }]}>
-                    <Text style={[styles.chipText, selected && { color: Colors.textOnPrimary }]}>
+                    <Text style={[styles.chipText, selected && { color: colors.textOnPrimary }]}>
                       {t(`comp.${ty}`)}
                     </Text>
                   </Pressable>
@@ -99,7 +102,7 @@ export default function CompetitionsScreen() {
               })}
             </View>
             <Pressable style={styles.addBtn} onPress={add}>
-              <IconSymbol name="plus" size={16} color={Colors.textOnPrimary} />
+              <IconSymbol name="plus" size={16} color={colors.textOnPrimary} />
               <Text style={styles.addBtnText}>{t('comp.addCompetition')}</Text>
             </Pressable>
           </View>
@@ -127,7 +130,7 @@ export default function CompetitionsScreen() {
                     </Text>
                   </Pressable>
                   <Pressable onPress={() => remove(c.id)} hitSlop={8}>
-                    <IconSymbol name="trash" size={16} color={Colors.danger} />
+                    <IconSymbol name="trash" size={16} color={colors.danger} />
                   </Pressable>
                 </View>
               ) : null}
@@ -139,27 +142,27 @@ export default function CompetitionsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   statsRow: {
     flexDirection: 'row',
     gap: Spacing.md,
   },
   formCard: {
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.lg,
     padding: Spacing.md,
     gap: Spacing.sm,
   },
   input: {
-    backgroundColor: Colors.surfaceAlt,
-    borderColor: Colors.border,
+    backgroundColor: colors.surfaceAlt,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.md,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm + 2,
-    color: Colors.text,
+    color: colors.text,
     fontFamily: Fonts.body,
     fontSize: 14,
   },
@@ -168,17 +171,17 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   chip: {
-    borderColor: Colors.border,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.pill,
     paddingVertical: 6,
     paddingHorizontal: Spacing.md,
-    backgroundColor: Colors.surfaceAlt,
+    backgroundColor: colors.surfaceAlt,
   },
   chipText: {
     fontFamily: Fonts.bodyMedium,
     fontSize: 12,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     textTransform: 'lowercase',
   },
   addBtn: {
@@ -187,14 +190,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: Spacing.sm,
-    backgroundColor: Colors.mint,
+    backgroundColor: colors.mint,
     borderRadius: Radius.md,
     paddingVertical: Spacing.sm + 2,
   },
   addBtnText: {
     fontFamily: Fonts.bodySemiBold,
     fontSize: 13,
-    color: Colors.textOnPrimary,
+    color: colors.textOnPrimary,
     textTransform: 'lowercase',
   },
   list: {
@@ -204,8 +207,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.md,
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.lg,
     padding: Spacing.md,
@@ -227,7 +230,7 @@ const styles = StyleSheet.create({
   rowName: {
     fontFamily: Fonts.bodySemiBold,
     fontSize: 14,
-    color: Colors.text,
+    color: colors.text,
   },
   rowActions: {
     flexDirection: 'row',
@@ -237,13 +240,13 @@ const styles = StyleSheet.create({
   actText: {
     fontFamily: Fonts.bodySemiBold,
     fontSize: 11,
-    color: Colors.mint,
+    color: colors.mint,
     textTransform: 'lowercase',
   },
   deactText: {
     fontFamily: Fonts.bodySemiBold,
     fontSize: 11,
-    color: Colors.warning,
+    color: colors.warning,
     textTransform: 'lowercase',
   },
 });

@@ -5,10 +5,11 @@ import { IconTile } from '@/components/list-row';
 import { Screen, DetailHead, SectionLabel, StatCell } from '@/components/screen';
 import { StatusChip, type StatusTone } from '@/components/status-chip';
 import { IconSymbol, type IconSymbolName } from '@/components/ui/icon-symbol';
-import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
+import { Fonts, Radius, Spacing, type ThemeColors } from '@/constants/theme';
 import { ALL_EXPENSES, type Expense, type ExpenseStatus } from '@/lib/data';
 import { useLanguage } from '@/lib/i18n';
 import { usePersistedState } from '@/lib/storage';
+import { useTheme, useThemedStyles } from '@/lib/theme';
 
 const STATUS_TONE: Record<ExpenseStatus, StatusTone> = {
   paid: 'emerald',
@@ -31,6 +32,8 @@ function amountOf(amount: string) {
 }
 
 export default function ExpensesScreen() {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(createStyles);
   const { t } = useLanguage();
   const month = 'Sep';
   const [expenses, setExpenses] = usePersistedState<Expense[]>('expenses:list', ALL_EXPENSES);
@@ -57,7 +60,7 @@ export default function ExpensesScreen() {
       return;
     }
     setExpenses((prev) => [
-      { id: `e-${Date.now()}`, title: title.trim(), category, amount: `€${value}`, month, status: newStatus, color: CATEGORY_META[category]?.color ?? Colors.textMuted },
+      { id: `e-${Date.now()}`, title: title.trim(), category, amount: `€${value}`, month, status: newStatus, color: CATEGORY_META[category]?.color ?? colors.textMuted },
       ...prev,
     ]);
     setTitle('');
@@ -75,7 +78,7 @@ export default function ExpensesScreen() {
       />
 
       <View style={styles.statsRow}>
-        <StatCell value={`€${total}`} label={t('expenses.thisMonth')} color={Colors.emerald} />
+        <StatCell value={`€${total}`} label={t('expenses.thisMonth')} color={colors.emerald} />
         <StatCell value={String(monthExpenses.length)} label={t('expenses.records')} />
         <StatCell value={String(pending)} label={t('expenses.pending')} color="#f5a623" />
       </View>
@@ -83,7 +86,7 @@ export default function ExpensesScreen() {
       <SectionLabel>{t('expenses.byCategory', { month })}</SectionLabel>
       <View style={styles.rowsCard}>
         {byCategory.map(([cat, amount]) => {
-          const meta = CATEGORY_META[cat] ?? { icon: 'receipt' as const, color: Colors.textMuted };
+          const meta = CATEGORY_META[cat] ?? { icon: 'receipt' as const, color: colors.textMuted };
           return (
             <View key={cat} style={styles.row}>
               <IconTile icon={meta.icon} color={meta.color} size={34} />
@@ -100,7 +103,7 @@ export default function ExpensesScreen() {
         <TextInput
           style={styles.input}
           placeholder={t('expenses.titlePlaceholder')}
-          placeholderTextColor={Colors.textMuted}
+          placeholderTextColor={colors.textMuted}
           value={title}
           onChangeText={setTitle}
           autoCorrect={false}
@@ -114,8 +117,8 @@ export default function ExpensesScreen() {
                 key={c}
                 onPress={() => setCategory(c)}
                 style={[styles.chip, selected && { backgroundColor: meta.color, borderColor: meta.color }]}>
-                <IconSymbol name={meta.icon} size={13} color={selected ? Colors.textOnPrimary : meta.color} />
-                <Text style={[styles.chipText, selected && { color: Colors.textOnPrimary }]}>{t(`expenses.category.${c}`)}</Text>
+                <IconSymbol name={meta.icon} size={13} color={selected ? colors.textOnPrimary : meta.color} />
+                <Text style={[styles.chipText, selected && { color: colors.textOnPrimary }]}>{t(`expenses.category.${c}`)}</Text>
               </Pressable>
             );
           })}
@@ -126,7 +129,7 @@ export default function ExpensesScreen() {
             <TextInput
               style={styles.amountInput}
               placeholder="0"
-              placeholderTextColor={Colors.textMuted}
+              placeholderTextColor={colors.textMuted}
               value={amount}
               onChangeText={setAmount}
               keyboardType="numeric"
@@ -135,12 +138,12 @@ export default function ExpensesScreen() {
           <Pressable
             style={[styles.statusBtn, newStatus === 'pending' && styles.statusBtnPending]}
             onPress={() => setNewStatus(newStatus === 'pending' ? 'paid' : 'pending')}>
-            <Text style={[styles.statusBtnText, newStatus === 'pending' && { color: Colors.textOnPrimary }]}>
+            <Text style={[styles.statusBtnText, newStatus === 'pending' && { color: colors.textOnPrimary }]}>
               {t(`expenses.status.${newStatus}`)}
             </Text>
           </Pressable>
           <Pressable style={styles.addBtn} onPress={add}>
-            <IconSymbol name="plus" size={16} color={Colors.textOnPrimary} />
+            <IconSymbol name="plus" size={16} color={colors.textOnPrimary} />
           </Pressable>
         </View>
       </View>
@@ -151,7 +154,7 @@ export default function ExpensesScreen() {
           <Text style={styles.empty}>{t('expenses.empty')}</Text>
         ) : (
           expenses.map((e) => {
-            const meta = CATEGORY_META[e.category] ?? { icon: 'receipt' as const, color: Colors.textMuted };
+            const meta = CATEGORY_META[e.category] ?? { icon: 'receipt' as const, color: colors.textMuted };
             return (
               <View key={e.id} style={styles.expenseRow}>
                 <IconTile icon={meta.icon} color={meta.color} size={36} />
@@ -172,14 +175,14 @@ export default function ExpensesScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   statsRow: {
     flexDirection: 'row',
     gap: Spacing.md,
   },
   rowsCard: {
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.lg,
     overflow: 'hidden',
@@ -190,7 +193,7 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md,
-    borderBottomColor: Colors.borderSoft,
+    borderBottomColor: colors.borderSoft,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   rowLabel: {
@@ -198,29 +201,29 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.bodySemiBold,
     fontSize: 13,
     textTransform: 'capitalize',
-    color: Colors.text,
+    color: colors.text,
   },
   rowAmount: {
     fontFamily: Fonts.headingSemiBold,
     fontSize: 15,
-    color: Colors.mint,
+    color: colors.mint,
   },
   formCard: {
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.lg,
     padding: Spacing.md,
     gap: Spacing.sm,
   },
   input: {
-    backgroundColor: Colors.surfaceAlt,
-    borderColor: Colors.border,
+    backgroundColor: colors.surfaceAlt,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.md,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm + 2,
-    color: Colors.text,
+    color: colors.text,
     fontFamily: Fonts.body,
     fontSize: 14,
   },
@@ -233,17 +236,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    borderColor: Colors.border,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.pill,
     paddingVertical: 6,
     paddingHorizontal: Spacing.md,
-    backgroundColor: Colors.surfaceAlt,
+    backgroundColor: colors.surfaceAlt,
   },
   chipText: {
     fontFamily: Fonts.bodyMedium,
     fontSize: 12,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     textTransform: 'lowercase',
   },
   formRow: {
@@ -256,8 +259,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: Colors.surfaceAlt,
-    borderColor: Colors.border,
+    backgroundColor: colors.surfaceAlt,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.md,
     paddingHorizontal: Spacing.md,
@@ -265,31 +268,31 @@ const styles = StyleSheet.create({
   amountPrefix: {
     fontFamily: Fonts.headingSemiBold,
     fontSize: 14,
-    color: Colors.textMuted,
+    color: colors.textMuted,
   },
   amountInput: {
     flex: 1,
-    color: Colors.text,
+    color: colors.text,
     fontFamily: Fonts.body,
     fontSize: 14,
     paddingVertical: Spacing.sm + 2,
   },
   statusBtn: {
-    borderColor: Colors.border,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.md,
     paddingVertical: Spacing.sm,
     paddingHorizontal: Spacing.md,
-    backgroundColor: Colors.surfaceAlt,
+    backgroundColor: colors.surfaceAlt,
   },
   statusBtnPending: {
-    backgroundColor: Colors.warning,
-    borderColor: Colors.warning,
+    backgroundColor: colors.warning,
+    borderColor: colors.warning,
   },
   statusBtnText: {
     fontFamily: Fonts.bodyMedium,
     fontSize: 12,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     textTransform: 'lowercase',
   },
   addBtn: {
@@ -297,7 +300,7 @@ const styles = StyleSheet.create({
     height: 44,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: Colors.mint,
+    backgroundColor: colors.mint,
     borderRadius: Radius.md,
   },
   list: {
@@ -306,14 +309,14 @@ const styles = StyleSheet.create({
   empty: {
     fontFamily: Fonts.body,
     fontSize: 13,
-    color: Colors.textMuted,
+    color: colors.textMuted,
   },
   expenseRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.md,
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.lg,
     padding: Spacing.md,
@@ -325,17 +328,17 @@ const styles = StyleSheet.create({
   expenseTitle: {
     fontFamily: Fonts.bodySemiBold,
     fontSize: 13,
-    color: Colors.text,
+    color: colors.text,
   },
   expenseMeta: {
     fontFamily: Fonts.body,
     fontSize: 11,
-    color: Colors.textMuted,
+    color: colors.textMuted,
     textTransform: 'capitalize',
   },
   expenseAmount: {
     fontFamily: Fonts.headingSemiBold,
     fontSize: 14,
-    color: Colors.text,
+    color: colors.text,
   },
 });

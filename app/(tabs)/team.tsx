@@ -7,9 +7,10 @@ import { InitialsTile, ListRow } from '@/components/list-row';
 import { Screen, SectionLabel, StatCell } from '@/components/screen';
 import { StatusChip } from '@/components/status-chip';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
+import { Fonts, Radius, Spacing, type ThemeColors } from '@/constants/theme';
 import { ALL_MATCHES, ALL_PLAYERS, ALL_TEAMS, MATCH_DETAILS } from '@/lib/data';
 import { useLanguage } from '@/lib/i18n';
+import { useTheme, useThemedStyles } from '@/lib/theme';
 
 function playerId(name: string) {
   return ALL_PLAYERS.find((p) => p.name === name)?.id ?? '';
@@ -23,6 +24,8 @@ function resultOf(score: string): 'W' | 'D' | 'L' {
 }
 
 export default function TeamScreen() {
+  const styles = useThemedStyles(createStyles);
+  const { colors } = useTheme();
   const router = useRouter();
   const { t } = useLanguage();
   const { id } = useLocalSearchParams<{ id?: string }>();
@@ -127,20 +130,20 @@ export default function TeamScreen() {
           size={88}
           stroke={7}
           progress={playedMatches.length ? wins / playedMatches.length : 0}
-          color={Colors.emerald}
+          color={colors.emerald}
           label={playedMatches.length ? `${Math.round((wins / playedMatches.length) * 100)}%` : '–'}
           sublabel={t('team.winRate')}
         />
         <View style={styles.statsCol}>
-          <StatCell value={String(goalsFor)} label={t('team.goalsFor')} color={Colors.emerald} />
-          <StatCell value={String(goalsAgainst)} label={t('team.goalsAgainst')} color={Colors.danger} />
-          <StatCell value={String(goalsFor - goalsAgainst)} label={t('team.goalDiff')} color={Colors.mint} />
+          <StatCell value={String(goalsFor)} label={t('team.goalsFor')} color={colors.emerald} />
+          <StatCell value={String(goalsAgainst)} label={t('team.goalsAgainst')} color={colors.danger} />
+          <StatCell value={String(goalsFor - goalsAgainst)} label={t('team.goalDiff')} color={colors.mint} />
         </View>
       </View>
       <View style={styles.recordRow}>
-        <StatCell value={String(wins)} label={t('team.won')} color={Colors.emerald} />
-        <StatCell value={String(draws)} label={t('team.drawn')} color={Colors.info} />
-        <StatCell value={String(losses)} label={t('team.lost')} color={Colors.danger} />
+        <StatCell value={String(wins)} label={t('team.won')} color={colors.emerald} />
+        <StatCell value={String(draws)} label={t('team.drawn')} color={colors.info} />
+        <StatCell value={String(losses)} label={t('team.lost')} color={colors.danger} />
       </View>
 
       <SectionLabel>{t('team.topScorers')}</SectionLabel>
@@ -167,21 +170,21 @@ export default function TeamScreen() {
 
       <SectionLabel>{t('team.management')}</SectionLabel>
       <Pressable style={styles.mgmtBtn} onPress={() => router.push('/transfers')}>
-        <IconSymbol name="arrow.right" size={16} color={Colors.mint} />
+        <IconSymbol name="arrow.right" size={16} color={colors.mint} />
         <Text style={styles.mgmtBtnText}>{t('team.transfers')}</Text>
       </Pressable>
     </Screen>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   card: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.md,
     marginTop: Spacing.md,
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.lg,
     padding: Spacing.lg,
@@ -200,19 +203,19 @@ const styles = StyleSheet.create({
   name: {
     fontFamily: Fonts.headingSemiBold,
     fontSize: 18,
-    color: Colors.mint,
+    color: colors.mint,
   },
   subtitle: {
     fontFamily: Fonts.body,
     fontSize: 13,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
   },
   tagRow: {
     marginTop: 2,
   },
   rowsCard: {
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.lg,
     overflow: 'hidden',
@@ -224,7 +227,7 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md,
-    borderBottomColor: Colors.borderSoft,
+    borderBottomColor: colors.borderSoft,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   rowLabel: {
@@ -232,12 +235,12 @@ const styles = StyleSheet.create({
     fontSize: 11,
     letterSpacing: 1,
     textTransform: 'uppercase',
-    color: Colors.textMuted,
+    color: colors.textMuted,
   },
   rowValue: {
     fontFamily: Fonts.bodySemiBold,
     fontSize: 13,
-    color: Colors.text,
+    color: colors.text,
     textTransform: 'capitalize',
     flexShrink: 1,
     textAlign: 'right',
@@ -249,8 +252,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.lg,
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.lg,
     padding: Spacing.lg,
@@ -263,8 +266,8 @@ const styles = StyleSheet.create({
   recordRow: {
     flexDirection: 'row',
     marginTop: Spacing.sm,
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.lg,
     padding: Spacing.md,
@@ -273,8 +276,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.md,
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.lg,
     padding: Spacing.md,
@@ -283,19 +286,19 @@ const styles = StyleSheet.create({
     flex: 1,
     fontFamily: Fonts.bodySemiBold,
     fontSize: 14,
-    color: Colors.text,
+    color: colors.text,
   },
   scorerStat: {
     fontFamily: Fonts.bodyMedium,
     fontSize: 12,
-    color: Colors.textMuted,
+    color: colors.textMuted,
   },
   mgmtBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.sm,
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.lg,
     padding: Spacing.md,
@@ -304,7 +307,7 @@ const styles = StyleSheet.create({
   mgmtBtnText: {
     fontFamily: Fonts.bodySemiBold,
     fontSize: 14,
-    color: Colors.text,
+    color: colors.text,
     textTransform: 'lowercase',
   },
 });

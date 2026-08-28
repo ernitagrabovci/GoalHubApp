@@ -3,16 +3,18 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import { InitialsTile, ListRow } from '@/components/list-row';
 import { ListScreen } from '@/components/list-screen';
-import { Colors, Fonts, Radius } from '@/constants/theme';
+import { Fonts, Radius, type ThemeColors } from '@/constants/theme';
 import { ALL_PLAYERS, type Rating } from '@/lib/data';
 import { useLanguage } from '@/lib/i18n';
 import { ratingsStore, useCollection } from '@/lib/store';
+import { useThemedStyles } from '@/lib/theme';
 
 function playerId(name: string) {
   return ALL_PLAYERS.find((p) => p.name === name)?.id ?? '';
 }
 
 function RatingRow({ rating, onPress }: { rating: Rating; onPress: () => void }) {
+  const styles = useThemedStyles(createStyles);
   return (
     <ListRow
       title={rating.player}
@@ -58,12 +60,12 @@ export default function RatingsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   avgChip: {
     minWidth: 44,
     alignItems: 'center',
-    backgroundColor: Colors.surfaceAlt,
-    borderColor: Colors.border,
+    backgroundColor: colors.surfaceAlt,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.pill,
     paddingVertical: 4,
@@ -72,6 +74,6 @@ const styles = StyleSheet.create({
   avgText: {
     fontFamily: Fonts.headingSemiBold,
     fontSize: 14,
-    color: Colors.mint,
+    color: colors.mint,
   },
 });

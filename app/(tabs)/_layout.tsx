@@ -3,8 +3,9 @@ import { StyleSheet } from 'react-native';
 
 import { HapticTab } from '@/components/haptic-tab';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Colors, Fonts } from '@/constants/theme';
+import { Fonts, type ThemeColors } from '@/constants/theme';
 import { useLanguage } from '@/lib/i18n';
+import { useTheme, useThemedStyles } from '@/lib/theme';
 import { MAIN_TABS, SIGNED_OUT_TABS } from '@/lib/tabs';
 import { useSession } from '@/lib/session';
 
@@ -56,18 +57,23 @@ const HIDDEN_ROUTES = [
 export default function TabLayout() {
   const { user } = useSession();
   const { t } = useLanguage();
+  const { colors, isDark } = useTheme();
+  const styles = useThemedStyles(createStyles);
   const tabs = user ? MAIN_TABS : SIGNED_OUT_TABS;
 
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: Colors.mint,
-        tabBarInactiveTintColor: Colors.textMuted,
+        tabBarActiveTintColor: colors.mint,
+        tabBarInactiveTintColor: colors.textMuted,
         tabBarButton: HapticTab,
-        tabBarStyle: styles.tabBar,
+        tabBarStyle: [
+          styles.tabBar,
+          { backgroundColor: isDark ? 'rgba(13, 31, 28, 0.9)' : 'rgba(238, 244, 240, 0.92)' },
+        ],
         tabBarLabelStyle: styles.tabBarLabel,
-        sceneStyle: { backgroundColor: Colors.background },
+        sceneStyle: { backgroundColor: colors.background },
       }}>
       {tabs.map((tab) => (
         <Tabs.Screen
@@ -88,10 +94,9 @@ export default function TabLayout() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   tabBar: {
-    backgroundColor: Colors.surface,
-    borderTopColor: Colors.borderSoft,
+    borderTopColor: colors.borderSoft,
     borderTopWidth: StyleSheet.hairlineWidth,
   },
   tabBarLabel: {

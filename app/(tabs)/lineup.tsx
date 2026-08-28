@@ -5,10 +5,11 @@ import { Pressable, ScrollView, StyleSheet, Text, View, type LayoutChangeEvent }
 import { InitialsTile } from '@/components/list-row';
 import { DetailHead, Screen, SectionLabel } from '@/components/screen';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
+import { Fonts, Radius, Spacing, type ThemeColors } from '@/constants/theme';
 import { ALL_MATCHES, FORMATION_SLOTS, MATCH_DETAILS, TACTICAL_ROSTER, type MatchLineup } from '@/lib/data';
 import { useLanguage } from '@/lib/i18n';
 import { usePersistedState } from '@/lib/storage';
+import { useTheme, useThemedStyles } from '@/lib/theme';
 
 const GRASS = '#0E2A1E';
 const LINE = '#3A7A58';
@@ -16,6 +17,8 @@ const MARKER = 34;
 
 /** Tap-to-assign starting eleven editor for a match. Trainer only, saved per match. */
 export default function LineupScreen() {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(createStyles);
   const router = useRouter();
   const { t } = useLanguage();
   const { matchId } = useLocalSearchParams<{ matchId: string }>();
@@ -80,7 +83,7 @@ export default function LineupScreen() {
     <Screen back>
       <DetailHead
         icon="figure.soccer"
-        accent={Colors.mint}
+        accent={colors.mint}
         title={t('lineup.title')}
         subtitle={`${t('lineup.subtitle')} · ${match.opponent}`}
       />
@@ -135,7 +138,7 @@ export default function LineupScreen() {
                     {
                       left: slot.x * pitchW - MARKER / 2,
                       top: slot.y * pitchH - MARKER / 2,
-                      borderColor: active ? Colors.mint : LINE,
+                      borderColor: active ? colors.mint : LINE,
                     },
                   ]}>
                   <Text style={[styles.slotNum, active && styles.slotNumActive]}>
@@ -173,50 +176,50 @@ export default function LineupScreen() {
       </ScrollView>
 
       <Pressable style={styles.autoBtn} onPress={handleAutoFill}>
-        <IconSymbol name="bolt.fill" size={16} color={Colors.textOnPrimary} />
+        <IconSymbol name="bolt.fill" size={16} color={colors.textOnPrimary} />
         <Text style={styles.autoBtnText}>{t('lineup.autoFill')}</Text>
       </Pressable>
 
       <Pressable style={styles.saveBtn} onPress={handleSave}>
-        <IconSymbol name="checkmark.circle.fill" size={16} color={Colors.textOnPrimary} />
+        <IconSymbol name="checkmark.circle.fill" size={16} color={colors.textOnPrimary} />
         <Text style={styles.saveBtnText}>{t('lineup.save')}</Text>
       </Pressable>
     </Screen>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   wrap: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: Spacing.sm,
   },
   chip: {
-    borderColor: Colors.border,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.pill,
     paddingVertical: 6,
     paddingHorizontal: Spacing.md,
-    backgroundColor: Colors.surfaceAlt,
+    backgroundColor: colors.surfaceAlt,
   },
   chipActive: {
-    backgroundColor: Colors.mint,
-    borderColor: Colors.mint,
+    backgroundColor: colors.mint,
+    borderColor: colors.mint,
   },
   chipText: {
     fontFamily: Fonts.bodyMedium,
     fontSize: 12,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
   },
   chipTextActive: {
-    color: Colors.textOnPrimary,
+    color: colors.textOnPrimary,
   },
   pitchOuter: {
     marginTop: Spacing.md,
     borderRadius: Radius.lg,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
   },
   pitch: {
     width: '100%',
@@ -267,15 +270,15 @@ const styles = StyleSheet.create({
   slotNum: {
     fontFamily: Fonts.headingSemiBold,
     fontSize: 13,
-    color: Colors.textOnPrimary,
+    color: colors.textOnPrimary,
   },
   slotNumActive: {
-    color: Colors.textOnPrimary,
+    color: colors.textOnPrimary,
   },
   hint: {
     fontFamily: Fonts.body,
     fontSize: 12,
-    color: Colors.textMuted,
+    color: colors.textMuted,
     marginTop: Spacing.sm,
   },
   squadRow: {
@@ -286,27 +289,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 4,
     width: 76,
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.md,
     paddingVertical: Spacing.sm,
     paddingHorizontal: Spacing.xs,
   },
   squadChipPicked: {
-    borderColor: Colors.mint,
-    backgroundColor: Colors.surfaceAlt,
+    borderColor: colors.mint,
+    backgroundColor: colors.surfaceAlt,
   },
   squadName: {
     fontFamily: Fonts.bodyMedium,
     fontSize: 10,
-    color: Colors.text,
+    color: colors.text,
     textAlign: 'center',
   },
   squadNum: {
     fontFamily: Fonts.body,
     fontSize: 9,
-    color: Colors.textMuted,
+    color: colors.textMuted,
   },
   autoBtn: {
     marginTop: Spacing.lg,
@@ -314,8 +317,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: Spacing.sm,
-    backgroundColor: Colors.surfaceAlt,
-    borderColor: Colors.border,
+    backgroundColor: colors.surfaceAlt,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.md,
     paddingVertical: Spacing.sm + 2,
@@ -323,7 +326,7 @@ const styles = StyleSheet.create({
   autoBtnText: {
     fontFamily: Fonts.bodySemiBold,
     fontSize: 13,
-    color: Colors.text,
+    color: colors.text,
     textTransform: 'lowercase',
   },
   saveBtn: {
@@ -332,14 +335,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: Spacing.sm,
-    backgroundColor: Colors.mint,
+    backgroundColor: colors.mint,
     borderRadius: Radius.md,
     paddingVertical: Spacing.sm + 2,
   },
   saveBtnText: {
     fontFamily: Fonts.bodySemiBold,
     fontSize: 13,
-    color: Colors.textOnPrimary,
+    color: colors.textOnPrimary,
     textTransform: 'lowercase',
   },
 });

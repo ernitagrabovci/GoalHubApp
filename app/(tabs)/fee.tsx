@@ -5,11 +5,12 @@ import { InitialsTile } from '@/components/list-row';
 import { Screen, SectionLabel } from '@/components/screen';
 import { StatusChip, type StatusTone } from '@/components/status-chip';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
+import { Fonts, Radius, Spacing, type ThemeColors } from '@/constants/theme';
 import { feesForRole, type FeeStatus } from '@/lib/data';
 import { useLanguage } from '@/lib/i18n';
 import { useSession } from '@/lib/session';
 import { usePersistedState } from '@/lib/storage';
+import { useTheme, useThemedStyles } from '@/lib/theme';
 
 const STATUS_TONE: Record<FeeStatus, StatusTone> = {
   paid: 'emerald',
@@ -27,6 +28,8 @@ const REF_KEY: Record<string, string> = {
 };
 
 export default function FeeScreen() {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(createStyles);
   const router = useRouter();
   const { t } = useLanguage();
   const { user } = useSession();
@@ -93,7 +96,7 @@ export default function FeeScreen() {
             <TextInput
               style={styles.proofInput}
               placeholder={t('fee.refPlaceholder', { label: refLabel })}
-              placeholderTextColor={Colors.textMuted}
+              placeholderTextColor={colors.textMuted}
               value={ref}
               onChangeText={setRef}
               autoCapitalize="none"
@@ -103,13 +106,13 @@ export default function FeeScreen() {
               <IconSymbol
                 name="doc.text.fill"
                 size={16}
-                color={receipt ? Colors.emerald : Colors.textMuted}
+                color={receipt ? colors.emerald : colors.textMuted}
               />
-              <Text style={[styles.attachText, receipt && { color: Colors.emerald }]}>
+              <Text style={[styles.attachText, receipt && { color: colors.emerald }]}>
                 {t(receipt ? 'fee.receiptAttached' : 'fee.attachReceipt')}
               </Text>
               {receipt ? (
-                <IconSymbol name="checkmark.circle.fill" size={16} color={Colors.emerald} />
+                <IconSymbol name="checkmark.circle.fill" size={16} color={colors.emerald} />
               ) : null}
             </Pressable>
           </View>
@@ -130,7 +133,7 @@ export default function FeeScreen() {
                 }),
               );
             }}>
-            <IconSymbol name="checkmark.circle.fill" size={18} color={Colors.textOnPrimary} />
+            <IconSymbol name="checkmark.circle.fill" size={18} color={colors.textOnPrimary} />
             <Text style={styles.payBtnText}>{t('fee.markAsPaid')}</Text>
           </Pressable>
         </>
@@ -145,14 +148,14 @@ export default function FeeScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   card: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.md,
     marginTop: Spacing.md,
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.lg,
     padding: Spacing.lg,
@@ -164,12 +167,12 @@ const styles = StyleSheet.create({
   name: {
     fontFamily: Fonts.headingSemiBold,
     fontSize: 18,
-    color: Colors.mint,
+    color: colors.mint,
   },
   meta: {
     fontFamily: Fonts.body,
     fontSize: 13,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
   },
   statusRow: {
     flexDirection: 'row',
@@ -180,12 +183,12 @@ const styles = StyleSheet.create({
   paidText: {
     fontFamily: Fonts.bodyMedium,
     fontSize: 11,
-    color: Colors.emerald,
+    color: colors.emerald,
     textTransform: 'lowercase',
   },
   rowsCard: {
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.lg,
     overflow: 'hidden',
@@ -197,7 +200,7 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md,
-    borderBottomColor: Colors.borderSoft,
+    borderBottomColor: colors.borderSoft,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   rowLabel: {
@@ -205,12 +208,12 @@ const styles = StyleSheet.create({
     fontSize: 11,
     letterSpacing: 1,
     textTransform: 'uppercase',
-    color: Colors.textMuted,
+    color: colors.textMuted,
   },
   rowValue: {
     fontFamily: Fonts.bodySemiBold,
     fontSize: 13,
-    color: Colors.text,
+    color: colors.text,
     textTransform: 'capitalize',
     flexShrink: 1,
     textAlign: 'right',
@@ -221,30 +224,30 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   chip: {
-    borderColor: Colors.border,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.pill,
     paddingVertical: 7,
     paddingHorizontal: Spacing.md,
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.surface,
   },
   chipActive: {
-    backgroundColor: Colors.mint,
-    borderColor: Colors.mint,
+    backgroundColor: colors.mint,
+    borderColor: colors.mint,
   },
   chipText: {
     fontFamily: Fonts.bodyMedium,
     fontSize: 12,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     textTransform: 'lowercase',
   },
   chipTextActive: {
-    color: Colors.textOnPrimary,
+    color: colors.textOnPrimary,
   },
   proofBox: {
     marginTop: Spacing.md,
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.lg,
     padding: Spacing.md,
@@ -255,16 +258,16 @@ const styles = StyleSheet.create({
     fontSize: 11,
     letterSpacing: 1,
     textTransform: 'uppercase',
-    color: Colors.textMuted,
+    color: colors.textMuted,
   },
   proofInput: {
-    backgroundColor: Colors.surfaceAlt,
-    borderColor: Colors.border,
+    backgroundColor: colors.surfaceAlt,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.md,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm + 2,
-    color: Colors.text,
+    color: colors.text,
     fontFamily: Fonts.body,
     fontSize: 14,
   },
@@ -278,7 +281,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontFamily: Fonts.bodyMedium,
     fontSize: 12,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     textTransform: 'lowercase',
   },
   payBtn: {
@@ -287,14 +290,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: Spacing.sm,
-    backgroundColor: Colors.mint,
+    backgroundColor: colors.mint,
     borderRadius: Radius.md,
     paddingVertical: Spacing.lg,
   },
   payBtnText: {
     fontFamily: Fonts.bodySemiBold,
     fontSize: 15,
-    color: Colors.textOnPrimary,
+    color: colors.textOnPrimary,
     textTransform: 'lowercase',
   },
   backBtn: {
@@ -303,8 +306,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: Spacing.sm,
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.md,
     paddingVertical: Spacing.lg,
@@ -312,7 +315,7 @@ const styles = StyleSheet.create({
   backBtnText: {
     fontFamily: Fonts.bodySemiBold,
     fontSize: 15,
-    color: Colors.mint,
+    color: colors.mint,
     textTransform: 'lowercase',
   },
 });

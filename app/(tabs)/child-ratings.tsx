@@ -2,13 +2,15 @@ import { useLocalSearchParams } from 'expo-router';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { Screen, DetailHead } from '@/components/screen';
-import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
+import { Fonts, Radius, Spacing, type ThemeColors } from '@/constants/theme';
 import { ALL_RATINGS } from '@/lib/data';
 import { useLanguage } from '@/lib/i18n';
+import { useThemedStyles } from '@/lib/theme';
 
 const CRITERIA = ['technique', 'physical', 'tactics', 'consistency', 'teamwork'] as const;
 
 export default function ChildRatingsScreen() {
+  const styles = useThemedStyles(createStyles);
   const { t } = useLanguage();
   const { child = 'Agon Gashi' } = useLocalSearchParams<{ child?: string }>();
   const rating = ALL_RATINGS.find((r) => r.player === child);
@@ -67,16 +69,16 @@ export default function ChildRatingsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   empty: {
     fontFamily: Fonts.body,
     fontSize: 13,
-    color: Colors.textMuted,
+    color: colors.textMuted,
   },
   card: {
     marginTop: Spacing.md,
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.lg,
     padding: Spacing.lg,
@@ -99,13 +101,13 @@ const styles = StyleSheet.create({
   headTitle: {
     fontFamily: Fonts.headingSemiBold,
     fontSize: 16,
-    color: Colors.mint,
+    color: colors.mint,
     textTransform: 'lowercase',
   },
   headDate: {
     fontFamily: Fonts.body,
     fontSize: 12,
-    color: Colors.textMuted,
+    color: colors.textMuted,
   },
   criteria: {
     gap: Spacing.sm,
@@ -120,26 +122,26 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.bodyMedium,
     fontSize: 11,
     textTransform: 'capitalize',
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
   },
   barTrack: {
     flex: 1,
     height: 6,
     borderRadius: 3,
-    backgroundColor: Colors.surfaceAlt,
+    backgroundColor: colors.surfaceAlt,
     overflow: 'hidden',
   },
   barFill: {
     height: 6,
     borderRadius: 3,
-    backgroundColor: Colors.mint,
+    backgroundColor: colors.mint,
   },
   criterionValue: {
     width: 30,
     textAlign: 'right',
     fontFamily: Fonts.headingSemiBold,
     fontSize: 12,
-    color: Colors.mint,
+    color: colors.mint,
   },
   commentRow: {
     flexDirection: 'row',
@@ -151,13 +153,13 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.body,
     fontSize: 13,
     lineHeight: 19,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     fontStyle: 'italic',
   },
   note: {
     fontFamily: Fonts.body,
     fontSize: 11,
-    color: Colors.textMuted,
+    color: colors.textMuted,
     textAlign: 'center',
     marginTop: Spacing.xl,
   },

@@ -1,5 +1,4 @@
 import type { IconSymbolName } from '@/components/ui/icon-symbol';
-import { Colors } from '@/constants/theme';
 import type { Role } from '@/lib/session';
 
 export type ModuleDef = {
@@ -11,36 +10,40 @@ export type ModuleDef = {
 };
 
 /** Every module in the app. Roles get a filtered subset via modulesForRole(). */
+/** Mid-tone brand greens — readable on both dark and light backgrounds. */
+const MINT = '#1F6B4F';
+const MINT_DIM = '#3C8669';
+
 export const ALL_MODULES: ModuleDef[] = [
-  { label: 'Players', icon: 'person.2.fill', color: Colors.mint, route: '/players' },
-  { label: 'Trainers', icon: 'graduationcap.fill', color: Colors.emerald },
-  { label: 'Parents', icon: 'person.fill', color: Colors.purple },
+  { label: 'Players', icon: 'person.2.fill', color: MINT, route: '/players' },
+  { label: 'Trainers', icon: 'graduationcap.fill', color: '#2E7D5B' },
+  { label: 'Parents', icon: 'person.fill', color: '#5A50A8' },
   { label: 'Teams', icon: 'person.2.fill', color: '#185fa5', route: '/teams' },
   { label: 'Users', icon: 'person.fill', color: '#1a9e5c', route: '/users' },
-  { label: 'Club', icon: 'trophy.fill', color: Colors.mintDim, route: '/club' },
-  { label: 'Matches', icon: 'figure.soccer', color: Colors.warning, route: '/matches' },
-  { label: 'Trainings', icon: 'calendar', color: Colors.info, route: '/trainings' },
-  { label: 'Academy', icon: 'trophy.fill', color: Colors.mintDim, route: '/academy' },
-  { label: 'Tactical Board', icon: 'map.fill', color: Colors.mintDim, route: '/tactical' },
-  { label: 'Drills', icon: 'fitness-center', color: Colors.info, route: '/drills' },
-  { label: 'Groups', icon: 'person.2.fill', color: Colors.purple, route: '/groups' },
-  { label: 'Medical', icon: 'stethoscope', color: Colors.danger, route: '/medical' },
-  { label: 'Competitions', icon: 'trophy.fill', color: '#f5a623', route: '/competitions' },
-  { label: 'Payments', icon: 'dollarsign.circle.fill', color: Colors.emerald, route: '/fees' },
-  { label: 'Finance', icon: 'dollarsign.circle.fill', color: Colors.emerald, route: '/finance' },
-  { label: 'Messages', icon: 'bubble.left.fill', color: Colors.info, route: '/chat' },
-  { label: 'Reports', icon: 'chart.bar.fill', color: Colors.warning, route: '/reports' },
-  { label: 'Settings', icon: 'gearshape.fill', color: Colors.textMuted, route: '/profile' },
-  { label: 'Admin', icon: 'gearshape.fill', color: Colors.mint, route: '/admin' },
+  { label: 'Club', icon: 'trophy.fill', color: MINT_DIM, route: '/club' },
+  { label: 'Matches', icon: 'figure.soccer', color: '#C97F0D', route: '/matches' },
+  { label: 'Trainings', icon: 'calendar', color: '#1B5FA0', route: '/trainings' },
+  { label: 'Academy', icon: 'trophy.fill', color: MINT_DIM, route: '/academy' },
+  { label: 'Tactical Board', icon: 'map.fill', color: MINT_DIM, route: '/tactical' },
+  { label: 'Drills', icon: 'fitness-center', color: '#1B5FA0', route: '/drills' },
+  { label: 'Groups', icon: 'person.2.fill', color: '#5A50A8', route: '/groups' },
+  { label: 'Medical', icon: 'stethoscope', color: '#D64040', route: '/medical' },
+  { label: 'Competitions', icon: 'trophy.fill', color: '#C97F0D', route: '/competitions' },
+  { label: 'Payments', icon: 'dollarsign.circle.fill', color: '#2E7D5B', route: '/fees' },
+  { label: 'Finance', icon: 'dollarsign.circle.fill', color: '#2E7D5B', route: '/finance' },
+  { label: 'Messages', icon: 'bubble.left.fill', color: '#1B5FA0', route: '/chat' },
+  { label: 'Reports', icon: 'chart.bar.fill', color: '#C97F0D', route: '/reports' },
+  { label: 'Settings', icon: 'gearshape.fill', color: '#6B887B', route: '/profile' },
+  { label: 'Admin', icon: 'gearshape.fill', color: MINT, route: '/admin' },
 ];
 
 /** Which modules each role can see. */
 export const ROLE_MODULES: Record<Role, string[]> = {
-  administrator: ['Players', 'Teams', 'Users', 'Competitions', 'Matches', 'Trainings', 'Medical', 'Finance', 'Club', 'Reports', 'Messages', 'Settings', 'Admin'],
-  trainer: ['Players', 'Matches', 'Trainings', 'Medical', 'Academy', 'Tactical Board', 'Drills', 'Groups', 'Messages', 'Settings'],
-  player: ['Matches', 'Trainings', 'Academy', 'Tactical Board', 'Groups', 'Payments', 'Messages', 'Settings'],
-  parent: ['Matches', 'Trainings', 'Payments', 'Messages', 'Settings'],
-  financier: ['Finance', 'Payments', 'Reports', 'Messages', 'Settings'],
+  administrator: ['Players', 'Teams', 'Users', 'Competitions', 'Matches', 'Trainings', 'Medical', 'Finance', 'Club', 'Reports', 'Admin'],
+  trainer: ['Players', 'Matches', 'Trainings', 'Medical', 'Academy', 'Tactical Board', 'Drills', 'Groups'],
+  player: ['Matches', 'Trainings', 'Academy', 'Tactical Board', 'Groups', 'Payments'],
+  parent: ['Matches', 'Trainings', 'Payments'],
+  financier: ['Finance', 'Payments', 'Reports'],
 };
 
 export function modulesForRole(role: Role): ModuleDef[] {

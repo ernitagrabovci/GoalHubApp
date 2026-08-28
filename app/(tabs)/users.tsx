@@ -5,11 +5,12 @@ import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { InitialsTile, ListRow } from '@/components/list-row';
 import { Screen, DetailHead, SectionLabel } from '@/components/screen';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
+import { Fonts, Radius, Spacing, type ThemeColors } from '@/constants/theme';
 import { ALL_USERS, type AppUser } from '@/lib/data';
 import { useLanguage } from '@/lib/i18n';
 import { type Role } from '@/lib/session';
 import { usePersistedState } from '@/lib/storage';
+import { useTheme, useThemedStyles } from '@/lib/theme';
 
 const ROLE_COLOR: Record<Role, string> = {
   administrator: '#1a9e5c',
@@ -22,6 +23,8 @@ const ROLE_COLOR: Record<Role, string> = {
 const ROLE_FILTERS: (Role | 'all')[] = ['all', 'administrator', 'trainer', 'player', 'parent', 'financier'];
 
 export default function UsersScreen() {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(createStyles);
   const router = useRouter();
   const { t } = useLanguage();
   const [users, setUsers] = usePersistedState<AppUser[]>('users:list', ALL_USERS);
@@ -99,7 +102,7 @@ export default function UsersScreen() {
           <TextInput
             style={styles.input}
             placeholder={t('users.fullName')}
-            placeholderTextColor={Colors.textMuted}
+            placeholderTextColor={colors.textMuted}
             value={name}
             onChangeText={setName}
             autoCorrect={false}
@@ -107,7 +110,7 @@ export default function UsersScreen() {
           <TextInput
             style={styles.input}
             placeholder={t('users.email')}
-            placeholderTextColor={Colors.textMuted}
+            placeholderTextColor={colors.textMuted}
             value={email}
             onChangeText={setEmail}
             autoCapitalize="none"
@@ -122,7 +125,7 @@ export default function UsersScreen() {
                   key={r}
                   onPress={() => setNewRole(r)}
                   style={[styles.chip, selected && { backgroundColor: ROLE_COLOR[r], borderColor: ROLE_COLOR[r] }]}>
-                  <Text style={[styles.chipText, selected && { color: Colors.textOnPrimary }]}>
+                  <Text style={[styles.chipText, selected && { color: colors.textOnPrimary }]}>
                     {t(`role.${r}`)}
                   </Text>
                 </Pressable>
@@ -130,7 +133,7 @@ export default function UsersScreen() {
             })}
           </View>
           <Pressable style={styles.submitBtn} onPress={addUser}>
-            <IconSymbol name="plus" size={16} color={Colors.textOnPrimary} />
+            <IconSymbol name="plus" size={16} color={colors.textOnPrimary} />
             <Text style={styles.submitBtnText}>{t('users.createAccount')}</Text>
           </Pressable>
         </View>
@@ -155,7 +158,7 @@ export default function UsersScreen() {
                   </Text>
                 </View>
                 <Pressable onPress={() => toggleActive(u.id)} hitSlop={8}>
-                  <Text style={[styles.activeText, { color: u.active ? Colors.emerald : Colors.textMuted }]}>
+                  <Text style={[styles.activeText, { color: u.active ? colors.emerald : colors.textMuted }]}>
                     {t(u.active ? 'users.active' : 'users.inactive')}
                   </Text>
                 </Pressable>
@@ -167,14 +170,14 @@ export default function UsersScreen() {
       </View>
 
       <Pressable style={styles.action} onPress={() => setShowForm((s) => !s)}>
-        <IconSymbol name={showForm ? 'xmark' : 'plus'} size={18} color={Colors.textOnPrimary} />
+        <IconSymbol name={showForm ? 'xmark' : 'plus'} size={18} color={colors.textOnPrimary} />
         <Text style={styles.actionText}>{showForm ? t('common.closeForm') : t('users.addUser')}</Text>
       </Pressable>
     </Screen>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   filters: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -182,29 +185,29 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.lg,
   },
   filterChip: {
-    borderColor: Colors.border,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.pill,
     paddingVertical: 7,
     paddingHorizontal: Spacing.md,
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.surface,
   },
   filterChipActive: {
-    backgroundColor: Colors.mint,
-    borderColor: Colors.mint,
+    backgroundColor: colors.mint,
+    borderColor: colors.mint,
   },
   filterText: {
     fontFamily: Fonts.bodyMedium,
     fontSize: 12,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     textTransform: 'lowercase',
   },
   filterTextActive: {
-    color: Colors.textOnPrimary,
+    color: colors.textOnPrimary,
   },
   formCard: {
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.lg,
     padding: Spacing.md,
@@ -216,16 +219,16 @@ const styles = StyleSheet.create({
     fontSize: 11,
     letterSpacing: 1,
     textTransform: 'uppercase',
-    color: Colors.textMuted,
+    color: colors.textMuted,
   },
   input: {
-    backgroundColor: Colors.surfaceAlt,
-    borderColor: Colors.border,
+    backgroundColor: colors.surfaceAlt,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.md,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm + 2,
-    color: Colors.text,
+    color: colors.text,
     fontFamily: Fonts.body,
     fontSize: 14,
   },
@@ -235,17 +238,17 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   chip: {
-    borderColor: Colors.border,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.pill,
     paddingVertical: 6,
     paddingHorizontal: Spacing.md,
-    backgroundColor: Colors.surfaceAlt,
+    backgroundColor: colors.surfaceAlt,
   },
   chipText: {
     fontFamily: Fonts.bodyMedium,
     fontSize: 12,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     textTransform: 'lowercase',
   },
   submitBtn: {
@@ -254,14 +257,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: Spacing.sm,
-    backgroundColor: Colors.mint,
+    backgroundColor: colors.mint,
     borderRadius: Radius.md,
     paddingVertical: Spacing.sm + 2,
   },
   submitBtnText: {
     fontFamily: Fonts.bodySemiBold,
     fontSize: 13,
-    color: Colors.textOnPrimary,
+    color: colors.textOnPrimary,
     textTransform: 'lowercase',
   },
   list: {
@@ -302,14 +305,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: Spacing.sm,
-    backgroundColor: Colors.mint,
+    backgroundColor: colors.mint,
     borderRadius: Radius.md,
     paddingVertical: Spacing.lg,
   },
   actionText: {
     fontFamily: Fonts.bodySemiBold,
     fontSize: 15,
-    color: Colors.textOnPrimary,
+    color: colors.textOnPrimary,
     textTransform: 'lowercase',
   },
 });

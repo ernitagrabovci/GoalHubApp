@@ -4,12 +4,15 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Screen, DetailHead, SectionLabel } from '@/components/screen';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
+import { Fonts, Radius, Spacing, type ThemeColors } from '@/constants/theme';
 import { DEFAULT_SCENES, type TacticalScene } from '@/lib/data';
 import { useLanguage } from '@/lib/i18n';
 import { useSession } from '@/lib/session';
+import { useTheme, useThemedStyles } from '@/lib/theme';
 
 export default function TacticalScreen() {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(createStyles);
   const router = useRouter();
   const { t } = useLanguage();
   const { user } = useSession();
@@ -25,7 +28,7 @@ export default function TacticalScreen() {
     <Screen back>
       <DetailHead
         icon="map.fill"
-        accent={Colors.mintDim}
+        accent={colors.mintDim}
         title={t('tactical.title')}
         subtitle={
           viewer
@@ -46,8 +49,8 @@ export default function TacticalScreen() {
               key={scene.id}
               style={styles.card}
               onPress={() => router.push(`/tactical-editor?id=${scene.id}`)}>
-              <View style={[styles.sceneIcon, { backgroundColor: `${Colors.mintDim}22` }]}>
-                <IconSymbol name="map.fill" size={20} color={Colors.mintDim} />
+              <View style={[styles.sceneIcon, { backgroundColor: `${colors.mintDim}22` }]}>
+                <IconSymbol name="map.fill" size={20} color={colors.mintDim} />
               </View>
               <View style={styles.body}>
                 <Text style={styles.name}>{scene.name}</Text>
@@ -66,7 +69,7 @@ export default function TacticalScreen() {
                   <IconSymbol
                     name="square.and.arrow.up"
                     size={14}
-                    color={scene.shared ? Colors.textOnPrimary : Colors.mint}
+                    color={scene.shared ? colors.textOnPrimary : colors.mint}
                   />
                 </Pressable>
               )}
@@ -79,7 +82,7 @@ export default function TacticalScreen() {
         <Pressable
           style={styles.action}
           onPress={() => router.push('/tactical-editor')}>
-          <IconSymbol name="plus" size={18} color={Colors.textOnPrimary} />
+          <IconSymbol name="plus" size={18} color={colors.textOnPrimary} />
           <Text style={styles.actionText}>{t('tactical.newScene')}</Text>
         </Pressable>
       )}
@@ -87,7 +90,7 @@ export default function TacticalScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   list: {
     gap: Spacing.md,
   },
@@ -95,8 +98,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.md,
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.lg,
     padding: Spacing.md,
@@ -115,12 +118,12 @@ const styles = StyleSheet.create({
   name: {
     fontFamily: Fonts.bodySemiBold,
     fontSize: 14,
-    color: Colors.text,
+    color: colors.text,
   },
   meta: {
     fontFamily: Fonts.body,
     fontSize: 11,
-    color: Colors.textMuted,
+    color: colors.textMuted,
   },
   shareBtn: {
     width: 34,
@@ -128,18 +131,18 @@ const styles = StyleSheet.create({
     borderRadius: 17,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: Colors.surfaceAlt,
-    borderColor: Colors.border,
+    backgroundColor: colors.surfaceAlt,
+    borderColor: colors.border,
     borderWidth: 1,
   },
   shareBtnOn: {
-    backgroundColor: Colors.mint,
-    borderColor: Colors.mint,
+    backgroundColor: colors.mint,
+    borderColor: colors.mint,
   },
   empty: {
     fontFamily: Fonts.body,
     fontSize: 13,
-    color: Colors.textMuted,
+    color: colors.textMuted,
   },
   action: {
     marginTop: Spacing.xl,
@@ -147,14 +150,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: Spacing.sm,
-    backgroundColor: Colors.mint,
+    backgroundColor: colors.mint,
     borderRadius: Radius.md,
     paddingVertical: Spacing.lg,
   },
   actionText: {
     fontFamily: Fonts.bodySemiBold,
     fontSize: 15,
-    color: Colors.textOnPrimary,
+    color: colors.textOnPrimary,
     textTransform: 'lowercase',
   },
 });

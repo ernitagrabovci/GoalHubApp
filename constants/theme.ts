@@ -1,19 +1,54 @@
 import { DarkTheme, type Theme } from '@react-navigation/native';
 
 /**
- * GoalHub "Dark Mint" design system.
- * Matches the GoalHub webapp frontend: near-black green background,
- * mint foreground, emerald accents, forest borders.
+ * GoalHub "Mint" design system — two palettes (dark + light).
+ * Matches the GoalHub webapp frontend: green background, mint foreground,
+ * emerald accents, forest borders.
  */
 
-export const Colors = {
+export type ThemeColors = {
+  // brand surfaces
+  background: string;
+  /** Translucent glass surface — cards/rows over the ambient background read as frosted glass. */
+  surface: string;
+  surfaceAlt: string;
+  forest: string;
+  border: string;
+  borderSoft: string;
+
+  /** Mint glass edge for frosted panels, matches the Home glassmorphism. */
+  glassBorder: string;
+
+  // brand accents
+  emerald: string;
+  mint: string;
+  mintDim: string;
+
+  // text
+  text: string;
+  textSecondary: string;
+  textMuted: string;
+  textOnPrimary: string;
+  white: string;
+
+  // semantic / role colors (from the webapp identity)
+  danger: string;
+  warning: string;
+  info: string;
+  purple: string;
+  player: string;
+};
+
+/** Dark "Dark Mint" palette. */
+export const DarkColors: ThemeColors = {
   // brand surfaces
   background: '#091413',
-  surface: '#0D1F1C',
+  surface: 'rgba(13, 31, 28, 0.6)',
   surfaceAlt: '#112824',
   forest: '#285A48',
   border: '#285A48',
   borderSoft: '#1B3A31',
+  glassBorder: 'rgba(176, 228, 204, 0.18)',
 
   // brand accents
   emerald: '#408A71',
@@ -27,13 +62,54 @@ export const Colors = {
   textOnPrimary: '#091413',
   white: '#FFFFFF',
 
-  // semantic / role colors (from the webapp identity)
+  // semantic / role colors
   danger: '#E24B4A',
   warning: '#F5A623',
   info: '#185FA5',
   purple: '#534AB7',
   player: '#F5A623',
-} as const;
+};
+
+/** Light "Light Mint" palette. */
+export const LightColors: ThemeColors = {
+  // brand surfaces
+  background: '#EEF4F0',
+  surface: 'rgba(255, 255, 255, 0.72)',
+  surfaceAlt: '#E3ECE7',
+  forest: '#B7CDC2',
+  border: '#C0D6CB',
+  borderSoft: '#D7E5DE',
+  glassBorder: 'rgba(40, 90, 72, 0.18)',
+
+  // brand accents
+  emerald: '#2E7D5B',
+  mint: '#1F6B4F',
+  mintDim: '#3C8669',
+
+  // text
+  text: '#0C251B',
+  textSecondary: '#2E7D5B',
+  textMuted: '#6B887B',
+  textOnPrimary: '#FFFFFF',
+  white: '#FFFFFF',
+
+  // semantic / role colors
+  danger: '#D64040',
+  warning: '#C97F0D',
+  info: '#1B5FA0',
+  purple: '#5A50A8',
+  player: '#D18A12',
+};
+
+export type ThemeMode = 'dark' | 'light';
+
+export const themes: Record<ThemeMode, ThemeColors> = {
+  dark: DarkColors,
+  light: LightColors,
+};
+
+/** Back-compat alias — screens migrate to useTheme()/useThemedStyles() over time. */
+export const Colors = DarkColors;
 
 export const Fonts = {
   heading: 'SpaceGrotesk_700Bold',
@@ -60,17 +136,35 @@ export const Radius = {
   pill: 999,
 } as const;
 
-/** React Navigation theme so headers/tabs match the GoalHub brand. */
-export const navigationTheme: Theme = {
+/** React Navigation theme so headers/tabs match the GoalHub brand (dark). */
+export const darkNavigationTheme: Theme = {
   ...DarkTheme,
   dark: true,
   colors: {
     ...DarkTheme.colors,
-    primary: Colors.mint,
-    background: Colors.background,
-    card: Colors.surface,
-    text: Colors.mint,
-    border: Colors.border,
-    notification: Colors.mint,
+    primary: DarkColors.mint,
+    background: DarkColors.background,
+    card: DarkColors.surface,
+    text: DarkColors.mint,
+    border: DarkColors.border,
+    notification: DarkColors.mint,
   },
 };
+
+/** React Navigation theme for light mode. */
+export const lightNavigationTheme: Theme = {
+  ...DarkTheme,
+  dark: false,
+  colors: {
+    ...DarkTheme.colors,
+    primary: LightColors.mint,
+    background: LightColors.background,
+    card: LightColors.surface,
+    text: LightColors.text,
+    border: LightColors.border,
+    notification: LightColors.mint,
+  },
+};
+
+/** Back-compat alias — _layout.tsx migrates to the pair of nav themes. */
+export const navigationTheme = darkNavigationTheme;

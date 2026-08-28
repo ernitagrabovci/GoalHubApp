@@ -5,11 +5,12 @@ import { DateTile, InitialsTile } from '@/components/list-row';
 import { Screen, SectionLabel, StatCell } from '@/components/screen';
 import { StatusChip, type StatusTone } from '@/components/status-chip';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
+import { Fonts, Radius, Spacing, type ThemeColors } from '@/constants/theme';
 import { ALL_MATCHES, MATCH_DETAILS, TACTICAL_ROSTER, type MatchLineup } from '@/lib/data';
 import { useLanguage } from '@/lib/i18n';
 import { useSession } from '@/lib/session';
 import { usePersistedState } from '@/lib/storage';
+import { useTheme, useThemedStyles } from '@/lib/theme';
 
 const STATUS_TONE: Record<string, StatusTone> = {
   upcoming: 'info',
@@ -22,6 +23,8 @@ function nameFor(initials: string) {
 }
 
 export default function MatchScreen() {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(createStyles);
   const router = useRouter();
   const { t } = useLanguage();
   const { user } = useSession();
@@ -49,7 +52,7 @@ export default function MatchScreen() {
               <Text style={styles.score}>{match.score}</Text>
             ) : (
               <View style={styles.timeRow}>
-                <IconSymbol name="clock.fill" size={13} color={Colors.textMuted} />
+                <IconSymbol name="clock.fill" size={13} color={colors.textMuted} />
                 <Text style={styles.time}>{match.time}</Text>
               </View>
             )}
@@ -60,7 +63,7 @@ export default function MatchScreen() {
 
       {detail.transport ? (
         <View style={styles.transportCard}>
-          <IconSymbol name="map.fill" size={16} color={Colors.info} />
+          <IconSymbol name="map.fill" size={16} color={colors.info} />
           <Text style={styles.transportText}>{detail.transport}</Text>
         </View>
       ) : null}
@@ -116,7 +119,7 @@ export default function MatchScreen() {
         <>
           {canEdit ? (
             <Pressable style={styles.editBtn} onPress={() => router.push(`/lineup?matchId=${match.id}`)}>
-              <IconSymbol name="pencil" size={15} color={Colors.textOnPrimary} />
+              <IconSymbol name="pencil" size={15} color={colors.textOnPrimary} />
               <Text style={styles.editBtnText}>{t('lineup.editLineup')}</Text>
             </Pressable>
           ) : null}
@@ -130,7 +133,7 @@ export default function MatchScreen() {
             {displayLineup.map((initials, i) => (
               <View key={initials} style={styles.lineupRow}>
                 <Text style={styles.lineupNum}>{i + 1}</Text>
-                <InitialsTile initials={initials} color={Colors.mint} size={34} />
+                <InitialsTile initials={initials} color={colors.mint} size={34} />
                 <Text style={styles.lineupName}>{nameFor(initials)}</Text>
               </View>
             ))}
@@ -141,14 +144,14 @@ export default function MatchScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   infoCard: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.md,
     marginTop: Spacing.md,
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.lg,
     padding: Spacing.lg,
@@ -160,12 +163,12 @@ const styles = StyleSheet.create({
   opponent: {
     fontFamily: Fonts.headingSemiBold,
     fontSize: 18,
-    color: Colors.mint,
+    color: colors.mint,
   },
   meta: {
     fontFamily: Fonts.body,
     fontSize: 13,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
   },
   infoRow: {
     flexDirection: 'row',
@@ -176,7 +179,7 @@ const styles = StyleSheet.create({
   score: {
     fontFamily: Fonts.headingSemiBold,
     fontSize: 16,
-    color: Colors.mint,
+    color: colors.mint,
   },
   timeRow: {
     flexDirection: 'row',
@@ -186,15 +189,15 @@ const styles = StyleSheet.create({
   time: {
     fontFamily: Fonts.bodyMedium,
     fontSize: 12,
-    color: Colors.textMuted,
+    color: colors.textMuted,
   },
   transportCard: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.sm,
     marginTop: Spacing.md,
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.lg,
     padding: Spacing.md,
@@ -202,20 +205,20 @@ const styles = StyleSheet.create({
   transportText: {
     fontFamily: Fonts.body,
     fontSize: 13,
-    color: Colors.text,
+    color: colors.text,
   },
   summary: {
     flexDirection: 'row',
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.lg,
     padding: Spacing.lg,
     gap: Spacing.sm,
   },
   table: {
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.lg,
     overflow: 'hidden',
@@ -223,7 +226,7 @@ const styles = StyleSheet.create({
   tableHead: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.surfaceAlt,
+    backgroundColor: colors.surfaceAlt,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
   },
@@ -233,7 +236,7 @@ const styles = StyleSheet.create({
     fontSize: 10,
     letterSpacing: 1,
     textTransform: 'uppercase',
-    color: Colors.textMuted,
+    color: colors.textMuted,
   },
   headCol: {
     width: 44,
@@ -241,14 +244,14 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.bodyMedium,
     fontSize: 10,
     letterSpacing: 1,
-    color: Colors.textMuted,
+    color: colors.textMuted,
   },
   tableRow: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
-    borderTopColor: Colors.borderSoft,
+    borderTopColor: colors.borderSoft,
     borderTopWidth: StyleSheet.hairlineWidth,
   },
   playerCell: {
@@ -261,18 +264,18 @@ const styles = StyleSheet.create({
     flex: 1,
     fontFamily: Fonts.bodyMedium,
     fontSize: 12,
-    color: Colors.text,
+    color: colors.text,
   },
   col: {
     width: 44,
     textAlign: 'center',
     fontFamily: Fonts.body,
     fontSize: 12,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
   },
   rtg: {
     fontFamily: Fonts.headingSemiBold,
-    color: Colors.mint,
+    color: colors.mint,
   },
   editBtn: {
     marginTop: Spacing.md,
@@ -280,20 +283,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: Spacing.sm,
-    backgroundColor: Colors.mint,
+    backgroundColor: colors.mint,
     borderRadius: Radius.md,
     paddingVertical: Spacing.sm + 2,
   },
   editBtnText: {
     fontFamily: Fonts.bodySemiBold,
     fontSize: 13,
-    color: Colors.textOnPrimary,
+    color: colors.textOnPrimary,
     textTransform: 'lowercase',
   },
   lineupFormation: {
     fontFamily: Fonts.bodyMedium,
     fontSize: 12,
-    color: Colors.mint,
+    color: colors.mint,
     marginBottom: Spacing.sm,
     textTransform: 'lowercase',
   },
@@ -304,8 +307,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.md,
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.lg,
     padding: Spacing.md,
@@ -315,12 +318,12 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontFamily: Fonts.headingSemiBold,
     fontSize: 13,
-    color: Colors.textMuted,
+    color: colors.textMuted,
   },
   lineupName: {
     flex: 1,
     fontFamily: Fonts.bodySemiBold,
     fontSize: 14,
-    color: Colors.text,
+    color: colors.text,
   },
 });

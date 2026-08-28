@@ -1,4 +1,4 @@
-import { ThemeProvider } from '@react-navigation/native';
+import { ThemeProvider as NavThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -18,9 +18,10 @@ import {
   SpaceGrotesk_700Bold,
 } from '@expo-google-fonts/space-grotesk';
 
-import { navigationTheme } from '@/constants/theme';
+import { darkNavigationTheme, lightNavigationTheme } from '@/constants/theme';
 import { LanguageProvider } from '@/lib/i18n';
 import { SessionProvider } from '@/lib/session';
+import { ThemeProvider, useTheme } from '@/lib/theme';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -51,7 +52,16 @@ export default function RootLayout() {
   }
 
   return (
-    <ThemeProvider value={navigationTheme}>
+    <ThemeProvider>
+      <RootContent />
+    </ThemeProvider>
+  );
+}
+
+function RootContent() {
+  const { isDark } = useTheme();
+  return (
+    <NavThemeProvider value={isDark ? darkNavigationTheme : lightNavigationTheme}>
       <LanguageProvider>
         <SessionProvider>
           <Stack>
@@ -60,9 +70,9 @@ export default function RootLayout() {
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
             <Stack.Screen name="conversation" options={{ headerShown: false }} />
           </Stack>
-          <StatusBar style="light" />
+          <StatusBar style={isDark ? 'light' : 'dark'} />
         </SessionProvider>
       </LanguageProvider>
-    </ThemeProvider>
+    </NavThemeProvider>
   );
 }

@@ -2,7 +2,8 @@ import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { IconSymbol, type IconSymbolName } from '@/components/ui/icon-symbol';
-import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
+import { Fonts, Radius, Spacing, type ThemeColors } from '@/constants/theme';
+import { useTheme, useThemedStyles } from '@/lib/theme';
 import { useLanguage } from '@/lib/i18n';
 
 type ListRowProps = {
@@ -16,6 +17,8 @@ type ListRowProps = {
 
 /** A card-style list row used across the module screens. */
 export function ListRow({ title, subtitle, leading, trailing, onPress, dimmed }: ListRowProps) {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(createStyles);
   return (
     <Pressable
       onPress={onPress}
@@ -32,13 +35,14 @@ export function ListRow({ title, subtitle, leading, trailing, onPress, dimmed }:
           </Text>
         ) : null}
       </View>
-      {trailing ?? <IconSymbol name="chevron.right" size={18} color={Colors.textMuted} />}
+      {trailing ?? <IconSymbol name="chevron.right" size={18} color={colors.textMuted} />}
     </Pressable>
   );
 }
 
 /** Circular initials avatar, tinted with the item's accent color. */
 export function InitialsTile({ initials, color, size = 42 }: { initials: string; color: string; size?: number }) {
+  const styles = useThemedStyles(createStyles);
   return (
     <View
       style={[
@@ -66,6 +70,7 @@ export function IconTile({
   color: string;
   size?: number;
 }) {
+  const styles = useThemedStyles(createStyles);
   return (
     <View
       style={[
@@ -86,6 +91,7 @@ export function IconTile({
 /** A square date chip showing a day + month, e.g. for trainings/matches. */
 export function DateTile({ day, month, color }: { day: string; month: string; color: string }) {
   const { t } = useLanguage();
+  const styles = useThemedStyles(createStyles);
   return (
     <View style={[styles.dateTile, { borderColor: `${color}55` }]}>
       <Text style={[styles.dateDay, { color }]}>{day}</Text>
@@ -94,19 +100,19 @@ export function DateTile({ day, month, color }: { day: string; month: string; co
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.md,
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
+    backgroundColor: colors.surface,
+    borderColor: colors.glassBorder,
     borderWidth: 1,
     borderRadius: Radius.lg,
     padding: Spacing.md,
   },
   rowPressed: {
-    backgroundColor: Colors.surfaceAlt,
+    backgroundColor: colors.surfaceAlt,
   },
   body: {
     flex: 1,
@@ -115,15 +121,15 @@ const styles = StyleSheet.create({
   title: {
     fontFamily: Fonts.bodySemiBold,
     fontSize: 14,
-    color: Colors.text,
+    color: colors.text,
   },
   titleDimmed: {
-    color: Colors.textMuted,
+    color: colors.textMuted,
   },
   subtitle: {
     fontFamily: Fonts.body,
     fontSize: 12,
-    color: Colors.textMuted,
+    color: colors.textMuted,
   },
   tile: {
     alignItems: 'center',
@@ -140,7 +146,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: Colors.surfaceAlt,
+    backgroundColor: colors.surfaceAlt,
   },
   dateDay: {
     fontFamily: Fonts.headingSemiBold,
@@ -150,7 +156,7 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.bodyMedium,
     fontSize: 9,
     letterSpacing: 1,
-    color: Colors.textMuted,
+    color: colors.textMuted,
     marginTop: 1,
   },
 });

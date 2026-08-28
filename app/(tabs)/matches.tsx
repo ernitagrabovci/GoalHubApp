@@ -7,11 +7,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { DateTile, ListRow } from '@/components/list-row';
 import { StatusChip } from '@/components/status-chip';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
+import { Fonts, Radius, Spacing, type ThemeColors } from '@/constants/theme';
 import { ALL_MATCHES, ALL_TEAMS, type Match, type Team } from '@/lib/data';
 import { useLanguage } from '@/lib/i18n';
 import { useSession } from '@/lib/session';
 import { usePersistedState } from '@/lib/storage';
+import { useTheme, useThemedStyles } from '@/lib/theme';
 
 const COMPETITIONS = [
   { code: 'Superliga', labelKey: 'competition.superliga' },
@@ -22,6 +23,8 @@ const MONTHS = ['AUG', 'SEP'];
 
 function NewMatchForm({ teams, onDone }: { teams: Team[]; onDone: (m: Match) => void }) {
   const { t } = useLanguage();
+  const { colors } = useTheme();
+  const styles = useThemedStyles(createStyles);
   const [opponent, setOpponent] = useState('');
   const [teamId, setTeamId] = useState<string>(teams[0]?.id ?? '');
   const [competition, setCompetition] = useState<string>(COMPETITIONS[0].code);
@@ -64,7 +67,7 @@ function NewMatchForm({ teams, onDone }: { teams: Team[]; onDone: (m: Match) => 
       <TextInput
         style={styles.input}
         placeholder={t('matches.opponent')}
-        placeholderTextColor={Colors.textMuted}
+        placeholderTextColor={colors.textMuted}
         value={opponent}
         onChangeText={setOpponent}
         autoCorrect={false}
@@ -119,7 +122,7 @@ function NewMatchForm({ teams, onDone }: { teams: Team[]; onDone: (m: Match) => 
           <TextInput
             style={styles.input}
             placeholder={t('trainings.formDay')}
-            placeholderTextColor={Colors.textMuted}
+            placeholderTextColor={colors.textMuted}
             value={day}
             onChangeText={setDay}
             keyboardType="numeric"
@@ -145,14 +148,14 @@ function NewMatchForm({ teams, onDone }: { teams: Team[]; onDone: (m: Match) => 
         <TextInput
           style={styles.input}
           placeholder={t('trainings.formTime')}
-          placeholderTextColor={Colors.textMuted}
+          placeholderTextColor={colors.textMuted}
           value={time}
           onChangeText={setTime}
           autoCorrect={false}
         />
       </View>
       <Pressable style={styles.submitBtn} onPress={submit}>
-        <IconSymbol name="plus" size={16} color={Colors.textOnPrimary} />
+        <IconSymbol name="plus" size={16} color={colors.textOnPrimary} />
         <Text style={styles.submitBtnText}>{t('matches.create')}</Text>
       </Pressable>
     </View>
@@ -161,6 +164,8 @@ function NewMatchForm({ teams, onDone }: { teams: Team[]; onDone: (m: Match) => 
 
 function MatchTrailing({ match }: { match: Match }) {
   const { t } = useLanguage();
+  const { colors } = useTheme();
+  const styles = useThemedStyles(createStyles);
   if (match.status === 'played') {
     return (
       <View style={styles.resultCol}>
@@ -173,7 +178,7 @@ function MatchTrailing({ match }: { match: Match }) {
     return (
       <View style={styles.resultCol}>
         <View style={styles.timeRow}>
-          <IconSymbol name="clock.fill" size={13} color={Colors.textMuted} />
+          <IconSymbol name="clock.fill" size={13} color={colors.textMuted} />
           <Text style={styles.time}>{match.time}</Text>
         </View>
         <StatusChip label={t(`venue.${match.venue}`)} tone="info" />
@@ -182,7 +187,7 @@ function MatchTrailing({ match }: { match: Match }) {
   }
   return (
     <View style={styles.resultCol}>
-      <Text style={[styles.score, { color: Colors.textMuted }]}>—</Text>
+      <Text style={[styles.score, { color: colors.textMuted }]}>—</Text>
       <StatusChip label={t('match.cancelled')} tone="danger" />
     </View>
   );
@@ -203,6 +208,8 @@ function MatchRow({ match, onPress }: { match: Match; onPress: () => void }) {
 
 export default function MatchesScreen() {
   const router = useRouter();
+  const { colors, isDark } = useTheme();
+  const styles = useThemedStyles(createStyles);
   const { t } = useLanguage();
   const { user } = useSession();
   const canManage = user?.role === 'administrator' || user?.role === 'trainer';
@@ -222,20 +229,20 @@ export default function MatchesScreen() {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      <StatusBar style="light" />
+      <StatusBar style={isDark ? 'light' : 'dark'} />
       <ScrollView
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}>
         {/* Back */}
         <Pressable style={styles.backRow} onPress={() => router.back()} hitSlop={8}>
-          <IconSymbol name="chevron-left" size={22} color={Colors.mint} />
+          <IconSymbol name="chevron-left" size={22} color={colors.mint} />
           <Text style={styles.backText}>{t('common.back')}</Text>
         </Pressable>
 
         {/* Screen head */}
         <View style={styles.head}>
-          <View style={[styles.headIcon, { backgroundColor: `${Colors.warning}22` }]}>
-            <IconSymbol name="figure.soccer" size={26} color={Colors.warning} />
+          <View style={[styles.headIcon, { backgroundColor: `${colors.warning}22` }]}>
+            <IconSymbol name="figure.soccer" size={26} color={colors.warning} />
           </View>
           <View style={styles.headBody}>
             <Text style={styles.title}>{t('matches.title')}</Text>
@@ -280,7 +287,7 @@ export default function MatchesScreen() {
 
         {canManage ? (
           <Pressable style={styles.action} onPress={() => setShowForm((s) => !s)}>
-            <IconSymbol name={showForm ? 'xmark' : 'plus'} size={18} color={Colors.textOnPrimary} />
+            <IconSymbol name={showForm ? 'xmark' : 'plus'} size={18} color={colors.textOnPrimary} />
             <Text style={styles.actionText}>
               {showForm ? t('common.closeForm') : t('matches.create')}
             </Text>
@@ -291,10 +298,10 @@ export default function MatchesScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: colors.background,
   },
   content: {
     paddingHorizontal: Spacing.lg,
@@ -311,7 +318,7 @@ const styles = StyleSheet.create({
   backText: {
     fontFamily: Fonts.bodyMedium,
     fontSize: 13,
-    color: Colors.mint,
+    color: colors.mint,
     textTransform: 'lowercase',
   },
   head: {
@@ -336,18 +343,18 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.heading,
     fontSize: 26,
     letterSpacing: -0.5,
-    color: Colors.mint,
+    color: colors.mint,
     textTransform: 'lowercase',
   },
   subtitle: {
     fontFamily: Fonts.body,
     fontSize: 13,
-    color: Colors.textMuted,
+    color: colors.textMuted,
   },
   sectionLabel: {
     fontFamily: Fonts.headingSemiBold,
     fontSize: 16,
-    color: Colors.mint,
+    color: colors.mint,
     textTransform: 'lowercase',
     marginTop: Spacing.xl,
     marginBottom: Spacing.sm,
@@ -362,7 +369,7 @@ const styles = StyleSheet.create({
   score: {
     fontFamily: Fonts.headingSemiBold,
     fontSize: 16,
-    color: Colors.mint,
+    color: colors.mint,
   },
   timeRow: {
     flexDirection: 'row',
@@ -372,11 +379,11 @@ const styles = StyleSheet.create({
   time: {
     fontFamily: Fonts.bodyMedium,
     fontSize: 12,
-    color: Colors.textMuted,
+    color: colors.textMuted,
   },
   formCard: {
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.lg,
     padding: Spacing.md,
@@ -388,22 +395,22 @@ const styles = StyleSheet.create({
     fontSize: 11,
     letterSpacing: 1,
     textTransform: 'uppercase',
-    color: Colors.textMuted,
+    color: colors.textMuted,
   },
   input: {
-    backgroundColor: Colors.surfaceAlt,
-    borderColor: Colors.border,
+    backgroundColor: colors.surfaceAlt,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.md,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm + 2,
-    color: Colors.text,
+    color: colors.text,
     fontFamily: Fonts.body,
     fontSize: 14,
   },
   inputBox: {
-    backgroundColor: Colors.surfaceAlt,
-    borderColor: Colors.border,
+    backgroundColor: colors.surfaceAlt,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.md,
     paddingHorizontal: Spacing.md,
@@ -425,24 +432,24 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   chip: {
-    borderColor: Colors.border,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: Radius.pill,
     paddingVertical: 6,
     paddingHorizontal: Spacing.md,
-    backgroundColor: Colors.surfaceAlt,
+    backgroundColor: colors.surfaceAlt,
   },
   chipActive: {
-    backgroundColor: Colors.mint,
-    borderColor: Colors.mint,
+    backgroundColor: colors.mint,
+    borderColor: colors.mint,
   },
   chipText: {
     fontFamily: Fonts.bodyMedium,
     fontSize: 12,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
   },
   chipTextActive: {
-    color: Colors.textOnPrimary,
+    color: colors.textOnPrimary,
   },
   submitBtn: {
     marginTop: Spacing.xs,
@@ -450,14 +457,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: Spacing.sm,
-    backgroundColor: Colors.mint,
+    backgroundColor: colors.mint,
     borderRadius: Radius.md,
     paddingVertical: Spacing.sm + 2,
   },
   submitBtnText: {
     fontFamily: Fonts.bodySemiBold,
     fontSize: 13,
-    color: Colors.textOnPrimary,
+    color: colors.textOnPrimary,
     textTransform: 'lowercase',
   },
   action: {
@@ -466,14 +473,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: Spacing.sm,
-    backgroundColor: Colors.mint,
+    backgroundColor: colors.mint,
     borderRadius: Radius.md,
     paddingVertical: Spacing.lg,
   },
   actionText: {
     fontFamily: Fonts.bodySemiBold,
     fontSize: 15,
-    color: Colors.textOnPrimary,
+    color: colors.textOnPrimary,
     textTransform: 'lowercase',
   },
 });

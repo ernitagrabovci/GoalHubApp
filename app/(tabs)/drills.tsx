@@ -3,10 +3,11 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import { IconTile, ListRow } from '@/components/list-row';
 import { ListScreen } from '@/components/list-screen';
-import { Colors, Fonts, Radius } from '@/constants/theme';
+import { Fonts, Radius, type ThemeColors } from '@/constants/theme';
 import { type Drill } from '@/lib/data';
 import { useLanguage } from '@/lib/i18n';
 import { drillsStore, useCollection } from '@/lib/store';
+import { useTheme, useThemedStyles } from '@/lib/theme';
 
 const GENERATED_POOL: Omit<Drill, 'id'>[] = [
   { title: 'Pressing 5v5', category: 'Tactical', level: 'advanced', duration: '20 min', players: '10–15', focus: 'Counter-pressing', color: '#8f86e8' },
@@ -28,6 +29,8 @@ const LEVEL_COLOR: Record<Drill['level'], string> = {
 };
 
 export default function DrillsScreen() {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(createStyles);
   const router = useRouter();
   const { t } = useLanguage();
   const drills = useCollection(drillsStore);
@@ -41,7 +44,7 @@ export default function DrillsScreen() {
   return (
     <ListScreen back
       icon="fitness-center"
-      accent={Colors.info}
+      accent={colors.info}
       title={t('drills.title')}
       subtitle={t('drills.subtitle')}
       searchable
@@ -72,7 +75,7 @@ export default function DrillsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   trailing: {
     alignItems: 'flex-end',
     gap: 6,
@@ -80,7 +83,7 @@ const styles = StyleSheet.create({
   duration: {
     fontFamily: Fonts.bodyMedium,
     fontSize: 12,
-    color: Colors.text,
+    color: colors.text,
   },
   levelChip: {
     borderWidth: 1,
