@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
 
 import { InitialsTile } from '@/components/list-row';
@@ -37,13 +37,16 @@ export default function LineupScreen() {
   const [selectedSlot, setSelectedSlot] = useState<number | null>(null);
   const [pitchW, setPitchW] = useState(0);
 
-  // Re-sync local state once the persisted lineup hydrates.
-  useEffect(() => {
+  // Re-sync local editing state once the persisted lineup hydrates or the target
+  // match changes. Done via state adjustment during render (React-endorsed).
+  const [prevSaved, setPrevSaved] = useState(saved);
+  if (saved !== prevSaved) {
+    setPrevSaved(saved);
     if (saved) {
       setFormation(saved.formation);
       setLineup(saved.lineup);
     }
-  }, [saved]);
+  }
 
   const pitchH = pitchW * 1.5;
   const slots = FORMATION_SLOTS[formation] ?? FORMATION_SLOTS['4-3-3'];

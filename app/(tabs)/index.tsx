@@ -1,65 +1,57 @@
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { StatusChip, type StatusTone } from '@/components/status-chip';
-import { IconSymbol, type IconSymbolName } from '@/components/ui/icon-symbol';
+import { AdminHome } from '@/components/dashboard/admin-home';
+import { FinancierHome } from '@/components/dashboard/financier-home';
+import { ParentHome } from '@/components/dashboard/parent-home';
+import { PlayerHome } from '@/components/dashboard/player-home';
+import { TrainerHome } from '@/components/dashboard/trainer-home';
+import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Fonts, Radius, Spacing, type ThemeColors } from '@/constants/theme';
-import {
-  ALL_MESSAGES,
-  ALL_PLAYERS,
-  ALL_TRAININGS,
-  feesForRole,
-  type Health,
-} from '@/lib/data';
+import { ALL_TRAININGS } from '@/lib/data';
 import { modulesForRole } from '@/lib/modules';
 import { useLanguage } from '@/lib/i18n';
 import { useSession } from '@/lib/session';
 import { useTheme, useThemedStyles } from '@/lib/theme';
 
-const HEALTH_TONE: Record<Health, StatusTone> = {
-  active: 'emerald',
-  injured: 'danger',
-  rehabilitation: 'warning',
-  suspended: 'purple',
-};
+/** Rich brand gradient for the hero — forest → emerald. Works on both themes. */
+const HERO_GRADIENT: [string, string, string] = ['#0E3327', '#1E6B4F', '#2E8B63'];
 
-function QuickTile({
-  icon,
-  tint,
-  label,
-  value,
-  onPress,
-}: {
-  icon: IconSymbolName;
-  tint: string;
-  label: string;
-  value: string;
-  onPress: () => void;
-}) {
-  const { isDark } = useTheme();
-  const styles = useThemedStyles(createStyles);
-  return (
-    <BlurView intensity={14} tint={isDark ? 'dark' : 'light'} style={styles.quickTile}>
-      <Pressable style={styles.quickTilePress} onPress={onPress}>
-        <View style={[styles.quickIcon, { backgroundColor: `${tint}22` }]}>
-          <IconSymbol name={icon} size={16} color={tint} />
-        </View>
-        <View style={styles.quickBody}>
-          <Text style={styles.quickLabel} numberOfLines={1}>{label}</Text>
-          <Text style={styles.quickValue} numberOfLines={1}>{value}</Text>
-        </View>
-      </Pressable>
-    </BlurView>
-  );
-}
+const IMG = (p: string) =>
+  `https://images.pexels.com/${p}?w=600&h=600&fit=crop&auto=compress`;
+
+/** Photo per menu module (curated from Pexels) so each tile reads like a real image. */
+const MODULE_IMAGES: Record<string, string> = {
+  Players: IMG('photos/38154270/pexels-photo-38154270.jpeg'),
+  Trainers: IMG('photos/8941613/pexels-photo-8941613.jpeg'),
+  Parents: IMG('photos/4241360/pexels-photo-4241360.jpeg'),
+  Teams: IMG('photos/38092701/pexels-photo-38092701.jpeg'),
+  Users: IMG('photos/37926430/pexels-photo-37926430.jpeg'),
+  Club: IMG('photos/30651230/pexels-photo-30651230.jpeg'),
+  Matches: IMG('photos/38881884/pexels-photo-38881884.jpeg'),
+  Trainings: IMG('photos/7187827/pexels-photo-7187827.jpeg'),
+  Academy: IMG('photos/8941608/pexels-photo-8941608.jpeg'),
+  'Tactical Board': IMG('photos/8910026/pexels-photo-8910026.jpeg'),
+  Drills: IMG('photos/37391217/pexels-photo-37391217.jpeg'),
+  Groups: IMG('photos/38615873/pexels-photo-38615873.jpeg'),
+  Medical: IMG('photos/12428449/pexels-photo-12428449.jpeg'),
+  Competitions: IMG('photos/8994432/pexels-photo-8994432.jpeg'),
+  Payments: IMG('photos/259100/pexels-photo-259100.jpeg'),
+  Finance: IMG('photos/259249/pexels-photo-259249.jpeg'),
+  Messages: IMG('photos/5246965/pexels-photo-5246965.jpeg'),
+  Reports: IMG('photos/7948058/pexels-photo-7948058.jpeg'),
+  Settings: IMG('photos/38105639/pexels-photo-38105639.jpeg'),
+  Admin: IMG('photos/35499482/pexels-photo-35499482.jpeg'),
+};
 
 export default function HomeScreen() {
   const router = useRouter();
-  const { user, signOut } = useSession();
+  const { user } = useSession();
   const { t } = useLanguage();
   const { colors, isDark } = useTheme();
   const styles = useThemedStyles(createStyles);
@@ -87,24 +79,39 @@ export default function HomeScreen() {
     );
   }
 
-  const subtitle = t(`home.subtitle.${user.role}`);
-  const child = ALL_PLAYERS.find((p) => p.name === 'Agon Gashi');
-  const player = ALL_PLAYERS.find((p) => p.name === 'Ardit Llapashtica');
-  const links = modulesForRole(user.role);
-  const cols = links.length > 9 ? 4 : 3;
-  const cellWidth = cols === 4 ? '22%' : '31%';
-  const cellIcon = cols === 4 ? 34 : 44;
-  const glyph = cols === 4 ? 16 : 20;
-  const cellGap = cols === 4 ? Spacing.xs : Spacing.sm;
-  const labelFont = cols === 4 ? 11 : 12;
-  const currentFee = feesForRole(user.role)[0];
-  const nextTraining = ALL_TRAININGS[0];
-  const latestMessage = ALL_MESSAGES[0];
+  // The administrator role gets the dedicated light-only dashboard (floating pill nav).
+  if (user.role === 'administrator') {
+    return <AdminHome />;
+  }
 
-  const handleSignOut = () => {
-    signOut();
-    router.replace('/login');
-  };
+  // The trainer role gets the dedicated light-only trainer dashboard (Home | Chat pill).
+  if (user.role === 'trainer') {
+    return <TrainerHome />;
+  }
+
+  // The player role gets the dedicated light-only player dashboard (Home | Chat pill).
+  if (user.role === 'player') {
+    return <PlayerHome />;
+  }
+
+  // The parent role gets the dedicated light-only parent dashboard (Home | Chat pill).
+  if (user.role === 'parent') {
+    return <ParentHome />;
+  }
+
+  // The financier role gets the dedicated light-only payments dashboard (Home | Chat pill).
+  if (user.role === 'financier') {
+    return <FinancierHome />;
+  }
+
+  const firstName = user.name.split(' ')[0];
+  const links = modulesForRole(user.role);
+  const cols = links.length > 9 ? 3 : 2;
+  const cellWidth = cols === 3 ? '31%' : '48%';
+  const glyph = cols === 3 ? 34 : 46;
+  const labelFont = cols === 3 ? 12 : 14;
+  const cellGap = cols === 3 ? Spacing.xs : Spacing.sm;
+  const nextTraining = ALL_TRAININGS[0];
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -116,182 +123,111 @@ export default function HomeScreen() {
           <View style={[styles.blob, styles.blobBottom]} />
         </View>
 
-        {/* Header */}
-        <BlurView intensity={12} tint={isDark ? 'dark' : 'light'} style={styles.header}>
-          <View style={styles.brand}>
+        <View style={styles.scroll}>
+          {/* Header — logo, greeting, bell + avatar */}
+          <View style={styles.header}>
             <Image
               source={require('@/assets/images/goalhub-logo.png')}
-              style={styles.brandLogo}
+              style={styles.logo}
               resizeMode="contain"
             />
-            <Text style={styles.brandText}>goalhub</Text>
-          </View>
-          <View style={styles.headerRight}>
-            <Pressable style={styles.rolePill} onPress={handleSignOut}>
-              <IconSymbol name="logout" size={12} color={colors.mint} />
-              <Text style={styles.rolePillText}>{t('home.switchRole')}</Text>
-            </Pressable>
-            <Pressable onPress={() => router.navigate('/profile')} hitSlop={8}>
-              <View style={[styles.avatar, { backgroundColor: `${user.color}26` }]}>
-                <Text style={[styles.avatarText, { color: user.color }]}>{user.initials}</Text>
-              </View>
-            </Pressable>
-          </View>
-        </BlurView>
-
-        {/* Hero — name + player info, fills the top of the page */}
-        <View style={styles.heroArea}>
-          <View style={[styles.blob, styles.blobA]} />
-          <View style={[styles.blob, styles.blobB]} />
-
-          {user.role === 'player' && player ? (
-            <Pressable style={styles.heroPress} onPress={() => router.push('/stats')}>
-              <BlurView intensity={18} tint={isDark ? 'dark' : 'light'} style={styles.hero}>
-                <View style={styles.jerseyBadge}>
-                  <Text style={styles.jerseyNum}>{player.number}</Text>
-                </View>
-                <View style={styles.heroBody}>
-                  <Text style={styles.heroName} numberOfLines={1}>{player.name}</Text>
-                  <Text style={styles.heroMeta}>
-                    {t('common.personMeta', {
-                      position: player.position,
-                      number: player.number,
-                      age: player.age,
-                    })}
-                  </Text>
-                  <View style={styles.heroTags}>
-                    <StatusChip label={t(`health.${player.health}`)} tone={HEALTH_TONE[player.health]} />
-                    <View style={styles.ratingChip}>
-                      <IconSymbol name="star.fill" size={11} color="#f5a623" />
-                      <Text style={styles.ratingText}>{player.rating.toFixed(1)}</Text>
-                    </View>
-                  </View>
-                </View>
-                <IconSymbol name="chevron.right" size={18} color={colors.textMuted} />
-              </BlurView>
-            </Pressable>
-          ) : user.role === 'parent' && child ? (
-            <Pressable style={styles.heroPress} onPress={() => router.push('/child')}>
-              <BlurView intensity={18} tint={isDark ? 'dark' : 'light'} style={styles.hero}>
-                <View style={styles.jerseyBadge}>
-                  <Text style={styles.jerseyNum}>{child.number}</Text>
-                </View>
-                <View style={styles.heroBody}>
-                  <Text style={styles.heroName} numberOfLines={1}>{child.name}</Text>
-                  <Text style={styles.heroMeta}>
-                    {t('common.personMeta', {
-                      position: child.position,
-                      number: child.number,
-                      age: child.age,
-                    })}
-                  </Text>
-                  <View style={styles.heroTags}>
-                    <StatusChip label={t(`health.${child.health}`)} tone={HEALTH_TONE[child.health]} />
-                    <View style={styles.ratingChip}>
-                      <IconSymbol name="star.fill" size={11} color="#f5a623" />
-                      <Text style={styles.ratingText}>{child.rating.toFixed(1)}</Text>
-                    </View>
-                  </View>
-                </View>
-                <IconSymbol name="chevron.right" size={18} color={colors.textMuted} />
-              </BlurView>
-            </Pressable>
-          ) : user.role === 'trainer' ? (
-            <Pressable style={styles.heroPress} onPress={() => router.push('/players')}>
-              <BlurView intensity={18} tint={isDark ? 'dark' : 'light'} style={styles.hero}>
-                <View style={[styles.jerseyBadge, { backgroundColor: `${colors.mint}1f` }]}>
-                  <IconSymbol name="person.2.fill" size={32} color={colors.mint} />
-                </View>
-                <View style={styles.heroBody}>
-                  <Text style={styles.heroName} numberOfLines={1}>{user.club}</Text>
-                  <Text style={styles.heroMeta}>{subtitle}</Text>
-                </View>
-                <IconSymbol name="chevron.right" size={18} color={colors.textMuted} />
-              </BlurView>
-            </Pressable>
-          ) : (
-            <BlurView intensity={18} tint={isDark ? 'dark' : 'light'} style={styles.hero}>
-              <View style={[styles.jerseyBadge, { backgroundColor: `${user.color}26` }]}>
-                <Text style={[styles.jerseyNum, { color: user.color }]}>{user.initials}</Text>
-              </View>
-              <View style={styles.heroBody}>
-                <Text style={styles.heroName} numberOfLines={1}>{user.name}</Text>
-                <Text style={styles.heroMeta}>{subtitle}</Text>
-              </View>
-            </BlurView>
-          )}
-        </View>
-
-        {/* Everything — floating glass frame, the biggest part */}
-        <View style={styles.everythingWrap}>
-          <BlurView intensity={14} tint={isDark ? 'dark' : 'light'} style={styles.everything}>
-            <LinearGradient
-              pointerEvents="none"
-              style={StyleSheet.absoluteFill}
-              colors={['rgba(255, 255, 255, 0.10)', 'rgba(255, 255, 255, 0.02)', 'rgba(5, 15, 13, 0.35)']}
-              locations={[0, 0.18, 1]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 0, y: 1 }}
-            />
-            <View style={styles.everythingHead}>
-              <IconSymbol name="square.grid.2x2.fill" size={14} color={colors.mint} />
-              <Text style={styles.everythingTitle}>{t('home.everything')}</Text>
+            <View style={styles.greetingWrap}>
+              <Text style={styles.greeting} numberOfLines={1}>
+                {t('home.hello')}, {firstName}
+              </Text>
             </View>
-            <ScrollView
-              style={styles.gridScroll}
-              contentContainerStyle={styles.grid}
-              showsVerticalScrollIndicator={false}>
-              {links.map((module) => (
-                <Pressable
-                  key={module.label}
-                  style={[styles.cell, { width: cellWidth, gap: cellGap }]}
-                  onPress={() =>
-                    module.route
-                      ? router.push(module.route as never)
-                      : alert(t('common.comingSoon', { label: t(`module.${module.label}`) }))
-                  }>
-                  <View
-                    style={[styles.cellIcon, { width: cellIcon, height: cellIcon, backgroundColor: `${module.color}1f` }]}>
-                    <IconSymbol name={module.icon} size={glyph} color={module.color} />
-                  </View>
-                  <Text style={[styles.cellLabel, { fontSize: labelFont }]} numberOfLines={1}>
-                    {t(`module.${module.label}`)}
-                  </Text>
-                </Pressable>
-              ))}
-            </ScrollView>
-          </BlurView>
-        </View>
+            <View style={styles.headerRight}>
+              <Pressable
+                onPress={() => router.push('/notifications')}
+                hitSlop={10}
+                accessibilityRole="button"
+                accessibilityLabel={t('notifications.title')}
+                style={({ pressed }) => [styles.bellBtn, pressed && styles.bellPressed]}>
+                <MaterialCommunityIcons name="bell" size={20} color={colors.mint} />
+              </Pressable>
+              <Pressable onPress={() => router.navigate('/profile')} hitSlop={8}>
+                <View style={[styles.avatar, { backgroundColor: `${user.color}26` }]}>
+                  <Text style={[styles.avatarText, { color: user.color }]}>{user.initials}</Text>
+                </View>
+              </Pressable>
+            </View>
+          </View>
 
-        {/* Quick at-a-glance strip */}
-        <View style={styles.quickRow}>
-          {nextTraining ? (
-            <QuickTile
-              icon="calendar"
-              tint={colors.mint}
-              label={t('home.nextUp')}
-              value={`${nextTraining.day} ${t(`month.${nextTraining.month.toUpperCase()}`)}`}
-              onPress={() => router.push('/trainings')}
-            />
-          ) : null}
-          {currentFee ? (
-            <QuickTile
-              icon="dollarsign.circle.fill"
-              tint={colors.emerald}
-              label={t('home.feeStatus')}
-              value={`${t(`month.${currentFee.month.toUpperCase()}`)} · ${currentFee.amount}`}
-              onPress={() => router.push('/fees')}
-            />
-          ) : null}
-          {latestMessage ? (
-            <QuickTile
-              icon="bubble.left.fill"
-              tint={colors.info}
-              label={t('module.Messages')}
-              value={latestMessage.sender}
-              onPress={() => router.navigate('/chat')}
-            />
-          ) : null}
+          {/* Hero — bold brand gradient, sports-poster number watermark */}
+          <LinearGradient colors={HERO_GRADIENT} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.hero}>
+            <Text style={styles.heroNumber}>{user.initials}</Text>
+            <View style={styles.heroBody}>
+              <Text style={styles.heroEyebrow}>{t(`role.${user.role}`)} · {t(`home.greeting.${user.role}`)}</Text>
+              <Text style={styles.heroName} numberOfLines={1}>{user.name}</Text>
+            </View>
+          </LinearGradient>
+
+          {/* Next up — next training */}
+          {nextTraining && (
+            <Pressable style={styles.nextRow} onPress={() => router.push('/trainings')}>
+              <View style={styles.nextIcon}>
+                <IconSymbol name="calendar" size={18} color={colors.mint} />
+              </View>
+              <View style={styles.nextBody}>
+                <Text style={styles.nextLabel}>{t('home.nextUp')}</Text>
+                <Text style={styles.nextValue} numberOfLines={1}>
+                  {nextTraining.day} {nextTraining.month} · {nextTraining.time} ·{' '}
+                  {t(`trainings.${nextTraining.type.toLowerCase()}`)}
+                </Text>
+              </View>
+              <IconSymbol name="chevron.right" size={18} color={colors.textMuted} />
+            </Pressable>
+          )}
+
+          {/* Menu — module tiles with photos, in a glass frame */}
+          <View style={styles.menuBlock}>
+            <Text style={styles.menuTitle}>{t('home.menu')}</Text>
+            <View style={styles.menuFrame}>
+              <BlurView intensity={16} tint={isDark ? 'dark' : 'light'} style={styles.frameInner}>
+                <View style={styles.grid}>
+                  {links.map((module) => (
+                    <Pressable
+                      key={module.label}
+                      style={[
+                        styles.cell,
+                        { width: cellWidth, gap: cellGap, borderColor: `${module.color}88` },
+                        !module.route && styles.soonCell,
+                      ]}
+                      onPress={() =>
+                        module.route
+                          ? router.push(module.route as never)
+                          : alert(t('common.comingSoon', { label: t(`module.${module.label}`) }))
+                      }>
+                      <Image
+                        source={{ uri: MODULE_IMAGES[module.label] }}
+                        style={StyleSheet.absoluteFill}
+                        resizeMode="cover"
+                        blurRadius={3}
+                      />
+                      <LinearGradient
+                        pointerEvents="none"
+                        style={StyleSheet.absoluteFill}
+                        colors={[`${module.color}B3`, `${module.color}70`, `${module.color}C0`]}
+                        locations={[0, 0.5, 1]}
+                      />
+                      <View style={styles.iconWrap}>
+                        <IconSymbol name={module.icon} size={glyph} color="#000000" style={styles.shadowBack} />
+                        <IconSymbol name={module.icon} size={glyph} color="#FFFFFF" />
+                      </View>
+                      <View style={styles.labelWrap}>
+                        <Text style={[styles.cellLabelShadow, { fontSize: labelFont }]} numberOfLines={1}>
+                          {t(`module.${module.label}`)}
+                        </Text>
+                        <Text style={[styles.cellLabel, { fontSize: labelFont }]} numberOfLines={1}>
+                          {t(`module.${module.label}`)}
+                        </Text>
+                      </View>
+                    </Pressable>
+                  ))}
+                </View>
+              </BlurView>
+            </View>
+          </View>
         </View>
       </View>
     </SafeAreaView>
@@ -306,277 +242,259 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   content: {
     flex: 1,
     paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.sm,
+    paddingTop: Spacing.md,
     paddingBottom: Spacing.lg,
   },
+  scroll: {
+    flex: 1,
+    gap: Spacing.xl,
+  },
+  blob: {
+    position: 'absolute',
+    borderRadius: 999,
+  },
+  blobTop: {
+    width: 220,
+    height: 220,
+    top: -60,
+    right: -70,
+    backgroundColor: 'rgba(176, 228, 204, 0.06)',
+  },
+  blobBottom: {
+    width: 260,
+    height: 260,
+    bottom: -80,
+    left: -90,
+    backgroundColor: 'rgba(64, 138, 113, 0.06)',
+  },
+
+  // Header
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    borderWidth: 1,
-    borderColor: colors.glassBorder,
-    borderRadius: Radius.lg,
-    overflow: 'hidden',
-    paddingVertical: Spacing.xs,
-    paddingHorizontal: Spacing.sm,
+    gap: Spacing.sm,
+  },
+  logo: {
+    width: 48,
+    height: 48,
+  },
+  greetingWrap: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  greeting: {
+    fontFamily: Fonts.bodySemiBold,
+    fontSize: 14,
+    color: colors.text,
   },
   headerRight: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.sm,
   },
-  brand: {
-    flexDirection: 'row',
+  bellBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
     alignItems: 'center',
-    gap: Spacing.sm,
+    justifyContent: 'center',
+    backgroundColor: `${colors.mint}1a`,
   },
-  brandLogo: {
-    width: 30,
-    height: 30,
-  },
-  brandText: {
-    fontFamily: Fonts.heading,
-    fontSize: 20,
-    letterSpacing: -0.5,
-    color: colors.mint,
-    textTransform: 'lowercase',
-  },
-  rolePill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    backgroundColor: colors.surfaceAlt,
-    borderColor: colors.border,
-    borderWidth: 1,
-    borderRadius: Radius.pill,
-    paddingHorizontal: 9,
-    paddingVertical: 4,
-  },
-  rolePillText: {
-    fontFamily: Fonts.bodyMedium,
-    fontSize: 10,
-    color: colors.mint,
+  bellPressed: {
+    opacity: 0.6,
+    transform: [{ scale: 0.94 }],
   },
   avatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     alignItems: 'center',
     justifyContent: 'center',
   },
   avatarText: {
     fontFamily: Fonts.headingSemiBold,
-    fontSize: 12,
+    fontSize: 13,
   },
-  heroArea: {
-    marginTop: Spacing.md,
-    position: 'relative',
-  },
-  blob: {
-    position: 'absolute',
-    borderRadius: 999,
-  },
-  blobA: {
-    width: 200,
-    height: 200,
-    top: -40,
-    right: -40,
-    backgroundColor: 'rgba(176, 228, 204, 0.025)',
-  },
-  blobB: {
-    width: 150,
-    height: 150,
-    bottom: -30,
-    left: -30,
-    backgroundColor: 'rgba(83, 74, 183, 0.02)',
-  },
-  blobTop: {
-    width: 180,
-    height: 180,
-    top: -40,
-    right: -50,
-    backgroundColor: 'rgba(176, 228, 204, 0.02)',
-  },
-  blobBottom: {
-    width: 200,
-    height: 200,
-    bottom: -50,
-    left: -50,
-    backgroundColor: 'rgba(64, 138, 113, 0.025)',
-  },
+
+  // Hero
   heroPress: {
     borderRadius: Radius.xl,
   },
   hero: {
+    borderRadius: Radius.xl,
+    overflow: 'hidden',
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.lg,
-    borderRadius: Radius.xl,
-    borderWidth: 1,
-    borderColor: colors.glassBorder,
-    overflow: 'hidden',
+    gap: Spacing.md,
     padding: Spacing.lg,
+    paddingRight: Spacing.md,
+    minHeight: 150,
   },
-  jerseyBadge: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: `${colors.mint}1f`,
-    borderWidth: 1,
-    borderColor: `${colors.mint}33`,
-  },
-  jerseyNum: {
+  heroNumber: {
+    position: 'absolute',
+    right: -8,
+    bottom: -40,
     fontFamily: Fonts.heading,
-    fontSize: 26,
-    letterSpacing: -1,
-    color: colors.mint,
+    fontSize: 150,
+    letterSpacing: -8,
+    color: 'rgba(255,255,255,0.10)',
+  },
+  heroMark: {
+    position: 'absolute',
+    right: -14,
+    bottom: -6,
   },
   heroBody: {
     flex: 1,
-    gap: 2,
+    gap: 4,
+  },
+  heroEyebrow: {
+    fontFamily: Fonts.bodySemiBold,
+    fontSize: 10,
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+    color: 'rgba(255,255,255,0.7)',
   },
   heroName: {
     fontFamily: Fonts.heading,
-    fontSize: 22,
-    letterSpacing: -0.5,
-    color: colors.mint,
-    textTransform: 'lowercase',
+    fontSize: 24,
+    letterSpacing: -0.6,
+    color: '#FFFFFF',
   },
-  heroMeta: {
-    fontFamily: Fonts.body,
-    fontSize: 12,
-    color: colors.textSecondary,
-  },
-  heroTags: {
+  heroChips: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.sm,
     marginTop: Spacing.sm,
   },
-  ratingChip: {
+  heroChip: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    backgroundColor: colors.surfaceAlt,
-    borderColor: colors.border,
+    backgroundColor: 'rgba(255,255,255,0.14)',
     borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.22)',
     borderRadius: Radius.pill,
     paddingVertical: 3,
-    paddingHorizontal: 8,
+    paddingHorizontal: 9,
   },
-  ratingText: {
+  heroChipText: {
     fontFamily: Fonts.bodyMedium,
     fontSize: 11,
-    color: '#f5a623',
+    color: '#FFFFFF',
   },
-  everythingWrap: {
+
+  // Next up
+  nextRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
+    borderRadius: Radius.md,
+    padding: Spacing.md,
+  },
+  nextIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: `${colors.mint}1a`,
+  },
+  nextBody: {
     flex: 1,
-    marginTop: Spacing.lg,
-    backgroundColor: 'rgba(9, 20, 19, 0.01)',
+    gap: 2,
+  },
+  nextLabel: {
+    fontFamily: Fonts.bodySemiBold,
+    fontSize: 10,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+    color: colors.textMuted,
+  },
+  nextValue: {
+    fontFamily: Fonts.bodyMedium,
+    fontSize: 13,
+    color: colors.text,
+  },
+
+  // Menu
+  menuBlock: {
+    flex: 1,
+  },
+  menuTitle: {
+    fontFamily: Fonts.bodySemiBold,
+    fontSize: 11,
+    letterSpacing: 1.5,
+    textTransform: 'uppercase',
+    color: colors.textMuted,
+    marginBottom: Spacing.md,
+  },
+  menuFrame: {
+    flex: 1,
+    borderRadius: Radius.xl,
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.4,
-    shadowRadius: 20,
-    elevation: 12,
+    shadowOpacity: 0.22,
+    shadowRadius: 18,
+    elevation: 8,
   },
-  everything: {
+  frameInner: {
     flex: 1,
     borderRadius: Radius.xl,
     borderWidth: 1,
     borderColor: colors.glassBorder,
+    backgroundColor: colors.surface,
     overflow: 'hidden',
     padding: Spacing.md,
-    backgroundColor: 'rgba(176, 224, 204, 0.05)',
-  },
-  everythingHead: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
-    marginBottom: Spacing.md,
-  },
-  everythingTitle: {
-    flex: 1,
-    fontFamily: Fonts.headingSemiBold,
-    fontSize: 15,
-    color: colors.mint,
-    textTransform: 'lowercase',
-  },
-  gridScroll: {
-    flex: 1,
   },
   grid: {
-    flexGrow: 1,
+    flex: 1,
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'flex-start',
-    alignContent: 'space-evenly',
-    columnGap: Spacing.sm,
+    justifyContent: 'space-between',
+    alignContent: 'stretch',
     rowGap: Spacing.md,
   },
   cell: {
-    aspectRatio: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.surface,
-    borderColor: colors.glassBorder,
-    borderWidth: 1,
-    borderRadius: Radius.lg,
-  },
-  cellIcon: {
-    borderRadius: Radius.sm,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  cellLabel: {
-    fontFamily: Fonts.bodyMedium,
-    color: colors.text,
-    textTransform: 'lowercase',
-  },
-  quickRow: {
-    flexDirection: 'row',
-    gap: Spacing.md,
-    marginTop: Spacing.md,
-  },
-  quickTile: {
-    flex: 1,
-    borderColor: colors.glassBorder,
+    backgroundColor: colors.surfaceAlt,
     borderWidth: 1,
     borderRadius: Radius.lg,
     overflow: 'hidden',
-    minHeight: 54,
   },
-  quickTilePress: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
-    padding: Spacing.sm,
+  soonCell: {
+    opacity: 0.45,
   },
-  quickIcon: {
-    width: 30,
-    height: 30,
-    borderRadius: 8,
+  iconWrap: {
     alignItems: 'center',
     justifyContent: 'center',
   },
-  quickBody: {
-    flex: 1,
-    gap: 1,
+  shadowBack: {
+    position: 'absolute',
+    transform: [{ translateY: 3 }],
   },
-  quickLabel: {
-    fontFamily: Fonts.bodyMedium,
-    fontSize: 9,
-    letterSpacing: 0.5,
-    textTransform: 'uppercase',
-    color: colors.textMuted,
+  labelWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  quickValue: {
+  cellLabelShadow: {
+    position: 'absolute',
     fontFamily: Fonts.bodySemiBold,
-    fontSize: 11,
-    color: colors.text,
+    color: '#000000',
+    textTransform: 'lowercase',
+    transform: [{ translateY: 2 }],
   },
+  cellLabel: {
+    fontFamily: Fonts.bodySemiBold,
+    color: '#FFFFFF',
+    textTransform: 'lowercase',
+  },
+
+  // Signed out
   signedOut: {
     flex: 1,
     alignItems: 'center',

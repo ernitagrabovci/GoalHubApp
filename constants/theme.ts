@@ -1,4 +1,4 @@
-import { DarkTheme, type Theme } from '@react-navigation/native';
+import { DarkTheme, type Theme } from 'expo-router';
 
 /**
  * GoalHub "Mint" design system — two palettes (dark + light).
@@ -117,6 +117,8 @@ export const Fonts = {
   body: 'Inter_400Regular',
   bodyMedium: 'Inter_500Medium',
   bodySemiBold: 'Inter_600SemiBold',
+  bodyBold: 'Inter_700Bold',
+  bodyBlack: 'Inter_900Black',
 } as const;
 
 export const Spacing = {

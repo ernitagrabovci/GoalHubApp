@@ -6,8 +6,7 @@
     "orientation": "portrait",
     "icon": "./assets/images/goalhub-logo.png",
     "scheme": "goalhubapp",
-    "userInterfaceStyle": "dark",
-    "newArchEnabled": true,
+    "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": true
     },
@@ -17,7 +16,6 @@
         "foregroundImage": "./assets/images/goalhub-logo.png",
         "monochromeImage": "./assets/images/goalhub-logo.png"
       },
-      "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false
     },
     "web": {
@@ -38,7 +36,11 @@
           }
         }
       ],
-      "expo-video"
+      "expo-video",
+      "expo-font",
+      "expo-image",
+      "expo-status-bar",
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true,

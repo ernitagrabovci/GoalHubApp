@@ -135,7 +135,10 @@ function PlayerMarker({
     }
   }, [p.x, p.y, dragging]);
 
-  const pan = useRef(
+  /* eslint-disable react-hooks/refs -- PanResponder handlers read refs at gesture
+     time; created once so closures cannot be stale, and React Compiler cannot
+     analyze the ref access without flagging the render-phase creation. */
+  const [pan] = useState(() =>
     PanResponder.create({
       onStartShouldSetPanResponder: () => editable,
       onMoveShouldSetPanResponder: () => editable,
@@ -153,7 +156,8 @@ function PlayerMarker({
       onPanResponderRelease: () => dragEndRef.current(),
       onPanResponderTerminate: () => dragEndRef.current(),
     }),
-  ).current;
+  );
+  /* eslint-enable react-hooks/refs */
 
   return (
     <View

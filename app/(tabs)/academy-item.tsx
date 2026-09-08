@@ -148,7 +148,7 @@ export default function AcademyItemScreen() {
             style={styles.playerVideo}
             contentFit="cover"
             nativeControls
-            allowsFullscreen
+            fullscreenOptions={{ enable: true }}
           />
           <Pressable style={styles.closePlayer} onPress={() => setPlaying(false)} hitSlop={8}>
             <IconSymbol name="xmark" size={18} color={colors.text} />

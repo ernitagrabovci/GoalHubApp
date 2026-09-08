@@ -19,12 +19,12 @@ export default function IntroScreen() {
   const styles = useThemedStyles(createStyles);
   const [videoReady, setVideoReady] = useState(false);
 
-  const fade1 = useRef(new Animated.Value(0)).current;
-  const fade2 = useRef(new Animated.Value(0)).current;
-  const fade3 = useRef(new Animated.Value(0)).current;
-  const slide1 = useRef(new Animated.Value(-40)).current;
-  const slide2 = useRef(new Animated.Value(-40)).current;
-  const slide3 = useRef(new Animated.Value(-40)).current;
+  const [fade1] = useState(() => new Animated.Value(0));
+  const [fade2] = useState(() => new Animated.Value(0));
+  const [fade3] = useState(() => new Animated.Value(0));
+  const [slide1] = useState(() => new Animated.Value(-40));
+  const [slide2] = useState(() => new Animated.Value(-40));
+  const [slide3] = useState(() => new Animated.Value(-40));
 
   const dismissTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const played = useRef(false);
@@ -91,7 +91,7 @@ export default function IntroScreen() {
         style={StyleSheet.absoluteFill}
         contentFit="cover"
         nativeControls={false}
-        allowsFullscreen={false}
+        fullscreenOptions={{ enable: false }}
       />
       <View style={styles.dim} pointerEvents="none" />
 
@@ -138,11 +138,19 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     backgroundColor: colors.background,
   },
   dim: {
-    ...StyleSheet.absoluteFillObject,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     backgroundColor: 'rgba(0, 0, 0, 0.4)',
   },
   brandWrap: {
-    ...StyleSheet.absoluteFillObject,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     alignItems: 'center',
     justifyContent: 'center',
   },

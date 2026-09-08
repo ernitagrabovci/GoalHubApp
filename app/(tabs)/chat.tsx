@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { InitialsTile, ListRow } from '@/components/list-row';
@@ -22,13 +22,12 @@ export default function ChatScreen() {
   const [query, setQuery] = useState('');
   const unread = messages.filter((m) => m.unread).length;
 
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return messages;
-    return messages.filter(
-      (m) => m.sender.toLowerCase().includes(q) || m.preview.toLowerCase().includes(q),
-    );
-  }, [query, messages]);
+  const q = query.trim().toLowerCase();
+  const filtered = !q
+    ? messages
+    : messages.filter(
+        (m) => m.sender.toLowerCase().includes(q) || m.preview.toLowerCase().includes(q),
+      );
 
   return (
     <Screen>
@@ -53,10 +52,6 @@ export default function ChatScreen() {
             <Text style={styles.linkText}>{t('chat.teamChannel')}</Text>
           </Pressable>
         )}
-        <Pressable style={styles.link} onPress={() => router.push('/notifications')}>
-          <IconSymbol name="notifications" size={16} color="#f5a623" />
-          <Text style={styles.linkText}>{t('chat.notifications')}</Text>
-        </Pressable>
       </View>
 
       {/* Search */}
