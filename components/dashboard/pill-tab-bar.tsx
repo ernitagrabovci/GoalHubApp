@@ -1,4 +1,5 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import { useRouter } from 'expo-router';
 import type { BottomTabBarProps } from 'expo-router/build/react-navigation/bottom-tabs';
 import type { ComponentProps } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
@@ -10,7 +11,10 @@ import { I, scaled } from '@/lib/responsive';
 /**
  * Floating pill bottom navigation for the administrator dashboard.
  * Matches the reference: rounded floating container with Home (active,
- * pale-green capsule) / Përdoruesit / Pagesat / Chat.
+ * pale-green capsule) / Përdoruesit / Pagesat / Chat / Profili.
+ *
+ * "Profili" is not a tab — tapping it opens the club profile (full-screen
+ * root route, so the pill bar disappears and a back arrow returns).
  */
 
 const C = {
@@ -36,10 +40,33 @@ const ITEMS: Item[] = [
 ];
 
 export function PillTabBar({ state, navigation, insets }: BottomTabBarProps) {
+  const router = useRouter();
+
   return (
     <View style={[styles.area, { paddingBottom: Math.max(insets.bottom, 14) }]}>
       <View style={styles.pill}>
         {ITEMS.map((item) => {
+          // The admin's "Profili" opens the club profile as a full screen
+          // instead of switching to the old themed /profile tab.
+          if (item.name === 'profile') {
+            return (
+              <Pressable
+                key={item.name}
+                onPress={() => router.push('/club-profile')}
+                style={styles.wrap}
+                accessibilityRole="button"
+                accessibilityLabel="Profili i klubit"
+              >
+                <View style={styles.item}>
+                  <MaterialCommunityIcons name={item.icon} size={I(21)} color={C.muted} />
+                  <Text style={[styles.label, { color: C.muted }]} numberOfLines={1}>
+                    {item.label}
+                  </Text>
+                </View>
+              </Pressable>
+            );
+          }
+
           const route = state.routes.find((r) => r.name === item.name);
           const focused = !!route && state.index === state.routes.indexOf(route);
           const color = focused ? C.green : C.muted;

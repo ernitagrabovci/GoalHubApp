@@ -121,7 +121,11 @@ export function AdminHome() {
           </View>
 
           <View style={styles.padded}>
-            <HeaderBlock onBell={() => router.push('/notifications')} onSettings={() => router.push('/profile')} />
+            <HeaderBlock
+              onBell={() => router.push('/notifications')}
+              onSettings={() => router.push('/settings')}
+              onClub={() => router.push('/club-profile')}
+            />
 
             {/* Welcome */}
             <View style={styles.welcome}>
@@ -299,10 +303,24 @@ export function AdminHome() {
   );
 }
 
-function HeaderBlock({ onBell, onSettings }: { onBell: () => void; onSettings: () => void }) {
+function HeaderBlock({
+  onBell,
+  onSettings,
+  onClub,
+}: {
+  onBell: () => void;
+  onSettings: () => void;
+  onClub: () => void;
+}) {
   return (
     <View style={styles.header}>
-      <Image source={IMG.fcp} style={styles.headerLogo} resizeMode="contain" />
+      <Pressable
+        onPress={onClub}
+        hitSlop={8}
+        style={({ pressed }) => pressed && styles.pressed}
+      >
+        <Image source={IMG.fcp} style={styles.headerLogo} resizeMode="contain" />
+      </Pressable>
       <View style={styles.brandCol}>
         <Text style={styles.brandName}>GoalHub</Text>
         <View style={styles.clubRow}>

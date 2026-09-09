@@ -123,7 +123,7 @@ export function ParentHome() {
           <View style={styles.padded}>
             <HeaderBlock
               onBell={() => open('/notifications')}
-              onSettings={() => open('/profile')}
+              onSettings={() => open('/settings')}
             />
 
             <View style={styles.welcome}>

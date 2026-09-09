@@ -99,6 +99,26 @@ function RootNavigator() {
           }}
         />
         <Stack.Screen name="conversation" options={{ headerShown: false }} />
+        <Stack.Screen
+          name="settings"
+          options={{ headerShown: false, contentStyle: { backgroundColor: '#FAFBFA' } }}
+        />
+        <Stack.Screen
+          name="club-profile"
+          options={{ headerShown: false, contentStyle: { backgroundColor: '#FAFBFA' } }}
+        />
+        <Stack.Screen
+          name="competitions"
+          options={{ headerShown: false, contentStyle: { backgroundColor: '#FAFBFA' } }}
+        />
+        <Stack.Screen
+          name="sezoni"
+          options={{ headerShown: false, contentStyle: { backgroundColor: '#FAFBFA' } }}
+        />
+        <Stack.Screen
+          name="fushat"
+          options={{ headerShown: false, contentStyle: { backgroundColor: '#FAFBFA' } }}
+        />
       </Stack>
       <StatusBar style={isDark ? 'light' : 'dark'} />
     </>
