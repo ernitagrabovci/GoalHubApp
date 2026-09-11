@@ -42,7 +42,6 @@ const HIDDEN_ROUTES = [
   'reports',
   'users',
   'user',
-  'teams',
   'team',
   'club',
   'competitions',
