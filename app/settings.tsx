@@ -44,15 +44,23 @@ type SettingsRow = {
 };
 
 const ROWS: SettingsRow[] = [
-  { icon: 'account-cog-outline', label: 'Cilësimet e llogarisë' },
-  { icon: 'account-group-outline', label: 'Cilësimet e klubit' },
-  { icon: 'calendar-month-outline', label: 'Cilësimet e sezonit' },
-  { icon: 'bell-outline', label: 'Cilësimet e njoftimeve' },
-  { icon: 'lock-outline', label: 'Siguria' },
-  { icon: 'credit-card-outline', label: 'Abonimi' },
-  { icon: 'shield-account-outline', label: 'Privacy Policy' },
-  { icon: 'file-document-outline', label: 'Terms and Conditions' },
-  { icon: 'cookie-outline', label: 'Cookies Policy' },
+  { icon: 'account-cog-outline', label: 'Cilësimet e llogarisë', route: '/account-settings' },
+  { icon: 'account-group-outline', label: 'Cilësimet e klubit', route: '/club-settings' },
+  { icon: 'calendar-month-outline', label: 'Cilësimet e sezonit', route: '/season-settings' },
+  {
+    icon: 'bell-outline',
+    label: 'Cilësimet e njoftimeve',
+    route: '/notification-settings',
+  },
+  { icon: 'lock-outline', label: 'Siguria', route: '/security-settings' },
+  { icon: 'credit-card-outline', label: 'Abonimi', route: '/subscription-settings' },
+  { icon: 'shield-account-outline', label: 'Privacy Policy', route: '/privacy-policy' },
+  {
+    icon: 'file-document-outline',
+    label: 'Terms and Conditions',
+    route: '/terms-conditions',
+  },
+  { icon: 'cookie-outline', label: 'Cookies Policy', route: '/cookies-policy' },
 ];
 
 export default function SettingsScreen() {

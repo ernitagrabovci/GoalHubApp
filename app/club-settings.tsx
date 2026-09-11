@@ -18,17 +18,12 @@ import { Fonts } from '@/constants/theme';
 import { I, scaled } from '@/lib/responsive';
 
 /**
- * Profil i klubit — the club's single profile-editing page (admin).
+ * Cilësimet e klubit — the second settings sub-page.
  *
- * One route, one continuous vertical scroll: a pinned top header
- * ("Profil i klubit" + subtitle) stays fixed while the content sections —
- * Identitet Visual → Informacioni baze → Kompeticionet | Sezoni →
- * Fushat e stërvitjes → Kontaktet zyrtare → Rrjetet sociale →
- * Historia e klubit — scroll under it. No bottom navigation.
- *
- * Same visual language as the main admin dashboard: #FAFBFA canvas with
- * faint vertical lines, 27px side gutters, white/pale cards with thin
- * borders and green accents.
+ * Same light #FAFBFA canvas and the same cards used on "Profil i klubit"
+ * (Identitet Visual, Informacioni bazë, Kontaktet zyrtare, Rrjetet sociale,
+ * Historia e klubit), plus one extra card at the end: Cilësimet e pagesave
+ * (payment deadline day + tolerance window) with Anulo / Ruaj ndryshimet.
  */
 
 const C = {
@@ -36,9 +31,9 @@ const C = {
   line: 'rgba(0,0,0,0.025)',
 
   card: '#FFFFFF',
-  border: 'rgba(100,140,190,0.30)', // white info-card outline (dashboard style)
-  fill: '#F6FBFF', // opaque light-blue interior (D4EDFF @ 20% over white — no bg shows through)
-  headLine: 'rgba(30,40,35,0.10)', // card / row divider (dashboard DIVIDER)
+  border: 'rgba(100,140,190,0.30)',
+  fill: '#F6FBFF',
+  headLine: 'rgba(30,40,35,0.10)',
 
   input: '#F4F7F5',
   inputBorder: '#000000',
@@ -50,27 +45,18 @@ const C = {
   green: '#159447',
   greenBright: '#159447',
 
-  greenCard: '#DDF6E7',
-  greenBorder: '#69C994',
-  greenBtn: '#159447',
-
   q1Bg: '#F2FBF5',
   q1Line: '#69C994',
   q1Btn: '#159447',
 
-  q2Bg: '#F7EBD8',
-  q2Line: '#E2C89B',
-  q2Btn: '#D99A4A',
-
   swatchAway: '#F2EFE9',
+
+  red: '#ED5050',
 };
 
 const YEARS = Array.from({ length: 47 }, (_, i) => String(2026 - i)); // 2026 → 1980
 
 const FCP = require('@/assets/dashboard/fcp.png');
-const IMG_PLAYERS = require('@/assets/dashboard/lojtaret.png');
-const IMG_BALL = require('@/assets/dashboard/ndeshjet.png');
-const IMG_TRAINING = require('@/assets/dashboard/stervitje.png');
 
 /* ------------------------------------------------------------------ */
 /* Small reusable form pieces                                          */
@@ -179,6 +165,17 @@ function SelectField({ id, label, value, onChange, options, open, onToggle, flex
   );
 }
 
+function ColorSwatch({ label, color }: { label: string; color: string }) {
+  return (
+    <View style={styles.swatchCol}>
+      <View style={styles.swatchOuter}>
+        <View style={[styles.swatchInner, { backgroundColor: color }]} />
+      </View>
+      <Text style={styles.swatchLabel}>{label}</Text>
+    </View>
+  );
+}
+
 /* ------------------------------------------------------------------ */
 /* Screen                                                              */
 /* ------------------------------------------------------------------ */
@@ -223,7 +220,7 @@ const INITIAL_FORM: Form = {
   history: '',
 };
 
-export default function ClubProfileScreen() {
+export default function ClubSettingsScreen() {
   const router = useRouter();
   const { width } = useWindowDimensions();
   const lineCount = Math.ceil(width / 9);
@@ -231,6 +228,9 @@ export default function ClubProfileScreen() {
   const [form, setForm] = useState<Form>(INITIAL_FORM);
   const [openSel, setOpenSel] = useState<string | null>(null);
   const [showLogo, setShowLogo] = useState(false);
+
+  const [dueDay, setDueDay] = useState('5');
+  const [tolerance, setTolerance] = useState('10');
 
   const set = (k: keyof Form) => (v: string) => setForm((p) => ({ ...p, [k]: v }));
 
@@ -257,33 +257,27 @@ export default function ClubProfileScreen() {
                 accessibilityLabel="Kthehu prapa"
                 style={({ pressed }) => [styles.backBtn, pressed && styles.pressed]}
               >
-                <MaterialCommunityIcons
-                  name="chevron-left"
-                  size={I(24)}
-                  color={C.text}
-                />
+                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.text} />
               </Pressable>
               <View style={styles.headerText}>
-                <Text style={styles.title}>Profil i klubit</Text>
-                <Text style={styles.subtitle}>FC Prishtina · Informacioni zyrtar</Text>
+                <Text style={styles.title}>Cilësimet e klubit</Text>
+                <Text style={styles.subtitle}>Identiteti dhe informacioni i klubit</Text>
               </View>
             </View>
           </View>
         </View>
 
-        {/* One continuous scrollable page */}
         <ScrollView
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scroll}
         >
           <View style={styles.colPad}>
             {/* ── Identitet Visual ─────────────────────────────── */}
-            <View style={[styles.card, { marginTop: 14 }]}>
+            <View style={[styles.card, { marginTop: 12 }]}>
               <View style={styles.cardHead}>
                 <Text style={styles.cardHeadText}>Identitet Visual</Text>
               </View>
 
-              {/* Logo upload */}
               <View style={styles.logoZone}>
                 <Pressable
                   onPress={() => setShowLogo((v) => !v)}
@@ -315,7 +309,6 @@ export default function ClubProfileScreen() {
                 <Text style={styles.logoHint}>Ngarko/Ndrysho logon</Text>
               </View>
 
-              {/* Official colors */}
               <View style={styles.colors}>
                 <Text style={styles.colorsLabel}>Ngjyrat Zyrtare</Text>
                 <View style={styles.swatches}>
@@ -351,54 +344,6 @@ export default function ClubProfileScreen() {
                 </View>
               </View>
             </View>
-
-            {/* ── Kompeticionet | Sezoni ───────────────────────── */}
-            <View style={styles.quickRow}>
-              <Pressable
-                onPress={() => router.push('/competitions')}
-                accessibilityRole="button"
-                accessibilityLabel="Hap kompeticionet"
-                style={({ pressed }) => [
-                  styles.quickCard,
-                  styles.quickCardA,
-                  pressed && styles.pressed,
-                ]}
-              >
-                <Image source={IMG_PLAYERS} style={styles.quickImgPlayers} resizeMode="contain" />
-                <Text style={styles.quickTitle}>Kompeticionet</Text>
-                <GoButton color={C.q1Btn} onPress={() => router.push('/competitions')} />
-              </Pressable>
-              <Pressable
-                onPress={() => router.push('/sezoni')}
-                accessibilityRole="button"
-                accessibilityLabel="Hap sezonin"
-                style={({ pressed }) => [
-                  styles.quickCard,
-                  styles.quickCardB,
-                  pressed && styles.pressed,
-                ]}
-              >
-                <Image source={IMG_BALL} style={styles.quickImgBall} resizeMode="contain" />
-                <Text style={styles.quickTitle}>Sezoni</Text>
-                <GoButton color={C.q2Btn} onPress={() => router.push('/sezoni')} />
-              </Pressable>
-            </View>
-
-            {/* ── Fushat e stërvitjes ──────────────────────────── */}
-            <Pressable
-              onPress={() => router.push('/fushat')}
-              accessibilityRole="button"
-              accessibilityLabel="Hap fushat e stërvitjes"
-              style={({ pressed }) => [
-                styles.trainingCard,
-                styles.cardGap,
-                pressed && styles.pressed,
-              ]}
-            >
-              <Image source={IMG_TRAINING} style={styles.trainingImg} resizeMode="cover" />
-              <Text style={styles.trainingTitle}>Fushat e stërvitjes</Text>
-              <GoButton color={C.greenBtn} onPress={() => router.push('/fushat')} />
-            </Pressable>
 
             {/* ── Kontaktet zyrtare ────────────────────────────── */}
             <View style={[styles.card, styles.cardGap]}>
@@ -446,38 +391,70 @@ export default function ClubProfileScreen() {
                 />
               </View>
             </View>
+
+            {/* ── Cilësimet e pagesave ─────────────────────────── */}
+            <View style={[styles.card, styles.cardGap]}>
+              <View style={styles.cardHead}>
+                <Text style={styles.cardHeadText}>Cilësimet e pagesave</Text>
+              </View>
+              <View style={styles.cardBody}>
+                <Text style={styles.payLabel}>Dita e afatit të pagesës:</Text>
+                <View style={styles.payRow}>
+                  <TextInput
+                    value={dueDay}
+                    onChangeText={setDueDay}
+                    keyboardType="number-pad"
+                    maxLength={2}
+                    allowFontScaling={false}
+                    style={styles.paySquare}
+                  />
+                  <Text style={styles.payText}>e çdo muaji (p.sh. 5 = deri më 5 të muajit)</Text>
+                </View>
+                <Text style={styles.payNote}>
+                  Muaji i parë proporcional → afati = kjo ditë e muajit pasues
+                </Text>
+
+                <View style={styles.paySpacer} />
+
+                <Text style={styles.payLabel}>Periudha e tolerancës (ditë):</Text>
+                <View style={styles.payRow}>
+                  <TextInput
+                    value={tolerance}
+                    onChangeText={setTolerance}
+                    keyboardType="number-pad"
+                    maxLength={2}
+                    allowFontScaling={false}
+                    style={styles.paySquare}
+                  />
+                  <Text style={styles.payText}>ditë pas afatit → statusi kalon në Skaduar</Text>
+                </View>
+                <Text style={styles.payNote}>0 = skadon pas afatit     30 = një muaj tolerancë</Text>
+              </View>
+            </View>
+
+            {/* ── Actions (outside the cards) ──────────────────── */}
+            <View style={styles.actions}>
+              <Pressable
+                onPress={() => router.back()}
+                accessibilityRole="button"
+                style={({ pressed }) => [styles.btn, styles.btnCancel, pressed && styles.pressed]}
+              >
+                <Text style={styles.btnText}>Anulo</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => {
+                  /* persist handled later */
+                }}
+                accessibilityRole="button"
+                style={({ pressed }) => [styles.btn, styles.btnSave, pressed && styles.pressed]}
+              >
+                <Text style={styles.btnText}>Ruaj ndryshimet</Text>
+              </Pressable>
+            </View>
           </View>
         </ScrollView>
       </View>
     </SafeAreaView>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/* Leaf helpers                                                        */
-/* ------------------------------------------------------------------ */
-
-function ColorSwatch({ label, color }: { label: string; color: string }) {
-  return (
-    <View style={styles.swatchCol}>
-      <View style={styles.swatchOuter}>
-        <View style={[styles.swatchInner, { backgroundColor: color }]} />
-      </View>
-      <Text style={styles.swatchLabel}>{label}</Text>
-    </View>
-  );
-}
-
-function GoButton({ color, onPress }: { color: string; onPress?: () => void }) {
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel="Vazhdo"
-      onPress={onPress}
-      style={({ pressed }) => [styles.goBtn, { backgroundColor: color }, pressed && styles.goPressed]}
-    >
-      <Text style={styles.goBtnText}>Vazhdo</Text>
-    </Pressable>
   );
 }
 
@@ -497,7 +474,6 @@ const styles = StyleSheet.create(
       backgroundColor: C.page,
     },
 
-    /* Faint vertical canvas texture — same idea as the dashboards. */
     lines: {
       position: 'absolute',
       top: 0,
@@ -515,8 +491,6 @@ const styles = StyleSheet.create(
       backgroundColor: C.line,
     },
 
-    /* Shared column: fills the screen width so the fields use the side
-       space instead of sitting in a narrow centered 375px column. */
     colPad: {
       alignSelf: 'center',
       width: '100%',
@@ -665,7 +639,7 @@ const styles = StyleSheet.create(
       marginTop: 8,
     },
 
-    /* Official colors — compact centered row */
+    /* Official colors */
     colors: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -817,115 +791,84 @@ const styles = StyleSheet.create(
       color: C.green,
     },
 
-    /* Kompeticionet | Sezoni */
-    quickRow: {
+    /* Cilësimet e pagesave */
+    payLabel: {
+      fontFamily: Fonts.body,
+      fontSize: 12,
+      lineHeight: 16,
+      color: C.gray,
+      marginBottom: 6,
+    },
+
+    payRow: {
       flexDirection: 'row',
-      gap: 8,
-      marginTop: 12,
+      alignItems: 'center',
     },
 
-    quickCard: {
-      flex: 1,
-      height: 100,
-      borderRadius: 6,
+    paySquare: {
+      width: 26,
+      height: 26,
+      backgroundColor: 'transparent',
       borderWidth: 1,
-      borderColor: C.border,
-      backgroundColor: C.card,
-      overflow: 'hidden',
+      borderColor: '#000000',
+      borderRadius: 2,
+      paddingHorizontal: 0,
+      paddingVertical: 0,
+      textAlign: 'center',
+      fontSize: 13,
+      fontFamily: Fonts.body,
+      color: '#000000',
     },
 
-    quickCardA: {
-      backgroundColor: C.q1Bg,
-      borderColor: C.q1Line,
+    payText: {
+      flex: 1,
+      fontFamily: Fonts.body,
+      fontSize: 12,
+      lineHeight: 16,
+      color: C.gray,
+      marginLeft: 8,
     },
 
-    quickCardB: {
-      backgroundColor: C.q2Bg,
-      borderColor: C.q2Line,
+    payNote: {
+      fontFamily: Fonts.body,
+      fontSize: 11,
+      lineHeight: 15,
+      color: C.gray,
+      marginTop: 5,
     },
 
-    quickImgPlayers: {
-      position: 'absolute',
-      left: -42,
-      bottom: -54,
-      width: 120,
-      height: 120,
-      zIndex: 0,
+    paySpacer: {
+      height: 14,
     },
 
-    quickImgBall: {
-      position: 'absolute',
-      left: -34,
-      bottom: -50,
-      width: 108,
-      height: 108,
-      zIndex: 0,
+    /* Actions below the cards */
+    actions: {
+      flexDirection: 'row',
+      justifyContent: 'flex-end',
+      gap: 9,
+      marginTop: 14,
     },
 
-    quickTitle: {
-      position: 'absolute',
-      top: 11,
-      left: 12,
-      zIndex: 2,
-      fontFamily: Fonts.bodyBold,
-      fontSize: 20,
-      lineHeight: 23,
-      letterSpacing: -0.4,
-      color: C.text,
-    },
-
-    goBtn: {
-      position: 'absolute',
-      right: 8,
-      bottom: 8,
-      zIndex: 2,
-      minWidth: 64,
-      height: 25,
+    btn: {
+      height: 40,
       borderRadius: 3,
       alignItems: 'center',
       justifyContent: 'center',
-      paddingHorizontal: 6,
+      paddingHorizontal: 18,
     },
 
-    goPressed: {
-      opacity: 0.85,
+    btnCancel: {
+      backgroundColor: C.red,
     },
 
-    goBtnText: {
+    btnSave: {
+      backgroundColor: C.green,
+    },
+
+    btnText: {
       fontFamily: Fonts.bodySemiBold,
-      fontSize: 11,
+      fontSize: 13,
       color: '#FFFFFF',
-    },
-
-    /* Fushat e stërvitjes */
-    trainingCard: {
-      height: 100,
-      borderRadius: 6,
-      borderWidth: 1,
-      borderColor: C.greenBorder,
-      backgroundColor: C.greenCard,
-      overflow: 'hidden',
-    },
-
-    trainingImg: {
-      position: 'absolute',
-      left: -70,
-      bottom: -51,
-      width: 168,
-      height: 168,
-      zIndex: 0,
-    },
-
-    trainingTitle: {
-      position: 'absolute',
-      top: 13,
-      left: 45,
-      zIndex: 2,
-      fontFamily: Fonts.bodyBold,
-      fontSize: 21,
-      lineHeight: 25,
-      letterSpacing: -0.5,
-      color: C.text,
     },
 
     pressed: {

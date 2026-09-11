@@ -119,6 +119,42 @@ function RootNavigator() {
           name="fushat"
           options={{ headerShown: false, contentStyle: { backgroundColor: '#FAFBFA' } }}
         />
+        <Stack.Screen
+          name="account-settings"
+          options={{ headerShown: false, contentStyle: { backgroundColor: '#FAFBFA' } }}
+        />
+        <Stack.Screen
+          name="club-settings"
+          options={{ headerShown: false, contentStyle: { backgroundColor: '#FAFBFA' } }}
+        />
+        <Stack.Screen
+          name="season-settings"
+          options={{ headerShown: false, contentStyle: { backgroundColor: '#FAFBFA' } }}
+        />
+        <Stack.Screen
+          name="notification-settings"
+          options={{ headerShown: false, contentStyle: { backgroundColor: '#FAFBFA' } }}
+        />
+        <Stack.Screen
+          name="security-settings"
+          options={{ headerShown: false, contentStyle: { backgroundColor: '#FAFBFA' } }}
+        />
+        <Stack.Screen
+          name="subscription-settings"
+          options={{ headerShown: false, contentStyle: { backgroundColor: '#FAFBFA' } }}
+        />
+        <Stack.Screen
+          name="privacy-policy"
+          options={{ headerShown: false, contentStyle: { backgroundColor: '#FAFBFA' } }}
+        />
+        <Stack.Screen
+          name="terms-conditions"
+          options={{ headerShown: false, contentStyle: { backgroundColor: '#FAFBFA' } }}
+        />
+        <Stack.Screen
+          name="cookies-policy"
+          options={{ headerShown: false, contentStyle: { backgroundColor: '#FAFBFA' } }}
+        />
       </Stack>
       <StatusBar style={isDark ? 'light' : 'dark'} />
     </>
