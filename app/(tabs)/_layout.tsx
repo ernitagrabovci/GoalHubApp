@@ -13,7 +13,6 @@ import { useSession } from '@/lib/session';
 
 /** Secondary feature screens — reachable from Home but hidden from the tab bar. */
 const HIDDEN_ROUTES = [
-  'players',
   'player',
   'rate',
   'ratings',

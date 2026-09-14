@@ -167,6 +167,30 @@ function RootNavigator() {
           name="transferimet"
           options={{ headerShown: false, contentStyle: { backgroundColor: '#FAFBFA' } }}
         />
+        <Stack.Screen
+          name="players"
+          options={{ headerShown: false, contentStyle: { backgroundColor: '#FAFBFA' } }}
+        />
+        <Stack.Screen
+          name="register-player"
+          options={{ headerShown: false, contentStyle: { backgroundColor: '#FAFBFA' } }}
+        />
+        <Stack.Screen
+          name="player-statistics"
+          options={{ headerShown: false, contentStyle: { backgroundColor: '#FAFBFA' } }}
+        />
+        <Stack.Screen
+          name="edit-player"
+          options={{ headerShown: false, contentStyle: { backgroundColor: '#FAFBFA' } }}
+        />
+        <Stack.Screen
+          name="coach-ratings"
+          options={{ headerShown: false, contentStyle: { backgroundColor: '#FAFBFA' } }}
+        />
+        <Stack.Screen
+          name="player-profile"
+          options={{ headerShown: false, contentStyle: { backgroundColor: '#FAFBFA' } }}
+        />
       </Stack>
       <StatusBar style={isDark ? 'light' : 'dark'} />
     </>
