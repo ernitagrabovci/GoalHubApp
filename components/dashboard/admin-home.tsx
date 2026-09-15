@@ -192,12 +192,12 @@ export function AdminHome() {
 
           <View style={styles.padded}>
             {/* Today's matches */}
-            <SectionHead title="Ndeshjet e sotme" onSeeAll={() => router.push('/matches')} />
+            <SectionHead title="Ndeshjet e sotme" onSeeAll={() => router.push('/ndeshjet')} />
             <View style={styles.matchesCard}>
               {MATCHES.map((m, i) => (
                 <Pressable
                   key={`${m.age}-${m.away}`}
-                  onPress={() => router.push('/matches')}
+                  onPress={() => router.push('/ndeshjet')}
                   style={({ pressed }) => [
                     styles.matchRow,
                     i > 0 && styles.matchRowSep,
