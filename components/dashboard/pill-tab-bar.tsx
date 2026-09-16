@@ -34,13 +34,17 @@ type Item = { name: string; label: string; icon: MciName };
 const ITEMS: Item[] = [
   { name: 'index', label: 'Home', icon: 'home-variant' },
   { name: 'users', label: 'Përdoruesit', icon: 'account-group-outline' },
-  { name: 'fees', label: 'Pagesat', icon: 'cash-multiple' },
+  { name: 'pagesat', label: 'Pagesat', icon: 'cash-multiple' },
   { name: 'chat', label: 'Chat', icon: 'chat-outline' },
   { name: 'profile', label: 'Profili', icon: 'account-outline' },
 ];
 
 export function PillTabBar({ state, navigation, insets }: BottomTabBarProps) {
   const router = useRouter();
+
+  // "Pagesat" is a full-screen page with its own back arrow, so the pill only
+  // steals vertical space there.
+  if (state.routes[state.index]?.name === 'pagesat') return null;
 
   return (
     <View style={[styles.area, { paddingBottom: Math.max(insets.bottom, 14) }]}>

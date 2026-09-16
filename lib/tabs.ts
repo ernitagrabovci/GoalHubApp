@@ -17,7 +17,7 @@ export const MAIN_TABS: TabDef[] = [
 export const ADMIN_TABS: TabDef[] = [
   { name: 'index', title: 'Home', icon: 'house.fill' },
   { name: 'users', title: 'Përdoruesit', icon: 'person.fill' },
-  { name: 'fees', title: 'Pagesat', icon: 'dollarsign.circle.fill' },
+  { name: 'pagesat', title: 'Pagesat', icon: 'dollarsign.circle.fill' },
   { name: 'chat', title: 'Chat', icon: 'bubble.left.fill' },
 ];
 

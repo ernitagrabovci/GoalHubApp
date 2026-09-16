@@ -203,6 +203,26 @@ function RootNavigator() {
           name="ndeshja-luajtur"
           options={{ headerShown: false, contentStyle: { backgroundColor: '#FAFBFA' } }}
         />
+        <Stack.Screen
+          name="kartela-mjeksore"
+          options={{ headerShown: false, contentStyle: { backgroundColor: '#FAFBFA' } }}
+        />
+        <Stack.Screen
+          name="detajet-lendimit"
+          options={{ headerShown: false, contentStyle: { backgroundColor: '#FAFBFA' } }}
+        />
+        <Stack.Screen
+          name="pagesa-lojtari"
+          options={{ headerShown: false, contentStyle: { backgroundColor: '#FAFBFA' } }}
+        />
+        <Stack.Screen
+          name="detajet-pageses"
+          options={{ headerShown: false, contentStyle: { backgroundColor: '#FAFBFA' } }}
+        />
+        <Stack.Screen
+          name="raporti-pagesave"
+          options={{ headerShown: false, contentStyle: { backgroundColor: '#FAFBFA' } }}
+        />
       </Stack>
       <StatusBar style={isDark ? 'light' : 'dark'} />
     </>

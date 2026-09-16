@@ -1,5 +1,6 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { BlurView } from 'expo-blur';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useState } from 'react';
@@ -51,6 +52,13 @@ const C = {
 };
 
 const IMG_BALL = require('@/assets/dashboard/ndeshjet.png');
+
+/** Gloss sweep laid over the frosted squares — bright corner, pale middle. */
+const SQ_GLOSS = [
+  'rgba(255,255,255,0.78)',
+  'rgba(255,255,255,0.16)',
+  'rgba(255,255,255,0.46)',
+] as const;
 
 /* ------------------------------------------------------------------ */
 /* Data                                                                */
@@ -140,17 +148,41 @@ export default function TeamsScreen() {
             bounces={false}
           >
             {SUMMARY.map((s) => (
-              <View key={s.label} style={styles.sq}>
-                <Text style={styles.sqLabel}>{s.label}</Text>
-                <Text
-                  style={styles.sqValue}
-                  numberOfLines={1}
-                  adjustsFontSizeToFit
-                  minimumFontScale={0.5}
-                >
-                  {s.value}
-                </Text>
-                <Text style={styles.sqHint}>{s.hint}</Text>
+              <View key={s.label} style={styles.sqShadow}>
+                <View style={styles.sq}>
+                  {/* Frost the canvas grid, then lay a gloss sweep over it. */}
+                  <BlurView
+                    pointerEvents="none"
+                    intensity={22}
+                    tint="light"
+                    style={StyleSheet.absoluteFill}
+                  />
+                  <LinearGradient
+                    pointerEvents="none"
+                    style={StyleSheet.absoluteFill}
+                    colors={SQ_GLOSS}
+                    locations={[0, 0.55, 1]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                  />
+
+                  <View style={styles.sqBody}>
+                    <Text style={styles.sqLabel} numberOfLines={2}>
+                      {s.label}
+                    </Text>
+                    <Text
+                      style={styles.sqValue}
+                      numberOfLines={1}
+                      adjustsFontSizeToFit
+                      minimumFontScale={0.5}
+                    >
+                      {s.value}
+                    </Text>
+                    <Text style={styles.sqHint} numberOfLines={2}>
+                      {s.hint}
+                    </Text>
+                  </View>
+                </View>
               </View>
             ))}
           </ScrollView>
@@ -539,14 +571,14 @@ const styles = StyleSheet.create(
       gap: 8,
     },
 
-    sq: {
-      width: 114,
-      height: 110,
-      backgroundColor: '#FFFFFF',
-      borderWidth: 1.5,
-      borderColor: C.orange,
+    /* Shadow lives on the wrapper: `overflow: hidden` on the pane itself would
+       clip it away on iOS. */
+    sqShadow: {
+      width: 100,
+      height: 122,
       borderRadius: 8,
-      padding: 11,
+      /* Translucent so the frosted pane inside has a backdrop to blur. */
+      backgroundColor: 'rgba(255,255,255,0.5)',
       shadowColor: '#000000',
       shadowOffset: { width: 0, height: 2 },
       shadowOpacity: 0.04,
@@ -554,7 +586,23 @@ const styles = StyleSheet.create(
       elevation: 1,
     },
 
+    sq: {
+      flex: 1,
+      borderWidth: 1,
+      borderColor: C.orange,
+      borderRadius: 8,
+      overflow: 'hidden',
+    },
+
+    /* Content rides above the frost and gloss overlays. */
+    sqBody: {
+      flex: 1,
+      padding: 11,
+    },
+
+    /* Fixed two-line block so all the values sit on the same line. */
     sqLabel: {
+      minHeight: 30,
       fontFamily: Fonts.bodySemiBold,
       fontSize: 12,
       lineHeight: 15,

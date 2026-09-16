@@ -284,7 +284,7 @@ export function AdminHome() {
 
               <Pressable
                 style={({ pressed }) => [styles.promoMedical, pressed && styles.pressed]}
-                onPress={() => router.push('/medical')}
+                onPress={() => router.push('/kartela-mjeksore')}
               >
                 <Image source={IMG.doctor} style={styles.promoDoctorImg} resizeMode="contain" />
                 <View style={styles.medTextWrap}>
