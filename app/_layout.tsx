@@ -223,6 +223,10 @@ function RootNavigator() {
           name="raporti-pagesave"
           options={{ headerShown: false, contentStyle: { backgroundColor: '#FAFBFA' } }}
         />
+        <Stack.Screen
+          name="njoftimet"
+          options={{ headerShown: false, contentStyle: { backgroundColor: '#FAFBFA' } }}
+        />
       </Stack>
       <StatusBar style={isDark ? 'light' : 'dark'} />
     </>

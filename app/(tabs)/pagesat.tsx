@@ -777,7 +777,7 @@ const styles = StyleSheet.create(
     /* Fixed two-line block so all three values sit on the same line. */
     sqLabel: {
       minHeight: 30,
-      fontFamily: Fonts.bodySemiBold,
+      fontFamily: Fonts.bodyBold,
       fontSize: 12,
       lineHeight: 15,
       color: C.gray,

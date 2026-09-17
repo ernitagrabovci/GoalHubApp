@@ -159,12 +159,8 @@ export default function MedicalCardScreen() {
           contentContainerStyle={styles.scroll}
         >
           {/* ── Headline counts ─────────────────────────────────── */}
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            bounces={false}
-            contentContainerStyle={styles.summaryRow}
-          >
+          {/* Only three, so they share the row instead of scrolling. */}
+          <View style={styles.summaryRow}>
             {SUMMARY.map((s) => (
               <View key={s.label} style={styles.sqShadow}>
                 <View style={styles.sq}>
@@ -201,7 +197,7 @@ export default function MedicalCardScreen() {
                 </View>
               </View>
             ))}
-          </ScrollView>
+          </View>
 
           <View style={styles.colPad}>
             {/* ── Lojtarë me probleme mjeksore ──────────────────── */}
@@ -461,6 +457,7 @@ const styles = StyleSheet.create(
 
     /* ── Headline counts ─────────────────────────────────────── */
     summaryRow: {
+      flexDirection: 'row',
       paddingLeft: 27,
       paddingRight: 27,
       paddingTop: 4,
@@ -470,7 +467,8 @@ const styles = StyleSheet.create(
     /* Shadow lives on the wrapper: `overflow: hidden` on the pane itself would
        clip it away on iOS. */
     sqShadow: {
-      width: 100,
+      /* Three cards share the row, so each grows to a third of it. */
+      flex: 1,
       height: 122,
       borderRadius: 8,
       /* Translucent so the frosted pane inside has a backdrop to blur. */
@@ -499,7 +497,7 @@ const styles = StyleSheet.create(
     /* Fixed two-line block so all three values sit on the same line. */
     sqLabel: {
       minHeight: 30,
-      fontFamily: Fonts.bodySemiBold,
+      fontFamily: Fonts.bodyBold,
       fontSize: 12,
       lineHeight: 15,
       color: C.gray,

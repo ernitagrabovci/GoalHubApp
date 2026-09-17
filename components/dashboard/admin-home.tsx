@@ -22,6 +22,7 @@ const C = {
   bg: '#FAFBFA',
   line: 'rgba(0,0,0,0.025)',
   cardBorder: 'rgba(30,40,35,0.12)',
+  statBorder: '#E4A000',
   white: '#FFFFFF',
   green: '#159447',
   greenDark: '#0C6C36',
@@ -122,7 +123,7 @@ export function AdminHome() {
 
           <View style={styles.padded}>
             <HeaderBlock
-              onBell={() => router.push('/notifications')}
+              onBell={() => router.push('/njoftimet')}
               onSettings={() => router.push('/settings')}
               onClub={() => router.push('/club-profile')}
             />
@@ -533,7 +534,8 @@ const styles = StyleSheet.create(scaled({
     height: 110,
     backgroundColor: C.white,
     borderWidth: 1,
-    borderColor: C.cardBorder,
+    /* Matches the orange rim on the headline squares of the detail pages. */
+    borderColor: C.statBorder,
     borderRadius: 8,
     padding: 11,
     overflow: 'hidden',
@@ -544,7 +546,7 @@ const styles = StyleSheet.create(scaled({
     elevation: 1,
   },
   statLabel: {
-    fontFamily: Fonts.bodySemiBold,
+    fontFamily: Fonts.bodyBold,
     fontSize: 12,
     color: C.muted,
     lineHeight: 15,
