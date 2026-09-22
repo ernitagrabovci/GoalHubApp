@@ -11,11 +11,11 @@ import { Fonts } from '@/constants/theme';
 import { I, scaled } from '@/lib/responsive';
 
 /**
- * Raporti i pagesave — opened from "Vazhdo" on the Raportet e pagesave card
+ * Raporti i ndeshjeve — opened from "Vazhdo" on the Raportet e ndeshjeve card
  * over on the Raportet page.
  *
- * Four headline squares, the twelve-month collection chart with its pager,
- * the membership-fee breakdown and the per-team split.
+ * Four headline squares, the two filters, the season's fixtures with their
+ * pager, then the competition breakdown and the seasonal summary box.
  */
 
 const C = {
@@ -25,6 +25,7 @@ const C = {
   text: '#111111',
   gray: '#8A8A8A',
   hint: '#6E6E6E',
+  ghost: '#A8A8A8',
 
   cardBg: '#E3EEFB',
   headBg: '#F6FBFF',
@@ -32,6 +33,7 @@ const C = {
   headLine: 'rgba(30,40,35,0.10)',
   rowLine: 'rgba(100,140,190,0.22)',
 
+  blueSoft: '#E3EEFB',
   blueBtn: '#86BCFD',
   green: '#159447',
   orange: '#E4A000',
@@ -40,16 +42,6 @@ const C = {
   /* Unfilled part of every progress rail. */
   track: 'rgba(0,0,0,0.10)',
 };
-
-/** 1170 → "$1,170" — grouped thousands, no cents. */
-function usd(n: number) {
-  return `$${n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`;
-}
-
-/** 16840 → "$16,840.00" — the long form the breakdown rows use. */
-function usdFull(n: number) {
-  return `${usd(n)}.00`;
-}
 
 /* ── Headline squares ──────────────────────────────────────────────── */
 
@@ -61,63 +53,78 @@ const SQ_GLOSS = [
 ] as const;
 
 const SUMMARY = [
-  { label: 'Kuota të mbledhura', value: '$16,840', hint: 'të paguara', tone: C.green },
-  { label: 'Kuota të vonuara', value: '$16,800', hint: 'me vonesë', tone: C.red },
-  { label: 'Kuota të papaguara', value: '$230', hint: 'borxh aktiv', tone: C.orange },
-  { label: 'Norma e mbledhjes', value: '40%', hint: 'kuota të paguara', tone: C.green },
+  { label: 'Ndeshje gjithsej', value: '41', hint: 'të luajtura', tone: C.text },
+  { label: 'Fitore gjithsej', value: '18', hint: '44%', tone: C.green },
+  { label: 'Gola të shënuara', value: '83', hint: '2.0/ndeshje', tone: C.green },
+  { label: 'Gola të pësuara', value: '74', hint: '1.8/ndeshje', tone: C.text },
 ];
 
-/* ── Monthly collection grid ───────────────────────────────────────── */
+/* ── Fixtures ──────────────────────────────────────────────────────── */
 
-type Month = { month: string; collected: number; payments: number };
+type Outcome = 'Fitore' | 'Barazim' | 'Humbje';
 
-/** Ten months, oldest first, charted above and listed below. */
-const MONTHS: Month[] = [
-  { month: 'Oct 2025', collected: 1170, payments: 38 },
-  { month: 'Nov 2025', collected: 1190, payments: 41 },
-  { month: 'Dec 2025', collected: 1180, payments: 36 },
-  { month: 'Jan 2026', collected: 1240, payments: 42 },
-  { month: 'Feb 2026', collected: 1320, payments: 45 },
-  { month: 'Mar 2026', collected: 1390, payments: 44 },
-  { month: 'Apr 2026', collected: 1430, payments: 47 },
-  { month: 'May 2026', collected: 1510, payments: 49 },
-  { month: 'Jun 2026', collected: 1360, payments: 43 },
-  { month: 'Jul 2026', collected: 1480, payments: 46 },
+const OUTCOME_TONE: Record<Outcome, string> = {
+  Fitore: C.green,
+  Barazim: C.orange,
+  Humbje: C.red,
+};
+
+type Match = {
+  fixture: string;
+  comp: string;
+  rez: string;
+  plus: number;
+  minus: number;
+  status: Outcome;
+};
+
+const MATCHES: Match[] = [
+  { fixture: 'Malisheva - Ulpiana', comp: 'Superliga e Kosovës', rez: '3-1', plus: 3, minus: 1, status: 'Fitore' },
+  { fixture: 'Ulpiana - Feronikeli', comp: 'Superliga e Kosovës', rez: '1-1', plus: 1, minus: 1, status: 'Barazim' },
+  { fixture: 'Drita - Ulpiana', comp: 'Superliga e Kosovës', rez: '2-0', plus: 0, minus: 2, status: 'Humbje' },
+  { fixture: 'Ulpiana - Prishtina', comp: 'Kupa e Kosovës', rez: '4-2', plus: 4, minus: 2, status: 'Fitore' },
+  { fixture: 'Ballkani - Ulpiana', comp: 'Superliga e Kosovës', rez: '1-2', plus: 2, minus: 1, status: 'Fitore' },
+  { fixture: 'Ulpiana - Gjilani', comp: 'Superliga e Kosovës', rez: '0-0', plus: 0, minus: 0, status: 'Barazim' },
+  { fixture: 'Trepça - Ulpiana', comp: 'Superliga e Kosovës', rez: '3-1', plus: 1, minus: 3, status: 'Humbje' },
+  { fixture: 'Ulpiana - Llapi', comp: 'Kupa e Kosovës', rez: '2-1', plus: 2, minus: 1, status: 'Fitore' },
 ];
 
-const COLLECTED_MIN = Math.min(...MONTHS.map((m) => m.collected));
-const COLLECTED_MAX = Math.max(...MONTHS.map((m) => m.collected));
-
-const TICK_MIN = 40;
-const TICK_SPAN = 36;
-
-/** Tick length tracks the month's take, so the bars read longest-to-shortest. */
-function tickHeight(collected: number) {
-  const ratio = (collected - COLLECTED_MIN) / (COLLECTED_MAX - COLLECTED_MIN);
-  return TICK_MIN + ratio * TICK_SPAN;
-}
+/** Match / competition / score / scored / conceded / outcome. */
+const COLS = [
+  { key: 'match', label: 'Ndeshja', flex: 1.9 },
+  { key: 'comp', label: 'Kompeticion', flex: 1.5 },
+  { key: 'rez', label: 'Rez', flex: 0.8 },
+  { key: 'plus', label: '+', flex: 0.5 },
+  { key: 'minus', label: '-', flex: 0.5 },
+  { key: 'status', label: 'Statusi', flex: 1.1 },
+] as const;
 
 const PAGES = [1, 2, 3, 4];
 
-/* ── Membership-fee breakdown ──────────────────────────────────────── */
+/* ── Results by competition ────────────────────────────────────────── */
 
-const STATUS: { label: string; amount: number; pct: number; tone: string }[] = [
-  { label: 'Të paguara', amount: 16840, pct: 50, tone: C.green },
-  { label: 'Me vonesë', amount: 16800, pct: 50, tone: C.red },
-  { label: 'Të papaguara', amount: 230, pct: 1, tone: C.orange },
+type Comp = { name: string; played: number; win: number; draw: number; loss: number };
+
+const COMPS: Comp[] = [
+  { name: 'Superliga e Kosovës', played: 31, win: 14, draw: 4, loss: 13 },
+  { name: 'Kupa e Kosovës', played: 10, win: 4, draw: 3, loss: 3 },
 ];
 
-/* ── Per-team split ───────────────────────────────────────────────── */
-
-const TEAMS: { name: string; pct: number; amount: number }[] = [
-  { name: 'Ekipi i Parë', pct: 40, amount: 4840 },
-  { name: 'U21', pct: 46, amount: 4160 },
-  { name: 'U17', pct: 52, amount: 3280 },
-  { name: 'U15', pct: 38, amount: 2890 },
-  { name: 'U13', pct: 31, amount: 1670 },
+const LEGEND: { label: string; color: string }[] = [
+  { label: 'Fitore', color: C.green },
+  { label: 'Barazim', color: C.orange },
+  { label: 'Humbje', color: C.red },
 ];
 
-export default function PaymentReportScreen() {
+/* ── Seasonal summary ──────────────────────────────────────────────── */
+
+const SEASON: { label: string; value: string; tone: string }[] = [
+  { label: 'Fitore', value: '18(44%)', tone: C.green },
+  { label: 'Barazim', value: '7(17%)', tone: C.orange },
+  { label: 'Humbje', value: '16(39%)', tone: C.red },
+];
+
+export default function MatchReportScreen() {
   const router = useRouter();
   const { width } = useWindowDimensions();
   const lineCount = Math.ceil(width / 9);
@@ -149,10 +156,10 @@ export default function PaymentReportScreen() {
               </Pressable>
               <View style={styles.headerText}>
                 <Text style={styles.title} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
-                  Raporti i pagesave
+                  Raportet e ndeshjeve
                 </Text>
                 <Text style={styles.subtitle} numberOfLines={1}>
-                  Gjendja e kuotave të anëtarësisë
+                  Rezultatet dhe statistikat e sezonit
                 </Text>
               </View>
             </View>
@@ -213,67 +220,78 @@ export default function PaymentReportScreen() {
           </ScrollView>
 
           <View style={styles.colPad}>
-            {/* ── Collection chart ──────────────────────────────── */}
+            {/* ── Filters ───────────────────────────────────────── */}
+            <View style={styles.filterRow}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Filtro: Të gjitha ekipet"
+                style={({ pressed }) => [styles.filterBox, pressed && styles.pressed]}
+              >
+                <Text style={styles.filterText} numberOfLines={1}>
+                  Të gjitha ekipet
+                </Text>
+                <MaterialCommunityIcons name="chevron-down" size={I(14)} color={C.text} />
+              </Pressable>
+
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Filtro: Të gjitha rezultatet"
+                style={({ pressed }) => [styles.filterBox, pressed && styles.pressed]}
+              >
+                <Text style={styles.filterText} numberOfLines={1}>
+                  Të gjitha rezultatet
+                </Text>
+                <MaterialCommunityIcons name="chevron-down" size={I(14)} color={C.text} />
+              </Pressable>
+            </View>
+
+            {/* ── Fixtures ──────────────────────────────────────── */}
             <View style={styles.card}>
               <View style={styles.head}>
                 <Text style={styles.headText} numberOfLines={1}>
-                  Kuotat e mbledhura — 12 muajt e fundit
+                  Raporti i ndeshjeve
                 </Text>
               </View>
               <View style={styles.headLine} />
 
-              {/* Ten ticks hung from one top edge, each labelled on its side. */}
-              <View style={styles.chart}>
-                {MONTHS.map((m) => (
-                  <View key={m.month} style={styles.chartCol}>
-                    {/* Fixed-height slot: the ticks differ, the labels don't. */}
-                    <View style={styles.tickArea}>
-                      <View style={[styles.tick, { height: tickHeight(m.collected) }]} />
-                    </View>
-                    <View style={styles.tickLabelBox}>
-                      <Text style={styles.tickLabel} numberOfLines={1}>
-                        {m.month}
-                      </Text>
-                    </View>
-                  </View>
-                ))}
-              </View>
-
-              <View style={styles.chartDivider} />
-
-              {/* The same ten months, spelled out. */}
               <View style={styles.tblInner}>
                 <View style={[styles.tr, styles.thRow]}>
-                  <Text style={[styles.th, styles.thLeft, { flex: 1.2 }]} numberOfLines={1}>
-                    Muaji
-                  </Text>
-                  <Text style={[styles.th, { flex: 1.5 }]} numberOfLines={1}>
-                    Kuota të mbledhura
-                  </Text>
-                  <Text style={[styles.th, { flex: 1.4 }]} numberOfLines={1}>
-                    Numri i pagesave
-                  </Text>
+                  {COLS.map((c) => (
+                    <Text key={c.key} style={[styles.th, { flex: c.flex }]} numberOfLines={1}>
+                      {c.label}
+                    </Text>
+                  ))}
                 </View>
 
-                {MONTHS.map((m) => (
-                  <View key={m.month} style={[styles.tr, styles.trBorder]}>
+                {MATCHES.map((m) => (
+                  <View key={m.fixture} style={[styles.tr, styles.trBorder]}>
                     <Text
-                      style={[styles.td, styles.tdMonth, { flex: 1.2 }]}
+                      style={[styles.td, styles.tdMatch, { flex: 1.9 }]}
+                      numberOfLines={1}
+                      adjustsFontSizeToFit
+                      minimumFontScale={0.75}
+                    >
+                      {m.fixture}
+                    </Text>
+                    <Text
+                      style={[styles.td, { flex: 1.5 }]}
                       numberOfLines={1}
                       adjustsFontSizeToFit
                       minimumFontScale={0.7}
                     >
-                      {m.month}
+                      {m.comp}
                     </Text>
+                    <Text style={[styles.td, { flex: 0.8 }]}>{m.rez}</Text>
+                    <Text style={[styles.td, styles.tdPlus, { flex: 0.5 }]}>{m.plus}</Text>
+                    <Text style={[styles.td, styles.tdMinus, { flex: 0.5 }]}>{m.minus}</Text>
                     <Text
-                      style={[styles.td, styles.tdCollected, { flex: 1.5 }]}
+                      style={[styles.td, { flex: 1.1, color: OUTCOME_TONE[m.status] }]}
                       numberOfLines={1}
                       adjustsFontSizeToFit
                       minimumFontScale={0.7}
                     >
-                      {usd(m.collected)}
+                      {m.status}
                     </Text>
-                    <Text style={[styles.td, { flex: 1.4 }]}>{m.payments}</Text>
                   </View>
                 ))}
               </View>
@@ -311,70 +329,62 @@ export default function PaymentReportScreen() {
               </Pressable>
             </View>
 
-            {/* ── Membership-fee breakdown ──────────────────────── */}
+            {/* ── Results by competition ────────────────────────── */}
             <View style={[styles.card, styles.cardGap]}>
               <View style={styles.head}>
                 <Text style={styles.headText} numberOfLines={1}>
-                  Gjendja e kuotave
+                  Rezultatet sipas kompeticionit
                 </Text>
               </View>
               <View style={styles.headLine} />
 
               <View style={styles.body}>
-                {STATUS.map((s) => (
-                  <View key={s.label} style={styles.statBlock}>
+                {/* Laid out left to right, kept short of the card's full width. */}
+                <View style={styles.legend}>
+                  {LEGEND.map((l) => (
+                    <View key={l.label} style={styles.legendItem}>
+                      <View style={[styles.legendDot, { backgroundColor: l.color }]} />
+                      <Text style={styles.legendText}>{l.label}</Text>
+                    </View>
+                  ))}
+                </View>
+
+                {COMPS.map((c) => (
+                  <View key={c.name} style={styles.statBlock}>
                     <View style={styles.statTop}>
-                      <Text style={styles.statName} numberOfLines={1}>
-                        {s.label}
+                      <Text style={styles.compName} numberOfLines={1}>
+                        {c.name}
                       </Text>
-                      <Text style={[styles.statValue, { color: s.tone }]} numberOfLines={1}>
-                        {usdFull(s.amount)} ({s.pct}%)
-                      </Text>
+                      <Text style={styles.compPlayed}>{c.played} ndeshje</Text>
                     </View>
 
-                    <View style={styles.rail}>
-                      <View
-                        style={[styles.railFill, { width: `${s.pct}%`, backgroundColor: s.tone }]}
-                      />
-                    </View>
-                  </View>
-                ))}
-              </View>
-            </View>
-
-            {/* ── Per-team split ────────────────────────────────── */}
-            <View style={[styles.card, styles.cardGap]}>
-              <View style={[styles.head, styles.headSplit]}>
-                <Text style={styles.headTextLeft} numberOfLines={1}>
-                  Prezenca në stërvitje
-                </Text>
-                <Text style={styles.headAside} numberOfLines={1}>
-                  sipas ekipit
-                </Text>
-              </View>
-              <View style={styles.headLine} />
-
-              <View style={styles.body}>
-                {TEAMS.map((t) => (
-                  <View key={t.name} style={styles.statBlock}>
-                    <View style={styles.statTop}>
-                      <Text style={styles.statName} numberOfLines={1}>
-                        {t.name}
-                      </Text>
-                      <Text style={styles.statValue}>
-                        {t.pct}% · {usd(t.amount)}
-                      </Text>
-                    </View>
-
-                    {/* One rail, split paid / unpaid. */}
+                    {/* One rail, split win / draw / loss. */}
                     <View style={styles.splitBar}>
-                      <View style={[styles.splitFill, { flex: t.pct, backgroundColor: C.green }]} />
-                      <View
-                        style={[styles.splitFill, { flex: 100 - t.pct, backgroundColor: C.red }]}
-                      />
+                      <View style={[styles.splitFill, { flex: c.win, backgroundColor: C.green }]} />
+                      <View style={[styles.splitFill, { flex: c.draw, backgroundColor: C.orange }]} />
+                      <View style={[styles.splitFill, { flex: c.loss, backgroundColor: C.red }]} />
+                    </View>
+
+                    <View style={styles.tallyRow}>
+                      <Text style={[styles.tally, { color: C.green }]}>{c.win}F</Text>
+                      <Text style={[styles.tally, { color: C.orange }]}>{c.draw}F</Text>
+                      <Text style={[styles.tally, { color: C.red }]}>{c.loss}F</Text>
                     </View>
                   </View>
                 ))}
+
+                {/* ── Seasonal summary — framed box inside the same card ── */}
+                <View style={styles.seasonBox}>
+                  <Text style={styles.seasonTitle}>Përmbledhje Sezonale</Text>
+                  <View style={styles.seasonLine} />
+
+                  {SEASON.map((s) => (
+                    <View key={s.label} style={styles.seasonRow}>
+                      <Text style={styles.seasonLabel}>{s.label}</Text>
+                      <Text style={[styles.seasonValue, { color: s.tone }]}>{s.value}</Text>
+                    </View>
+                  ))}
+                </View>
               </View>
             </View>
           </View>
@@ -529,7 +539,32 @@ const styles = StyleSheet.create(
       marginTop: 4,
     },
 
-    /* ── Cards ───────────────────────────────────────────────── */
+    /* ── Filters ─────────────────────────────────────────────── */
+    filterRow: {
+      flexDirection: 'row',
+      gap: 8,
+      marginTop: 14,
+    },
+
+    filterBox: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      height: 32,
+      paddingHorizontal: 9,
+      backgroundColor: C.blueSoft,
+      borderWidth: 1,
+      borderColor: C.frame,
+      borderRadius: 4,
+    },
+
+    filterText: {
+      fontFamily: Fonts.bodyBold,
+      fontSize: 12.5,
+      color: C.text,
+    },
+
+    /* ── Tables ──────────────────────────────────────────────── */
     card: {
       marginTop: 14,
       backgroundColor: C.cardBg,
@@ -551,14 +586,6 @@ const styles = StyleSheet.create(
       backgroundColor: C.headBg,
     },
 
-    /* The per-team card carries a title and an aside, so it spans the width. */
-    headSplit: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      gap: 10,
-    },
-
     headText: {
       fontFamily: Fonts.bodyBold,
       fontSize: 15,
@@ -566,83 +593,12 @@ const styles = StyleSheet.create(
       color: C.text,
     },
 
-    headTextLeft: {
-      flex: 1,
-      fontFamily: Fonts.bodyBold,
-      fontSize: 15,
-      lineHeight: 19,
-      color: C.text,
-    },
-
-    headAside: {
-      fontFamily: Fonts.body,
-      fontSize: 11.5,
-      lineHeight: 14,
-      color: C.gray,
-    },
-
     headLine: {
       height: 1,
       backgroundColor: C.headLine,
     },
 
-    /* ── Collection chart ────────────────────────────────────── */
-    chart: {
-      flexDirection: 'row',
-      alignItems: 'flex-start',
-      paddingHorizontal: 12,
-      paddingTop: 18,
-      paddingBottom: 14,
-      gap: 4,
-    },
-
-    chartCol: {
-      flex: 1,
-      alignItems: 'center',
-    },
-
-    /* Sized to the longest tick and bottom-anchored: every bar stands on the
-       label row, however short it is, so each one meets its own month. */
-    tickArea: {
-      width: '100%',
-      height: TICK_MIN + TICK_SPAN,
-      alignItems: 'center',
-      justifyContent: 'flex-end',
-    },
-
-    /* Chunky bars, all hanging from the same top, length set per month. */
-    tick: {
-      width: 3,
-      borderRadius: 2,
-      backgroundColor: C.green,
-    },
-
-    /* Rotating a label leaves its box behind, so the box is sized to the
-       label's own length and the text is turned inside it. */
-    tickLabelBox: {
-      width: '100%',
-      height: 58,
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-
-    tickLabel: {
-      width: 58,
-      textAlign: 'center',
-      transform: [{ rotate: '-90deg' }],
-      fontFamily: Fonts.body,
-      fontSize: 9,
-      lineHeight: 12,
-      color: '#4A4A4A',
-    },
-
-    /* Splits the chart off from the month-by-month table below it. */
-    chartDivider: {
-      height: 1,
-      backgroundColor: C.headLine,
-    },
-
-    /* ── Month table ─────────────────────────────────────────── */
+    /* ── Fixtures table ──────────────────────────────────────── */
     tblInner: {
       paddingHorizontal: 10,
       paddingBottom: 10,
@@ -674,10 +630,6 @@ const styles = StyleSheet.create(
       textAlign: 'center',
     },
 
-    thLeft: {
-      textAlign: 'left',
-    },
-
     td: {
       fontFamily: Fonts.body,
       fontSize: 11,
@@ -686,14 +638,19 @@ const styles = StyleSheet.create(
       textAlign: 'center',
     },
 
-    tdMonth: {
+    tdMatch: {
       fontFamily: Fonts.bodySemiBold,
       textAlign: 'left',
     },
 
-    tdCollected: {
+    tdPlus: {
       fontFamily: Fonts.bodyBold,
       color: C.green,
+    },
+
+    tdMinus: {
+      fontFamily: Fonts.bodyBold,
+      color: C.red,
     },
 
     /* ── Pager ───────────────────────────────────────────────── */
@@ -725,7 +682,7 @@ const styles = StyleSheet.create(
       color: '#FFFFFF',
     },
 
-    /* ── Stat blocks ─────────────────────────────────────────── */
+    /* ── Competition breakdown ───────────────────────────────── */
     body: {
       paddingHorizontal: 12,
       paddingTop: 12,
@@ -733,8 +690,33 @@ const styles = StyleSheet.create(
       gap: 16,
     },
 
+    legend: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 14,
+    },
+
+    legendItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+    },
+
+    legendDot: {
+      width: 9,
+      height: 9,
+      borderRadius: 2,
+    },
+
+    legendText: {
+      fontFamily: Fonts.body,
+      fontSize: 10.5,
+      lineHeight: 13,
+      color: C.text,
+    },
+
     statBlock: {
-      gap: 6,
+      gap: 5,
     },
 
     statTop: {
@@ -744,31 +726,19 @@ const styles = StyleSheet.create(
       gap: 10,
     },
 
-    statName: {
+    compName: {
       flex: 1,
-      fontFamily: Fonts.body,
-      fontSize: 12.5,
-      lineHeight: 16,
-      color: C.text,
-    },
-
-    statValue: {
       fontFamily: Fonts.bodyBold,
       fontSize: 12.5,
       lineHeight: 16,
       color: C.text,
     },
 
-    rail: {
-      height: 7,
-      borderRadius: 4,
-      overflow: 'hidden',
-      backgroundColor: C.track,
-    },
-
-    railFill: {
-      height: '100%',
-      borderRadius: 4,
+    compPlayed: {
+      fontFamily: Fonts.bodyBold,
+      fontSize: 12.5,
+      lineHeight: 16,
+      color: C.text,
     },
 
     splitBar: {
@@ -781,6 +751,64 @@ const styles = StyleSheet.create(
 
     splitFill: {
       height: '100%',
+    },
+
+    tallyRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+    },
+
+    tally: {
+      fontFamily: Fonts.body,
+      fontSize: 10,
+      lineHeight: 12,
+    },
+
+    /* ── Seasonal summary ────────────────────────────────────── */
+    seasonBox: {
+      paddingHorizontal: 12,
+      paddingTop: 11,
+      paddingBottom: 13,
+      backgroundColor: '#FFFFFF',
+      borderWidth: 1,
+      borderColor: C.frame,
+      borderRadius: 7,
+    },
+
+    seasonTitle: {
+      fontFamily: Fonts.bodyBold,
+      fontSize: 14,
+      lineHeight: 18,
+      color: C.text,
+    },
+
+    seasonLine: {
+      height: 1,
+      marginTop: 9,
+      marginBottom: 4,
+      backgroundColor: C.headLine,
+    },
+
+    seasonRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: 10,
+      minHeight: 26,
+    },
+
+    seasonLabel: {
+      fontFamily: Fonts.body,
+      fontSize: 12,
+      lineHeight: 15,
+      color: C.text,
+    },
+
+    seasonValue: {
+      fontFamily: Fonts.bodyBold,
+      fontSize: 12,
+      lineHeight: 15,
     },
 
     pressed: {

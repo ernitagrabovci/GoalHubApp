@@ -1,5 +1,5 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import { useRouter } from 'expo-router';
+import { useRouter, type Href } from 'expo-router';
 import type { BottomTabBarProps } from 'expo-router/build/react-navigation/bottom-tabs';
 import type { ComponentProps } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
@@ -13,8 +13,8 @@ import { I, scaled } from '@/lib/responsive';
  * Matches the reference: rounded floating container with Home (active,
  * pale-green capsule) / Përdoruesit / Pagesat / Chat / Profili.
  *
- * "Profili" is not a tab — tapping it opens the club profile (full-screen
- * root route, so the pill bar disappears and a back arrow returns).
+ * "Përdoruesit", "Profili" and "Mesazhet" are not tabs — tapping them opens a
+ * full-screen root route, so the pill bar disappears and a back arrow returns.
  */
 
 const C = {
@@ -35,9 +35,16 @@ const ITEMS: Item[] = [
   { name: 'index', label: 'Home', icon: 'home-variant' },
   { name: 'users', label: 'Përdoruesit', icon: 'account-group-outline' },
   { name: 'pagesat', label: 'Pagesat', icon: 'cash-multiple' },
-  { name: 'chat', label: 'Chat', icon: 'chat-outline' },
+  { name: 'chat', label: 'Mesazhet', icon: 'chat-outline' },
   { name: 'profile', label: 'Profili', icon: 'account-outline' },
 ];
+
+/** Items that leave the tab bar behind and open a root route instead. */
+const FULL_SCREEN: Record<string, { path: Href; label: string }> = {
+  users: { path: '/perdoruesit', label: 'Lista e përdoruesve' },
+  chat: { path: '/mesazhet', label: 'Mesazhet' },
+  profile: { path: '/club-profile', label: 'Profili i klubit' },
+};
 
 export function PillTabBar({ state, navigation, insets }: BottomTabBarProps) {
   const router = useRouter();
@@ -50,16 +57,17 @@ export function PillTabBar({ state, navigation, insets }: BottomTabBarProps) {
     <View style={[styles.area, { paddingBottom: Math.max(insets.bottom, 14) }]}>
       <View style={styles.pill}>
         {ITEMS.map((item) => {
-          // The admin's "Profili" opens the club profile as a full screen
-          // instead of switching to the old themed /profile tab.
-          if (item.name === 'profile') {
+          // "Profili" and "Mesazhet" open full-screen pages of their own
+          // instead of switching to the old themed tabs.
+          const full = FULL_SCREEN[item.name];
+          if (full) {
             return (
               <Pressable
                 key={item.name}
-                onPress={() => router.push('/club-profile')}
+                onPress={() => router.push(full.path)}
                 style={styles.wrap}
                 accessibilityRole="button"
-                accessibilityLabel="Profili i klubit"
+                accessibilityLabel={full.label}
               >
                 <View style={styles.item}>
                   <MaterialCommunityIcons name={item.icon} size={I(21)} color={C.muted} />

@@ -234,7 +234,7 @@ export function AdminHome() {
               <View style={styles.activityCard}>
                 <View style={styles.cardHead}>
                   <MaterialCommunityIcons name="heart-pulse" size={I(16)} color={C.green} />
-                  <Text style={styles.cardHeadText}>Aktivitetet e fundit</Text>
+                  <Text style={styles.cardHeadText}>Raportet</Text>
                 </View>
                 {ACTIVITY.map((a, i) => (
                   <View key={i} style={styles.activityRow}>
@@ -248,7 +248,7 @@ export function AdminHome() {
                     </View>
                   </View>
                 ))}
-                <SeeAllFooter color={C.text} onPress={() => router.push('/notifications')} />
+                <SeeAllFooter color={C.text} onPress={() => router.push('/raportet')} />
               </View>
 
               <View style={styles.teamsCard}>

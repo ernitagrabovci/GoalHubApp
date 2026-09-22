@@ -14,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
 import { I, scaled } from '@/lib/responsive';
+import { useSession } from '@/lib/session';
 
 /**
  * Settings — light-only, matches the pill dashboards' #FAFBFA canvas.
@@ -32,6 +33,8 @@ const C = {
   card: '#F1FBF5',
   cardBorder: '#CFE6D8',
   divider: '#D8ECE1',
+
+  red: '#E03131',
 };
 
 type IconName = ComponentProps<typeof MaterialCommunityIcons>['name'];
@@ -65,11 +68,17 @@ const ROWS: SettingsRow[] = [
 
 export default function SettingsScreen() {
   const router = useRouter();
+  const { signOut } = useSession();
   const { width } = useWindowDimensions();
   const lineCount = Math.ceil(width / 9);
 
   const go = (route?: string) => {
     if (route) router.push(route as never);
+  };
+
+  const logOut = () => {
+    signOut();
+    router.replace('/login');
   };
 
   return (
@@ -129,6 +138,17 @@ export default function SettingsScreen() {
               </Pressable>
             ))}
           </View>
+
+          {/* Log out — the one destructive action on this page */}
+          <Pressable
+            onPress={logOut}
+            accessibilityRole="button"
+            accessibilityLabel="Log out"
+            style={({ pressed }) => [styles.logOut, pressed && styles.pressed]}
+          >
+            <MaterialCommunityIcons name="logout" size={I(20)} color="#FFFFFF" />
+            <Text style={styles.logOutText}>Log out</Text>
+          </Pressable>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -232,5 +252,23 @@ const styles = StyleSheet.create(scaled({
     fontSize: 18,
     lineHeight: 25,
     color: C.text,
+  },
+
+  logOut: {
+    marginTop: 22,
+    height: 54,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    backgroundColor: C.red,
+    borderRadius: 5,
+  },
+
+  logOutText: {
+    fontFamily: Fonts.bodyBold,
+    fontSize: 17,
+    lineHeight: 21,
+    color: '#FFFFFF',
   },
 }));
