@@ -90,7 +90,14 @@ function RootNavigator() {
       <SystemBars pillLight={pillLight} />
       <Stack>
         <Stack.Screen name="intro" options={{ headerShown: false }} />
-        <Stack.Screen name="login" options={{ headerShown: false }} />
+        <Stack.Screen
+          name="login"
+          options={{ headerShown: false, contentStyle: { backgroundColor: '#FAFBFA' } }}
+        />
+        <Stack.Screen
+          name="forgot-password"
+          options={{ headerShown: false, contentStyle: { backgroundColor: '#FAFBFA' } }}
+        />
         <Stack.Screen
           name="(tabs)"
           options={{
@@ -196,11 +203,147 @@ function RootNavigator() {
           options={{ headerShown: false, contentStyle: { backgroundColor: '#FAFBFA' } }}
         />
         <Stack.Screen
+          name="ndeshjet-trajner"
+          options={{ headerShown: false, contentStyle: { backgroundColor: '#FAFBFA' } }}
+        />
+        <Stack.Screen
           name="ndeshja"
           options={{ headerShown: false, contentStyle: { backgroundColor: '#FAFBFA' } }}
         />
         <Stack.Screen
+          name="ndeshja-trajner"
+          options={{ headerShown: false, contentStyle: { backgroundColor: '#FAFBFA' } }}
+        />
+        <Stack.Screen
           name="ndeshja-luajtur"
+          options={{ headerShown: false, contentStyle: { backgroundColor: '#FAFBFA' } }}
+        />
+        <Stack.Screen
+          name="cakto-formacion"
+          options={{ headerShown: false, contentStyle: { backgroundColor: '#FAFBFA' } }}
+        />
+        <Stack.Screen
+          name="fut-rezultatin"
+          options={{ headerShown: false, contentStyle: { backgroundColor: '#FAFBFA' } }}
+        />
+        <Stack.Screen
+          name="ndeshja-luajtur-trajner"
+          options={{ headerShown: false, contentStyle: { backgroundColor: '#FAFBFA' } }}
+        />
+        <Stack.Screen
+          name="akademia-trajner"
+          options={{ headerShown: false, contentStyle: { backgroundColor: '#FAFBFA' } }}
+        />
+        <Stack.Screen
+          name="libraria-trajner"
+          options={{ headerShown: false, contentStyle: { backgroundColor: '#FAFBFA' } }}
+        />
+        <Stack.Screen
+          name="shto-material-trajner"
+          options={{ headerShown: false, contentStyle: { backgroundColor: '#FAFBFA' } }}
+        />
+        <Stack.Screen
+          name="edito-material-trajner"
+          options={{ headerShown: false, contentStyle: { backgroundColor: '#FAFBFA' } }}
+        />
+        <Stack.Screen
+          name="video-strategjike-trajner"
+          options={{ headerShown: false, contentStyle: { backgroundColor: '#FAFBFA' } }}
+        />
+        <Stack.Screen
+          name="ngarko-video-trajner"
+          options={{ headerShown: false, contentStyle: { backgroundColor: '#FAFBFA' } }}
+        />
+        <Stack.Screen
+          name="detajet-video-trajner"
+          options={{ headerShown: false, contentStyle: { backgroundColor: '#FAFBFA' } }}
+        />
+        <Stack.Screen
+          name="planet-sesioneve-trajner"
+          options={{ headerShown: false, contentStyle: { backgroundColor: '#FAFBFA' } }}
+        />
+        <Stack.Screen
+          name="ushtrimet-trajner"
+          options={{ headerShown: false, contentStyle: { backgroundColor: '#FAFBFA' } }}
+        />
+        <Stack.Screen
+          name="profili-lojtarit"
+          options={{ headerShown: false, contentStyle: { backgroundColor: '#FAFBFA' } }}
+        />
+        <Stack.Screen
+          name="stervitjet-lojtarit"
+          options={{ headerShown: false, contentStyle: { backgroundColor: '#FAFBFA' } }}
+        />
+        <Stack.Screen
+          name="stervitja-lojtarit"
+          options={{ headerShown: false, contentStyle: { backgroundColor: '#FAFBFA' } }}
+        />
+        <Stack.Screen
+          name="ndeshjet-lojtarit"
+          options={{ headerShown: false, contentStyle: { backgroundColor: '#FAFBFA' } }}
+        />
+        <Stack.Screen
+          name="ndeshja-luajtur-lojtarit"
+          options={{ headerShown: false, contentStyle: { backgroundColor: '#FAFBFA' } }}
+        />
+        <Stack.Screen
+          name="akademia-lojtarit"
+          options={{ headerShown: false, contentStyle: { backgroundColor: '#FAFBFA' } }}
+        />
+        <Stack.Screen
+          name="njoftimet-lojtarit"
+          options={{ headerShown: false, contentStyle: { backgroundColor: '#FAFBFA' } }}
+        />
+        <Stack.Screen
+          name="femiu"
+          options={{ headerShown: false, contentStyle: { backgroundColor: '#FAFBFA' } }}
+        />
+        <Stack.Screen
+          name="profili-femiut"
+          options={{ headerShown: false, contentStyle: { backgroundColor: '#FAFBFA' } }}
+        />
+        <Stack.Screen
+          name="prezenca-femiut"
+          options={{ headerShown: false, contentStyle: { backgroundColor: '#FAFBFA' } }}
+        />
+        <Stack.Screen
+          name="vleresimet-femiut"
+          options={{ headerShown: false, contentStyle: { backgroundColor: '#FAFBFA' } }}
+        />
+        <Stack.Screen
+          name="kuotat-femiut"
+          options={{ headerShown: false, contentStyle: { backgroundColor: '#FAFBFA' } }}
+        />
+        <Stack.Screen
+          name="stervitjet-femiut"
+          options={{ headerShown: false, contentStyle: { backgroundColor: '#FAFBFA' } }}
+        />
+        <Stack.Screen
+          name="ndeshjet-femiut"
+          options={{ headerShown: false, contentStyle: { backgroundColor: '#FAFBFA' } }}
+        />
+        <Stack.Screen
+          name="njoftimet-prindit"
+          options={{ headerShown: false, contentStyle: { backgroundColor: '#FAFBFA' } }}
+        />
+        <Stack.Screen
+          name="kuotat-financierit"
+          options={{ headerShown: false, contentStyle: { backgroundColor: '#FAFBFA' } }}
+        />
+        <Stack.Screen
+          name="detajet-pageses-financierit"
+          options={{ headerShown: false, contentStyle: { backgroundColor: '#FAFBFA' } }}
+        />
+        <Stack.Screen
+          name="regjistro-pagesen-financierit"
+          options={{ headerShown: false, contentStyle: { backgroundColor: '#FAFBFA' } }}
+        />
+        <Stack.Screen
+          name="raportet-financiare"
+          options={{ headerShown: false, contentStyle: { backgroundColor: '#FAFBFA' } }}
+        />
+        <Stack.Screen
+          name="njoftimet-financierit"
           options={{ headerShown: false, contentStyle: { backgroundColor: '#FAFBFA' } }}
         />
         <Stack.Screen
@@ -228,7 +371,15 @@ function RootNavigator() {
           options={{ headerShown: false, contentStyle: { backgroundColor: '#FAFBFA' } }}
         />
         <Stack.Screen
+          name="njoftimet-trajner"
+          options={{ headerShown: false, contentStyle: { backgroundColor: '#FAFBFA' } }}
+        />
+        <Stack.Screen
           name="mesazhet"
+          options={{ headerShown: false, contentStyle: { backgroundColor: '#FAFBFA' } }}
+        />
+        <Stack.Screen
+          name="mesazhet-trajner"
           options={{ headerShown: false, contentStyle: { backgroundColor: '#FAFBFA' } }}
         />
         <Stack.Screen
@@ -250,6 +401,44 @@ function RootNavigator() {
         <Stack.Screen
           name="aktiviteti"
           options={{ headerShown: false, contentStyle: { backgroundColor: '#FAFBFA' } }}
+        />
+        <Stack.Screen
+          name="lista-lojtareve"
+          options={{ headerShown: false, contentStyle: { backgroundColor: '#FAFBFA' } }}
+        />
+        <Stack.Screen
+          name="lojtari"
+          options={{ headerShown: false, contentStyle: { backgroundColor: '#FAFBFA' } }}
+        />
+        <Stack.Screen
+          name="vleresimet-lojtareve"
+          options={{ headerShown: false, contentStyle: { backgroundColor: '#FAFBFA' } }}
+        />
+        <Stack.Screen
+          name="stervitja"
+          options={{ headerShown: false, contentStyle: { backgroundColor: '#FAFBFA' } }}
+        />
+        <Stack.Screen
+          name="stervitjet"
+          options={{ headerShown: false, contentStyle: { backgroundColor: '#FAFBFA' } }}
+        />
+        <Stack.Screen
+          name="regjistro-prezencen"
+          options={{ headerShown: false, contentStyle: { backgroundColor: '#FAFBFA' } }}
+        />
+        <Stack.Screen
+          name="mjeku"
+          options={{ headerShown: false, contentStyle: { backgroundColor: '#FAFBFA' } }}
+        />
+        <Stack.Screen
+          name="vlereso-lojtarin"
+          options={{
+            headerShown: false,
+            contentStyle: { backgroundColor: '#FAFBFA' },
+            // The rating squares are dragged left to right; the stack's
+            // swipe-back would steal that gesture and pop the screen instead.
+            gestureEnabled: false,
+          }}
         />
       </Stack>
       <StatusBar style={isDark ? 'light' : 'dark'} />

@@ -72,11 +72,6 @@ const IMG = {
   ndeshjet: require('@/assets/dashboard/ndeshjet.png'),
   trajnimet: require('@/assets/dashboard/trajnimet.png'),
   akademia: require('@/assets/dashboard/akademia.png'),
-  tabela: require('@/assets/dashboard/tabela-taktike.png'),
-  grupet: require('@/assets/dashboard/grupet.png'),
-
-  /* Menu — Pagesat */
-  pagesatArt: require('@/assets/dashboard/pagesat-art.png'),
 
   /* Away teams */
   malisheva: require('@/assets/dashboard/malisheva.png'),
@@ -145,7 +140,7 @@ export function PlayerHome() {
 
           <View style={styles.padded}>
             <HeaderBlock
-              onBell={() => open('/notifications')}
+              onBell={() => open('/njoftimet-lojtarit')}
               onSettings={() => open('/settings')}
             />
 
@@ -259,7 +254,7 @@ export function PlayerHome() {
               </Text>
 
               <Pressable
-                onPress={() => open('/matches')}
+                onPress={() => open('/ndeshjet-lojtarit')}
                 hitSlop={8}
               >
                 <Text style={styles.seeAll}>
@@ -270,13 +265,11 @@ export function PlayerHome() {
 
             <View style={styles.matchesCard}>
               {UPCOMING.map((m, index) => (
-                <Pressable
+                <View
                   key={`${m.age}-${m.away}`}
-                  onPress={() => open('/matches')}
-                  style={({ pressed }) => [
+                  style={[
                     styles.matchRow,
                     index > 0 && styles.matchRowSep,
-                    pressed && styles.pressed,
                   ]}
                 >
                   <View style={styles.ageBadge}>
@@ -315,13 +308,7 @@ export function PlayerHome() {
                       resizeMode="contain"
                     />
                   </View>
-
-                  <MaterialCommunityIcons
-                    name="chevron-right"
-                    size={I(20)}
-                    color={C.green}
-                  />
-                </Pressable>
+                </View>
               ))}
             </View>
 
@@ -979,7 +966,7 @@ const styles = StyleSheet.create(scaled({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 6,
+    marginTop: 16,
     marginBottom: 4,
   },
 
@@ -1091,7 +1078,7 @@ const styles = StyleSheet.create(scaled({
   menuWrap: {
     position: 'relative',
 
-    marginTop: 18,
+    marginTop: 40,
   },
 
   /* =======================================================
@@ -1101,6 +1088,8 @@ const styles = StyleSheet.create(scaled({
   menuContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+
+    backgroundColor: C.white,
 
     borderWidth: 1,
     borderColor: C.greenBorder,
@@ -1234,18 +1223,6 @@ const styles = StyleSheet.create(scaled({
     zIndex: 1,
   },
 
-  menuImgTabela: {
-    position: 'absolute',
-
-    width: 100,
-    height: 100,
-
-    left: -2,
-    bottom: -25,
-
-    zIndex: 1,
-  },
-
   menuImgUshtrimet: {
     position: 'absolute',
 
@@ -1258,18 +1235,6 @@ const styles = StyleSheet.create(scaled({
     zIndex: 1,
   },
 
-  menuImgGrupet: {
-    position: 'absolute',
-
-    width: 120,
-    height: 120,
-
-    left: -15,
-    bottom: -15,
-
-    zIndex: 1,
-  },
-
   menuImgMjeksia: {
     position: 'absolute',
 
@@ -1278,18 +1243,6 @@ const styles = StyleSheet.create(scaled({
 
     left: -127,
     bottom: -14,
-
-    zIndex: 1,
-  },
-
-  menuImgPagesat: {
-    position: 'absolute',
-
-    width: 120,
-    height: 200,
-
-    left: -44,
-    top: 3,
 
     zIndex: 1,
   },
@@ -1331,7 +1284,9 @@ const styles = StyleSheet.create(scaled({
   menuPillWrap: {
     position: 'absolute',
 
-    top: -14,
+    /* The pill's full height sits above the frame, so its bottom edge lands
+       exactly on the frame's top line. */
+    top: -28,
 
     left: 0,
     right: 0,
@@ -1349,6 +1304,9 @@ const styles = StyleSheet.create(scaled({
 
     borderWidth: 1,
     borderColor: C.border,
+
+    /* Open at the bottom so the pill and the frame share one line. */
+    borderBottomWidth: 0,
 
     borderTopLeftRadius: 7,
     borderTopRightRadius: 7,
@@ -1391,11 +1349,10 @@ type MenuCard = {
 };
 
 /**
- * PLAYER MENU — 6 items:
+ * PLAYER MENU — 3 items:
  *
- * Ndeshjet       Trajnimet
- * Akademia       Tabela Taktike
- * Grupet         Pagesat
+ * Ndeshjet       Stërvitjet
+ * Akademia
  */
 
 const MENU: MenuCard[] = [
@@ -1409,7 +1366,7 @@ const MENU: MenuCard[] = [
 
     title: 'Ndeshjet',
 
-    route: '/matches',
+    route: '/ndeshjet-lojtarit',
 
     bg: '#F8EBD8',
     border: '#F0D9AE',
@@ -1422,15 +1379,15 @@ const MENU: MenuCard[] = [
   },
 
   /* =======================================================
-     2. TRAJNIMET
+     2. STËRVITJET
      ======================================================= */
 
   {
-    id: 'trajnimet',
+    id: 'stervitjet',
 
-    title: 'Trajnimet',
+    title: 'Stërvitjet',
 
-    route: '/trainings',
+    route: '/stervitjet-lojtarit',
 
     bg: '#E8F3FF',
     border: '#C6E0FA',
@@ -1451,7 +1408,7 @@ const MENU: MenuCard[] = [
 
     title: 'Akademia',
 
-    route: '/academy',
+    route: '/akademia-lojtarit',
 
     bg: '#FDECF2',
     border: '#F3C2D2',
@@ -1461,70 +1418,5 @@ const MENU: MenuCard[] = [
 
     img: IMG.akademia,
     imgStyle: styles.menuImgAkademia,
-  },
-
-  /* =======================================================
-     4. TABELA TAKTIKE
-     ======================================================= */
-
-  {
-    id: 'tabela',
-
-    title: 'Tabela Taktike',
-
-    route: '/tactical',
-
-    long: true,
-
-    bg: '#EAF7EF',
-    border: '#BFE3CD',
-
-    btnBg: '#159447',
-    btnColor: '#FFFFFF',
-
-    img: IMG.tabela,
-    imgStyle: styles.menuImgTabela,
-  },
-
-  /* =======================================================
-     5. GRUPET
-     ======================================================= */
-
-  {
-    id: 'grupet',
-
-    title: 'Grupet',
-
-    route: '/groups',
-
-    bg: '#EEF2F4',
-    border: '#D5DEE3',
-
-    btnBg: '#D6DFE4',
-    btnColor: '#2A2A2A',
-
-    img: IMG.grupet,
-    imgStyle: styles.menuImgGrupet,
-  },
-
-  /* =======================================================
-     6. PAGESAT
-     ======================================================= */
-
-  {
-    id: 'pagesat',
-
-    title: 'Pagesat',
-
-    route: '/fees',
-
-    bg: '#FDF6E0',
-    border: '#F1E1AC',
-
-    btnBg: '#D9A93A',
-    btnColor: '#FFFFFF',
-
-    img: IMG.pagesatArt,
-    imgStyle: styles.menuImgPagesat,
   },
 ];

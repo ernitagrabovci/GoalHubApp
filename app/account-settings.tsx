@@ -16,13 +16,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
 import { I, scaled } from '@/lib/responsive';
+import { useSession } from '@/lib/session';
 
 /**
- * Cilësimet e llogarisë — the first settings sub-page.
- *
- * Same light #FAFBFA canvas as the other root screens (club-profile,
- * fushat…). Pinned header (back arrow + "Cilësimet e llogarisë") over three
- * light-blue cards: personal data, change e-mail, change password.
+ * Cilësimet e llogarisë — one shell (light #FAFBFA canvas, pinned header) over
+ * a body that depends on the role: the administrator gets the club-facing
+ * panels, everyone else the narrower account-and-danger-zone page.
  */
 
 const C = {
@@ -37,11 +36,11 @@ const C = {
   headLine: 'rgba(100,140,190,0.25)',
   formLine: 'rgba(100,140,190,0.22)',
 
-  input: '#F6FBFF',
   inputBorder: '#000000',
 
   green: '#159447',
   greenPressed: '#0E7430',
+  red: '#E03131',
 };
 
 const FCP = require('@/assets/dashboard/fcp.png');
@@ -152,14 +151,10 @@ function PrimaryButton({ label, onPress }: { label: string; onPress: () => void 
 }
 
 /* ------------------------------------------------------------------ */
-/* Screen                                                              */
+/* Administrator body                                                  */
 /* ------------------------------------------------------------------ */
 
-export default function AccountSettingsScreen() {
-  const router = useRouter();
-  const { width } = useWindowDimensions();
-  const lineCount = Math.ceil(width / 9);
-
+function AdminAccountBody() {
   const [fullName, setFullName] = useState('Admin GoalHub');
   const [language, setLanguage] = useState('Shqip');
 
@@ -170,6 +165,231 @@ export default function AccountSettingsScreen() {
   const [currPass, setCurrPass] = useState('');
   const [newPass, setNewPass] = useState('');
   const [confirmPass, setConfirmPass] = useState('');
+
+  return (
+    <>
+      {/* ── Të dhënat personale ─────────────────────────────── */}
+      <View style={[styles.card, styles.cardFirst]}>
+        <View style={styles.cardHeadCenter}>
+          <Text style={styles.cardTitle}>Të dhënat personale</Text>
+        </View>
+
+        {/* Account — team logo, name, email */}
+        <View style={styles.accountZone}>
+          <View style={styles.avatarCircle}>
+            <Image source={FCP} style={styles.avatarImg} resizeMode="contain" />
+          </View>
+          <Text style={styles.profileName}>Admin GoalHub</Text>
+          <Text style={styles.profileEmail}>admin@goalhub.com</Text>
+        </View>
+        <View style={styles.formDivider} />
+
+        {/* Editable fields */}
+        <View style={styles.cardBody}>
+          <Field label="Emri i plotë:" value={fullName} onChangeText={setFullName} autoCapitalize="words" />
+          <View style={styles.fieldGap} />
+          <SelectField label="Gjuha e platformës:" value={language} options={LANGUAGES} onChange={setLanguage} />
+          <PrimaryButton
+            label="Ruaj Profilin"
+            onPress={() => {
+              /* persist handled later */
+            }}
+          />
+        </View>
+      </View>
+
+      {/* ── Ndrysho email adresën ────────────────────────────── */}
+      <View style={[styles.card, styles.cardGap]}>
+        <View style={styles.cardHeadCenter}>
+          <Text style={styles.cardTitle}>Ndrysho email adresën</Text>
+        </View>
+        <View style={styles.cardBody}>
+          <View style={styles.gridRow}>
+            <Field
+              label="Email aktual"
+              value={currEmail}
+              onChangeText={setCurrEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              flex
+            />
+            <Field
+              label="Email i ri"
+              value={newEmail}
+              onChangeText={setNewEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              flex
+            />
+          </View>
+          <Field
+            label="Konfirmo fjalëkalimin:"
+            value={emailPass}
+            onChangeText={setEmailPass}
+            secure
+          />
+          <PrimaryButton
+            label="Ndrysho email adresën"
+            onPress={() => {
+              /* persist handled later */
+            }}
+          />
+        </View>
+      </View>
+
+      {/* ── Ndrysho fjalëkalimin ─────────────────────────────── */}
+      <View style={[styles.card, styles.cardGap]}>
+        <View style={styles.cardHeadCenter}>
+          <Text style={styles.cardTitle}>Ndrysho fjalëkalimin</Text>
+        </View>
+        <View style={styles.cardBody}>
+          <View style={styles.gridRow}>
+            <Field label="Fjalëkalimi aktual" value={currPass} onChangeText={setCurrPass} secure flex />
+            <Field label="Fjalëkalimi i ri" value={newPass} onChangeText={setNewPass} secure flex />
+          </View>
+          <Field label="Konfirmo fjalëkalimin e ri:" value={confirmPass} onChangeText={setConfirmPass} secure />
+          <PrimaryButton
+            label="Ndrysho fjalëkalimin"
+            onPress={() => {
+              /* persist handled later */
+            }}
+          />
+        </View>
+      </View>
+    </>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Trainer body (and every other non-administrator role)               */
+/* ------------------------------------------------------------------ */
+
+function TrainerAccountBody() {
+  const [currEmail, setCurrEmail] = useState('admin@goalhub.com');
+  const [newEmail, setNewEmail] = useState('');
+  const [currPass, setCurrPass] = useState('');
+  const [newPass, setNewPass] = useState('');
+  const [confirmPass, setConfirmPass] = useState('');
+
+  return (
+    <>
+      {/* ── Ndrysho email adresën ────────────────────────────── */}
+      <View style={[styles.card, styles.cardFirst]}>
+        <View style={styles.cardHeadCenter}>
+          <Text style={styles.cardTitle} numberOfLines={1}>
+            Ndrysho email adresën
+          </Text>
+        </View>
+
+        <View style={styles.cardBody}>
+          <View style={styles.gridRow}>
+            <Field
+              label="Email aktual:"
+              value={currEmail}
+              onChangeText={setCurrEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              flex
+            />
+            <Field
+              label="Email i ri:"
+              value={newEmail}
+              onChangeText={setNewEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              flex
+            />
+          </View>
+
+          <View style={[styles.gridRow, styles.gridGap]}>
+            <Field
+              label="Fjalëkalimi aktual:"
+              value={currPass}
+              onChangeText={setCurrPass}
+              secure
+              flex
+            />
+            <Field
+              label="Fjalëkalimi i ri:"
+              value={newPass}
+              onChangeText={setNewPass}
+              secure
+              flex
+            />
+          </View>
+
+          <View style={styles.gridGap}>
+            <Field
+              label="Konfirmo fjalëkalimin e ri:"
+              value={confirmPass}
+              onChangeText={setConfirmPass}
+              secure
+            />
+          </View>
+
+          <Pressable
+            onPress={() => {
+              /* persist handled later */
+            }}
+            accessibilityRole="button"
+            style={({ pressed }) => [
+              styles.save,
+              { backgroundColor: pressed ? C.greenPressed : C.green },
+            ]}
+          >
+            <Text style={styles.saveText}>Ruaj cilësimet</Text>
+          </Pressable>
+        </View>
+      </View>
+
+      {/* ── Zona e rrezikut ──────────────────────────────────── */}
+      <View style={styles.danger}>
+        <Text style={styles.dangerTitle}>Zona e rrezikut</Text>
+        <Text
+          style={styles.dangerText}
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          minimumFontScale={0.6}
+        >
+          Veprimet e mëposhtme janë të pakthyeshme. Veproni me kujdes.
+        </Text>
+
+        <View style={styles.dangerActions}>
+          <Pressable
+            onPress={() => {
+              /* persist handled later */
+            }}
+            accessibilityRole="button"
+            style={({ pressed }) => [styles.dangerGhost, pressed && styles.pressed]}
+          >
+            <Text style={styles.dangerGhostText}>Çaktivizo llogarinë</Text>
+          </Pressable>
+          <Pressable
+            onPress={() => {
+              /* persist handled later */
+            }}
+            accessibilityRole="button"
+            style={({ pressed }) => [styles.dangerFill, pressed && styles.pressed]}
+          >
+            <Text style={styles.dangerFillText}>Fshij të gjitha të dhënat</Text>
+          </Pressable>
+        </View>
+      </View>
+    </>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Screen                                                              */
+/* ------------------------------------------------------------------ */
+
+export default function AccountSettingsScreen() {
+  const router = useRouter();
+  const { user } = useSession();
+  const { width } = useWindowDimensions();
+  const lineCount = Math.ceil(width / 9);
+
+  const isAdmin = user?.role === 'administrator';
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
@@ -197,8 +417,12 @@ export default function AccountSettingsScreen() {
                 <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.text} />
               </Pressable>
               <View style={styles.headerText}>
-                <Text style={styles.title}>Cilësimet e llogarisë</Text>
-                <Text style={styles.subtitle}>Profili dhe preferencat personale</Text>
+                <Text style={styles.title} numberOfLines={1}>
+                  Cilësimet e llogarisë
+                </Text>
+                <Text style={styles.subtitle} numberOfLines={1}>
+                  Profili dhe preferencat personale
+                </Text>
               </View>
             </View>
           </View>
@@ -206,97 +430,11 @@ export default function AccountSettingsScreen() {
 
         <ScrollView
           showsVerticalScrollIndicator={false}
+          bounces={false}
           contentContainerStyle={styles.scroll}
         >
           <View style={styles.colPad}>
-            {/* ── Të dhënat personale ─────────────────────────── */}
-            <View style={[styles.card, styles.cardFirst]}>
-              <View style={styles.cardHeadCenter}>
-                <Text style={styles.cardTitle}>Të dhënat personale</Text>
-              </View>
-
-              {/* Account — team logo, name, email */}
-              <View style={styles.accountZone}>
-                <View style={styles.avatarCircle}>
-                  <Image source={FCP} style={styles.avatarImg} resizeMode="contain" />
-                </View>
-                <Text style={styles.profileName}>Admin GoalHub</Text>
-                <Text style={styles.profileEmail}>admin@goalhub.com</Text>
-              </View>
-              <View style={styles.formDivider} />
-
-              {/* Editable fields */}
-              <View style={styles.cardBody}>
-                <Field label="Emri i plotë:" value={fullName} onChangeText={setFullName} autoCapitalize="words" />
-                <View style={styles.fieldGap} />
-                <SelectField label="Gjuha e platformës:" value={language} options={LANGUAGES} onChange={setLanguage} />
-                <PrimaryButton
-                  label="Ruaj Profilin"
-                  onPress={() => {
-                    /* persist handled later */
-                  }}
-                />
-              </View>
-            </View>
-
-            {/* ── Ndrysho email adresën ────────────────────────── */}
-            <View style={[styles.card, styles.cardGap]}>
-              <View style={styles.cardHeadCenter}>
-                <Text style={styles.cardTitle}>Ndrysho email adresën</Text>
-              </View>
-              <View style={styles.cardBody}>
-                <View style={styles.gridRow}>
-                  <Field
-                    label="Email aktual"
-                    value={currEmail}
-                    onChangeText={setCurrEmail}
-                    keyboardType="email-address"
-                    autoCapitalize="none"
-                    flex
-                  />
-                  <Field
-                    label="Email i ri"
-                    value={newEmail}
-                    onChangeText={setNewEmail}
-                    keyboardType="email-address"
-                    autoCapitalize="none"
-                    flex
-                  />
-                </View>
-                <Field
-                  label="Konfirmo fjalëkalimin:"
-                  value={emailPass}
-                  onChangeText={setEmailPass}
-                  secure
-                />
-                <PrimaryButton
-                  label="Ndrysho email adresën"
-                  onPress={() => {
-                    /* persist handled later */
-                  }}
-                />
-              </View>
-            </View>
-
-            {/* ── Ndrysho fjalëkalimin ────────────────────────── */}
-            <View style={[styles.card, styles.cardGap]}>
-              <View style={styles.cardHeadCenter}>
-                <Text style={styles.cardTitle}>Ndrysho fjalëkalimin</Text>
-              </View>
-              <View style={styles.cardBody}>
-                <View style={styles.gridRow}>
-                  <Field label="Fjalëkalimi aktual" value={currPass} onChangeText={setCurrPass} secure flex />
-                  <Field label="Fjalëkalimi i ri" value={newPass} onChangeText={setNewPass} secure flex />
-                </View>
-                <Field label="Konfirmo fjalëkalimin e ri:" value={confirmPass} onChangeText={setConfirmPass} secure />
-                <PrimaryButton
-                  label="Ndrysho fjalëkalimin"
-                  onPress={() => {
-                    /* persist handled later */
-                  }}
-                />
-              </View>
-            </View>
+            {isAdmin ? <AdminAccountBody /> : <TrainerAccountBody />}
           </View>
         </ScrollView>
       </View>
@@ -388,7 +526,7 @@ const styles = StyleSheet.create(
       paddingBottom: 46,
     },
 
-    /* Light-blue info card */
+    /* Light-blue card */
     card: {
       backgroundColor: C.card,
       borderWidth: 2,
@@ -479,6 +617,10 @@ const styles = StyleSheet.create(
       gap: 9,
     },
 
+    gridGap: {
+      marginTop: 4,
+    },
+
     fieldWrap: {
       marginBottom: 6,
     },
@@ -498,9 +640,10 @@ const styles = StyleSheet.create(
       marginBottom: 4,
     },
 
+    /* Transparent, so the card's own fill shows through. */
     input: {
       height: 36,
-      backgroundColor: C.input,
+      backgroundColor: 'transparent',
       borderWidth: 1,
       borderColor: C.inputBorder,
       borderRadius: 2,
@@ -516,7 +659,7 @@ const styles = StyleSheet.create(
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      backgroundColor: C.input,
+      backgroundColor: 'transparent',
       borderWidth: 1,
       borderColor: C.inputBorder,
       borderRadius: 2,
@@ -572,6 +715,89 @@ const styles = StyleSheet.create(
     buttonText: {
       fontFamily: Fonts.bodySemiBold,
       fontSize: 14,
+      color: '#FFFFFF',
+    },
+
+    /* Trainer's save — a touch taller and earlier than the card buttons. */
+    save: {
+      height: 42,
+      borderRadius: 3,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginTop: 14,
+    },
+
+    saveText: {
+      fontFamily: Fonts.bodySemiBold,
+      fontSize: 14,
+      color: '#FFFFFF',
+    },
+
+    /* ── Zona e rrezikut ─────────────────────────────────────── */
+    danger: {
+      marginTop: 12,
+      paddingHorizontal: 16,
+      paddingVertical: 15,
+      backgroundColor: 'rgba(224,49,49,0.20)',
+      borderWidth: 1,
+      borderColor: C.green,
+      borderRadius: 8,
+    },
+
+    dangerTitle: {
+      fontFamily: Fonts.bodyBold,
+      fontSize: 16,
+      lineHeight: 20,
+      letterSpacing: -0.2,
+      color: '#000000',
+      textAlign: 'center',
+    },
+
+    dangerText: {
+      fontFamily: Fonts.body,
+      fontSize: 10.5,
+      lineHeight: 14,
+      color: '#000000',
+      textAlign: 'center',
+      marginTop: 3,
+    },
+
+    dangerActions: {
+      flexDirection: 'row',
+      justifyContent: 'center',
+      flexWrap: 'wrap',
+      gap: 10,
+      marginTop: 15,
+    },
+
+    dangerGhost: {
+      height: 33,
+      paddingHorizontal: 13,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 1.5,
+      borderColor: C.red,
+      borderRadius: 6,
+    },
+
+    dangerGhostText: {
+      fontFamily: Fonts.bodySemiBold,
+      fontSize: 11.5,
+      color: '#000000',
+    },
+
+    dangerFill: {
+      height: 33,
+      paddingHorizontal: 13,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: C.red,
+      borderRadius: 6,
+    },
+
+    dangerFillText: {
+      fontFamily: Fonts.bodySemiBold,
+      fontSize: 11.5,
       color: '#FFFFFF',
     },
 

@@ -23,8 +23,7 @@ import { useSession } from '@/lib/session';
  * - greeting with the signed-in parent's name
  * - stats carousel (registered children / open fees / active injuries)
  * - next-training event bar
- * - dark-green child summary card (Agon Gashi) — NOT on the trainer screen
- * - a compact centered 3-card menu (Ndeshjet / Trajnimet / Pagesat)
+ * - one dark-green long card per registered child, named after the child
  * - bottom Home / Chat navigation remains in the (tabs) layout
  *
  * Important:
@@ -68,11 +67,6 @@ const IMG = {
   statPlayer: require('@/assets/dashboard/lojtaret.png'),
   statCalc: require('@/assets/dashboard/stat-calculator.png'),
   ball: require('@/assets/dashboard/ndeshjet.png'),
-
-  /* Main menu */
-  ndeshjet: require('@/assets/dashboard/ndeshjet.png'),
-  trajnimet: require('@/assets/dashboard/trajnimet.png'),
-  pagesatArt: require('@/assets/dashboard/pagesat-art.png'),
 };
 
 /* =========================================================
@@ -122,7 +116,7 @@ export function ParentHome() {
 
           <View style={styles.padded}>
             <HeaderBlock
-              onBell={() => open('/notifications')}
+              onBell={() => open('/njoftimet-prindit')}
               onSettings={() => open('/settings')}
             />
 
@@ -151,7 +145,7 @@ export function ParentHome() {
               <StatCard
                 labelTop="Fëmijë të"
                 labelBottom="regjistruar"
-                value="1"
+                value={String(CHILDREN.length)}
                 img={IMG.statPlayer}
                 imgStyle={styles.statImgPlayer}
                 imgCover
@@ -223,149 +217,71 @@ export function ParentHome() {
           </View>
 
           {/* =================================================
-              CHILD SUMMARY CARD (full content width)
+              CHILDREN — one long card per registered child
              ================================================= */}
 
           <View style={styles.padded}>
-            <Pressable
-              onPress={() => open('/child')}
-              style={({ pressed }) => [
-                styles.childCard,
-                pressed && styles.pressed,
-              ]}
-            >
-              {/* DECORATIVE GIANT NUMBER */}
-              <Text style={styles.childDeco}>
-                9
-              </Text>
-
-              <View style={styles.childBody}>
-                <Text style={styles.childEyebrow}>
-                  Prind
-                </Text>
-
-                <Text style={styles.childName} numberOfLines={1}>
-                  Agon Gashi
-                </Text>
-
-                <View style={styles.childChips}>
-                  <View style={styles.chipAktiv}>
-                    <Text style={styles.chipAktivText}>
-                      Aktiv
-                    </Text>
-                  </View>
-
-                  <View style={styles.chipRating}>
-                    <MaterialCommunityIcons
-                      name="star"
-                      size={I(12)}
-                      color="#F5C04A"
-                    />
-                    <Text style={styles.chipRatingText}>
-                      6.9
-                    </Text>
-                  </View>
-                </View>
-              </View>
-
-              <MaterialCommunityIcons
-                name="chevron-right"
-                size={I(22)}
-                color="rgba(255,255,255,0.85)"
-                style={styles.childChevron}
-              />
-            </Pressable>
-          </View>
-
-          {/* =================================================
-              MENU
-             ================================================= */}
-
-          <View style={styles.padded}>
-
-          <View style={styles.menuWrap}>
-
-            {/* MAIN GREEN BORDER */}
-
-            <View style={styles.menuContainer}>
-
-              {MENU.map((card) => (
-                <Pressable
-                  key={card.id}
-                  onPress={() => open(card.route)}
-                  style={({ pressed }) => [
-                    styles.menuCard,
-                    {
-                      backgroundColor: card.bg,
-                      borderColor: card.border,
+            {CHILDREN.map((child) => (
+              <Pressable
+                key={child.id}
+                onPress={() =>
+                  router.push({
+                    pathname: '/femiu',
+                    params: {
+                      name: child.name,
+                      team: child.team,
+                      number: child.number,
+                      status: child.status,
                     },
-                    pressed && styles.pressed,
-                  ]}
-                >
+                  })
+                }
+                style={({ pressed }) => [
+                  styles.childCard,
+                  pressed && styles.pressed,
+                ]}
+              >
+                {/* DECORATIVE GIANT NUMBER */}
+                <Text style={styles.childDeco}>
+                  {child.number}
+                </Text>
 
-                  {/* CARD TITLE */}
-
-                  <Text
-                    style={styles.menuTitle}
-                    numberOfLines={1}
-                    adjustsFontSizeToFit
-                    minimumFontScale={0.7}
-                  >
-                    {card.title}
+                <View style={styles.childBody}>
+                  <Text style={styles.childEyebrow}>
+                    Prind
                   </Text>
 
-                  {/* CARD IMAGE */}
+                  <Text style={styles.childName} numberOfLines={1}>
+                    {child.name}
+                  </Text>
 
-                  {card.img ? (
-                    <Image
-                      source={card.img}
-                      style={card.imgStyle}
-                      resizeMode="contain"
-                    />
-                  ) : null}
+                  <View style={styles.childChips}>
+                    <View style={styles.chipAktiv}>
+                      <Text style={styles.chipAktivText}>
+                        {child.status}
+                      </Text>
+                    </View>
 
-                  {/* CONTINUE BUTTON */}
-
-                  <View
-                    style={[
-                      styles.vazhdo,
-                      {
-                        backgroundColor: card.btnBg,
-                      },
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.vazhdoText,
-                        {
-                          color: card.btnColor,
-                        },
-                      ]}
-                    >
-                      Vazhdo
-                    </Text>
+                    <View style={styles.chipRating}>
+                      <MaterialCommunityIcons
+                        name="star"
+                        size={I(12)}
+                        color="#F5C04A"
+                      />
+                      <Text style={styles.chipRatingText}>
+                        {child.rating}
+                      </Text>
+                    </View>
                   </View>
+                </View>
 
-                </Pressable>
-              ))}
-
-            </View>
-
-            {/* MENU TAB */}
-
-            <View
-              style={styles.menuPillWrap}
-              pointerEvents="none"
-            >
-              <View style={styles.menuPill}>
-                <Text style={styles.menuPillText}>
-                  Menu
-                </Text>
-              </View>
-            </View>
-
-          </View>
-
+                <MaterialCommunityIcons
+                  name="chevron-right"
+                  size={I(22)}
+                  color="rgba(255,255,255,0.85)"
+                  style={styles.childChevron}
+                />
+              </Pressable>
+            ))}
           </View>
 
         </View>
@@ -1035,290 +951,42 @@ const styles = StyleSheet.create(scaled({
   childChevron: {
     zIndex: 2,
   },
-
-  /* =======================================================
-     MENU WRAPPER
-     ======================================================= */
-
-  menuWrap: {
-    position: 'relative',
-
-    marginTop: 40,
-  },
-
-  /* =======================================================
-     MAIN GREEN MENU CONTAINER
-     ======================================================= */
-
-  menuContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-
-    backgroundColor: C.white,
-
-    borderWidth: 1,
-    borderColor: C.greenBorder,
-
-    borderRadius: 8,
-
-    padding: 8,
-
-    columnGap: 10,
-    rowGap: 14,
-  },
-
-  /* =======================================================
-     MENU CARDS
-     ======================================================= */
-
-  menuCard: {
-    width: '48%',
-
-    height: 110,
-
-    position: 'relative',
-
-    borderRadius: 9,
-
-    borderWidth: 1,
-
-    overflow: 'hidden',
-  },
-
-  /* =======================================================
-     MENU TITLES
-     ======================================================= */
-
-  menuTitle: {
-    position: 'absolute',
-
-    top: 16,
-    left: 10,
-    right: 10,
-
-    fontFamily: Fonts.bodyBlack,
-
-    fontSize: 22,
-    lineHeight: 22,
-
-    letterSpacing: 0.5,
-
-    color: C.text,
-
-    zIndex: 3,
-  },
-
-  /* =======================================================
-     MENU IMAGES
-     ======================================================= */
-
-  /*
-   * IMPORTANT:
-   *
-   * These are intentionally NOT centered.
-   *
-   * They are oversized decorative foreground elements.
-   * The card clips them using overflow: hidden.
-   */
-
-  menuImgNdeshjet: {
-    position: 'absolute',
-
-    width: 110,
-    height: 110,
-
-    left: -38,
-    bottom: -44,
-
-    zIndex: 1,
-  },
-
-  menuImgTrajnimet: {
-    position: 'absolute',
-
-    width: 120,
-    height: 120,
-
-    left: -52,
-    bottom: -16,
-
-    zIndex: 1,
-  },
-
-  menuImgPagesat: {
-    position: 'absolute',
-
-    width: 120,
-    height: 200,
-
-    left: -44,
-    top: 3,
-
-    zIndex: 1,
-  },
-
-  /* =======================================================
-     VAZHDO BUTTON
-     ======================================================= */
-
-  vazhdo: {
-    position: 'absolute',
-
-    right: 8,
-    bottom: 7,
-
-    minWidth: 66,
-    height: 28,
-
-    borderRadius: 5,
-
-    paddingHorizontal: 9,
-
-    alignItems: 'center',
-    justifyContent: 'center',
-
-    zIndex: 5,
-  },
-
-  vazhdoText: {
-    fontFamily: Fonts.bodySemiBold,
-
-    fontSize: 11,
-    lineHeight: 14,
-  },
-
-  /* =======================================================
-     MENU TAB
-     ======================================================= */
-
-  menuPillWrap: {
-    position: 'absolute',
-
-    top: -18,
-
-    left: 0,
-    right: 0,
-
-    alignItems: 'center',
-
-    zIndex: 10,
-  },
-
-  menuPill: {
-    width: 88,
-    height: 28,
-
-    backgroundColor: C.white,
-
-    borderWidth: 1,
-    borderColor: C.border,
-
-    borderTopLeftRadius: 7,
-    borderTopRightRadius: 7,
-
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  menuPillText: {
-    fontFamily: Fonts.bodySemiBold,
-
-    fontSize: 12.5,
-
-    lineHeight: 16,
-
-    color: C.text,
-  },
 }));
 
 /* =========================================================
-   MENU DATA
+   CHILDREN
    ========================================================= */
 
-type MenuCard = {
+type Child = {
   id: string;
-  title: string;
-  route: string;
-
-  bg: string;
-  border: string;
-
-  btnBg: string;
-  btnColor: string;
-
-  img?: number | null;
-  imgStyle?: object;
+  name: string;
+  /* Shirt number, drawn huge behind the card's text. */
+  number: string;
+  rating: string;
+  team: string;
+  status: string;
 };
 
 /**
- * PARENT MENU — exactly 3 items (2-col grid, second row left-aligned):
- *
- * Ndeshjet    Trajnimet
- * Pagesat
+ * The parent's registered children — the home shows one long card each, so
+ * the list length is what decides how many cards are on the page.
  */
 
-const MENU: MenuCard[] = [
-
-  /* =======================================================
-     1. NDESHJET
-     ======================================================= */
-
+const CHILDREN: Child[] = [
   {
-    id: 'ndeshjet',
-
-    title: 'Ndeshjet',
-
-    route: '/matches',
-
-    bg: '#F8EBD8',
-    border: '#F0D9AE',
-
-    btnBg: '#D99A4A',
-    btnColor: '#FFFFFF',
-
-    img: IMG.ndeshjet,
-    imgStyle: styles.menuImgNdeshjet,
+    id: 'agon',
+    name: 'Agon Gashi',
+    number: '9',
+    rating: '6.9',
+    team: 'Ekipi i parë',
+    status: 'Aktiv',
   },
-
-  /* =======================================================
-     2. TRAJNIMET
-     ======================================================= */
-
   {
-    id: 'trajnimet',
-
-    title: 'Trajnimet',
-
-    route: '/trainings',
-
-    bg: '#E8F3FF',
-    border: '#C6E0FA',
-
-    btnBg: '#78B8F5',
-    btnColor: '#FFFFFF',
-
-    img: IMG.trajnimet,
-    imgStyle: styles.menuImgTrajnimet,
-  },
-
-  /* =======================================================
-     3. PAGESAT
-     ======================================================= */
-
-  {
-    id: 'pagesat',
-
-    title: 'Pagesat',
-
-    route: '/fees',
-
-    bg: '#EFE9FB',
-    border: '#D9C9F2',
-
-    btnBg: '#7B5FD9',
-    btnColor: '#FFFFFF',
-
-    img: IMG.pagesatArt,
-    imgStyle: styles.menuImgPagesat,
+    id: 'dion',
+    name: 'Dion Gashi',
+    number: '11',
+    rating: '7.4',
+    team: 'Ekipi i parë',
+    status: 'Aktiv',
   },
 ];

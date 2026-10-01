@@ -1,10 +1,12 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
+import { InjuryDraft, InjuryFormModal } from '@/components/medical/injury-form';
 import { Fonts } from '@/constants/theme';
 import { I, scaled } from '@/lib/responsive';
 
@@ -22,6 +24,7 @@ const C = {
   gray: '#8A8A8A',
   hint: '#6E6E6E',
 
+  blue1: '#E3EEFB',
   blue2: '#F6FBFF',
   border: 'rgba(100,140,190,0.30)',
   rowLine: 'rgba(100,140,190,0.22)',
@@ -60,6 +63,7 @@ export default function InjuryDetailScreen() {
     team?: string;
     type?: string;
     during?: string;
+    status?: string;
     date?: string;
     returnDate?: string;
     serviceDate?: string;
@@ -67,18 +71,31 @@ export default function InjuryDetailScreen() {
     treatment?: string;
   }>();
 
-  const name = params.name ?? '';
-  const type = params.type ?? '';
-  const title = type ? `${name} - ${type}` : name;
+  /* The log row opens the page; the edit popup moves it on from there. */
+  const [injury, setInjury] = useState<InjuryDraft>(() => ({
+    player: params.name ?? '',
+    type: params.type ?? '',
+    during: params.during ?? '',
+    status: params.status ?? '',
+    date: params.date ?? '',
+    returnDate: params.returnDate ?? '',
+    serviceDate: params.serviceDate ?? '',
+    desc: params.desc ?? '',
+    treatment: params.treatment ?? '',
+  }));
+
+  const [editing, setEditing] = useState(false);
+
+  const title = injury.type ? `${injury.player} - ${injury.type}` : injury.player;
 
   const values = [
-    name,
+    injury.player,
     params.team ?? '',
-    type,
-    params.during ?? '',
-    formatDate(params.date ?? ''),
-    formatDate(params.returnDate ?? ''),
-    formatDate(params.serviceDate ?? ''),
+    injury.type,
+    injury.during,
+    formatDate(injury.date),
+    formatDate(injury.returnDate),
+    formatDate(injury.serviceDate),
   ];
 
   return (
@@ -126,6 +143,19 @@ export default function InjuryDetailScreen() {
           contentContainerStyle={styles.scroll}
         >
           <View style={styles.colPad}>
+            {/* ── Edit the record ─────────────────────────────────── */}
+            <Pressable
+              onPress={() => setEditing(true)}
+              accessibilityRole="button"
+              accessibilityLabel="Edito lëndimin"
+              style={({ pressed }) => [styles.editBtn, pressed && styles.pressed]}
+            >
+              <MaterialCommunityIcons name="pencil" size={I(14)} color={C.text} />
+              <Text style={styles.editBtnText} numberOfLines={1}>
+                Edito
+              </Text>
+            </Pressable>
+
             <View style={styles.card}>
               {/* ── Table head: two titles, split by the card's rule ─ */}
               <View style={styles.headRow}>
@@ -154,15 +184,29 @@ export default function InjuryDetailScreen() {
               {/* ── Free text, left-aligned ───────────────────────── */}
               <View style={styles.foot}>
                 <Text style={styles.footLabel}>Përshkrimi</Text>
-                <Text style={styles.footValue}>{params.desc ?? ''}</Text>
+                <Text style={styles.footValue}>{injury.desc}</Text>
 
                 <Text style={[styles.footLabel, styles.footGap]}>Trajtimi</Text>
-                <Text style={styles.footValue}>{params.treatment ?? ''}</Text>
+                <Text style={styles.footValue}>{injury.treatment}</Text>
               </View>
             </View>
           </View>
         </ScrollView>
       </View>
+
+      {/* Overlay on the SafeAreaView so the blur covers the whole screen */}
+      {editing ? (
+        <InjuryFormModal
+          title="Edito lëndimin"
+          confirmLabel="Ruaj"
+          initial={injury}
+          onClose={() => setEditing(false)}
+          onConfirm={(d) => {
+            setInjury(d);
+            setEditing(false);
+          }}
+        />
+      ) : null}
     </SafeAreaView>
   );
 }
@@ -240,6 +284,28 @@ const styles = StyleSheet.create(
 
     scroll: {
       paddingBottom: 24,
+    },
+
+    /* ── Edit the record ─────────────────────────────────────── */
+    editBtn: {
+      alignSelf: 'flex-start',
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      height: 32,
+      marginTop: 8,
+      paddingHorizontal: 12,
+      backgroundColor: C.blue1,
+      borderWidth: 1,
+      borderColor: '#000000',
+      borderRadius: 4,
+    },
+
+    editBtnText: {
+      fontFamily: Fonts.bodySemiBold,
+      fontSize: 11.5,
+      lineHeight: 15,
+      color: C.text,
     },
 
     /* ── Card ────────────────────────────────────────────────── */

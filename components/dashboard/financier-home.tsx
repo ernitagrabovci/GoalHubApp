@@ -143,7 +143,7 @@ export function FinancierHome() {
 
           <View style={styles.padded}>
             <HeaderBlock
-              onBell={() => open('/notifications')}
+              onBell={() => open('/njoftimet-financierit')}
               onSettings={() => open('/settings')}
             />
 
@@ -260,7 +260,7 @@ export function FinancierHome() {
               {/* VIEW ALL FOOTER */}
 
               <Pressable
-                onPress={() => open('/fees')}
+                onPress={() => open('/raportet-financiare')}
                 style={({ pressed }) => [
                   styles.tblFooter,
                   pressed && styles.pressed,
@@ -285,7 +285,7 @@ export function FinancierHome() {
 
           <View style={styles.padded}>
             <Pressable
-              onPress={() => open('/fees')}
+              onPress={() => open('/kuotat-financierit')}
               style={({ pressed }) => [
                 styles.featCard,
                 pressed && styles.pressed,

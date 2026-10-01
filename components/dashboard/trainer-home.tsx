@@ -68,9 +68,6 @@ const IMG = {
   ndeshjet: require('@/assets/dashboard/ndeshjet.png'),
   trajnimet: require('@/assets/dashboard/trajnimet.png'),
   akademia: require('@/assets/dashboard/akademia.png'),
-  tabela: require('@/assets/dashboard/tabela-taktike.png'),
-  ushtrimet: require('@/assets/dashboard/ushtrimet.png'),
-  grupet: require('@/assets/dashboard/grupet.png'),
   mjeksia: require('@/assets/dashboard/mjeksia.png'),
 };
 
@@ -120,7 +117,7 @@ export function TrainerHome() {
 
           <View style={styles.padded}>
             <HeaderBlock
-              onBell={() => open('/notifications')}
+              onBell={() => open('/njoftimet-trajner')}
               onSettings={() => open('/settings')}
             />
 
@@ -1008,42 +1005,6 @@ const styles = StyleSheet.create(scaled({
     zIndex: 1,
   },
 
-  menuImgTabela: {
-    position: 'absolute',
-
-    width: 100,
-    height: 100,
-
-    left: -2,
-    bottom: -25,
-
-    zIndex: 1,
-  },
-
-  menuImgUshtrimet: {
-    position: 'absolute',
-
-    width: 70,
-    height: 70,
-
-    left: 4,
-    bottom: -2,
-
-    zIndex: 1,
-  },
-
-  menuImgGrupet: {
-    position: 'absolute',
-
-    width: 120,
-    height: 120,
-
-    left: -15,
-    bottom: -15,
-
-    zIndex: 1,
-  },
-
   menuImgMjeksia: {
     position: 'absolute',
 
@@ -1093,7 +1054,7 @@ const styles = StyleSheet.create(scaled({
   menuPillWrap: {
     position: 'absolute',
 
-    top: -14,
+    top: -28,
 
     left: 0,
     right: 0,
@@ -1153,26 +1114,25 @@ type MenuCard = {
 };
 
 /**
- * EXACT ORDER FROM THE REFERENCE:
+ * Two per row, in this order:
  *
- * Lojtarët       Ndeshjet
- * Trajnimet      Akademia
- * Tabela Taktike Ushtrimet
- * Grupet         Mjekësia
+ * Ekipi          Ndeshjet
+ * Stërvitjet     Akademia
+ * Mjekësia
  */
 
 const MENU: MenuCard[] = [
 
   /* =======================================================
-     1. LOJTARËT
+     1. EKIPI
      ======================================================= */
 
   {
-    id: 'lojtaret',
+    id: 'ekipi',
 
-    title: 'Lojtarët',
+    title: 'Ekipi',
 
-    route: '/players',
+    route: '/lista-lojtareve',
 
     soccerIcon: true,
 
@@ -1195,7 +1155,7 @@ const MENU: MenuCard[] = [
 
     title: 'Ndeshjet',
 
-    route: '/matches',
+    route: '/ndeshjet-trajner',
 
     bg: '#F8EBD8',
     border: '#F0D9AE',
@@ -1208,15 +1168,15 @@ const MENU: MenuCard[] = [
   },
 
   /* =======================================================
-     3. TRAJNIMET
+     3. STËRVITJET
      ======================================================= */
 
   {
-    id: 'trajnimet',
+    id: 'stervitjet',
 
-    title: 'Trajnimet',
+    title: 'Stërvitjet',
 
-    route: '/trainings',
+    route: '/stervitjet',
 
     bg: '#E8F3FF',
     border: '#C6E0FA',
@@ -1237,7 +1197,7 @@ const MENU: MenuCard[] = [
 
     title: 'Akademia',
 
-    route: '/academy',
+    route: '/akademia-trajner',
 
     bg: '#FDECF2',
     border: '#F3C2D2',
@@ -1250,72 +1210,7 @@ const MENU: MenuCard[] = [
   },
 
   /* =======================================================
-     5. TABELA TAKTIKE
-     ======================================================= */
-
-  {
-    id: 'tabela',
-
-    title: 'Tabela Taktike',
-
-    route: '/tactical',
-
-    long: true,
-
-    bg: '#EAF7EF',
-    border: '#BFE3CD',
-
-    btnBg: '#159447',
-    btnColor: '#FFFFFF',
-
-    img: IMG.tabela,
-    imgStyle: styles.menuImgTabela,
-  },
-
-  /* =======================================================
-     6. USHTRIMET
-     ======================================================= */
-
-  {
-    id: 'ushtrimet',
-
-    title: 'Ushtrimet',
-
-    route: '/drills',
-
-    bg: '#E9E5FA',
-    border: '#D1C9F0',
-
-    btnBg: '#5144C7',
-    btnColor: '#FFFFFF',
-
-    img: IMG.ushtrimet,
-    imgStyle: styles.menuImgUshtrimet,
-  },
-
-  /* =======================================================
-     7. GRUPET
-     ======================================================= */
-
-  {
-    id: 'grupet',
-
-    title: 'Grupet',
-
-    route: '/groups',
-
-    bg: '#EEF2F4',
-    border: '#D5DEE3',
-
-    btnBg: '#D6DFE4',
-    btnColor: '#2A2A2A',
-
-    img: IMG.grupet,
-    imgStyle: styles.menuImgGrupet,
-  },
-
-  /* =======================================================
-     8. MJEKËSIA
+     5. MJEKËSIA
      ======================================================= */
 
   {
@@ -1323,7 +1218,7 @@ const MENU: MenuCard[] = [
 
     title: 'Mjekësia',
 
-    route: '/medical',
+    route: '/mjeku',
 
     bg: '#FBF0ED',
     border: '#F0D2CC',

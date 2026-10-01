@@ -1,4 +1,5 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import { useRouter, type Href } from 'expo-router';
 import type { BottomTabBarProps } from 'expo-router/build/react-navigation/bottom-tabs';
 import type { ComponentProps } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
@@ -6,11 +7,16 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
 import { I, scaled } from '@/lib/responsive';
+import { useSession } from '@/lib/session';
 
 /**
  * Floating pill bottom navigation for the trainer dashboard.
- * Matches the reference: a centered floating container with only two
- * items — Home (active, pale-green capsule) and Chat.
+ * Matches the reference: a centered floating container with three items —
+ * Home (active, pale-green capsule), Chat and Profile.
+ *
+ * "Chat" is not a tab — tapping it opens the messages page as a full-screen
+ * root route, so the pill bar disappears and a back arrow returns. "Profile"
+ * works the same way for the player, whose own page lives on a root route.
  */
 
 const C = {
@@ -33,10 +39,42 @@ const ITEMS: Item[] = [
 ];
 
 export function TrainerPillTabBar({ state, navigation, insets }: BottomTabBarProps) {
+  const router = useRouter();
+  const { user } = useSession();
+
+  /** Items that leave the tab bar behind and open a root route instead. */
+  const fullScreens: Record<string, { path: Href; label: string }> = {
+    chat: { path: '/mesazhet-trajner', label: 'Mesazhet' },
+    // Profile is per-role; the player is the only role with a page of its own.
+    ...(user?.role === 'player' ? { profile: { path: '/profili-lojtarit', label: 'Profili' } } : {}),
+  };
+
   return (
     <View style={[styles.area, { paddingBottom: Math.max(insets.bottom, 18) }]}>
       <View style={styles.pill}>
         {ITEMS.map((item) => {
+          // "Chat" opens the messages page of its own instead of switching to
+          // the old themed tab.
+          const full = fullScreens[item.name];
+          if (full) {
+            return (
+              <Pressable
+                key={item.name}
+                onPress={() => router.push(full.path)}
+                style={styles.wrap}
+                accessibilityRole="button"
+                accessibilityLabel={full.label}
+              >
+                <View style={styles.item}>
+                  <MaterialCommunityIcons name={item.icon} size={I(22)} color={C.muted} />
+                  <Text style={[styles.label, { color: C.muted }]} numberOfLines={1}>
+                    {item.label}
+                  </Text>
+                </View>
+              </Pressable>
+            );
+          }
+
           const route = state.routes.find((r) => r.name === item.name);
           const focused = !!route && state.index === state.routes.indexOf(route);
           const color = focused ? C.green : C.muted;

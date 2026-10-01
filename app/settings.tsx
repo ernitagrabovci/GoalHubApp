@@ -14,7 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
 import { I, scaled } from '@/lib/responsive';
-import { useSession } from '@/lib/session';
+import { useSession, type Role } from '@/lib/session';
 
 /**
  * Settings — light-only, matches the pill dashboards' #FAFBFA canvas.
@@ -44,19 +44,45 @@ type SettingsRow = {
   label: string;
   /** Destination route — leave unset until the settings sub-page exists. */
   route?: string;
+  /**
+   * Roles that get this row. Omitted means every role does. The club-wide
+   * panels are the administrator's; trainers keep the account and legal pages.
+   */
+  roles?: Role[];
 };
 
 const ROWS: SettingsRow[] = [
   { icon: 'account-cog-outline', label: 'Cilësimet e llogarisë', route: '/account-settings' },
-  { icon: 'account-group-outline', label: 'Cilësimet e klubit', route: '/club-settings' },
-  { icon: 'calendar-month-outline', label: 'Cilësimet e sezonit', route: '/season-settings' },
+  {
+    icon: 'account-group-outline',
+    label: 'Cilësimet e klubit',
+    route: '/club-settings',
+    roles: ['administrator'],
+  },
+  {
+    icon: 'calendar-month-outline',
+    label: 'Cilësimet e sezonit',
+    route: '/season-settings',
+    roles: ['administrator'],
+  },
   {
     icon: 'bell-outline',
     label: 'Cilësimet e njoftimeve',
     route: '/notification-settings',
+    roles: ['administrator'],
   },
-  { icon: 'lock-outline', label: 'Siguria', route: '/security-settings' },
-  { icon: 'credit-card-outline', label: 'Abonimi', route: '/subscription-settings' },
+  {
+    icon: 'lock-outline',
+    label: 'Siguria',
+    route: '/security-settings',
+    roles: ['administrator'],
+  },
+  {
+    icon: 'credit-card-outline',
+    label: 'Abonimi',
+    route: '/subscription-settings',
+    roles: ['administrator'],
+  },
   { icon: 'shield-account-outline', label: 'Privacy Policy', route: '/privacy-policy' },
   {
     icon: 'file-document-outline',
@@ -68,9 +94,11 @@ const ROWS: SettingsRow[] = [
 
 export default function SettingsScreen() {
   const router = useRouter();
-  const { signOut } = useSession();
+  const { user, signOut } = useSession();
   const { width } = useWindowDimensions();
   const lineCount = Math.ceil(width / 9);
+
+  const rows = ROWS.filter((row) => !row.roles || (!!user && row.roles.includes(user.role)));
 
   const go = (route?: string) => {
     if (route) router.push(route as never);
@@ -92,33 +120,37 @@ export default function SettingsScreen() {
         ))}
       </View>
 
+      {/* Pinned header — the shell every other page uses */}
+      <View style={styles.header}>
+        <View style={styles.colPad}>
+          <View style={styles.headerRow}>
+            <Pressable
+              onPress={() => router.back()}
+              hitSlop={12}
+              accessibilityRole="button"
+              accessibilityLabel="Kthehu prapa"
+              style={({ pressed }) => [styles.backBtn, pressed && styles.pressed]}
+            >
+              <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.text} />
+            </Pressable>
+            <View style={styles.headerText}>
+              <Text style={styles.title} numberOfLines={1}>
+                Settings
+              </Text>
+            </View>
+          </View>
+        </View>
+      </View>
+
       <ScrollView
         contentContainerStyle={styles.scroll}
         showsVerticalScrollIndicator={false}
         bounces={false}
       >
-        <View style={styles.page}>
-          {/* Header — back arrow + title */}
-          <View style={styles.header}>
-            <Pressable
-              onPress={() => router.back()}
-              hitSlop={12}
-              accessibilityRole="button"
-              accessibilityLabel="Back"
-              style={({ pressed }) => [styles.backBtn, pressed && styles.pressed]}
-            >
-              <MaterialCommunityIcons
-                name="chevron-left"
-                size={I(30)}
-                color={C.text}
-              />
-            </Pressable>
-            <Text style={styles.title}>Settings</Text>
-          </View>
-
+        <View style={styles.colPad}>
           {/* Menu card */}
           <View style={styles.card}>
-            {ROWS.map((row, index) => (
+            {rows.map((row, index) => (
               <Pressable
                 key={row.label}
                 onPress={() => go(row.route)}
@@ -138,19 +170,21 @@ export default function SettingsScreen() {
               </Pressable>
             ))}
           </View>
-
-          {/* Log out — the one destructive action on this page */}
-          <Pressable
-            onPress={logOut}
-            accessibilityRole="button"
-            accessibilityLabel="Log out"
-            style={({ pressed }) => [styles.logOut, pressed && styles.pressed]}
-          >
-            <MaterialCommunityIcons name="logout" size={I(20)} color="#FFFFFF" />
-            <Text style={styles.logOutText}>Log out</Text>
-          </Pressable>
         </View>
       </ScrollView>
+
+      {/* Log out — the one destructive action, pinned to the foot of the page */}
+      <View style={styles.colPad}>
+        <Pressable
+          onPress={logOut}
+          accessibilityRole="button"
+          accessibilityLabel="Log out"
+          style={({ pressed }) => [styles.logOut, pressed && styles.pressed]}
+        >
+          <MaterialCommunityIcons name="logout" size={I(20)} color="#FFFFFF" />
+          <Text style={styles.logOutText}>Log out</Text>
+        </Pressable>
+      </View>
     </SafeAreaView>
   );
 }
@@ -178,15 +212,14 @@ const styles = StyleSheet.create(scaled({
     backgroundColor: C.line,
   },
 
-  scroll: {
-    flexGrow: 1,
-    justifyContent: 'center',
+  colPad: {
+    alignSelf: 'center',
+    width: '100%',
+    paddingHorizontal: 27,
   },
 
-  page: {
-    paddingHorizontal: 30,
-
-    marginBottom: 110,
+  scroll: {
+    paddingBottom: 18,
   },
 
   pressed: {
@@ -194,31 +227,38 @@ const styles = StyleSheet.create(scaled({
   },
 
   header: {
+    backgroundColor: C.bg,
+    paddingTop: 2,
+    paddingBottom: 12,
+  },
+
+  headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-
-    height: 70,
   },
 
   backBtn: {
-    height: 70,
-
+    height: 34,
     justifyContent: 'center',
-
-    marginLeft: -1,
+    marginLeft: -8,
     paddingRight: 10,
+  },
+
+  headerText: {
+    flex: 1,
+    justifyContent: 'center',
   },
 
   title: {
     fontFamily: Fonts.bodyBold,
-    fontSize: 25,
-    lineHeight: 28,
-    letterSpacing: -0.4,
+    fontSize: 20,
+    lineHeight: 24,
+    letterSpacing: -0.3,
     color: C.text,
   },
 
   card: {
-    marginTop: 30,
+    marginTop: 6,
 
     backgroundColor: C.card,
     borderWidth: 2,
@@ -255,7 +295,8 @@ const styles = StyleSheet.create(scaled({
   },
 
   logOut: {
-    marginTop: 22,
+    marginTop: 10,
+    marginBottom: 6,
     height: 54,
     flexDirection: 'row',
     alignItems: 'center',

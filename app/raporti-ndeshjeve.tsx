@@ -45,12 +45,19 @@ const C = {
 
 /* ── Headline squares ──────────────────────────────────────────────── */
 
-/** Gloss sweep laid over the frosted squares — bright corner, pale middle. */
+/**
+ * The squares sit on a near-white page, so a white frost on its own reads as
+ * nothing. Shading the pane instead — a very light grey at the top edge
+ * sweeping down to white — is what gives the surface its glassy shape.
+ */
 const SQ_GLOSS = [
-  'rgba(255,255,255,0.78)',
-  'rgba(255,255,255,0.16)',
-  'rgba(255,255,255,0.46)',
+  'rgba(180,188,201,0.30)',
+  'rgba(216,222,231,0.15)',
+  'rgba(255,255,255,0.80)',
 ] as const;
+
+/** Thin specular rim on the top edge — reads as the thickness of the pane. */
+const SQ_SHEEN = ['rgba(255,255,255,0.55)', 'rgba(255,255,255,0.00)'] as const;
 
 const SUMMARY = [
   { label: 'Ndeshje gjithsej', value: '41', hint: 'të luajtura', tone: C.text },
@@ -185,7 +192,7 @@ export default function MatchReportScreen() {
                   {/* Frost the canvas grid, then lay a gloss sweep over it. */}
                   <BlurView
                     pointerEvents="none"
-                    intensity={22}
+                    intensity={50}
                     tint="light"
                     style={StyleSheet.absoluteFill}
                   />
@@ -196,6 +203,13 @@ export default function MatchReportScreen() {
                     locations={[0, 0.55, 1]}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
+                  />
+                  <LinearGradient
+                    pointerEvents="none"
+                    style={styles.sheen}
+                    colors={SQ_SHEEN}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 0, y: 1 }}
                   />
 
                   <View style={styles.sqBody}>
@@ -513,6 +527,14 @@ const styles = StyleSheet.create(
     sqBody: {
       flex: 1,
       padding: 11,
+    },
+
+    sheen: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      height: '14%',
     },
 
     /* Fixed two-line block so all four values sit on the same line. */
