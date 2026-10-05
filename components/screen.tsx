@@ -1,4 +1,3 @@
-import { BlurView } from 'expo-blur';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
 import type { ReactNode } from 'react';
@@ -75,10 +74,9 @@ export function DetailHead({
   title: string;
   subtitle: string;
 }) {
-  const { isDark } = useTheme();
   const styles = useThemedStyles(createStyles);
   return (
-    <BlurView intensity={14} tint={isDark ? 'dark' : 'light'} style={styles.head}>
+    <View style={styles.head}>
       <View style={[styles.headIcon, { backgroundColor: `${accent}22` }]}>
         <IconSymbol name={icon} size={26} color={accent} />
       </View>
@@ -86,7 +84,7 @@ export function DetailHead({
         <Text style={styles.title}>{title}</Text>
         <Text style={styles.subtitle}>{subtitle}</Text>
       </View>
-    </BlurView>
+    </View>
   );
 }
 
@@ -105,7 +103,7 @@ export function StatCell({ value, label, color }: { value: string; label: string
 const createStyles = (colors: ThemeColors) => StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: 'transparent',
   },
   content: {
     paddingHorizontal: Spacing.lg,

@@ -3,7 +3,7 @@ import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
@@ -46,11 +46,11 @@ const C = {
 const SQ_GLOSS = [
   'rgba(180,188,201,0.30)',
   'rgba(216,222,231,0.15)',
-  'rgba(255,255,255,0.80)',
+  'rgba(245,245,245,0.80)',
 ] as const;
 
 /** Thin specular rim on the top edge — reads as the thickness of the pane. */
-const SQ_SHEEN = ['rgba(255,255,255,0.55)', 'rgba(255,255,255,0.00)'] as const;
+const SQ_SHEEN = ['rgba(245,245,245,0.55)', 'rgba(245,245,245,0.00)'] as const;
 
 const SUMMARY = [
   { label: 'Kuota të paguara', value: '5 kuota', hint: '$200.00 gjithsej', tone: C.green },
@@ -97,8 +97,6 @@ const PAGES = [1, 2, 3, 4];
 
 export default function PlayerQuotaScreen() {
   const router = useRouter();
-  const { width } = useWindowDimensions();
-  const lineCount = Math.ceil(width / 9);
 
   const params = useLocalSearchParams<{ name?: string; team?: string }>();
   const name = params.name ?? '';
@@ -109,13 +107,6 @@ export default function PlayerQuotaScreen() {
       <StatusBar style="dark" />
 
       <View style={styles.canvas}>
-        {/* Faint vertical canvas texture — decorative only */}
-        <View pointerEvents="none" style={styles.lines}>
-          {Array.from({ length: lineCount }).map((_, index) => (
-            <View key={index} style={[styles.line, { left: index * 9 }]} />
-          ))}
-        </View>
-
         {/* Pinned header */}
         <View style={styles.header}>
           <View style={styles.colPad}>
@@ -215,7 +206,7 @@ export default function PlayerQuotaScreen() {
                 style={({ pressed }) => [styles.controlBtn, pressed && styles.pressed]}
               >
                 <View style={styles.plusCircle}>
-                  <MaterialCommunityIcons name="plus" size={I(15)} color="#FFFFFF" />
+                  <MaterialCommunityIcons name="plus" size={I(15)} color="#F5F5F5" />
                 </View>
                 <Text style={styles.controlText}>Regjistro pagesën</Text>
               </Pressable>
@@ -366,29 +357,10 @@ const styles = StyleSheet.create(
   scaled({
     safe: {
       flex: 1,
-      backgroundColor: C.page,
     },
 
     canvas: {
       flex: 1,
-      backgroundColor: C.page,
-    },
-
-    lines: {
-      position: 'absolute',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      zIndex: 0,
-    },
-
-    line: {
-      position: 'absolute',
-      top: 0,
-      bottom: 0,
-      width: 1,
-      backgroundColor: C.line,
     },
 
     colPad: {
@@ -399,7 +371,7 @@ const styles = StyleSheet.create(
 
     /* Pinned header */
     header: {
-      backgroundColor: C.page,
+      backgroundColor: 'transparent',
       paddingTop: 2,
       paddingBottom: 12,
     },
@@ -458,7 +430,7 @@ const styles = StyleSheet.create(
       height: 122,
       borderRadius: 8,
       /* Translucent so the frosted pane inside has a backdrop to blur. */
-      backgroundColor: 'rgba(255,255,255,0.5)',
+      backgroundColor: 'rgba(245,245,245,0.5)',
       shadowColor: '#000000',
       shadowOffset: { width: 0, height: 2 },
       shadowOpacity: 0.04,
@@ -702,7 +674,7 @@ const styles = StyleSheet.create(
     pageSqText: {
       fontFamily: Fonts.bodySemiBold,
       fontSize: 14,
-      color: '#FFFFFF',
+      color: '#F5F5F5',
     },
 
     pressed: {

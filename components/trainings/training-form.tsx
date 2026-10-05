@@ -36,7 +36,7 @@ const MO = {
   ph: '#A8A8A8',
   cancel: '#ED5050',
   create: '#16A51D',
-  white: '#FFFFFF',
+  white: '#F5F5F5',
   err: '#C90000',
 };
 
@@ -428,7 +428,7 @@ const styles = StyleSheet.create(
     card: {
       marginTop: 100,
       alignSelf: 'center',
-      backgroundColor: '#FFFFFF',
+      backgroundColor: '#F5F5F5',
       borderWidth: 1,
       borderColor: MO.border,
       borderRadius: 5,
@@ -518,7 +518,7 @@ const styles = StyleSheet.create(
 
     opts: {
       marginTop: 2,
-      backgroundColor: '#FFFFFF',
+      backgroundColor: '#F5F5F5',
       borderWidth: 1,
       borderColor: MO.inputBorder,
       borderRadius: 1,

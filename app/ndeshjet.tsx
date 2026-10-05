@@ -58,7 +58,7 @@ const MO = {
   ph: '#A8A8A8',
   cancel: '#ED5050',
   create: '#16A51D',
-  white: '#FFFFFF',
+  white: '#F5F5F5',
   err: '#C90000',
 };
 
@@ -165,8 +165,6 @@ function outcome(home: string, away: string, score: string): 'F' | 'H' | null {
 
 export default function MatchesScreen() {
   const router = useRouter();
-  const { width } = useWindowDimensions();
-  const lineCount = Math.ceil(width / 9);
 
   const [fixtures, setFixtures] = useState<Fixture[]>(FIXTURES);
   const [adding, setAdding] = useState(false);
@@ -187,13 +185,6 @@ export default function MatchesScreen() {
       <StatusBar style="dark" />
 
       <View style={styles.canvas}>
-        {/* Faint vertical canvas texture — decorative only */}
-        <View pointerEvents="none" style={styles.lines}>
-          {Array.from({ length: lineCount }).map((_, index) => (
-            <View key={index} style={[styles.line, { left: index * 9 }]} />
-          ))}
-        </View>
-
         {/* Pinned header */}
         <View style={styles.header}>
           <View style={styles.colPad}>
@@ -243,7 +234,7 @@ export default function MatchesScreen() {
                 style={({ pressed }) => [styles.addBtn, pressed && styles.pressed]}
               >
                 <View style={styles.addBtnPlus}>
-                  <MaterialCommunityIcons name="plus" size={I(15)} color="#FFFFFF" />
+                  <MaterialCommunityIcons name="plus" size={I(15)} color="#F5F5F5" />
                 </View>
                 <Text style={styles.addBtnText}>Shto ndeshje</Text>
               </Pressable>
@@ -888,29 +879,10 @@ const styles = StyleSheet.create(
   scaled({
     safe: {
       flex: 1,
-      backgroundColor: C.page,
     },
 
     canvas: {
       flex: 1,
-      backgroundColor: C.page,
-    },
-
-    lines: {
-      position: 'absolute',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      zIndex: 0,
-    },
-
-    line: {
-      position: 'absolute',
-      top: 0,
-      bottom: 0,
-      width: 1,
-      backgroundColor: C.line,
     },
 
     colPad: {
@@ -921,7 +893,7 @@ const styles = StyleSheet.create(
 
     /* Pinned header */
     header: {
-      backgroundColor: C.page,
+      backgroundColor: 'transparent',
       paddingTop: 2,
       paddingBottom: 12,
     },
@@ -1219,7 +1191,7 @@ const styles = StyleSheet.create(
     viewBtnText: {
       fontFamily: Fonts.bodySemiBold,
       fontSize: 9.5,
-      color: '#FFFFFF',
+      color: '#F5F5F5',
     },
 
     /* ── Pager ───────────────────────────────────────────────── */
@@ -1248,7 +1220,7 @@ const styles = StyleSheet.create(
     pageSqText: {
       fontFamily: Fonts.bodySemiBold,
       fontSize: 14,
-      color: '#FFFFFF',
+      color: '#F5F5F5',
     },
 
     /* ── Popup overlay ───────────────────────────────────────── */
@@ -1277,7 +1249,7 @@ const styles = StyleSheet.create(
     nmCard: {
       marginTop: 100,
       alignSelf: 'center',
-      backgroundColor: '#FFFFFF',
+      backgroundColor: '#F5F5F5',
       borderWidth: 1,
       borderColor: MO.border,
       borderRadius: 5,
@@ -1382,7 +1354,7 @@ const styles = StyleSheet.create(
 
     nmOpts: {
       marginTop: 2,
-      backgroundColor: '#FFFFFF',
+      backgroundColor: '#F5F5F5',
       borderWidth: 1,
       borderColor: MO.inputBorder,
       borderRadius: 1,

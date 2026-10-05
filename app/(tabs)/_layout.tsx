@@ -93,13 +93,13 @@ export default function TabLayout() {
         tabBarStyle: [
           styles.tabBar,
           pillNav
-            ? // Floating pill: the strip behind it blends with the white dashboard,
-              // so only the pill frame is visible — no gray band.
-              { backgroundColor: '#FAFBFA', borderTopWidth: 0 }
+            ? // Floating pill: the strip behind it is transparent so the app
+              // wallpaper shows through and only the pill frame is visible.
+              { backgroundColor: 'transparent', borderTopWidth: 0 }
             : { backgroundColor: isDark ? 'rgba(13, 31, 28, 0.9)' : 'rgba(238, 244, 240, 0.92)' },
         ],
         tabBarLabelStyle: styles.tabBarLabel,
-        sceneStyle: { backgroundColor: pillNav ? '#FAFBFA' : colors.background },
+        sceneStyle: { backgroundColor: 'transparent' },
       }}
       tabBar={
         isAdmin ? (props) => <PillTabBar {...props} />

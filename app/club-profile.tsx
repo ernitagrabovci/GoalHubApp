@@ -8,7 +8,6 @@ import {
   ScrollView,
   StyleSheet,
   TextInput,
-  useWindowDimensions,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -35,7 +34,7 @@ const C = {
   page: '#FAFBFA',
   line: 'rgba(0,0,0,0.025)',
 
-  card: '#FFFFFF',
+  card: '#F5F5F5',
   border: 'rgba(100,140,190,0.30)', // white info-card outline (dashboard style)
   fill: '#F6FBFF', // opaque light-blue interior (D4EDFF @ 20% over white — no bg shows through)
   headLine: 'rgba(30,40,35,0.10)', // card / row divider (dashboard DIVIDER)
@@ -225,8 +224,6 @@ const INITIAL_FORM: Form = {
 
 export default function ClubProfileScreen() {
   const router = useRouter();
-  const { width } = useWindowDimensions();
-  const lineCount = Math.ceil(width / 9);
 
   const [form, setForm] = useState<Form>(INITIAL_FORM);
   const [openSel, setOpenSel] = useState<string | null>(null);
@@ -239,13 +236,6 @@ export default function ClubProfileScreen() {
       <StatusBar style="dark" />
 
       <View style={styles.canvas}>
-        {/* Faint vertical canvas texture — decorative only */}
-        <View pointerEvents="none" style={styles.lines}>
-          {Array.from({ length: lineCount }).map((_, index) => (
-            <View key={index} style={[styles.line, { left: index * 9 }]} />
-          ))}
-        </View>
-
         {/* Pinned header */}
         <View style={styles.header}>
           <View style={styles.colPad}>
@@ -298,7 +288,7 @@ export default function ClubProfileScreen() {
                         <MaterialCommunityIcons
                           name="cloud-upload-outline"
                           size={I(13)}
-                          color="#FFFFFF"
+                          color="#F5F5F5"
                         />
                       </View>
                     </View>
@@ -307,7 +297,7 @@ export default function ClubProfileScreen() {
                       <MaterialCommunityIcons
                         name="cloud-upload-outline"
                         size={I(24)}
-                        color="#FFFFFF"
+                        color="#F5F5F5"
                       />
                     </View>
                   )}
@@ -489,32 +479,13 @@ const styles = StyleSheet.create(
   scaled({
     safe: {
       flex: 1,
-      backgroundColor: C.page,
     },
 
     canvas: {
       flex: 1,
-      backgroundColor: C.page,
     },
 
     /* Faint vertical canvas texture — same idea as the dashboards. */
-    lines: {
-      position: 'absolute',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      zIndex: 0,
-    },
-
-    line: {
-      position: 'absolute',
-      top: 0,
-      bottom: 0,
-      width: 1,
-      backgroundColor: C.line,
-    },
-
     /* Shared column: fills the screen width so the fields use the side
        space instead of sitting in a narrow centered 375px column. */
     colPad: {
@@ -525,7 +496,7 @@ const styles = StyleSheet.create(
 
     /* Pinned header */
     header: {
-      backgroundColor: C.page,
+      backgroundColor: 'transparent',
       paddingTop: 2,
       paddingBottom: 12,
     },
@@ -633,7 +604,7 @@ const styles = StyleSheet.create(
       height: 54,
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: '#FFFFFF',
+      backgroundColor: '#F5F5F5',
       borderRadius: 27,
       borderWidth: 1,
       borderColor: C.border,
@@ -655,7 +626,7 @@ const styles = StyleSheet.create(
       alignItems: 'center',
       justifyContent: 'center',
       borderWidth: 2,
-      borderColor: '#FFFFFF',
+      borderColor: '#F5F5F5',
     },
 
     logoHint: {
@@ -695,7 +666,7 @@ const styles = StyleSheet.create(
       width: 34,
       height: 34,
       borderRadius: 17,
-      backgroundColor: '#FFFFFF',
+      backgroundColor: '#F5F5F5',
       borderWidth: 1,
       borderColor: 'rgba(0,0,0,0.16)',
       alignItems: 'center',
@@ -785,7 +756,7 @@ const styles = StyleSheet.create(
 
     optBox: {
       marginTop: 3,
-      backgroundColor: '#FFFFFF',
+      backgroundColor: '#F5F5F5',
       borderWidth: 0.5,
       borderColor: C.inputBorder,
       borderRadius: 3,
@@ -894,7 +865,7 @@ const styles = StyleSheet.create(
     goBtnText: {
       fontFamily: Fonts.bodySemiBold,
       fontSize: 11,
-      color: '#FFFFFF',
+      color: '#F5F5F5',
     },
 
     /* Fushat e stërvitjes */

@@ -110,7 +110,7 @@ export default function ChannelScreen() {
 const createStyles = (colors: ThemeColors) => StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: 'transparent',
   },
   flex: {
     flex: 1,

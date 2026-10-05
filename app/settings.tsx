@@ -6,7 +6,6 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  useWindowDimensions,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -95,8 +94,6 @@ const ROWS: SettingsRow[] = [
 export default function SettingsScreen() {
   const router = useRouter();
   const { user, signOut } = useSession();
-  const { width } = useWindowDimensions();
-  const lineCount = Math.ceil(width / 9);
 
   const rows = ROWS.filter((row) => !row.roles || (!!user && row.roles.includes(user.role)));
 
@@ -112,13 +109,6 @@ export default function SettingsScreen() {
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
       <StatusBar style="dark" />
-
-      {/* Faint vertical lines — same canvas texture as the dashboards */}
-      <View pointerEvents="none" style={styles.lines}>
-        {Array.from({ length: lineCount }).map((_, index) => (
-          <View key={index} style={[styles.line, { left: index * 9 }]} />
-        ))}
-      </View>
 
       {/* Pinned header — the shell every other page uses */}
       <View style={styles.header}>
@@ -181,7 +171,7 @@ export default function SettingsScreen() {
           accessibilityLabel="Log out"
           style={({ pressed }) => [styles.logOut, pressed && styles.pressed]}
         >
-          <MaterialCommunityIcons name="logout" size={I(20)} color="#FFFFFF" />
+          <MaterialCommunityIcons name="logout" size={I(20)} color="#F5F5F5" />
           <Text style={styles.logOutText}>Log out</Text>
         </Pressable>
       </View>
@@ -192,24 +182,6 @@ export default function SettingsScreen() {
 const styles = StyleSheet.create(scaled({
   safe: {
     flex: 1,
-    backgroundColor: C.bg,
-  },
-
-  lines: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    zIndex: 0,
-  },
-
-  line: {
-    position: 'absolute',
-    top: 0,
-    bottom: 0,
-    width: 1,
-    backgroundColor: C.line,
   },
 
   colPad: {
@@ -227,7 +199,7 @@ const styles = StyleSheet.create(scaled({
   },
 
   header: {
-    backgroundColor: C.bg,
+    backgroundColor: 'transparent',
     paddingTop: 2,
     paddingBottom: 12,
   },
@@ -310,6 +282,6 @@ const styles = StyleSheet.create(scaled({
     fontFamily: Fonts.bodyBold,
     fontSize: 17,
     lineHeight: 21,
-    color: '#FFFFFF',
+    color: '#F5F5F5',
   },
 }));

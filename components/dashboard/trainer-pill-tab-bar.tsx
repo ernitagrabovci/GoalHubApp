@@ -21,7 +21,7 @@ import { useSession } from '@/lib/session';
 
 const C = {
   bg: '#FAFBFA',
-  pillBg: '#FFFFFF',
+  pillBg: '#F5F5F5',
   frame: '#000000',
   activeBg: '#DDF7E8',
   green: '#159447',
@@ -107,7 +107,6 @@ export function TrainerPillTabBar({ state, navigation, insets }: BottomTabBarPro
 
 const styles = StyleSheet.create(scaled({
   area: {
-    backgroundColor: C.bg,
     paddingTop: 8,
     alignItems: 'center',
   },

@@ -135,7 +135,7 @@ export default function IntroScreen() {
 const createStyles = (colors: ThemeColors) => StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: 'transparent',
   },
   dim: {
     position: 'absolute',
@@ -170,7 +170,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     marginTop: Spacing.xs,
   },
   kicker: {
-    color: 'rgba(255, 255, 255, 0.7)',
+    color: 'rgba(245, 245, 245, 0.7)',
     fontSize: 13,
     letterSpacing: 3,
     textTransform: 'uppercase',
@@ -185,7 +185,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   tagline: {
     marginTop: Spacing.md,
-    color: 'rgba(255, 255, 255, 0.6)',
+    color: 'rgba(245, 245, 245, 0.6)',
     fontSize: 15,
     lineHeight: 22,
     fontFamily: Fonts.body,
@@ -196,7 +196,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     right: '7%',
   },
   footerText: {
-    color: 'rgba(255, 255, 255, 0.6)',
+    color: 'rgba(245, 245, 245, 0.6)',
     fontSize: 10,
     letterSpacing: 2,
     textTransform: 'uppercase',

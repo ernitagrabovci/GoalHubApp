@@ -6,7 +6,6 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  useWindowDimensions,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -29,7 +28,7 @@ const C = {
   text: '#111111',
   gray: '#8A8A8A',
 
-  white: '#FFFFFF',
+  white: '#F5F5F5',
   border: '#D9DEDB',
 
   /* The thin green rim around the menu. */
@@ -51,8 +50,6 @@ const IMG = {
 
 export default function ChildScreen() {
   const router = useRouter();
-  const { width } = useWindowDimensions();
-  const lineCount = Math.ceil(width / 9);
 
   const params = useLocalSearchParams<{
     name?: string;
@@ -71,13 +68,6 @@ export default function ChildScreen() {
       <StatusBar style="dark" />
 
       <View style={styles.canvas}>
-        {/* Faint vertical canvas texture — decorative only */}
-        <View pointerEvents="none" style={styles.lines}>
-          {Array.from({ length: lineCount }).map((_, index) => (
-            <View key={index} style={[styles.line, { left: index * 9 }]} />
-          ))}
-        </View>
-
         {/* Pinned header */}
         <View style={styles.header}>
           <View style={styles.colPad}>
@@ -199,29 +189,10 @@ const styles = StyleSheet.create(
   scaled({
     safe: {
       flex: 1,
-      backgroundColor: C.page,
     },
 
     canvas: {
       flex: 1,
-      backgroundColor: C.page,
-    },
-
-    lines: {
-      position: 'absolute',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      zIndex: 0,
-    },
-
-    line: {
-      position: 'absolute',
-      top: 0,
-      bottom: 0,
-      width: 1,
-      backgroundColor: C.line,
     },
 
     colPad: {
@@ -232,7 +203,7 @@ const styles = StyleSheet.create(
 
     /* Pinned header */
     header: {
-      backgroundColor: C.page,
+      backgroundColor: 'transparent',
       paddingTop: 2,
       paddingBottom: 12,
     },
@@ -507,7 +478,7 @@ const MENU: MenuCard[] = [
     border: '#F6D5D5',
 
     btnBg: '#D94B4B',
-    btnColor: '#FFFFFF',
+    btnColor: '#F5F5F5',
 
     img: IMG.profili,
     imgStyle: styles.menuImgProfili,
@@ -522,7 +493,7 @@ const MENU: MenuCard[] = [
     border: '#C6E0FA',
 
     btnBg: '#78B8F5',
-    btnColor: '#FFFFFF',
+    btnColor: '#F5F5F5',
 
     img: IMG.prezenca,
     imgStyle: styles.menuImgPrezenca,
@@ -537,7 +508,7 @@ const MENU: MenuCard[] = [
     border: '#F0D9AE',
 
     btnBg: '#D99A4A',
-    btnColor: '#FFFFFF',
+    btnColor: '#F5F5F5',
 
     img: IMG.vleresimet,
     imgStyle: styles.menuImgVleresimet,
@@ -552,7 +523,7 @@ const MENU: MenuCard[] = [
     border: '#D9C9F2',
 
     btnBg: '#7B5FD9',
-    btnColor: '#FFFFFF',
+    btnColor: '#F5F5F5',
 
     img: IMG.kuotat,
     imgStyle: styles.menuImgKuotat,
@@ -567,7 +538,7 @@ const MENU: MenuCard[] = [
     border: '#BFE7CD',
 
     btnBg: '#2E9E5B',
-    btnColor: '#FFFFFF',
+    btnColor: '#F5F5F5',
 
     img: IMG.stervitjet,
     imgStyle: styles.menuImgStervitjet,
@@ -582,7 +553,7 @@ const MENU: MenuCard[] = [
     border: '#F3C2D2',
 
     btnBg: '#E34D63',
-    btnColor: '#FFFFFF',
+    btnColor: '#F5F5F5',
 
     img: IMG.ndeshjet,
     imgStyle: styles.menuImgNdeshjet,

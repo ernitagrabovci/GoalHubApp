@@ -8,7 +8,6 @@ import {
   Pressable,
   StyleSheet,
   TextInput,
-  useWindowDimensions,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -36,7 +35,7 @@ const C = {
   hint: '#6E6E6E',
 
   frame: '#000000',
-  white: '#FFFFFF',
+  white: '#F5F5F5',
 
   green: '#36AC6B',
   greenSoft: 'rgba(54,172,107,0.20)',
@@ -51,8 +50,6 @@ type Mode = 'signin' | 'signup';
 export default function LoginScreen() {
   const router = useRouter();
   const { signIn } = useSession();
-  const { width } = useWindowDimensions();
-  const lineCount = Math.ceil(width / 9);
 
   const [mode, setMode] = useState<Mode>('signin');
   const [name, setName] = useState('');
@@ -70,13 +67,6 @@ export default function LoginScreen() {
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <StatusBar style="dark" />
-
-      {/* Faint vertical canvas texture — decorative only */}
-      <View pointerEvents="none" style={styles.lines}>
-        {Array.from({ length: lineCount }).map((_, index) => (
-          <View key={index} style={[styles.line, { left: index * 9 }]} />
-        ))}
-      </View>
 
       <KeyboardAvoidingView
         style={styles.flex}
@@ -210,24 +200,6 @@ const styles = StyleSheet.create(
   scaled({
     safe: {
       flex: 1,
-      backgroundColor: C.page,
-    },
-
-    lines: {
-      position: 'absolute',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      zIndex: 0,
-    },
-
-    line: {
-      position: 'absolute',
-      top: 0,
-      bottom: 0,
-      width: 1,
-      backgroundColor: C.line,
     },
 
     flex: {

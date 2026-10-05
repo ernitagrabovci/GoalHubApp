@@ -60,7 +60,7 @@ export const DarkColors: ThemeColors = {
   textSecondary: '#408A71',
   textMuted: '#4F8A70',
   textOnPrimary: '#091413',
-  white: '#FFFFFF',
+  white: '#F5F5F5',
 
   // semantic / role colors
   danger: '#E24B4A',
@@ -74,7 +74,7 @@ export const DarkColors: ThemeColors = {
 export const LightColors: ThemeColors = {
   // brand surfaces
   background: '#EEF4F0',
-  surface: 'rgba(255, 255, 255, 0.72)',
+  surface: 'rgba(245, 245, 245, 0.72)',
   surfaceAlt: '#E3ECE7',
   forest: '#B7CDC2',
   border: '#C0D6CB',
@@ -90,8 +90,8 @@ export const LightColors: ThemeColors = {
   text: '#0C251B',
   textSecondary: '#2E7D5B',
   textMuted: '#6B887B',
-  textOnPrimary: '#FFFFFF',
-  white: '#FFFFFF',
+  textOnPrimary: '#F5F5F5',
+  white: '#F5F5F5',
 
   // semantic / role colors
   danger: '#D64040',
@@ -111,14 +111,16 @@ export const themes: Record<ThemeMode, ThemeColors> = {
 /** Back-compat alias — screens migrate to useTheme()/useThemedStyles() over time. */
 export const Colors = DarkColors;
 
+/* Every screen reads its font through this map, so swapping the family here
+   restyles the whole app. */
 export const Fonts = {
-  heading: 'SpaceGrotesk_700Bold',
-  headingSemiBold: 'SpaceGrotesk_600SemiBold',
-  body: 'Inter_400Regular',
-  bodyMedium: 'Inter_500Medium',
-  bodySemiBold: 'Inter_600SemiBold',
-  bodyBold: 'Inter_700Bold',
-  bodyBlack: 'Inter_900Black',
+  heading: 'Outfit_700Bold',
+  headingSemiBold: 'Outfit_600SemiBold',
+  body: 'Outfit_400Regular',
+  bodyMedium: 'Outfit_500Medium',
+  bodySemiBold: 'Outfit_600SemiBold',
+  bodyBold: 'Outfit_700Bold',
+  bodyBlack: 'Outfit_900Black',
 } as const;
 
 export const Spacing = {
@@ -138,6 +140,10 @@ export const Radius = {
   pill: 999,
 } as const;
 
+/* `background` is 'transparent' rather than the palette tone on purpose: the
+   native stack paints it onto the ScreenStack container (nativeContainerStyle in
+   NativeStackView), which sits ABOVE the root <AppBackground /> and would hide the
+   wallpaper. Screens already paint their own backgrounds transparent. */
 /** React Navigation theme so headers/tabs match the GoalHub brand (dark). */
 export const darkNavigationTheme: Theme = {
   ...DarkTheme,
@@ -145,7 +151,7 @@ export const darkNavigationTheme: Theme = {
   colors: {
     ...DarkTheme.colors,
     primary: DarkColors.mint,
-    background: DarkColors.background,
+    background: 'transparent',
     card: DarkColors.surface,
     text: DarkColors.mint,
     border: DarkColors.border,
@@ -160,7 +166,7 @@ export const lightNavigationTheme: Theme = {
   colors: {
     ...DarkTheme.colors,
     primary: LightColors.mint,
-    background: LightColors.background,
+    background: 'transparent',
     card: LightColors.surface,
     text: LightColors.text,
     border: LightColors.border,

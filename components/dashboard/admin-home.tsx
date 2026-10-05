@@ -2,7 +2,7 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { type ReactNode } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
@@ -23,7 +23,7 @@ const C = {
   line: 'rgba(0,0,0,0.025)',
   cardBorder: 'rgba(30,40,35,0.12)',
   statBorder: '#E4A000',
-  white: '#FFFFFF',
+  white: '#F5F5F5',
   green: '#159447',
   greenDark: '#0C6C36',
   lightGreen: '#DDF6E7',
@@ -102,8 +102,6 @@ const TEAMS = [
 
 export function AdminHome() {
   const router = useRouter();
-  const { width } = useWindowDimensions();
-  const lineCount = Math.ceil(width / 9);
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -114,13 +112,6 @@ export function AdminHome() {
         bounces={false}
       >
         <View style={styles.content}>
-          {/* Faint vertical stripe texture behind everything */}
-          <View pointerEvents="none" style={styles.lines}>
-            {Array.from({ length: lineCount }).map((_, i) => (
-              <View key={i} style={[styles.line, { left: i * 9 }]} />
-            ))}
-          </View>
-
           <View style={styles.padded}>
             <HeaderBlock
               onBell={() => router.push('/njoftimet')}
@@ -395,7 +386,6 @@ function SeeAllFooter({ color, onPress }: { color: string; onPress: () => void }
 const styles = StyleSheet.create(scaled({
   safe: {
     flex: 1,
-    backgroundColor: C.bg,
   },
   scroll: {
     flexGrow: 1,
@@ -403,20 +393,6 @@ const styles = StyleSheet.create(scaled({
   },
   content: {
     flex: 1,
-  },
-  lines: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-  },
-  line: {
-    position: 'absolute',
-    top: 0,
-    bottom: 0,
-    width: 1,
-    backgroundColor: C.line,
   },
   padded: {
     paddingHorizontal: 27,
@@ -657,7 +633,7 @@ const styles = StyleSheet.create(scaled({
   },
   matchRowSep: {
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#FFFFFF',
+    borderTopColor: '#F5F5F5',
   },
   pressed: {
     opacity: 0.6,

@@ -33,7 +33,7 @@ const C = {
   blue: '#2F80ED',
   blueBtn: '#86BCFD',
   green: '#159447',
-  white: '#FFFFFF',
+  white: '#F5F5F5',
 };
 
 /** Popup palette — the same white card and green rim the other dialogs use. */
@@ -47,7 +47,7 @@ const MO = {
   inputBg: '#FAFCFC',
   cancel: '#ED5050',
   create: '#16A51D',
-  white: '#FFFFFF',
+  white: '#F5F5F5',
 };
 
 /** Everyone a group can be built from — long enough that the box must scroll. */
@@ -158,8 +158,6 @@ const CHATS: Chat[] = [
 
 export default function MessagesScreen() {
   const router = useRouter();
-  const { width } = useWindowDimensions();
-  const lineCount = Math.ceil(width / 9);
 
   const [creating, setCreating] = useState(false);
 
@@ -168,13 +166,6 @@ export default function MessagesScreen() {
       <StatusBar style="dark" />
 
       <View style={styles.canvas}>
-        {/* Faint vertical canvas texture — decorative only */}
-        <View pointerEvents="none" style={styles.lines}>
-          {Array.from({ length: lineCount }).map((_, index) => (
-            <View key={index} style={[styles.line, { left: index * 9 }]} />
-          ))}
-        </View>
-
         {/* Pinned header */}
         <View style={styles.header}>
           <View style={styles.colPad}>
@@ -407,29 +398,10 @@ const styles = StyleSheet.create(
   scaled({
     safe: {
       flex: 1,
-      backgroundColor: C.page,
     },
 
     canvas: {
       flex: 1,
-      backgroundColor: C.page,
-    },
-
-    lines: {
-      position: 'absolute',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      zIndex: 0,
-    },
-
-    line: {
-      position: 'absolute',
-      top: 0,
-      bottom: 0,
-      width: 1,
-      backgroundColor: C.line,
     },
 
     colPad: {
@@ -440,7 +412,7 @@ const styles = StyleSheet.create(
 
     /* Pinned header */
     header: {
-      backgroundColor: C.page,
+      backgroundColor: 'transparent',
       paddingTop: 2,
       paddingBottom: 12,
     },

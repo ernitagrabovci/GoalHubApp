@@ -44,7 +44,7 @@ const C = {
   black: '#000000',
   editText: '#8A8A8A',
   red: '#E03131',
-  white: '#FFFFFF',
+  white: '#F5F5F5',
 };
 
 /* Create/edit-field modal palette (matches the reference popup) */
@@ -67,7 +67,7 @@ const MO = {
   closed: '#6B6B6B',
   cancel: '#ED5050',
   create: '#16A51D',
-  white: '#FFFFFF',
+  white: '#F5F5F5',
   err: '#C90000',
 };
 
@@ -211,8 +211,6 @@ type FieldPayload = {
 
 export default function FushatScreen() {
   const router = useRouter();
-  const { width } = useWindowDimensions();
-  const lineCount = Math.ceil(width / 9);
 
   const [fields, setFields] = useState<Field[]>(SEED);
   const [currentId, setCurrentId] = useState(1);
@@ -298,13 +296,6 @@ export default function FushatScreen() {
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
       <StatusBar style="dark" />
       <View style={styles.canvas}>
-        {/* Faint vertical canvas texture — decorative only */}
-        <View pointerEvents="none" style={styles.lines}>
-          {Array.from({ length: lineCount }).map((_, index) => (
-            <View key={index} style={[styles.line, { left: index * 9 }]} />
-          ))}
-        </View>
-
         {/* Very subtle circular background pattern in the empty space below */}
         <View pointerEvents="none" style={styles.deco}>
           <View style={styles.decoRingOuter} />
@@ -774,29 +765,10 @@ const styles = StyleSheet.create(
   scaled({
     safe: {
       flex: 1,
-      backgroundColor: C.page,
     },
 
     canvas: {
       flex: 1,
-      backgroundColor: C.page,
-    },
-
-    lines: {
-      position: 'absolute',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      zIndex: 0,
-    },
-
-    line: {
-      position: 'absolute',
-      top: 0,
-      bottom: 0,
-      width: 1,
-      backgroundColor: C.line,
     },
 
     deco: {
@@ -847,7 +819,7 @@ const styles = StyleSheet.create(
     },
 
     header: {
-      backgroundColor: C.page,
+      backgroundColor: 'transparent',
       paddingTop: 16,
       paddingBottom: 18,
     },
@@ -946,7 +918,7 @@ const styles = StyleSheet.create(
     optBox: {
       marginTop: -6,
       marginBottom: 14,
-      backgroundColor: '#FFFFFF',
+      backgroundColor: '#F5F5F5',
       borderWidth: 1,
       borderColor: C.selectBorder,
       borderRadius: 3,
@@ -1233,7 +1205,7 @@ const styles = StyleSheet.create(
 
     fmOpts: {
       marginTop: 2,
-      backgroundColor: '#FFFFFF',
+      backgroundColor: '#F5F5F5',
       borderWidth: 1,
       borderColor: MO.inputBorder,
       borderRadius: 1,

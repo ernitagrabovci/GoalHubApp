@@ -37,7 +37,7 @@ const C = {
   bg: '#FAFBFA',
   line: 'rgba(0,0,0,0.025)',
 
-  white: '#FFFFFF',
+  white: '#F5F5F5',
   text: '#111111',
 
   gray: '#666666',
@@ -118,24 +118,6 @@ export function FinancierHome() {
         contentContainerStyle={styles.scroll}
       >
         <View style={styles.content}>
-
-          {/* =================================================
-              BACKGROUND VERTICAL LINES
-             ================================================= */}
-
-          <View pointerEvents="none" style={styles.lines}>
-            {Array.from({ length: 50 }).map((_, index) => (
-              <View
-                key={index}
-                style={[
-                  styles.line,
-                  {
-                    left: index * 9,
-                  },
-                ]}
-              />
-            ))}
-          </View>
 
           {/* =================================================
               HEADER + GREETING
@@ -496,7 +478,6 @@ const styles = StyleSheet.create(scaled({
 
   safe: {
     flex: 1,
-    backgroundColor: C.bg,
   },
 
   scroll: {
@@ -519,23 +500,6 @@ const styles = StyleSheet.create(scaled({
   /* =======================================================
      BACKGROUND LINES
      ======================================================= */
-
-  lines: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    zIndex: 0,
-  },
-
-  line: {
-    position: 'absolute',
-    top: 0,
-    bottom: 0,
-    width: 1,
-    backgroundColor: C.line,
-  },
 
   /* =======================================================
      HEADER

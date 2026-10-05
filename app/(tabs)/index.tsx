@@ -212,7 +212,7 @@ export default function HomeScreen() {
                       />
                       <View style={styles.iconWrap}>
                         <IconSymbol name={module.icon} size={glyph} color="#000000" style={styles.shadowBack} />
-                        <IconSymbol name={module.icon} size={glyph} color="#FFFFFF" />
+                        <IconSymbol name={module.icon} size={glyph} color="#F5F5F5" />
                       </View>
                       <View style={styles.labelWrap}>
                         <Text style={[styles.cellLabelShadow, { fontSize: labelFont }]} numberOfLines={1}>
@@ -237,7 +237,7 @@ export default function HomeScreen() {
 const createStyles = (colors: ThemeColors) => StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: 'transparent',
   },
   content: {
     flex: 1,
@@ -337,7 +337,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontFamily: Fonts.heading,
     fontSize: 150,
     letterSpacing: -8,
-    color: 'rgba(255,255,255,0.10)',
+    color: 'rgba(245,245,245,0.10)',
   },
   heroMark: {
     position: 'absolute',
@@ -353,13 +353,13 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontSize: 10,
     letterSpacing: 1.2,
     textTransform: 'uppercase',
-    color: 'rgba(255,255,255,0.7)',
+    color: 'rgba(245,245,245,0.7)',
   },
   heroName: {
     fontFamily: Fonts.heading,
     fontSize: 24,
     letterSpacing: -0.6,
-    color: '#FFFFFF',
+    color: '#F5F5F5',
   },
   heroChips: {
     flexDirection: 'row',
@@ -371,9 +371,9 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    backgroundColor: 'rgba(255,255,255,0.14)',
+    backgroundColor: 'rgba(245,245,245,0.14)',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.22)',
+    borderColor: 'rgba(245,245,245,0.22)',
     borderRadius: Radius.pill,
     paddingVertical: 3,
     paddingHorizontal: 9,
@@ -381,7 +381,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   heroChipText: {
     fontFamily: Fonts.bodyMedium,
     fontSize: 11,
-    color: '#FFFFFF',
+    color: '#F5F5F5',
   },
 
   // Next up
@@ -490,7 +490,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   cellLabel: {
     fontFamily: Fonts.bodySemiBold,
-    color: '#FFFFFF',
+    color: '#F5F5F5',
     textTransform: 'lowercase',
   },
 

@@ -7,7 +7,6 @@ import {
   ScrollView,
   StyleSheet,
   TextInput,
-  useWindowDimensions,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -85,8 +84,6 @@ const OTHER_QUOTAS: Other[] = [
 
 export default function PaymentDetailScreen() {
   const router = useRouter();
-  const { width } = useWindowDimensions();
-  const lineCount = Math.ceil(width / 9);
 
   const params = useLocalSearchParams<{ name?: string; team?: string }>();
   const name = params.name ?? '';
@@ -103,13 +100,6 @@ export default function PaymentDetailScreen() {
       <StatusBar style="dark" />
 
       <View style={styles.canvas}>
-        {/* Faint vertical canvas texture — decorative only */}
-        <View pointerEvents="none" style={styles.lines}>
-          {Array.from({ length: lineCount }).map((_, index) => (
-            <View key={index} style={[styles.line, { left: index * 9 }]} />
-          ))}
-        </View>
-
         {/* Pinned header */}
         <View style={styles.header}>
           <View style={styles.colPad}>
@@ -321,7 +311,7 @@ export default function PaymentDetailScreen() {
                       <MaterialCommunityIcons
                         name="cloud-upload-outline"
                         size={I(22)}
-                        color="#FFFFFF"
+                        color="#F5F5F5"
                       />
                     </View>
                   </Pressable>
@@ -470,29 +460,10 @@ const styles = StyleSheet.create(
   scaled({
     safe: {
       flex: 1,
-      backgroundColor: C.page,
     },
 
     canvas: {
       flex: 1,
-      backgroundColor: C.page,
-    },
-
-    lines: {
-      position: 'absolute',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      zIndex: 0,
-    },
-
-    line: {
-      position: 'absolute',
-      top: 0,
-      bottom: 0,
-      width: 1,
-      backgroundColor: C.line,
     },
 
     colPad: {
@@ -503,7 +474,7 @@ const styles = StyleSheet.create(
 
     /* Pinned header */
     header: {
-      backgroundColor: C.page,
+      backgroundColor: 'transparent',
       paddingTop: 2,
       paddingBottom: 12,
     },
@@ -798,7 +769,7 @@ const styles = StyleSheet.create(
 
     opts: {
       marginTop: 3,
-      backgroundColor: '#FFFFFF',
+      backgroundColor: '#F5F5F5',
       borderWidth: 1,
       borderColor: C.inputBorder,
       borderRadius: 4,
@@ -878,7 +849,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodySemiBold,
       fontSize: 13,
       lineHeight: 16,
-      color: '#FFFFFF',
+      color: '#F5F5F5',
     },
 
     /* ── Other-quotas table ──────────────────────────────────── */

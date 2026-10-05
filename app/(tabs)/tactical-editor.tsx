@@ -419,7 +419,7 @@ export default function TacticalEditorScreen() {
 const createStyles = (colors: ThemeColors) => StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: 'transparent',
   },
   content: {
     paddingHorizontal: Spacing.lg,

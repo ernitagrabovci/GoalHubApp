@@ -19,7 +19,7 @@ import { I, scaled } from '@/lib/responsive';
 
 const C = {
   bg: '#FAFBFA',
-  pillBg: '#FFFFFF',
+  pillBg: '#F5F5F5',
   frame: '#000000',
   activeBg: '#DDF8E9',
   green: '#159447',
@@ -111,7 +111,6 @@ export function PillTabBar({ state, navigation, insets }: BottomTabBarProps) {
 
 const styles = StyleSheet.create(scaled({
   area: {
-    backgroundColor: C.bg,
     paddingTop: 8,
     paddingHorizontal: 24,
   },

@@ -310,7 +310,7 @@ function SettingRow({
 const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: 'transparent',
   },
   header: {
     paddingHorizontal: Spacing.lg,

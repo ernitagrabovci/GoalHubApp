@@ -8,7 +8,6 @@ import {
   ScrollView,
   StyleSheet,
   TextInput,
-  useWindowDimensions,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -386,8 +385,6 @@ function TrainerAccountBody() {
 export default function AccountSettingsScreen() {
   const router = useRouter();
   const { user } = useSession();
-  const { width } = useWindowDimensions();
-  const lineCount = Math.ceil(width / 9);
 
   const isAdmin = user?.role === 'administrator';
 
@@ -396,13 +393,6 @@ export default function AccountSettingsScreen() {
       <StatusBar style="dark" />
 
       <View style={styles.canvas}>
-        {/* Faint vertical canvas texture — decorative only */}
-        <View pointerEvents="none" style={styles.lines}>
-          {Array.from({ length: lineCount }).map((_, index) => (
-            <View key={index} style={[styles.line, { left: index * 9 }]} />
-          ))}
-        </View>
-
         {/* Pinned header */}
         <View style={styles.header}>
           <View style={styles.colPad}>
@@ -450,32 +440,13 @@ const styles = StyleSheet.create(
   scaled({
     safe: {
       flex: 1,
-      backgroundColor: C.page,
     },
 
     canvas: {
       flex: 1,
-      backgroundColor: C.page,
     },
 
     /* Faint vertical canvas texture — same idea as the dashboards. */
-    lines: {
-      position: 'absolute',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      zIndex: 0,
-    },
-
-    line: {
-      position: 'absolute',
-      top: 0,
-      bottom: 0,
-      width: 1,
-      backgroundColor: C.line,
-    },
-
     colPad: {
       alignSelf: 'center',
       width: '100%',
@@ -484,7 +455,7 @@ const styles = StyleSheet.create(
 
     /* Pinned header */
     header: {
-      backgroundColor: C.page,
+      backgroundColor: 'transparent',
       paddingTop: 2,
       paddingBottom: 12,
     },
@@ -569,7 +540,7 @@ const styles = StyleSheet.create(
       width: 72,
       height: 72,
       borderRadius: 36,
-      backgroundColor: '#FFFFFF',
+      backgroundColor: '#F5F5F5',
       borderWidth: 1,
       borderColor: C.border,
       alignItems: 'center',
@@ -676,7 +647,7 @@ const styles = StyleSheet.create(
 
     optBox: {
       marginTop: 4,
-      backgroundColor: '#FFFFFF',
+      backgroundColor: '#F5F5F5',
       borderWidth: 1,
       borderColor: C.inputBorder,
       borderRadius: 3,
@@ -715,7 +686,7 @@ const styles = StyleSheet.create(
     buttonText: {
       fontFamily: Fonts.bodySemiBold,
       fontSize: 14,
-      color: '#FFFFFF',
+      color: '#F5F5F5',
     },
 
     /* Trainer's save — a touch taller and earlier than the card buttons. */
@@ -730,7 +701,7 @@ const styles = StyleSheet.create(
     saveText: {
       fontFamily: Fonts.bodySemiBold,
       fontSize: 14,
-      color: '#FFFFFF',
+      color: '#F5F5F5',
     },
 
     /* ── Zona e rrezikut ─────────────────────────────────────── */
@@ -798,7 +769,7 @@ const styles = StyleSheet.create(
     dangerFillText: {
       fontFamily: Fonts.bodySemiBold,
       fontSize: 11.5,
-      color: '#FFFFFF',
+      color: '#F5F5F5',
     },
 
     pressed: {

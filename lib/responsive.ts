@@ -1,12 +1,20 @@
+import { Dimensions } from 'react-native';
+
 /**
- * The dashboards are designed at fixed dp on the reference iPhone and must
- * render IDENTICALLY on every phone, regardless of screen size. SCALE is
- * therefore pinned to 1.0: no device ever grows or shrinks the layout.
- * A smaller/wider screen just shows the same content at the same sizes (a
- * shorter screen scrolls a bit more). Portrait-only app.
+ * The dashboards are laid out in fixed dp on the reference phone and every
+ * numeric style runs through `scaled()`, which multiplies it by SCALE. SCALE is
+ * the device width over DESIGN_WIDTH, so the same design stretches to fit any
+ * screen instead of overflowing into a scroll on narrower phones.
+ *
+ * DESIGN_WIDTH is the width the screens were tuned at — the iPhone 17 Pro Max
+ * (440 dp) — so that phone renders at its authored size (SCALE 1.0) and every
+ * other device grows or shrinks proportionally. Portrait-only app.
  */
-export const DESIGN_WIDTH = 390;
-export const SCALE = 1.0;
+export const DESIGN_WIDTH = 440;
+
+const { width: WINDOW_WIDTH } = Dimensions.get('window');
+
+export const SCALE = WINDOW_WIDTH / DESIGN_WIDTH;
 
 // Numeric style values that are NOT lengths and must stay unscaled.
 const NO_SCALE = new Set([

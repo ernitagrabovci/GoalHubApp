@@ -7,7 +7,6 @@ import {
   ScrollView,
   StyleSheet,
   TextInput,
-  useWindowDimensions,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -45,7 +44,7 @@ const C = {
   red: '#E03131',
   fshi: '#D90000',
   chipOff: '#C4C4C4',
-  white: '#FFFFFF',
+  white: '#F5F5F5',
 };
 
 const DIVIDER = 'rgba(30,40,35,0.10)';
@@ -76,8 +75,6 @@ let nextId = 100;
 
 export default function CompetitionsScreen() {
   const router = useRouter();
-  const { width } = useWindowDimensions();
-  const lineCount = Math.ceil(width / 9);
 
   const [list, setList] = useState<CompRow[]>(INITIAL);
   const [name, setName] = useState('');
@@ -108,13 +105,6 @@ export default function CompetitionsScreen() {
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
       <StatusBar style="dark" />
       <View style={styles.canvas}>
-        {/* Faint vertical canvas texture — decorative only */}
-        <View pointerEvents="none" style={styles.lines}>
-          {Array.from({ length: lineCount }).map((_, index) => (
-            <View key={index} style={[styles.line, { left: index * 9 }]} />
-          ))}
-        </View>
-
         {/* Very subtle circular background pattern in the empty space below */}
         <View pointerEvents="none" style={styles.deco}>
           <View style={styles.decoRingOuter} />
@@ -295,29 +285,10 @@ const styles = StyleSheet.create(
   scaled({
     safe: {
       flex: 1,
-      backgroundColor: C.page,
     },
 
     canvas: {
       flex: 1,
-      backgroundColor: C.page,
-    },
-
-    lines: {
-      position: 'absolute',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      zIndex: 0,
-    },
-
-    line: {
-      position: 'absolute',
-      top: 0,
-      bottom: 0,
-      width: 1,
-      backgroundColor: C.line,
     },
 
     /* Subtle decorative circles filling the lower empty space */
@@ -369,7 +340,7 @@ const styles = StyleSheet.create(
     },
 
     header: {
-      backgroundColor: C.page,
+      backgroundColor: 'transparent',
       paddingTop: 2,
       paddingBottom: 12,
     },
@@ -503,7 +474,7 @@ const styles = StyleSheet.create(
 
     optBox: {
       marginTop: 5,
-      backgroundColor: '#FFFFFF',
+      backgroundColor: '#F5F5F5',
       borderWidth: 0.5,
       borderColor: C.inputBorder,
       borderRadius: 4,
@@ -551,7 +522,7 @@ const styles = StyleSheet.create(
     addBtnText: {
       fontFamily: Fonts.bodyBold,
       fontSize: 14,
-      color: '#FFFFFF',
+      color: '#F5F5F5',
     },
 
     /* List rows */

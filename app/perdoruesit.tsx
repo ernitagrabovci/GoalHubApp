@@ -56,7 +56,7 @@ const MO = {
   ph: '#A8A8A8',
   cancel: '#ED5050',
   create: '#16A51D',
-  white: '#FFFFFF',
+  white: '#F5F5F5',
   err: '#C90000',
 };
 
@@ -70,11 +70,11 @@ const MO = {
 const SQ_GLOSS = [
   'rgba(180,188,201,0.30)',
   'rgba(216,222,231,0.15)',
-  'rgba(255,255,255,0.80)',
+  'rgba(245,245,245,0.80)',
 ] as const;
 
 /** Thin specular rim on the top edge — reads as the thickness of the pane. */
-const SQ_SHEEN = ['rgba(255,255,255,0.55)', 'rgba(255,255,255,0.00)'] as const;
+const SQ_SHEEN = ['rgba(245,245,245,0.55)', 'rgba(245,245,245,0.00)'] as const;
 
 type Square = { label: string; value: string; hint: string; tone: string; tall?: boolean };
 
@@ -599,8 +599,6 @@ function DeactivateUserModal({ user, onClose }: { user: User; onClose: () => voi
 
 export default function UsersListScreen() {
   const router = useRouter();
-  const { width } = useWindowDimensions();
-  const lineCount = Math.ceil(width / 9);
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<User | null>(null);
   const [removing, setRemoving] = useState<User | null>(null);
@@ -610,13 +608,6 @@ export default function UsersListScreen() {
       <StatusBar style="dark" />
 
       <View style={styles.canvas}>
-        {/* Faint vertical canvas texture — decorative only */}
-        <View pointerEvents="none" style={styles.lines}>
-          {Array.from({ length: lineCount }).map((_, index) => (
-            <View key={index} style={[styles.line, { left: index * 9 }]} />
-          ))}
-        </View>
-
         {/* Pinned header */}
         <View style={styles.header}>
           <View style={styles.colPad}>
@@ -667,7 +658,7 @@ export default function UsersListScreen() {
               style={({ pressed }) => [styles.newUser, pressed && styles.pressed]}
             >
               <View style={styles.newUserPlus}>
-                <MaterialCommunityIcons name="plus" size={I(15)} color="#FFFFFF" />
+                <MaterialCommunityIcons name="plus" size={I(15)} color="#F5F5F5" />
               </View>
               <Text style={styles.newUserText}>Krijo llogari</Text>
             </Pressable>
@@ -958,29 +949,10 @@ const styles = StyleSheet.create(
   scaled({
     safe: {
       flex: 1,
-      backgroundColor: C.page,
     },
 
     canvas: {
       flex: 1,
-      backgroundColor: C.page,
-    },
-
-    lines: {
-      position: 'absolute',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      zIndex: 0,
-    },
-
-    line: {
-      position: 'absolute',
-      top: 0,
-      bottom: 0,
-      width: 1,
-      backgroundColor: C.line,
     },
 
     colPad: {
@@ -991,7 +963,7 @@ const styles = StyleSheet.create(
 
     /* Pinned header */
     header: {
-      backgroundColor: C.page,
+      backgroundColor: 'transparent',
       paddingTop: 2,
       paddingBottom: 12,
     },
@@ -1050,7 +1022,7 @@ const styles = StyleSheet.create(
       width: '31.5%',
       borderRadius: 8,
       /* Translucent so the frosted pane inside has a backdrop to blur. */
-      backgroundColor: 'rgba(255,255,255,0.5)',
+      backgroundColor: 'rgba(245,245,245,0.5)',
       shadowColor: '#000000',
       shadowOffset: { width: 0, height: 2 },
       shadowOpacity: 0.04,
@@ -1201,7 +1173,7 @@ const styles = StyleSheet.create(
       flex: 1,
       height: 38,
       paddingHorizontal: 10,
-      backgroundColor: '#FFFFFF',
+      backgroundColor: '#F5F5F5',
       borderWidth: 1,
       borderColor: C.frame,
       borderRadius: 4,
@@ -1373,7 +1345,7 @@ const styles = StyleSheet.create(
     pageSqText: {
       fontFamily: Fonts.bodySemiBold,
       fontSize: 14,
-      color: '#FFFFFF',
+      color: '#F5F5F5',
     },
 
     /* ── Role swap ───────────────────────────────────────────── */
@@ -1459,7 +1431,7 @@ const styles = StyleSheet.create(
     roleSaveText: {
       fontFamily: Fonts.bodySemiBold,
       fontSize: 12,
-      color: '#FFFFFF',
+      color: '#F5F5F5',
     },
 
     /* ── Aktiviteti ──────────────────────────────────────────── */
@@ -1524,7 +1496,7 @@ const styles = StyleSheet.create(
     aktBtnText: {
       fontFamily: Fonts.bodyBold,
       fontSize: 12.5,
-      color: '#FFFFFF',
+      color: '#F5F5F5',
     },
 
     /* ── Popup overlay ───────────────────────────────────────── */
@@ -1553,7 +1525,7 @@ const styles = StyleSheet.create(
     pmCard: {
       marginTop: 100,
       alignSelf: 'center',
-      backgroundColor: '#FFFFFF',
+      backgroundColor: '#F5F5F5',
       borderWidth: 1,
       borderColor: MO.border,
       borderRadius: 5,
@@ -1667,7 +1639,7 @@ const styles = StyleSheet.create(
 
     pmOpts: {
       marginTop: 2,
-      backgroundColor: '#FFFFFF',
+      backgroundColor: '#F5F5F5',
       borderWidth: 1,
       borderColor: MO.inputBorder,
       borderRadius: 1,

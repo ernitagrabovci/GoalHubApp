@@ -116,7 +116,7 @@ const styles = StyleSheet.create(
     btnLight: {
       fontFamily: Fonts.bodySemiBold,
       fontSize: 13.5,
-      color: '#FFFFFF',
+      color: '#F5F5F5',
     },
 
     btnGreen: {
