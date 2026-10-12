@@ -28,11 +28,11 @@ export default function IntroScreen() {
 
   const dismissTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const played = useRef(false);
+  const sought = useRef(false);
 
   const player = useVideoPlayer(require('@/assets/videos/intro.mp4'), (p) => {
     p.loop = false;
     p.muted = true;
-    p.currentTime = PLAY_OFFSET_S;
   });
 
   const goToLogin = useCallback(() => {
@@ -42,7 +42,15 @@ export default function IntroScreen() {
 
   useEffect(() => {
     const statusSub = player.addListener('statusChange', ({ status }) => {
-      if (status === 'readyToPlay') setVideoReady(true);
+      if (status !== 'readyToPlay') return;
+      setVideoReady(true);
+      // iOS ignores a seek issued before the player is ready, so start playing
+      // from the offset only once the source has loaded.
+      if (!sought.current) {
+        sought.current = true;
+        player.currentTime = PLAY_OFFSET_S;
+      }
+      player.play();
     });
     const playingSub = player.addListener('playingChange', ({ isPlaying }) => {
       if (isPlaying && !played.current) {
