@@ -15,6 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
 import { I, scaled } from '@/lib/responsive';
+import { useSession, type Role } from '@/lib/session';
 
 /**
  * Siguria — the fifth settings sub-page.
@@ -49,22 +50,20 @@ const C = {
   dangerBorder: 'rgba(224,49,49,0.35)',
 };
 
-const SESSION_ROWS: { label: string; value: string }[] = [
-  { label: 'Roli', value: 'Administrator' },
-  { label: 'Emaili', value: 'admin@goalhub.com' },
-  { label: 'Hyrja e fundit', value: '10/09/2026 11:10' },
-  { label: 'IP adresa', value: '84.22.38.14' },
-  {
-    label: 'Browser',
-    value: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Ap',
-  },
-];
+/** The app's role union → the Albanian label shown in the session table. */
+const ROLE_NAME: Record<Role, string> = {
+  administrator: 'Administrator',
+  trainer: 'Trajner',
+  player: 'Lojtar',
+  parent: 'Prind',
+  financier: 'Financier',
+};
 
-const QUICK_ACTIONS: { label: string; color: string }[] = [
-  { label: 'Ndrysho fjalëkalimin', color: C.ok },
-  { label: 'Ndrysho email adresën', color: C.blue },
-  { label: 'Menaxho lojtarët', color: C.text },
-  { label: 'Menaxho përdoruesit', color: C.text },
+const QUICK_ACTIONS: { label: string; color: string; route?: string }[] = [
+  { label: 'Ndrysho fjalëkalimin', color: C.ok, route: '/account-settings' },
+  { label: 'Ndrysho email adresën', color: C.blue, route: '/account-settings' },
+  { label: 'Menaxho lojtarët', color: C.text, route: '/players' },
+  { label: 'Menaxho përdoruesit', color: C.text, route: '/perdoruesit' },
 ];
 
 /* ------------------------------------------------------------------ */
@@ -138,14 +137,17 @@ function InfoRow({
 function ActionRow({
   label,
   color,
+  onPress,
   last,
 }: {
   label: string;
   color: string;
+  onPress?: () => void;
   last?: boolean;
 }) {
   return (
     <Pressable
+      onPress={onPress}
       accessibilityRole="button"
       style={({ pressed }) => [
         styles.actionRow,
@@ -165,9 +167,20 @@ function ActionRow({
 
 export default function SecuritySettingsScreen() {
   const router = useRouter();
+  const { user } = useSession();
 
   const [twoFa, setTwoFa] = useState(false);
   const score = twoFa ? 4 : 3;
+
+  /* The API exposes no session metadata, so only role and email are real —
+     the IP/client/last-login rows have no source yet. */
+  const sessionRows = [
+    { label: 'Roli', value: user ? ROLE_NAME[user.role] : '—' },
+    { label: 'Emaili', value: user?.email ?? '—' },
+    { label: 'Hyrja e fundit', value: '—' },
+    { label: 'IP adresa', value: '—' },
+    { label: 'Browser', value: '—' },
+  ];
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
@@ -222,7 +235,7 @@ export default function SecuritySettingsScreen() {
                 <StatusRow
                   tone={C.ok}
                   title="Email i konfirmuar"
-                  desc="admin@goalhub.com"
+                  desc={user?.email ?? '—'}
                 />
                 <StatusRow
                   tone={twoFa ? C.ok : C.warn}
@@ -247,12 +260,12 @@ export default function SecuritySettingsScreen() {
               </View>
 
               <View style={styles.rows}>
-                {SESSION_ROWS.map((r, i) => (
+                {sessionRows.map((r, i) => (
                   <InfoRow
                     key={r.label}
                     label={r.label}
                     value={r.value}
-                    last={i === SESSION_ROWS.length - 1}
+                    last={i === sessionRows.length - 1}
                   />
                 ))}
               </View>
@@ -297,6 +310,7 @@ export default function SecuritySettingsScreen() {
                     key={a.label}
                     label={a.label}
                     color={a.color}
+                    onPress={a.route ? () => router.push(a.route as never) : undefined}
                     last={i === QUICK_ACTIONS.length - 1}
                   />
                 ))}

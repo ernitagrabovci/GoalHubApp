@@ -1,5 +1,5 @@
 import { request } from '@/lib/api/client';
-import type { ApiClubProfile } from '@/lib/api/types';
+import type { ApiClubProfile, ApiSeason, ApiTrainingField } from '@/lib/api/types';
 
 /** Editable club fields accepted by `PATCH /club` (`name` is the only required one). */
 export type ClubUpdateInput = {
@@ -30,4 +30,14 @@ export function getClub(token: string, signal?: AbortSignal) {
 
 export function updateClub(token: string, input: ClubUpdateInput, signal?: AbortSignal) {
   return request<ApiClubProfile>('/club', { method: 'PATCH', token, body: input, signal });
+}
+
+/** The club's seasons, newest first — `GET /club/seasons`. */
+export function getSeasons(token: string, signal?: AbortSignal) {
+  return request<{ data: ApiSeason[] }>('/club/seasons', { token, signal });
+}
+
+/** The club's training fields, by name — `GET /club/fields`. */
+export function getFields(token: string, signal?: AbortSignal) {
+  return request<{ data: ApiTrainingField[] }>('/club/fields', { token, signal });
 }

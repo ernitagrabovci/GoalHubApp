@@ -95,10 +95,28 @@ export type PlayerStats = {
 };
 
 export type ApiSeason = {
+  id?: number;
   name: string;
   is_active: boolean;
   start_date: string | null;
   end_date: string | null;
+  /** Free-form competition names stored on the season (JSON column). */
+  competitions?: string[] | null;
+};
+
+/** A training field, from `GET /club/fields`. */
+export type ApiTrainingField = {
+  id: number;
+  name: string;
+  type: string | null;
+  status: string | null;
+  address: string | null;
+  capacity: number | null;
+  dimensions: string | null;
+  has_lighting: boolean;
+  locker_rooms: number;
+  availability: string[] | null;
+  notes: string | null;
 };
 
 /** Club aggregate stats, from `GET /dashboard/stats` (administrator only). */

@@ -40,11 +40,11 @@ export function changePassword(token: string, currentPassword: string, password:
   });
 }
 
-export function updateProfile(token: string, name: string) {
+export function updateProfile(token: string, name: string, language?: 'sq' | 'en') {
   return request<ProfileResponse>('/profile', {
     method: 'PATCH',
     token,
-    body: { name },
+    body: language ? { name, language } : { name },
   });
 }
 

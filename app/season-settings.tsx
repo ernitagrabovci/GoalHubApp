@@ -2,7 +2,7 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { BlurView } from 'expo-blur';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Pressable,
   ScrollView,
@@ -14,7 +14,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
+import { getSeasons } from '@/lib/api/club';
+import { ApiError } from '@/lib/api/errors';
+import type { ApiSeason } from '@/lib/api/types';
 import { I, scaled } from '@/lib/responsive';
+import { useSession } from '@/lib/session';
 
 /**
  * Cilësimet e sezonit — the third settings sub-page.
@@ -58,14 +62,58 @@ const COLS: Col[] = [
   { key: 'act', label: 'Veprimet', width: 150 },
 ];
 
+/** `2025-07-01` → `01/07/2025` — season dates are plain days. */
+function ddmmyyyy(iso: string | null | undefined): string {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '—';
+  const dd = String(d.getDate()).padStart(2, '0');
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  return `${dd}/${mm}/${d.getFullYear()}`;
+}
+
+/** Whole days between two ISO days. */
+function durationDays(start: string | null | undefined, end: string | null | undefined): string {
+  if (!start || !end) return '—';
+  const a = new Date(start).getTime();
+  const b = new Date(end).getTime();
+  if (Number.isNaN(a) || Number.isNaN(b)) return '—';
+  return `${Math.round((b - a) / 86_400_000)} ditë`;
+}
+
 export default function SeasonSettingsScreen() {
   const router = useRouter();
+  const { token, signOut } = useSession();
   // The rows area measures itself so the blank rows can fill it exactly —
   // the page itself never scrolls (only the columns do, sideways).
   const [tableH, setTableH] = useState(0);
   const [creating, setCreating] = useState(false);
+  const [seasons, setSeasons] = useState<ApiSeason[]>([]);
+
+  useEffect(() => {
+    if (!token) return;
+    const controller = new AbortController();
+
+    getSeasons(token, controller.signal)
+      .then((res) => {
+        if (controller.signal.aborted) return;
+        setSeasons(res.data);
+      })
+      .catch((e) => {
+        if (controller.signal.aborted) return;
+        if (e instanceof ApiError && e.status === 401) {
+          signOut();
+          router.replace('/login');
+        }
+      });
+
+    return () => controller.abort();
+  }, [token, router, signOut]);
+
+  const active = seasons.find((s) => s.is_active) ?? null;
+
   const rowH = I(40);
-  const emptyRows = Math.max(1, Math.floor(tableH / rowH) - 2);
+  const emptyRows = Math.max(0, Math.floor(tableH / rowH) - 1 - seasons.length);
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
@@ -100,8 +148,12 @@ export default function SeasonSettingsScreen() {
               <BlurView intensity={40} tint="light" style={StyleSheet.absoluteFill} />
               <View pointerEvents="none" style={styles.bannerTint} />
               <View style={styles.bannerText}>
-                <Text style={styles.bannerTitle}>Sezoni aktiv: 2024/2025</Text>
-                <Text style={styles.bannerDates}>01/07/2024 — 30/06/2025</Text>
+                <Text style={styles.bannerTitle} numberOfLines={1}>
+                  Sezoni aktiv: {active?.name ?? '—'}
+                </Text>
+                <Text style={styles.bannerDates}>
+                  {ddmmyyyy(active?.start_date)} — {ddmmyyyy(active?.end_date)}
+                </Text>
               </View>
               <Pressable
                 accessibilityRole="button"
@@ -145,40 +197,58 @@ export default function SeasonSettingsScreen() {
                       ))}
                     </View>
 
-                    {/* Filled example row */}
-                    <View style={[styles.tr, styles.trBorder]}>
-                      {COLS.map((c) => (
-                        <View key={c.key} style={[styles.tdCell, { width: c.width }]}>
-                          {c.key === 'name' ? <Text style={styles.td}>2025/2026</Text> : null}
-                          {c.key === 'start' ? <Text style={styles.td}>01/07/2025</Text> : null}
-                          {c.key === 'end' ? <Text style={styles.td}>30/06/2026</Text> : null}
-                          {c.key === 'dur' ? <Text style={styles.td}>364 ditë</Text> : null}
-                          {c.key === 'status' ? <Text style={styles.td}>Mbyllur</Text> : null}
-                          {c.key === 'act' ? (
-                            <View style={styles.actCell}>
-                              <Pressable
-                                accessibilityRole="button"
-                                style={({ pressed }) => [
-                                  styles.actBtn,
-                                  pressed && styles.pressed,
-                                ]}
-                              >
-                                <Text style={styles.actBtnText}>Aktivizo</Text>
-                              </Pressable>
-                              <Pressable
-                                accessibilityRole="button"
-                                style={({ pressed }) => [
-                                  styles.delBtn,
-                                  pressed && styles.pressed,
-                                ]}
-                              >
-                                <Text style={styles.delBtnText}>Fshi</Text>
-                              </Pressable>
-                            </View>
-                          ) : null}
-                        </View>
-                      ))}
-                    </View>
+                    {/* One row per season */}
+                    {seasons.map((s, i) => (
+                      <View key={s.id ?? i} style={[styles.tr, styles.trBorder]}>
+                        {COLS.map((c) => (
+                          <View key={c.key} style={[styles.tdCell, { width: c.width }]}>
+                            {c.key === 'name' ? (
+                              <Text style={styles.td} numberOfLines={1}>
+                                {s.name}
+                              </Text>
+                            ) : null}
+                            {c.key === 'start' ? (
+                              <Text style={styles.td}>{ddmmyyyy(s.start_date)}</Text>
+                            ) : null}
+                            {c.key === 'end' ? (
+                              <Text style={styles.td}>{ddmmyyyy(s.end_date)}</Text>
+                            ) : null}
+                            {c.key === 'dur' ? (
+                              <Text style={styles.td}>
+                                {durationDays(s.start_date, s.end_date)}
+                              </Text>
+                            ) : null}
+                            {c.key === 'status' ? (
+                              <Text style={styles.td}>
+                                {s.is_active ? 'Aktiv' : 'Mbyllur'}
+                              </Text>
+                            ) : null}
+                            {c.key === 'act' ? (
+                              <View style={styles.actCell}>
+                                <Pressable
+                                  accessibilityRole="button"
+                                  style={({ pressed }) => [
+                                    styles.actBtn,
+                                    pressed && styles.pressed,
+                                  ]}
+                                >
+                                  <Text style={styles.actBtnText}>Aktivizo</Text>
+                                </Pressable>
+                                <Pressable
+                                  accessibilityRole="button"
+                                  style={({ pressed }) => [
+                                    styles.delBtn,
+                                    pressed && styles.pressed,
+                                  ]}
+                                >
+                                  <Text style={styles.delBtnText}>Fshi</Text>
+                                </Pressable>
+                              </View>
+                            ) : null}
+                          </View>
+                        ))}
+                      </View>
+                    ))}
 
                     {/* Empty rows — fill the card to the bottom */}
                     {Array.from({ length: emptyRows }).map((_, i) => (

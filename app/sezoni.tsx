@@ -15,7 +15,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
+import { getSeasons } from '@/lib/api/club';
+import { ApiError } from '@/lib/api/errors';
+import type { ApiSeason } from '@/lib/api/types';
 import { I, scaled } from '@/lib/responsive';
+import { useSession } from '@/lib/session';
 
 /**
  * Sezoni — page opened from the club profile's "Sezoni" card. Same visual
@@ -106,35 +110,64 @@ type Hist = {
   active: boolean;
 };
 
-const SEED: Hist = {
-  id: 1,
-  season: '2025/2026',
-  range: '01 Jul 2025 — 30 Jun 2026',
-  comps: ['Superliga e Kosovës', 'Kupa e Kosovës'],
-  closed: true,
-  active: false,
-};
+const MONTHS = [
+  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+];
 
-let nextHistId = 2;
+/** `2025-07-01` → `01 Jul 2025` — the season history range format. */
+function fmtDay(iso: string | null | undefined): string {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '—';
+  return `${String(d.getDate()).padStart(2, '0')} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+}
 
 export default function SezoniScreen() {
   const router = useRouter();
+  const { token, signOut } = useSession();
 
-  const [history, setHistory] = useState<Hist[]>([SEED]);
+  const [seasons, setSeasons] = useState<ApiSeason[]>([]);
+  const [history, setHistory] = useState<Hist[]>([]);
   const [compOpen, setCompOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
 
+  useEffect(() => {
+    if (!token) return;
+    const controller = new AbortController();
+
+    getSeasons(token, controller.signal)
+      .then((res) => {
+        if (controller.signal.aborted) return;
+        setSeasons(res.data);
+        setHistory(
+          res.data.map((s, i) => ({
+            id: s.id ?? i,
+            season: s.name,
+            range: `${fmtDay(s.start_date)} — ${fmtDay(s.end_date)}`,
+            comps: s.competitions ?? [],
+            closed: !s.is_active,
+            active: s.is_active,
+          })),
+        );
+      })
+      .catch((e) => {
+        if (controller.signal.aborted) return;
+        if (e instanceof ApiError && e.status === 401) {
+          signOut();
+          router.replace('/login');
+        }
+      });
+
+    return () => controller.abort();
+  }, [token, router, signOut]);
+
+  const active = seasons.find((s) => s.is_active) ?? seasons[0] ?? null;
+
   const handleCreateSeason = (d: { season: string; range: string; comps: string[] }) => {
     setHistory((prev) => [
+      { id: Date.now(), season: d.season, range: d.range, comps: d.comps, closed: false, active: false },
       ...prev,
-      {
-        id: nextHistId++,
-        season: d.season,
-        range: d.range,
-        comps: d.comps,
-        closed: false,
-        active: false,
-      },
     ]);
     setCreateOpen(false);
   };
@@ -239,7 +272,16 @@ export default function SezoniScreen() {
               <View style={styles.cardBody}>
                 {/* info grid */}
                 <View style={styles.infoTable}>
-                  {INFO.map(([l1, v1, l2, v2], idx) => (
+                  {([
+                    ['Sezoni', active?.name ?? '—', 'Kompeticion', CURRENT_COMP],
+                    [
+                      'Filloi',
+                      fmtDay(active?.start_date),
+                      'Mbaron',
+                      fmtDay(active?.end_date),
+                    ],
+                    INFO[2],
+                  ] as InfoRow[]).map(([l1, v1, l2, v2], idx) => (
                     <View key={idx} style={styles.iRow}>
                       <Text style={[styles.iLabel, styles.c1]} numberOfLines={1}>
                         {l1}

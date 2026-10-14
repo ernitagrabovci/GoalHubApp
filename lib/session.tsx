@@ -40,7 +40,12 @@ export const ROLE_LABELS: Record<Role, string> = {
 /** `loading` until the stored token has been checked on launch. */
 export type SessionStatus = 'loading' | 'signedOut' | 'signedIn';
 
-type UpdateProfileInput = { name: string; email: string; password?: string };
+type UpdateProfileInput = {
+  name: string;
+  email: string;
+  password?: string;
+  language?: 'sq' | 'en';
+};
 
 type SessionValue = {
   user: SessionUser | null;
@@ -113,7 +118,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, [token]);
 
   const updateProfile = useCallback(
-    async ({ name, email, password }: UpdateProfileInput) => {
+    async ({ name, email, password, language }: UpdateProfileInput) => {
       if (!token || !user) throw new ApiError('You are not signed in.', 401);
 
       const nextName = name.trim();
@@ -132,8 +137,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         avatar: null,
       };
 
-      if (nextName && nextName !== user.name) {
-        apiUser = (await auth.updateProfile(token, nextName)).user;
+      if (nextName && (nextName !== user.name || language !== undefined)) {
+        apiUser = (await auth.updateProfile(token, nextName, language)).user;
       }
       if (emailChanged) {
         apiUser = (await auth.updateEmail(token, nextEmail, password as string)).user;

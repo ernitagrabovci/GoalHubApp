@@ -2,6 +2,7 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { BlurView } from 'expo-blur';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useEffect, useState } from 'react';
 import {
   Pressable,
   ScrollView,
@@ -12,7 +13,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
+import { getClub } from '@/lib/api/club';
+import { ApiError } from '@/lib/api/errors';
+import type { ApiClubProfile } from '@/lib/api/types';
 import { I, scaled } from '@/lib/responsive';
+import { useSession } from '@/lib/session';
 
 /**
  * Abonimi — the sixth settings sub-page.
@@ -38,6 +43,16 @@ const C = {
   red: '#E03131',
   redLine: 'rgba(224,49,49,0.35)',
 };
+
+/** `2026-10-14T00:00:00Z` → `14/10/2026` — subscription dates are plain days. */
+function dayDate(iso: string | null | undefined): string {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '—';
+  const dd = String(d.getDate()).padStart(2, '0');
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  return `${dd}/${mm}/${d.getFullYear()}`;
+}
 
 /* ------------------------------------------------------------------ */
 /* Small pieces                                                        */
@@ -92,6 +107,34 @@ function PairInline({
 
 export default function SubscriptionSettingsScreen() {
   const router = useRouter();
+  const { token, signOut } = useSession();
+
+  const [sub, setSub] = useState<ApiClubProfile['subscription'] | null>(null);
+
+  useEffect(() => {
+    if (!token) return;
+    const controller = new AbortController();
+
+    getClub(token, controller.signal)
+      .then((res) => {
+        if (controller.signal.aborted) return;
+        setSub(res.subscription);
+      })
+      .catch((e) => {
+        if (controller.signal.aborted) return;
+        if (e instanceof ApiError && e.status === 401) {
+          signOut();
+          router.replace('/login');
+        }
+      });
+
+    return () => controller.abort();
+  }, [token, router, signOut]);
+
+  const active = sub?.active ?? false;
+  const planName = sub?.plan ?? '—';
+  const planSub = sub ? (sub.on_trial ? 'Provë falas' : active ? 'Abonim aktiv' : 'Pa abonim') : '—';
+  const statusText = sub?.status ?? '—';
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
@@ -128,10 +171,16 @@ export default function SubscriptionSettingsScreen() {
               </View>
 
               <View style={styles.planWrap}>
-                <Text style={styles.planName}>GoalHub Professional</Text>
-                <Text style={styles.planSub}>Pa abonim</Text>
-                <View style={styles.pill}>
-                  <Text style={styles.pillText}>Aktiv</Text>
+                <Text style={styles.planName} numberOfLines={1}>
+                  {planName}
+                </Text>
+                <Text style={styles.planSub} numberOfLines={1}>
+                  {planSub}
+                </Text>
+                <View style={[styles.pill, !active && styles.pillOff]}>
+                  <Text style={styles.pillText} numberOfLines={1}>
+                    {active ? 'Aktiv' : statusText}
+                  </Text>
                 </View>
               </View>
 
@@ -139,15 +188,15 @@ export default function SubscriptionSettingsScreen() {
 
               <View style={styles.pairWrap}>
                 <PairInline
-                  left={{ label: 'Fillimi', value: '--' }}
-                  right={{ label: 'Përfundimi', value: '--' }}
+                  left={{ label: 'Fillimi', value: '—' }}
+                  right={{ label: 'Përfundimi', value: dayDate(sub?.ends_at) }}
                 />
               </View>
 
               <View style={[styles.pairWrap, styles.pairWrapLast]}>
                 <Pair
-                  left={{ label: 'Çmimi', value: '$49/muaji' }}
-                  right={{ label: 'Statusi', value: 'Aktiv' }}
+                  left={{ label: 'Çmimi', value: '—' }}
+                  right={{ label: 'Statusi', value: statusText }}
                 />
               </View>
             </View>
@@ -309,6 +358,10 @@ const styles = StyleSheet.create(
       justifyContent: 'center',
       backgroundColor: C.ok,
       borderRadius: 999,
+    },
+
+    pillOff: {
+      backgroundColor: C.gray,
     },
 
     pillText: {

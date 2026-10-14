@@ -14,8 +14,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
+import { ApiError } from '@/lib/api/errors';
 import { I, scaled } from '@/lib/responsive';
-import { useSession } from '@/lib/session';
+import { useSession, type SessionUser } from '@/lib/session';
 
 /**
  * Cilësimet e llogarisë — one shell (light #FAFBFA canvas, pinned header) over
@@ -45,6 +46,25 @@ const C = {
 const FCP = require('@/assets/dashboard/fcp.png');
 const LANGUAGES = ['Shqip', 'English'];
 
+/** A one-line result under a form: green on success, red on failure. */
+type Msg = { text: string; ok: boolean };
+
+/** Albanian copy for a failed settings save. */
+function errorText(e: unknown): string {
+  if (e instanceof ApiError && e.status === 422) {
+    return 'Të dhënat nuk janë të vlefshme. Kontrollo fushat.';
+  }
+  if (e instanceof ApiError && e.status === 0) {
+    return 'Nuk mund të lidhemi me serverin. Kontrollo lidhjen.';
+  }
+  return 'Diçka shkoi keq. Provo përsëri.';
+}
+
+function MsgLine({ msg }: { msg: Msg | null }) {
+  if (!msg) return null;
+  return <Text style={[styles.msg, { color: msg.ok ? C.green : C.red }]}>{msg.text}</Text>;
+}
+
 /* ------------------------------------------------------------------ */
 /* Small form pieces                                                   */
 /* ------------------------------------------------------------------ */
@@ -55,6 +75,7 @@ type FieldProps = {
   onChangeText: (t: string) => void;
   flex?: boolean;
   secure?: boolean;
+  editable?: boolean;
   keyboardType?: 'default' | 'email-address';
   autoCapitalize?: 'none' | 'sentences' | 'words';
 };
@@ -65,6 +86,7 @@ function Field({
   onChangeText,
   flex,
   secure,
+  editable = true,
   keyboardType = 'default',
   autoCapitalize = 'sentences',
 }: FieldProps) {
@@ -74,6 +96,7 @@ function Field({
       <TextInput
         value={value}
         onChangeText={onChangeText}
+        editable={editable}
         secureTextEntry={secure}
         keyboardType={keyboardType}
         autoCapitalize={autoCapitalize}
@@ -134,17 +157,27 @@ function SelectField({ label, value, options, onChange }: SelectFieldProps) {
   );
 }
 
-function PrimaryButton({ label, onPress }: { label: string; onPress: () => void }) {
+function PrimaryButton({
+  label,
+  onPress,
+  loading,
+}: {
+  label: string;
+  onPress: () => void;
+  loading?: boolean;
+}) {
   return (
     <Pressable
       onPress={onPress}
+      disabled={loading}
       accessibilityRole="button"
       style={({ pressed }) => [
         styles.button,
         { backgroundColor: pressed ? C.greenPressed : C.green },
+        loading && styles.btnOff,
       ]}
     >
-      <Text style={styles.buttonText}>{label}</Text>
+      <Text style={styles.buttonText}>{loading ? '…' : label}</Text>
     </Pressable>
   );
 }
@@ -153,17 +186,121 @@ function PrimaryButton({ label, onPress }: { label: string; onPress: () => void 
 /* Administrator body                                                  */
 /* ------------------------------------------------------------------ */
 
-function AdminAccountBody() {
-  const [fullName, setFullName] = useState('Admin GoalHub');
-  const [language, setLanguage] = useState('Shqip');
+function AdminAccountBody({ user }: { user: SessionUser }) {
+  const router = useRouter();
+  const { signOut, updateProfile, changePassword } = useSession();
 
-  const [currEmail, setCurrEmail] = useState('admin@goalhub.com');
+  const [fullName, setFullName] = useState(user.name);
+  const [language, setLanguage] = useState('Shqip');
+  const [profileMsg, setProfileMsg] = useState<Msg | null>(null);
+  const [savingProfile, setSavingProfile] = useState(false);
+
   const [newEmail, setNewEmail] = useState('');
   const [emailPass, setEmailPass] = useState('');
+  const [emailMsg, setEmailMsg] = useState<Msg | null>(null);
+  const [savingEmail, setSavingEmail] = useState(false);
 
   const [currPass, setCurrPass] = useState('');
   const [newPass, setNewPass] = useState('');
   const [confirmPass, setConfirmPass] = useState('');
+  const [passMsg, setPassMsg] = useState<Msg | null>(null);
+  const [savingPass, setSavingPass] = useState(false);
+
+  /* A dead token on any of the three saves bounces to the login screen. */
+  const handleAuth = (e: unknown) =>
+    e instanceof ApiError && e.status === 401 ? true : false;
+
+  const saveProfile = () => {
+    if (savingProfile) return;
+    if (!fullName.trim()) {
+      setProfileMsg({ text: 'Shkruaj emrin e plotë.', ok: false });
+      return;
+    }
+    setSavingProfile(true);
+    setProfileMsg(null);
+    updateProfile({
+      name: fullName,
+      email: user.email,
+      language: language === 'English' ? 'en' : 'sq',
+    })
+      .then(() => setProfileMsg({ text: 'Profili u ruajt.', ok: true }))
+      .catch((e) => {
+        if (handleAuth(e)) {
+          signOut();
+          router.replace('/login');
+          return;
+        }
+        setProfileMsg({ text: errorText(e), ok: false });
+      })
+      .finally(() => setSavingProfile(false));
+  };
+
+  const saveEmail = () => {
+    if (savingEmail) return;
+    if (!newEmail.trim() || !emailPass) {
+      setEmailMsg({ text: 'Plotëso emailin e ri dhe fjalëkalimin.', ok: false });
+      return;
+    }
+    setSavingEmail(true);
+    setEmailMsg(null);
+    updateProfile({ name: user.name, email: newEmail.trim(), password: emailPass })
+      .then(() => {
+        setEmailMsg({ text: 'Emaili u përditësua.', ok: true });
+        setNewEmail('');
+        setEmailPass('');
+      })
+      .catch((e) => {
+        if (handleAuth(e)) {
+          signOut();
+          router.replace('/login');
+          return;
+        }
+        setEmailMsg({
+          text:
+            e instanceof ApiError && e.status === 422
+              ? 'Fjalëkalimi është i gabuar ose emaili është në përdorim.'
+              : errorText(e),
+          ok: false,
+        });
+      })
+      .finally(() => setSavingEmail(false));
+  };
+
+  const savePassword = () => {
+    if (savingPass) return;
+    if (!currPass || !newPass) {
+      setPassMsg({ text: 'Plotëso fjalëkalimin aktual dhe të ri.', ok: false });
+      return;
+    }
+    if (newPass !== confirmPass) {
+      setPassMsg({ text: 'Fjalëkalimet e reja nuk përputhen.', ok: false });
+      return;
+    }
+    setSavingPass(true);
+    setPassMsg(null);
+    changePassword(currPass, newPass)
+      .then(() => {
+        setPassMsg({ text: 'Fjalëkalimi u ndryshua.', ok: true });
+        setCurrPass('');
+        setNewPass('');
+        setConfirmPass('');
+      })
+      .catch((e) => {
+        if (handleAuth(e)) {
+          signOut();
+          router.replace('/login');
+          return;
+        }
+        setPassMsg({
+          text:
+            e instanceof ApiError && e.status === 422
+              ? 'Fjalëkalimi aktual është i gabuar ose i dobët.'
+              : errorText(e),
+          ok: false,
+        });
+      })
+      .finally(() => setSavingPass(false));
+  };
 
   return (
     <>
@@ -178,8 +315,8 @@ function AdminAccountBody() {
           <View style={styles.avatarCircle}>
             <Image source={FCP} style={styles.avatarImg} resizeMode="contain" />
           </View>
-          <Text style={styles.profileName}>Admin GoalHub</Text>
-          <Text style={styles.profileEmail}>admin@goalhub.com</Text>
+          <Text style={styles.profileName}>{user.name}</Text>
+          <Text style={styles.profileEmail}>{user.email}</Text>
         </View>
         <View style={styles.formDivider} />
 
@@ -188,12 +325,8 @@ function AdminAccountBody() {
           <Field label="Emri i plotë:" value={fullName} onChangeText={setFullName} autoCapitalize="words" />
           <View style={styles.fieldGap} />
           <SelectField label="Gjuha e platformës:" value={language} options={LANGUAGES} onChange={setLanguage} />
-          <PrimaryButton
-            label="Ruaj Profilin"
-            onPress={() => {
-              /* persist handled later */
-            }}
-          />
+          <MsgLine msg={profileMsg} />
+          <PrimaryButton label="Ruaj Profilin" onPress={saveProfile} loading={savingProfile} />
         </View>
       </View>
 
@@ -206,8 +339,9 @@ function AdminAccountBody() {
           <View style={styles.gridRow}>
             <Field
               label="Email aktual"
-              value={currEmail}
-              onChangeText={setCurrEmail}
+              value={user.email}
+              onChangeText={() => {}}
+              editable={false}
               keyboardType="email-address"
               autoCapitalize="none"
               flex
@@ -227,11 +361,11 @@ function AdminAccountBody() {
             onChangeText={setEmailPass}
             secure
           />
+          <MsgLine msg={emailMsg} />
           <PrimaryButton
             label="Ndrysho email adresën"
-            onPress={() => {
-              /* persist handled later */
-            }}
+            onPress={saveEmail}
+            loading={savingEmail}
           />
         </View>
       </View>
@@ -247,11 +381,11 @@ function AdminAccountBody() {
             <Field label="Fjalëkalimi i ri" value={newPass} onChangeText={setNewPass} secure flex />
           </View>
           <Field label="Konfirmo fjalëkalimin e ri:" value={confirmPass} onChangeText={setConfirmPass} secure />
+          <MsgLine msg={passMsg} />
           <PrimaryButton
             label="Ndrysho fjalëkalimin"
-            onPress={() => {
-              /* persist handled later */
-            }}
+            onPress={savePassword}
+            loading={savingPass}
           />
         </View>
       </View>
@@ -263,12 +397,66 @@ function AdminAccountBody() {
 /* Trainer body (and every other non-administrator role)               */
 /* ------------------------------------------------------------------ */
 
-function TrainerAccountBody() {
-  const [currEmail, setCurrEmail] = useState('admin@goalhub.com');
+function TrainerAccountBody({ user }: { user: SessionUser }) {
+  const router = useRouter();
+  const { signOut, updateProfile, changePassword } = useSession();
+
   const [newEmail, setNewEmail] = useState('');
   const [currPass, setCurrPass] = useState('');
   const [newPass, setNewPass] = useState('');
   const [confirmPass, setConfirmPass] = useState('');
+  const [msg, setMsg] = useState<Msg | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  /* One save for both changes: email needs the current password anyway, and a
+     new password needs it too — so one current-password field drives both. */
+  const save = () => {
+    if (saving) return;
+    const wantsEmail = newEmail.trim().length > 0;
+    const wantsPass = newPass.length > 0 || confirmPass.length > 0;
+
+    if (!wantsEmail && !wantsPass) {
+      setMsg({ text: 'Nuk ka ndryshime për të ruajtur.', ok: false });
+      return;
+    }
+    if (!currPass) {
+      setMsg({ text: 'Shkruaj fjalëkalimin aktual.', ok: false });
+      return;
+    }
+    if (wantsPass && newPass !== confirmPass) {
+      setMsg({ text: 'Fjalëkalimet e reja nuk përputhen.', ok: false });
+      return;
+    }
+
+    setSaving(true);
+    setMsg(null);
+
+    const tasks: Promise<unknown>[] = [];
+    if (wantsEmail) {
+      tasks.push(updateProfile({ name: user.name, email: newEmail.trim(), password: currPass }));
+    }
+    if (wantsPass) {
+      tasks.push(changePassword(currPass, newPass));
+    }
+
+    Promise.all(tasks)
+      .then(() => {
+        setMsg({ text: 'Cilësimet u ruajtën.', ok: true });
+        setNewEmail('');
+        setCurrPass('');
+        setNewPass('');
+        setConfirmPass('');
+      })
+      .catch((e) => {
+        if (e instanceof ApiError && e.status === 401) {
+          signOut();
+          router.replace('/login');
+          return;
+        }
+        setMsg({ text: errorText(e), ok: false });
+      })
+      .finally(() => setSaving(false));
+  };
 
   return (
     <>
@@ -284,8 +472,9 @@ function TrainerAccountBody() {
           <View style={styles.gridRow}>
             <Field
               label="Email aktual:"
-              value={currEmail}
-              onChangeText={setCurrEmail}
+              value={user.email}
+              onChangeText={() => {}}
+              editable={false}
               keyboardType="email-address"
               autoCapitalize="none"
               flex
@@ -326,17 +515,19 @@ function TrainerAccountBody() {
             />
           </View>
 
+          <MsgLine msg={msg} />
+
           <Pressable
-            onPress={() => {
-              /* persist handled later */
-            }}
+            onPress={save}
+            disabled={saving}
             accessibilityRole="button"
             style={({ pressed }) => [
               styles.save,
               { backgroundColor: pressed ? C.greenPressed : C.green },
+              saving && styles.btnOff,
             ]}
           >
-            <Text style={styles.saveText}>Ruaj cilësimet</Text>
+            <Text style={styles.saveText}>{saving ? '…' : 'Ruaj cilësimet'}</Text>
           </Pressable>
         </View>
       </View>
@@ -355,18 +546,12 @@ function TrainerAccountBody() {
 
         <View style={styles.dangerActions}>
           <Pressable
-            onPress={() => {
-              /* persist handled later */
-            }}
             accessibilityRole="button"
             style={({ pressed }) => [styles.dangerGhost, pressed && styles.pressed]}
           >
             <Text style={styles.dangerGhostText}>Çaktivizo llogarinë</Text>
           </Pressable>
           <Pressable
-            onPress={() => {
-              /* persist handled later */
-            }}
             accessibilityRole="button"
             style={({ pressed }) => [styles.dangerFill, pressed && styles.pressed]}
           >
@@ -424,7 +609,13 @@ export default function AccountSettingsScreen() {
           contentContainerStyle={styles.scroll}
         >
           <View style={styles.colPad}>
-            {isAdmin ? <AdminAccountBody /> : <TrainerAccountBody />}
+            {user ? (
+              isAdmin ? (
+                <AdminAccountBody user={user} />
+              ) : (
+                <TrainerAccountBody user={user} />
+              )
+            ) : null}
           </View>
         </ScrollView>
       </View>
@@ -687,6 +878,19 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodySemiBold,
       fontSize: 14,
       color: '#F5F5F5',
+    },
+
+    /* Result line under a form, and the dimmed state while a save is in flight. */
+    msg: {
+      fontFamily: Fonts.bodySemiBold,
+      fontSize: 11.5,
+      lineHeight: 15,
+      textAlign: 'center',
+      marginTop: 10,
+    },
+
+    btnOff: {
+      opacity: 0.6,
     },
 
     /* Trainer's save — a touch taller and earlier than the card buttons. */

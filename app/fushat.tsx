@@ -2,7 +2,7 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { BlurView } from 'expo-blur';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Pressable,
   ScrollView,
@@ -15,7 +15,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
+import { getFields } from '@/lib/api/club';
+import { ApiError } from '@/lib/api/errors';
+import type { ApiTrainingField } from '@/lib/api/types';
 import { I, scaled } from '@/lib/responsive';
+import { useSession } from '@/lib/session';
 
 /**
  * Fushat e stërvitjes — opened from the club profile's "Fushat e stërvitjes"
@@ -94,60 +98,28 @@ type Field = {
   weekly?: DayRow[];
 };
 
-const SEED: Field[] = [
-  {
-    id: 1,
-    label: 'Fusha Qendrore-Natyrale',
-    name: 'Fusha Qendrore',
-    address: 'Stadiumi i Qytetit, Prishtinë',
-    capacity: '12.000 spekt.',
-    dimensions: '105x68',
-    lighting: 'Po',
-    availability: 'Asnjë ditë e hapur.',
-  },
-  {
-    id: 2,
-    label: 'Fusha Dytësore',
-    name: 'Fusha Dytësore',
-    address: 'Kompleksi i Stadiumit, Prishtinë',
-    capacity: '5.000 spekt.',
-    dimensions: '105x68',
-    lighting: 'Po',
-    availability: 'Asnjë ditë e hapur.',
-  },
-  {
-    id: 3,
-    label: 'Fusha Sintetike e Trajnimit',
-    name: 'Fusha Sintetike e Trajnimit',
-    address: 'Rruga e Stadiumit, Prishtinë',
-    capacity: '300 spekt.',
-    dimensions: '100x64',
-    lighting: 'Po',
-    availability: 'E hënë – E premte, 17:00 – 20:00',
-  },
-  {
-    id: 4,
-    label: 'Fusha e Akademisë',
-    name: 'Fusha e Akademisë',
-    address: 'Fushë Kosovë',
-    capacity: '200 spekt.',
-    dimensions: '105x68',
-    lighting: 'Jo',
-    availability: 'E shtunë, 09:00 – 13:00',
-  },
-  {
-    id: 5,
-    label: 'Fusha e Rezervës',
-    name: 'Fusha e Rezervës',
-    address: 'Lagjja e Dardanisë, Prishtinë',
-    capacity: '—',
-    dimensions: '90x60',
-    lighting: 'Jo',
-    availability: 'Asnjë ditë e hapur.',
-  },
-];
+/** Map an API training field onto the screen's `Field` view-model. */
+function toField(f: ApiTrainingField): Field {
+  const availability =
+    f.availability && f.availability.length
+      ? f.availability.join(', ')
+      : 'Asnjë ditë e hapur.';
 
-let nextFieldId = 6;
+  return {
+    id: f.id,
+    label: f.type ? `${f.name}-${f.type}` : f.name,
+    name: f.name,
+    address: f.address ?? '—',
+    capacity: f.capacity != null ? `${f.capacity} spekt.` : '—',
+    dimensions: f.dimensions ?? '—',
+    lighting: f.has_lighting ? 'Po' : 'Jo',
+    availability,
+    lloji: f.type ?? '',
+    statusi: f.status ?? '',
+    changingRoom: f.locker_rooms > 0 ? 'Po' : 'Jo',
+    notes: f.notes ?? '',
+  };
+}
 
 /* Modal option sets */
 const LLOJI = ['Natyrale', 'Sintetike', 'Hibrid'];
@@ -211,11 +183,34 @@ type FieldPayload = {
 
 export default function FushatScreen() {
   const router = useRouter();
+  const { token, signOut } = useSession();
 
-  const [fields, setFields] = useState<Field[]>(SEED);
-  const [currentId, setCurrentId] = useState(1);
+  const [fields, setFields] = useState<Field[]>([]);
+  const [currentId, setCurrentId] = useState(0);
   const [open, setOpen] = useState(false);
   const [modal, setModal] = useState<null | { mode: 'add' } | { mode: 'edit'; field: Field }>(null);
+
+  useEffect(() => {
+    if (!token) return;
+    const controller = new AbortController();
+
+    getFields(token, controller.signal)
+      .then((res) => {
+        if (controller.signal.aborted) return;
+        const mapped = res.data.map(toField);
+        setFields(mapped);
+        setCurrentId(mapped.length ? mapped[0].id : 0);
+      })
+      .catch((e) => {
+        if (controller.signal.aborted) return;
+        if (e instanceof ApiError && e.status === 401) {
+          signOut();
+          router.replace('/login');
+        }
+      });
+
+    return () => controller.abort();
+  }, [token, router, signOut]);
 
   const sel = fields.find((f) => f.id === currentId) ?? null;
 
@@ -240,7 +235,7 @@ export default function FushatScreen() {
     if (!modal) return;
     if (modal.mode === 'add') {
       const nf: Field = {
-        id: nextFieldId++,
+        id: Date.now(),
         label: p.name,
         name: p.name,
         address: p.address,
