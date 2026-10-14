@@ -1,14 +1,18 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
 import { InjuryDraft, InjuryFormModal } from '@/components/medical/injury-form';
 import { Fonts } from '@/constants/theme';
+import { ApiError } from '@/lib/api/errors';
+import { getInjury } from '@/lib/api/injuries';
+import { toInjuryRow } from '@/lib/medical';
 import { I, scaled } from '@/lib/responsive';
+import { useSession } from '@/lib/session';
 
 /**
  * One injury — opened from "Shiko" on the medical card's injury log. The row
@@ -55,8 +59,10 @@ function formatDate(value: string): string {
 
 export default function InjuryDetailScreen() {
   const router = useRouter();
+  const { token, signOut } = useSession();
 
   const params = useLocalSearchParams<{
+    id?: string;
     name?: string;
     team?: string;
     type?: string;
@@ -68,6 +74,8 @@ export default function InjuryDetailScreen() {
     desc?: string;
     treatment?: string;
   }>();
+
+  const injuryId = params.id ? Number(params.id) : null;
 
   /* The log row opens the page; the edit popup moves it on from there. */
   const [injury, setInjury] = useState<InjuryDraft>(() => ({
@@ -81,14 +89,46 @@ export default function InjuryDetailScreen() {
     desc: params.desc ?? '',
     treatment: params.treatment ?? '',
   }));
-
+  const [team, setTeam] = useState(params.team ?? '');
   const [editing, setEditing] = useState(false);
+
+  useEffect(() => {
+    if (!token || !injuryId || Number.isNaN(injuryId)) return;
+    const controller = new AbortController();
+
+    getInjury(token, injuryId, controller.signal)
+      .then((res) => {
+        if (controller.signal.aborted) return;
+        const row = toInjuryRow(res.data);
+        setTeam(row.team);
+        setInjury({
+          player: row.name,
+          type: row.type,
+          during: row.during,
+          status: row.status,
+          date: row.date,
+          returnDate: row.returnDate,
+          serviceDate: row.serviceDate,
+          desc: row.desc,
+          treatment: row.treatment,
+        });
+      })
+      .catch((e) => {
+        if (controller.signal.aborted) return;
+        if (e instanceof ApiError && e.status === 401) {
+          signOut();
+          router.replace('/login');
+        }
+      });
+
+    return () => controller.abort();
+  }, [token, injuryId, router, signOut]);
 
   const title = injury.type ? `${injury.player} - ${injury.type}` : injury.player;
 
   const values = [
     injury.player,
-    params.team ?? '',
+    team,
     injury.type,
     injury.during,
     formatDate(injury.date),

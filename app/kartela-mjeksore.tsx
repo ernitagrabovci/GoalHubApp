@@ -537,6 +537,7 @@ export default function MedicalCardScreen() {
                               router.push({
                                 pathname: '/detajet-lendimit',
                                 params: {
+                                  id: String(inj.id),
                                   name,
                                   team,
                                   type: inj.injury_type,

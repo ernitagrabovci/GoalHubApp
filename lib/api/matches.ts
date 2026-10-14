@@ -21,3 +21,10 @@ export function listMatches(token: string, params: MatchListParams = {}, signal?
   const query = toQuery({ status: params.status, page: params.page });
   return request<Paginated<ApiMatch>>(`/matches${query}`, { token, signal });
 }
+
+/** `GET /matches/{match}` returns a single resource envelope. */
+type MatchResponse = { data: ApiMatch };
+
+export function getMatch(token: string, id: number, signal?: AbortSignal) {
+  return request<MatchResponse>(`/matches/${id}`, { token, signal });
+}

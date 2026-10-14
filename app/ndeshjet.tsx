@@ -432,6 +432,7 @@ export default function MatchesScreen() {
                           router.push({
                             pathname: '/ndeshja',
                             params: {
+                              id: f.id != null ? String(f.id) : '',
                               home: f.home,
                               away: f.away,
                               day: f.day,

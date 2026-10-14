@@ -268,9 +268,9 @@ export default function ClubProfileScreen() {
     if (!token) return;
     const controller = new AbortController();
     getClub(token, controller.signal)
-      .then((club) => {
+      .then((res) => {
         if (controller.signal.aborted) return;
-        setForm(toForm(club));
+        setForm(toForm(res.data));
         setError(null);
       })
       .catch((err) => {
@@ -328,7 +328,7 @@ export default function ClubProfileScreen() {
         twitter: optional(form.twitter),
         description: optional(form.history),
       });
-      setForm(toForm(updated));
+      setForm(toForm(updated.data));
       setSaved(true);
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {

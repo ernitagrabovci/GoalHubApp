@@ -118,7 +118,7 @@ export default function SubscriptionSettingsScreen() {
     getClub(token, controller.signal)
       .then((res) => {
         if (controller.signal.aborted) return;
-        setSub(res.subscription);
+        setSub(res.data.subscription);
       })
       .catch((e) => {
         if (controller.signal.aborted) return;

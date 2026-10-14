@@ -1,12 +1,17 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
+import { ApiError } from '@/lib/api/errors';
+import { getMatch } from '@/lib/api/matches';
+import type { ApiMatch } from '@/lib/api/types';
 import { I, scaled } from '@/lib/responsive';
+import { useSession } from '@/lib/session';
 
 /**
  * One upcoming match — opened from "Shiko" on the ndeshjet page. The fixture
@@ -50,10 +55,24 @@ function teamFromComp(comp: string): string {
   return match ? match[1] : 'Ekipi i Parë';
 }
 
+const pad2 = (n: number) => String(n).padStart(2, '0');
+
+/** `2026-08-18T16:00:00Z` → `18 Aug 2026, 16:00`. */
+function matchDateLine(iso: string | null | undefined): string {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '—';
+  return `${pad2(d.getDate())} ${monthName(MONTHS[d.getMonth()])} ${d.getFullYear()}, ${pad2(
+    d.getHours(),
+  )}:${pad2(d.getMinutes())}`;
+}
+
 export default function MatchViewScreen() {
   const router = useRouter();
+  const { token, signOut } = useSession();
 
   const params = useLocalSearchParams<{
+    id?: string;
     home?: string;
     away?: string;
     day?: string;
@@ -63,16 +82,41 @@ export default function MatchViewScreen() {
     comp?: string;
   }>();
 
-  const home = params.home ?? '';
-  const away = params.away ?? '';
-  const comp = params.comp ?? '';
+  const matchId = params.id ? Number(params.id) : null;
+  const [match, setMatch] = useState<ApiMatch | null>(null);
+
+  useEffect(() => {
+    if (!token || !matchId || Number.isNaN(matchId)) return;
+    const controller = new AbortController();
+
+    getMatch(token, matchId, controller.signal)
+      .then((res) => {
+        if (controller.signal.aborted) return;
+        setMatch(res.data);
+      })
+      .catch((e) => {
+        if (controller.signal.aborted) return;
+        if (e instanceof ApiError && e.status === 401) {
+          signOut();
+          router.replace('/login');
+        }
+      });
+
+    return () => controller.abort();
+  }, [token, matchId, router, signOut]);
+
+  const comp = match?.competition ?? params.comp ?? '';
+  const home = match?.team?.name ?? params.home ?? '';
+  const away = match?.opponent ?? params.away ?? '';
   const title = away ? `${home} - ${away}` : home;
 
   const values = [
-    teamFromComp(comp),
-    params.venue ?? '',
+    match?.team?.name ?? teamFromComp(comp),
+    match?.venue ?? params.venue ?? '',
     comp,
-    `${params.day ?? ''} ${monthName(params.mon ?? '')} ${SEASON_YEAR}, ${params.time ?? ''}`.trim(),
+    match
+      ? matchDateLine(match.scheduled_at)
+      : `${params.day ?? ''} ${monthName(params.mon ?? '')} ${SEASON_YEAR}, ${params.time ?? ''}`.trim(),
   ];
 
   return (

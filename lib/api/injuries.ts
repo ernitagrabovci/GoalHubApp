@@ -28,3 +28,10 @@ export function listInjuries(token: string, params: InjuryListParams = {}, signa
   });
   return request<Paginated<ApiInjury>>(`/injuries${query}`, { token, signal });
 }
+
+/** `GET /injuries/{injury}` returns a single resource envelope. */
+type InjuryResponse = { data: ApiInjury };
+
+export function getInjury(token: string, id: number, signal?: AbortSignal) {
+  return request<InjuryResponse>(`/injuries/${id}`, { token, signal });
+}

@@ -268,8 +268,9 @@ export default function ClubSettingsScreen() {
     if (!token) return;
     const controller = new AbortController();
     getClub(token, controller.signal)
-      .then((club) => {
+      .then((res) => {
         if (controller.signal.aborted) return;
+        const club = res.data;
         setForm(toForm(club));
         if (club.fee_due_day != null) setDueDay(String(club.fee_due_day));
         if (club.fee_grace_days != null) setTolerance(String(club.fee_grace_days));
@@ -341,9 +342,9 @@ export default function ClubSettingsScreen() {
         fee_due_day: optionalInt(dueDay),
         fee_grace_days: optionalInt(tolerance),
       });
-      setForm(toForm(updated));
-      if (updated.fee_due_day != null) setDueDay(String(updated.fee_due_day));
-      if (updated.fee_grace_days != null) setTolerance(String(updated.fee_grace_days));
+      setForm(toForm(updated.data));
+      if (updated.data.fee_due_day != null) setDueDay(String(updated.data.fee_due_day));
+      if (updated.data.fee_grace_days != null) setTolerance(String(updated.data.fee_grace_days));
       setSaved(true);
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {

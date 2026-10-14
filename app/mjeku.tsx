@@ -1,14 +1,18 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
 import { InjuryDraft, InjuryFormModal } from '@/components/medical/injury-form';
 import { Fonts } from '@/constants/theme';
+import { ApiError } from '@/lib/api/errors';
+import { listInjuries } from '@/lib/api/injuries';
+import { toInjuryRow, type InjuryRow } from '@/lib/medical';
 import { I, scaled } from '@/lib/responsive';
+import { useSession } from '@/lib/session';
 
 /**
  * Mjeku — the trainer's own view of the medical card, opened from the
@@ -43,26 +47,13 @@ const C = {
 /* The squad this page covers — shown as the page subtitle. */
 const TEAM = 'Ekipi i Parë';
 
-type Injury = {
-  name: string;
-  type: string;
-  date: string;
-  returnDate: string;
-  status: string;
-  /* The fields the injury's own page reads. */
-  during: string;
-  serviceDate: string;
-  desc: string;
-  treatment: string;
-};
-
 const STATUS_TONE: Record<string, string> = {
   'I lënduar': C.red,
   'Në rehabilitim': C.orange,
   'I shëruar': C.green,
 };
 
-const COLS: { key: keyof Injury; label: string; width: number }[] = [
+const COLS: { key: keyof InjuryRow; label: string; width: number }[] = [
   { key: 'name', label: 'Lojtari', width: 96 },
   { key: 'type', label: 'Lloji Lëndimit', width: 88 },
   { key: 'date', label: 'Data', width: 64 },
@@ -73,26 +64,39 @@ const COLS: { key: keyof Injury; label: string; width: number }[] = [
 /* Wide enough for the row's "Shiko". */
 const ACTION_W = 58;
 
-const INJURIES: Injury[] = [
-  { name: 'Driton Demiri', type: 'Muskulor', date: '18/08/2026', returnDate: '12/09/2026', status: 'I lënduar', during: 'Ndeshje', serviceDate: '25/08/2026', desc: 'Ndjen dhimbje në kofshën e djathtë', treatment: 'Pushim dhe terapi akulli' },
-  { name: 'Enver Mustafa', type: 'Kyç', date: '11/08/2026', returnDate: '05/09/2026', status: 'Në rehabilitim', during: 'Stërvitje', serviceDate: '16/08/2026', desc: 'Kyçi i majtë i ënjtur', treatment: 'Fizioterapi çdo ditë' },
-  { name: 'Ardit Lapashtica', type: 'Gisht', date: '04/08/2026', returnDate: '20/09/2026', status: 'I lënduar', during: 'Stërvitje', serviceDate: '09/08/2026', desc: 'Gishti i unazës i thyer', treatment: 'Imobilizim tre javë' },
-  { name: 'Narti Cerkini', type: 'Gripi', date: '27/08/2026', returnDate: '01/09/2026', status: 'I lënduar', during: 'Tjetër', serviceDate: '10/09/2026', desc: 'Gjendje gripale, pa stërvitje', treatment: 'Pushim në shtëpi' },
-  { name: 'Bekim Rexhepi', type: 'Muskulor', date: '21/07/2026', returnDate: '30/07/2026', status: 'I shëruar', during: 'Stërvitje', serviceDate: '24/07/2026', desc: 'Grumbullim muskujsh në listë', treatment: 'Ngrohje dhe shtrirje' },
-  { name: 'Genc Morina', type: 'Kofshë', date: '14/07/2026', returnDate: '28/07/2026', status: 'I shëruar', during: 'Ndeshje', serviceDate: '18/07/2026', desc: 'Dëmtim i kofshës së pasme', treatment: 'Terapi akulli' },
-  { name: 'Hamdi Shala', type: 'Shputë', date: '02/07/2026', returnDate: '16/07/2026', status: 'I shëruar', during: 'Stërvitje', serviceDate: '06/07/2026', desc: 'Dhimbje në shputën e këmbës', treatment: 'Masazh dhe pushim' },
-];
-
 export default function DoctorScreen() {
   const router = useRouter();
+  const { token, signOut } = useSession();
 
-  const [injuries, setInjuries] = useState<Injury[]>(INJURIES);
+  const [injuries, setInjuries] = useState<InjuryRow[]>([]);
   const [adding, setAdding] = useState(false);
+
+  useEffect(() => {
+    if (!token) return;
+    const controller = new AbortController();
+
+    listInjuries(token, {}, controller.signal)
+      .then((res) => {
+        if (controller.signal.aborted) return;
+        setInjuries(res.data.map(toInjuryRow));
+      })
+      .catch((e) => {
+        if (controller.signal.aborted) return;
+        if (e instanceof ApiError && e.status === 401) {
+          signOut();
+          router.replace('/login');
+        }
+      });
+
+    return () => controller.abort();
+  }, [token, router, signOut]);
 
   const add = (d: InjuryDraft) => {
     setInjuries((prev) => [
       {
+        id: Date.now(),
         name: d.player,
+        team: TEAM,
         type: d.type,
         date: d.date,
         returnDate: d.returnDate,
@@ -135,7 +139,7 @@ export default function DoctorScreen() {
                   Mjeku
                 </Text>
                 <Text style={styles.subtitle} numberOfLines={1}>
-                  {TEAM}
+                  {injuries[0]?.team ?? TEAM}
                 </Text>
               </View>
             </View>
@@ -191,7 +195,7 @@ export default function DoctorScreen() {
                   </View>
 
                   {injuries.map((inj, i) => (
-                    <View key={`${inj.name}-${inj.date}-${i}`} style={[styles.tr, styles.trBorder]}>
+                    <View key={inj.id} style={[styles.tr, styles.trBorder]}>
                       {COLS.map((c) => {
                         const isStatus = c.key === 'status';
 
@@ -221,8 +225,9 @@ export default function DoctorScreen() {
                             router.push({
                               pathname: '/detajet-lendimit',
                               params: {
+                                id: String(inj.id),
                                 name: inj.name,
-                                team: TEAM,
+                                team: inj.team,
                                 type: inj.type,
                                 during: inj.during,
                                 status: inj.status,

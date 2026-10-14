@@ -24,12 +24,15 @@ export type ClubUpdateInput = {
   fee_grace_days?: number | null;
 };
 
+/** `GET`/`PATCH /club` return a single resource envelope. */
+type ClubResponse = { data: ApiClubProfile };
+
 export function getClub(token: string, signal?: AbortSignal) {
-  return request<ApiClubProfile>('/club', { token, signal });
+  return request<ClubResponse>('/club', { token, signal });
 }
 
 export function updateClub(token: string, input: ClubUpdateInput, signal?: AbortSignal) {
-  return request<ApiClubProfile>('/club', { method: 'PATCH', token, body: input, signal });
+  return request<ClubResponse>('/club', { method: 'PATCH', token, body: input, signal });
 }
 
 /** The club's seasons, newest first — `GET /club/seasons`. */
