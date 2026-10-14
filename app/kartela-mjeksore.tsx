@@ -3,17 +3,30 @@ import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
+import { ApiError } from '@/lib/api/errors';
+import { listInjuries } from '@/lib/api/injuries';
+import { playerStats } from '@/lib/api/players';
+import { listTeams } from '@/lib/api/teams';
+import type { ApiInjury, ApiTeam, Paginated, PlayerStats } from '@/lib/api/types';
+import { injuryStatusLabel, occurredLabel } from '@/lib/injury-status';
 import { I, scaled } from '@/lib/responsive';
+import { useSession } from '@/lib/session';
 
 /**
  * Kartela mjekësore — opened from the medical card on the admin dashboard.
  * Three headline counts, the players currently carrying a problem, and the
- * full injury log.
+ * injury log.
+ *
+ * Counts come from `GET /players/stats`; the log from the paginated
+ * `GET /injuries` (whose `team_id`/`status` filters back the two filter
+ * buttons). The "players with a problem" table is the unfiltered set minus
+ * the recovered ones, so it doesn't move when the log is filtered.
  */
 
 const C = {
@@ -37,8 +50,13 @@ const C = {
   orange: '#E4A000',
 };
 
-const TEAMS = ['Të gjitha ekipet', 'Ekipi i Parë', 'U21', 'U19', 'U17', 'U15'];
-const STATUSES = ['Të gjitha statuset', 'I lënduar', 'Në rehabilitim', 'I shëruar'];
+type FilterKey = 'team' | 'status';
+
+const STATUS_OPTIONS = [
+  { value: 'injured', label: 'I lënduar' },
+  { value: 'rehabilitation', label: 'Në rehabilitim' },
+  { value: 'recovered', label: 'I shëruar' },
+];
 
 /** Width of the trailing "Shiko" column in the injury log. */
 const INJ_ACTION_W = 58;
@@ -65,61 +83,178 @@ const STATUS_TONE: Record<string, string> = {
   'I shëruar': C.green,
 };
 
-const SUMMARY = [
-  { label: 'Lojtarë aktiv', value: '77', note: 'Gati për lojë', tone: C.green },
-  { label: 'Lojtarë të lënduar', value: '4', note: 'Pa lojë', tone: C.red },
-  { label: 'Lojtarë në rehabilitim', value: '0', note: 'Kthim në pagese', tone: C.orange },
-];
+/** ISO `YYYY-MM-DD` → `dd/MM/yyyy`; absent/unparseable → a dash. */
+function formatDate(iso: string | null): string {
+  if (!iso) return '—';
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return '—';
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  return `${day}/${month}/${date.getFullYear()}`;
+}
 
-type Problem = {
-  name: string;
-  team: string;
-  status: string;
-  lastInjury: string;
-  expectedReturn: string;
-};
+/** The statuses a player can be carrying: everything but a closed-out injury. */
+function isOpenProblem(injury: ApiInjury): boolean {
+  return injury.status !== 'recovered';
+}
 
-const PROBLEMS: Problem[] = [
-  { name: 'Driton Demiri', team: 'Ekipi i Parë', status: 'I lënduar', lastInjury: 'Grumbullim muskujsh', expectedReturn: '12/09/2026' },
-  { name: 'Enver Mustafa', team: 'Ekipi i Parë', status: 'Në rehabilitim', lastInjury: 'Përrdredhje e kyçit', expectedReturn: '05/09/2026' },
-  { name: 'Ardit Lapashtica', team: 'Ekipi i Parë', status: 'I lënduar', lastInjury: 'Thyerje e gishtit', expectedReturn: '20/09/2026' },
-  { name: 'Narti Cerkini', team: 'Ekipi i Parë', status: 'I lënduar', lastInjury: 'Gripi', expectedReturn: '01/09/2026' },
-  { name: 'Blerim Krasniqi', team: 'U21', status: 'Në rehabilitim', lastInjury: 'Lëndim i shputës', expectedReturn: '18/09/2026' },
-  { name: 'Endrit Gashi', team: 'U19', status: 'I lënduar', lastInjury: 'Grumbullim muskujsh', expectedReturn: '02/10/2026' },
-  { name: 'Leart Berisha', team: 'U19', status: 'I lënduar', lastInjury: 'Dëmtim i shpatullës', expectedReturn: '10/10/2026' },
-  { name: 'Riad Hoxha', team: 'U17', status: 'Në rehabilitim', lastInjury: 'Përrdredhje e kyçit', expectedReturn: '22/09/2026' },
-  { name: 'Arbnor Zeka', team: 'U17', status: 'I lënduar', lastInjury: 'Dëmtim i kofshës', expectedReturn: '30/09/2026' },
-  { name: 'Dion Nimani', team: 'U15', status: 'I lënduar', lastInjury: 'Thyerje e dorës', expectedReturn: '15/10/2026' },
-];
-
-type Injury = {
-  name: string;
-  team: string;
-  type: string;
-  during: string;
-  date: string;
-  status: string;
-  returnDate: string;
-  /** The three fields only the detail page shows. */
-  serviceDate: string;
-  desc: string;
-  treatment: string;
-};
-
-const INJURIES: Injury[] = [
-  { name: 'Driton Demiri', team: 'Ekipi i Parë', type: 'Muskulor', during: 'Ndeshje', date: '18/08/2026', status: 'I lënduar', returnDate: '12/09/2026', serviceDate: '25/08/2026', desc: 'Ndjen dhimbje në kofshën e djathtë', treatment: 'Pushim dhe terapi akulli' },
-  { name: 'Enver Mustafa', team: 'Ekipi i Parë', type: 'Kyç', during: 'Stërvitje', date: '11/08/2026', status: 'Në rehabilitim', returnDate: '05/09/2026', serviceDate: '16/08/2026', desc: 'Kyçi i majtë i ënjtur', treatment: 'Fizioterapi çdo ditë' },
-  { name: 'Ardit Lapashtica', team: 'Ekipi i Parë', type: 'Gisht', during: 'Stërvitje', date: '04/08/2026', status: 'I lënduar', returnDate: '20/09/2026', serviceDate: '09/08/2026', desc: 'Gishti i unazës i thyer', treatment: 'Imobilizim tre javë' },
-  { name: 'Narti Cerkini', team: 'Ekipi i Parë', type: 'Gripi', during: 'Tjetër', date: '27/08/2026', status: 'I lënduar', returnDate: '01/09/2026', serviceDate: '10/09/2026', desc: 'po i shkojn hunet', treatment: 'me pi çaja' },
-  { name: 'Blerim Krasniqi', team: 'U21', type: 'Shputë', during: 'Ndeshje', date: '21/07/2026', status: 'Në rehabilitim', returnDate: '18/09/2026', serviceDate: '27/07/2026', desc: 'Dhimbje në shputën e këmbës', treatment: 'Masazh dhe pushim' },
-  { name: 'Endrit Gashi', team: 'U19', type: 'Muskulor', during: 'Stërvitje', date: '14/07/2026', status: 'I shëruar', returnDate: '30/07/2026', serviceDate: '18/07/2026', desc: 'Grumbullim muskujsh', treatment: 'Ngrohje dhe shtrirje' },
-  { name: 'Leart Berisha', team: 'U19', type: 'Shpatullë', during: 'Ndeshje', date: '07/07/2026', status: 'I lënduar', returnDate: '10/10/2026', serviceDate: '12/07/2026', desc: 'Shpatulla e djathtë e dëmtuar', treatment: 'Fizioterapi dy javë' },
-  { name: 'Riad Hoxha', team: 'U17', type: 'Kyç', during: 'Stërvitje', date: '30/06/2026', status: 'Në rehabilitim', returnDate: '22/09/2026', serviceDate: '05/07/2026', desc: 'Përrdredhje e lehtë e kyçit', treatment: 'Fasho dhe pushim' },
-  { name: 'Arbnor Zeka', team: 'U17', type: 'Kofshë', during: 'Ndeshje', date: '23/06/2026', status: 'I shëruar', returnDate: '14/07/2026', serviceDate: '28/06/2026', desc: 'Dëmtim i kofshës së pasme', treatment: 'Terapi akulli' },
-];
+/** Keeps each player's most recent open injury, assuming the list is newest-first. */
+function latestPerPlayer(list: ApiInjury[]): ApiInjury[] {
+  const seen = new Set<number>();
+  const out: ApiInjury[] = [];
+  for (const injury of list) {
+    const id = injury.player?.id;
+    if (id != null) {
+      if (seen.has(id)) continue;
+      seen.add(id);
+    }
+    out.push(injury);
+  }
+  return out;
+}
 
 export default function MedicalCardScreen() {
   const router = useRouter();
+  const { token, signOut } = useSession();
+
+  const [stats, setStats] = useState<PlayerStats | null>(null);
+  const [teams, setTeams] = useState<ApiTeam[]>([]);
+  const [problems, setProblems] = useState<ApiInjury[]>([]);
+  const [injuries, setInjuries] = useState<ApiInjury[]>([]);
+  const [meta, setMeta] = useState<Paginated<ApiInjury>['meta'] | null>(null);
+  const [page, setPage] = useState(1);
+  const [filters, setFilters] = useState<{ team: 'all' | number; status: string }>({
+    team: 'all',
+    status: 'all',
+  });
+  const [openFilter, setOpenFilter] = useState<FilterKey | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const filterKey = `${filters.team}|${filters.status}`;
+
+  // Headline counts + the team filter's options — a one-shot.
+  useEffect(() => {
+    if (!token) return;
+    const controller = new AbortController();
+    Promise.allSettled([playerStats(token, controller.signal), listTeams(token, controller.signal)]).then(
+      ([statsRes, teamsRes]) => {
+        if (controller.signal.aborted) return;
+        if (statsRes.status === 'fulfilled') setStats(statsRes.value);
+        if (teamsRes.status === 'fulfilled') setTeams(teamsRes.value.data);
+      },
+    );
+    return () => controller.abort();
+  }, [token]);
+
+  // The "players with a problem" table — unfiltered, so it holds still while
+  // the log below is filtered.
+  useEffect(() => {
+    if (!token) return;
+    const controller = new AbortController();
+    listInjuries(token, { page: 1 }, controller.signal)
+      .then((res) => {
+        if (!controller.signal.aborted) setProblems(res.data);
+      })
+      .catch((err) => {
+        if (controller.signal.aborted) return;
+        if (err instanceof ApiError && err.status === 401) {
+          signOut();
+          router.replace('/login');
+        }
+      });
+    return () => controller.abort();
+  }, [token, signOut, router]);
+
+  // The log — filtered and paged.
+  useEffect(() => {
+    if (!token) return;
+    const controller = new AbortController();
+    listInjuries(
+      token,
+      {
+        page,
+        team_id: filters.team === 'all' ? undefined : filters.team,
+        status: filters.status === 'all' ? undefined : filters.status,
+      },
+      controller.signal,
+    )
+      .then((res) => {
+        if (controller.signal.aborted) return;
+        setInjuries(res.data);
+        setMeta(res.meta);
+        setError(null);
+      })
+      .catch((err) => {
+        if (controller.signal.aborted) return;
+        if (err instanceof ApiError && err.status === 401) {
+          signOut();
+          router.replace('/login');
+          return;
+        }
+        setError(
+          err instanceof ApiError && err.status === 0
+            ? 'Nuk mund të lidhemi me serverin. Kontrollo lidhjen.'
+            : 'Nuk mund të ngarkohen lëndimet.',
+        );
+      });
+    return () => controller.abort();
+  }, [token, page, filterKey, filters.team, filters.status, signOut, router]);
+
+  const summary = [
+    {
+      label: 'Lojtarë aktiv',
+      value: stats ? String(stats.active) : '—',
+      note: 'Gati për lojë',
+      tone: C.green,
+    },
+    {
+      label: 'Lojtarë të lënduar',
+      value: stats ? String(stats.injured) : '—',
+      note: 'Pa lojë',
+      tone: C.red,
+    },
+    {
+      label: 'Lojtarë në rehabilitim',
+      value: stats ? String(stats.rehabilitation) : '—',
+      note: 'Kthim në pagese',
+      tone: C.orange,
+    },
+  ];
+
+  const problemRows = latestPerPlayer(problems.filter(isOpenProblem));
+
+  const applyFilter = (key: FilterKey, value: string | number) => {
+    setFilters((prev) => ({ ...prev, [key]: value }));
+    setPage(1);
+    setOpenFilter(null);
+  };
+
+  const filterLabel = (key: FilterKey): string => {
+    if (key === 'team') {
+      return filters.team === 'all'
+        ? 'Të gjitha ekipet'
+        : teams.find((t) => t.id === filters.team)?.name ?? 'Të gjitha ekipet';
+    }
+    return filters.status === 'all'
+      ? 'Të gjitha statuset'
+      : STATUS_OPTIONS.find((o) => o.value === filters.status)?.label ?? 'Të gjitha statuset';
+  };
+
+  const filterItems = (key: FilterKey): { value: string | number; label: string }[] => {
+    if (key === 'team') {
+      return [
+        { value: 'all', label: 'Të gjitha ekipet' },
+        ...teams.map((t) => ({ value: t.id, label: t.name })),
+      ];
+    }
+    return [{ value: 'all', label: 'Të gjitha statuset' }, ...STATUS_OPTIONS];
+  };
+
+  const selectedFilterValue = (key: FilterKey): string | number =>
+    key === 'team' ? filters.team : filters.status;
+
+  const current = meta?.current_page ?? 1;
+  const lastPage = meta?.last_page ?? 1;
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
@@ -159,7 +294,7 @@ export default function MedicalCardScreen() {
           {/* ── Headline counts ─────────────────────────────────── */}
           {/* Only three, so they share the row instead of scrolling. */}
           <View style={styles.summaryRow}>
-            {SUMMARY.map((s) => (
+            {summary.map((s) => (
               <View key={s.label} style={styles.sqShadow}>
                 <View style={styles.sq}>
                   {/* Frost the canvas grid, then lay a gloss sweep over it. */}
@@ -228,35 +363,44 @@ export default function MedicalCardScreen() {
                     <Text style={[styles.th, { width: 92 }]}>Kthimi i pritshëm</Text>
                   </View>
 
-                  {PROBLEMS.map((p, i) => (
-                    <View key={`${p.name}-${i}`} style={[styles.tr, styles.trBorder]}>
-                      <Text
-                        style={[styles.tdName, styles.thLeft, { width: 110 }]}
-                        numberOfLines={1}
-                        adjustsFontSizeToFit
-                        minimumFontScale={0.7}
-                      >
-                        {p.name}
-                      </Text>
-                      <Text style={[styles.td, { width: 58 }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
-                        {p.team}
-                      </Text>
-                      <Text
-                        style={[styles.td, styles.tdStatus, { width: 80, color: STATUS_TONE[p.status] ?? C.hint }]}
-                        numberOfLines={1}
-                        adjustsFontSizeToFit
-                        minimumFontScale={0.7}
-                      >
-                        {p.status}
-                      </Text>
-                      <Text style={[styles.td, { width: 102 }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
-                        {p.lastInjury}
-                      </Text>
-                      <Text style={[styles.td, { width: 92 }]} numberOfLines={1}>
-                        {p.expectedReturn}
-                      </Text>
+                  {problemRows.map((p) => {
+                    const status = injuryStatusLabel(p.status);
+                    return (
+                      <View key={p.id} style={[styles.tr, styles.trBorder]}>
+                        <Text
+                          style={[styles.tdName, styles.thLeft, { width: 110 }]}
+                          numberOfLines={1}
+                          adjustsFontSizeToFit
+                          minimumFontScale={0.7}
+                        >
+                          {p.player?.name ?? '—'}
+                        </Text>
+                        <Text style={[styles.td, { width: 58 }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
+                          {p.team?.name ?? '—'}
+                        </Text>
+                        <Text
+                          style={[styles.td, styles.tdStatus, { width: 80, color: STATUS_TONE[status] ?? C.hint }]}
+                          numberOfLines={1}
+                          adjustsFontSizeToFit
+                          minimumFontScale={0.7}
+                        >
+                          {status}
+                        </Text>
+                        <Text style={[styles.td, { width: 102 }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
+                          {p.injury_type}
+                        </Text>
+                        <Text style={[styles.td, { width: 92 }]} numberOfLines={1}>
+                          {formatDate(p.expected_return)}
+                        </Text>
+                      </View>
+                    );
+                  })}
+
+                  {problemRows.length === 0 ? (
+                    <View style={styles.stateRow}>
+                      <Text style={styles.stateText}>Asnjë lojtar me problem mjeksor.</Text>
                     </View>
-                  ))}
+                  ) : null}
                 </View>
               </ScrollView>
             </View>
@@ -269,24 +413,64 @@ export default function MedicalCardScreen() {
               <View style={styles.headLine} />
 
               <View style={styles.filters}>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Filtro sipas ekipit"
-                  style={({ pressed }) => [styles.filterBtn, pressed && styles.pressed]}
-                >
-                  <Text style={styles.filterText}>{TEAMS[0]}</Text>
-                  <MaterialCommunityIcons name="chevron-down" size={I(13)} color={C.text} />
-                </Pressable>
-
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Filtro sipas statusit"
-                  style={({ pressed }) => [styles.filterBtn, pressed && styles.pressed]}
-                >
-                  <Text style={styles.filterText}>{STATUSES[0]}</Text>
-                  <MaterialCommunityIcons name="chevron-down" size={I(13)} color={C.text} />
-                </Pressable>
+                {(['team', 'status'] as FilterKey[]).map((key) => (
+                  <Pressable
+                    key={key}
+                    onPress={() => setOpenFilter((cur) => (cur === key ? null : key))}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Filtro sipas ${key === 'team' ? 'ekipit' : 'statusit'}`}
+                    style={({ pressed }) => [
+                      styles.filterBtn,
+                      openFilter === key && styles.filterBtnOpen,
+                      pressed && styles.pressed,
+                    ]}
+                  >
+                    <Text style={styles.filterText} numberOfLines={1}>
+                      {filterLabel(key)}
+                    </Text>
+                    <MaterialCommunityIcons
+                      name={openFilter === key ? 'chevron-up' : 'chevron-down'}
+                      size={I(13)}
+                      color={C.text}
+                    />
+                  </Pressable>
+                ))}
               </View>
+
+              {/* The open filter's options — an inline strip so nothing clips
+                  and every option stays tappable on Android. */}
+              {openFilter ? (
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  bounces={false}
+                  contentContainerStyle={styles.filterOptsRow}
+                >
+                  {filterItems(openFilter).map((item) => {
+                    const active = item.value === selectedFilterValue(openFilter);
+                    return (
+                      <Pressable
+                        key={String(item.value)}
+                        onPress={() => applyFilter(openFilter, item.value)}
+                        accessibilityRole="button"
+                        accessibilityLabel={item.label}
+                        style={({ pressed }) => [
+                          styles.filterChip,
+                          active && styles.filterChipActive,
+                          pressed && styles.pressed,
+                        ]}
+                      >
+                        <Text
+                          style={[styles.filterChipText, active && styles.filterChipTextActive]}
+                          numberOfLines={1}
+                        >
+                          {item.label}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </ScrollView>
+              ) : null}
 
               {/* Table — scroll sideways so no column gets squeezed */}
               <ScrollView
@@ -307,68 +491,123 @@ export default function MedicalCardScreen() {
                     <View style={{ width: INJ_ACTION_W }} />
                   </View>
 
-                  {INJURIES.map((inj) => (
-                    <View key={`${inj.name}-${inj.date}`} style={[styles.tr, styles.trBorder]}>
-                      <Text
-                        style={[styles.tdName, styles.thLeft, { width: 96 }]}
-                        numberOfLines={1}
-                        adjustsFontSizeToFit
-                        minimumFontScale={0.7}
-                      >
-                        {inj.name}
-                      </Text>
-                      <Text style={[styles.td, { width: 54 }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
-                        {inj.team}
-                      </Text>
-                      <Text style={[styles.td, { width: 68 }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
-                        {inj.type}
-                      </Text>
-                      <Text style={[styles.td, { width: 78 }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
-                        {inj.during}
-                      </Text>
-                      <Text style={[styles.td, { width: 64 }]} numberOfLines={1}>
-                        {inj.date}
-                      </Text>
-                      <Text
-                        style={[styles.td, styles.tdStatus, { width: 70, color: STATUS_TONE[inj.status] ?? C.hint }]}
-                        numberOfLines={1}
-                        adjustsFontSizeToFit
-                        minimumFontScale={0.7}
-                      >
-                        {inj.status}
-                      </Text>
-                      <Text style={[styles.td, { width: 60 }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
-                        {inj.returnDate}
-                      </Text>
-                      <View style={[styles.colAction, { width: INJ_ACTION_W }]}>
-                        <Pressable
-                          onPress={() =>
-                            router.push({
-                              pathname: '/detajet-lendimit',
-                              params: {
-                                name: inj.name,
-                                team: inj.team,
-                                type: inj.type,
-                                during: inj.during,
-                                date: inj.date,
-                                returnDate: inj.returnDate,
-                                serviceDate: inj.serviceDate,
-                                desc: inj.desc,
-                                treatment: inj.treatment,
-                              },
-                            })
-                          }
-                          accessibilityRole="button"
-                          accessibilityLabel={`Shiko lëndimin e ${inj.name}`}
-                          style={({ pressed }) => [styles.viewBtn, pressed && styles.pressed]}
+                  {injuries.map((inj) => {
+                    const name = inj.player?.name ?? '—';
+                    const team = inj.team?.name ?? '—';
+                    const status = injuryStatusLabel(inj.status);
+                    const during = occurredLabel(inj.occurred_during);
+                    const date = formatDate(inj.injury_date);
+                    const returnDate = formatDate(inj.expected_return);
+                    return (
+                      <View key={inj.id} style={[styles.tr, styles.trBorder]}>
+                        <Text
+                          style={[styles.tdName, styles.thLeft, { width: 96 }]}
+                          numberOfLines={1}
+                          adjustsFontSizeToFit
+                          minimumFontScale={0.7}
                         >
-                          <Text style={styles.viewBtnText}>Shiko</Text>
-                        </Pressable>
+                          {name}
+                        </Text>
+                        <Text style={[styles.td, { width: 54 }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
+                          {team}
+                        </Text>
+                        <Text style={[styles.td, { width: 68 }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
+                          {inj.injury_type}
+                        </Text>
+                        <Text style={[styles.td, { width: 78 }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
+                          {during}
+                        </Text>
+                        <Text style={[styles.td, { width: 64 }]} numberOfLines={1}>
+                          {date}
+                        </Text>
+                        <Text
+                          style={[styles.td, styles.tdStatus, { width: 70, color: STATUS_TONE[status] ?? C.hint }]}
+                          numberOfLines={1}
+                          adjustsFontSizeToFit
+                          minimumFontScale={0.7}
+                        >
+                          {status}
+                        </Text>
+                        <Text style={[styles.td, { width: 60 }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
+                          {returnDate}
+                        </Text>
+                        <View style={[styles.colAction, { width: INJ_ACTION_W }]}>
+                          <Pressable
+                            onPress={() =>
+                              router.push({
+                                pathname: '/detajet-lendimit',
+                                params: {
+                                  name,
+                                  team,
+                                  type: inj.injury_type,
+                                  during,
+                                  status,
+                                  date,
+                                  returnDate,
+                                  serviceDate: formatDate(inj.created_at),
+                                  desc: inj.description ?? '',
+                                  treatment: inj.treatment ?? '',
+                                },
+                              })
+                            }
+                            accessibilityRole="button"
+                            accessibilityLabel={`Shiko lëndimin e ${name}`}
+                            style={({ pressed }) => [styles.viewBtn, pressed && styles.pressed]}
+                          >
+                            <Text style={styles.viewBtnText}>Shiko</Text>
+                          </Pressable>
+                        </View>
                       </View>
-                    </View>
-                  ))}
+                    );
+                  })}
                 </View>
               </ScrollView>
+
+              {/* Loading / empty / error — kept inside the card so the table
+                  frame stays put. */}
+              {error ? (
+                <View style={styles.stateRow}>
+                  <Text style={styles.stateText}>{error}</Text>
+                </View>
+              ) : injuries.length === 0 ? (
+                <View style={styles.stateRow}>
+                  <Text style={styles.stateText}>Asnjë lëndim nuk u gjet.</Text>
+                </View>
+              ) : lastPage > 1 ? (
+                <View style={styles.pager}>
+                  <Pressable
+                    onPress={() => setPage(current - 1)}
+                    disabled={current <= 1}
+                    accessibilityRole="button"
+                    accessibilityLabel="Faqja e mëparshme"
+                    hitSlop={8}
+                    style={({ pressed }) => [
+                      styles.pagerArrow,
+                      current <= 1 && styles.pagerDisabled,
+                      pressed && styles.pressed,
+                    ]}
+                  >
+                    <MaterialCommunityIcons name="chevron-left" size={I(20)} color={C.text} />
+                  </Pressable>
+                  <Text style={styles.pagerText}>
+                    {current} / {lastPage}
+                  </Text>
+                  <Pressable
+                    onPress={() => setPage(current + 1)}
+                    disabled={current >= lastPage}
+                    accessibilityRole="button"
+                    accessibilityLabel="Faqja tjetër"
+                    hitSlop={8}
+                    style={({ pressed }) => [
+                      styles.pagerArrow,
+                      current >= lastPage && styles.pagerDisabled,
+                      pressed && styles.pressed,
+                    ]}
+                  >
+                    <MaterialCommunityIcons name="chevron-right" size={I(20)} color={C.text} />
+                  </Pressable>
+                </View>
+              ) : null}
             </View>
           </View>
         </ScrollView>
@@ -568,9 +807,86 @@ const styles = StyleSheet.create(
       borderRadius: 4,
     },
 
+    filterBtnOpen: {
+      borderColor: C.orange,
+    },
+
     filterText: {
       fontFamily: Fonts.bodySemiBold,
       fontSize: 11,
+      color: C.text,
+    },
+
+    /* ── Filter options (inline strip under an open filter) ──── */
+    filterOptsRow: {
+      paddingHorizontal: 4,
+      paddingTop: 8,
+      gap: 6,
+    },
+
+    filterChip: {
+      height: 28,
+      justifyContent: 'center',
+      paddingHorizontal: 11,
+      borderRadius: 14,
+      borderWidth: 1,
+      borderColor: 'rgba(0,0,0,0.15)',
+      backgroundColor: '#FFFFFF',
+    },
+
+    filterChipActive: {
+      backgroundColor: C.blue1,
+      borderColor: C.blue1,
+      borderWidth: 1,
+    },
+
+    filterChipText: {
+      fontFamily: Fonts.body,
+      fontSize: 11.5,
+      color: C.hint,
+    },
+
+    filterChipTextActive: {
+      fontFamily: Fonts.bodySemiBold,
+      color: C.text,
+    },
+
+    /* ── Loading / empty / error ─────────────────────────────── */
+    stateRow: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: 12,
+      paddingVertical: 16,
+    },
+
+    stateText: {
+      fontFamily: Fonts.body,
+      fontSize: 12,
+      color: C.hint,
+      textAlign: 'center',
+    },
+
+    /* ── Pager ───────────────────────────────────────────────── */
+    pager: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 14,
+      paddingVertical: 10,
+    },
+
+    pagerArrow: {
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+
+    pagerDisabled: {
+      opacity: 0.3,
+    },
+
+    pagerText: {
+      fontFamily: Fonts.bodySemiBold,
+      fontSize: 12,
       color: C.text,
     },
 

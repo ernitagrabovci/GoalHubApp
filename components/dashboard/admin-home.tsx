@@ -1,13 +1,19 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { type ReactNode } from 'react';
+import { type ReactNode, useEffect, useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
+import { dashboardStats } from '@/lib/api/dashboard';
+import { ApiError } from '@/lib/api/errors';
+import { listMatches } from '@/lib/api/matches';
+import { listTeams, teamStats } from '@/lib/api/teams';
+import type { ApiMatch, ApiTeam, DashboardStats, TeamStats } from '@/lib/api/types';
 import { I, scaled } from '@/lib/responsive';
+import { useSession } from '@/lib/session';
 
 /**
  * GoalHub Admin Home Dashboard (light-only).
@@ -49,28 +55,12 @@ const DIVIDER_LAV = 'rgba(123,79,142,0.22)';
 
 const IMG = {
   fcp: require('@/assets/dashboard/fcp.png'),
-  malisheva: require('@/assets/dashboard/malisheva.png'),
-  gjilani: require('@/assets/dashboard/gjilani.png'),
-  ulpiana: require('@/assets/dashboard/ulpiana.png'),
   statPlayer: require('@/assets/dashboard/stat-player.png'),
   statGrupe: require('@/assets/dashboard/stat-grupe.png'),
   calc: require('@/assets/dashboard/calculator.png'),
   young: require('@/assets/dashboard/young-player.png'),
   doctor: require('@/assets/dashboard/doctor.png'),
 };
-
-type Match = {
-  age: string;
-  away: string;
-  awayLogo: number;
-  time: string;
-};
-
-const MATCHES: Match[] = [
-  { age: 'U17', away: 'KF Malisheva', awayLogo: IMG.malisheva, time: '18:00' },
-  { age: 'U15', away: 'KF Gjilani', awayLogo: IMG.gjilani, time: '16:00' },
-  { age: 'U15', away: 'KF Ulpiana', awayLogo: IMG.ulpiana, time: '14:00' },
-];
 
 const ACTIVITY = [
   {
@@ -93,15 +83,77 @@ const ACTIVITY = [
   },
 ];
 
-const TEAMS = [
-  { name: 'Ekipi i Parë', count: '25 lojtarë' },
-  { name: 'U21', count: '18 lojtarë' },
-  { name: 'U17', count: '16 lojtarë' },
-  { name: 'U15', count: '14 lojtarë' },
-];
+/** Today's date as `YYYY-MM-DD`, for comparing against `scheduled_at`. */
+function localDay(iso: string | null): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function isToday(iso: string | null): boolean {
+  return localDay(iso) === localDay(new Date().toISOString());
+}
+
+function hhmm(iso: string | null): string {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '—';
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
 
 export function AdminHome() {
   const router = useRouter();
+  const { user, token, signOut } = useSession();
+
+  const [data, setData] = useState<DashboardStats | null>(null);
+  const [teamData, setTeamData] = useState<TeamStats | null>(null);
+  const [teams, setTeams] = useState<ApiTeam[] | null>(null);
+  const [matches, setMatches] = useState<ApiMatch[] | null>(null);
+
+  // These dashboard reads are one-shots — fetched together, and a failure of one
+  // simply leaves its section empty. An abort is indistinguishable from a
+  // timeout (both surface as status 0), so guard on our own signal.
+  useEffect(() => {
+    if (!token) return;
+    const controller = new AbortController();
+
+    Promise.allSettled([
+      dashboardStats(token, controller.signal),
+      teamStats(token, controller.signal),
+      listTeams(token, controller.signal),
+      listMatches(token, { status: 'upcoming' }, controller.signal),
+    ]).then(([dash, team, teamList, matchList]) => {
+      if (controller.signal.aborted) return;
+
+      const failure = [dash, team, teamList, matchList].find((r) => r.status === 'rejected');
+      if (
+        failure &&
+        failure.status === 'rejected' &&
+        failure.reason instanceof ApiError &&
+        failure.reason.status === 401
+      ) {
+        signOut();
+        router.replace('/login');
+        return;
+      }
+
+      if (dash.status === 'fulfilled') setData(dash.value);
+      if (team.status === 'fulfilled') setTeamData(team.value);
+      if (teamList.status === 'fulfilled') setTeams(teamList.value.data);
+      if (matchList.status === 'fulfilled') setMatches(matchList.value.data);
+    });
+
+    return () => controller.abort();
+  }, [token, router, signOut]);
+
+  const stats = data?.stats;
+  const seasonName = data?.season?.name ?? teamData?.season ?? '—';
+  const count = (value: number | undefined) => (value == null ? '—' : String(value));
+  const income = stats ? `€${Math.round(Number(stats.monthly_income))}` : '—';
+  const firstName = user?.name.split(' ')[0] ?? 'Admin';
+  const clubName = data?.club.name ?? 'Fc Prishtina';
+  const todayMatches = (matches ?? []).filter((m) => isToday(m.scheduled_at));
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -114,6 +166,7 @@ export function AdminHome() {
         <View style={styles.content}>
           <View style={styles.padded}>
             <HeaderBlock
+              clubName={data?.club.name ?? '—'}
               onBell={() => router.push('/njoftimet')}
               onSettings={() => router.push('/settings')}
               onClub={() => router.push('/club-profile')}
@@ -121,7 +174,7 @@ export function AdminHome() {
 
             {/* Welcome */}
             <View style={styles.welcome}>
-              <Text style={styles.welcomeTitle}>Mirë se erdhe, Admin!</Text>
+              <Text style={styles.welcomeTitle}>Mirë se erdhe, {firstName}!</Text>
               <Text style={styles.welcomeSub}>Këtu është përmbledhja e klubit tënd sot.</Text>
             </View>
           </View>
@@ -139,11 +192,11 @@ export function AdminHome() {
                 imageStyle={styles.statImgPlayer}
                 labelTop="Lojtarë"
                 labelBottom="Aktivë"
-                value="85"
+                value={count(stats?.players)}
               >
                 <View>
-                  <Text style={styles.statUp}>↑ 5 më shumë</Text>
-                  <Text style={styles.statUpSub}>të kaluarën</Text>
+                  <Text style={styles.statSubValue}>{count(stats?.injured)}</Text>
+                  <Text style={styles.statSubLabel}>të lënduar</Text>
                 </View>
               </StatCard>
 
@@ -152,11 +205,11 @@ export function AdminHome() {
                 imageStyle={styles.statImgGrupe}
                 labelTop="Numri i"
                 labelBottom="Grupeve"
-                value="5"
+                value={count(stats?.teams)}
               >
                 <View>
                   <Text style={styles.statSubLabel}>Sezoni</Text>
-                  <Text style={styles.statSubValue}>2026/27</Text>
+                  <Text style={styles.statSubValue}>{seasonName}</Text>
                 </View>
               </StatCard>
 
@@ -165,18 +218,22 @@ export function AdminHome() {
                 imageStyle={styles.statImgCalc}
                 labelTop="Të"
                 labelBottom="Ardhurat"
-                value="€0"
+                value={income}
               >
                 <View>
-                  <Text style={styles.statDown}>↓ 33€ pagesa</Text>
+                  <Text style={styles.statDown}>↓ {count(stats?.delayed_fees)} pagesa</Text>
                   <Text style={styles.statDownSub}>të vonuara</Text>
                 </View>
               </StatCard>
 
-              <StatCard labelTop="Trajnerët" labelBottom="Aktivë" value="12">
+              <StatCard
+                labelTop="Trajnerët"
+                labelBottom="Aktivë"
+                value={count(teamData?.total_trainers)}
+              >
                 <View>
                   <Text style={styles.statSubLabel}>Sezoni</Text>
-                  <Text style={styles.statSubValue}>2026/27</Text>
+                  <Text style={styles.statSubValue}>{seasonName}</Text>
                 </View>
               </StatCard>
             </ScrollView>
@@ -186,38 +243,49 @@ export function AdminHome() {
             {/* Today's matches */}
             <SectionHead title="Ndeshjet e sotme" onSeeAll={() => router.push('/ndeshjet')} />
             <View style={styles.matchesCard}>
-              {MATCHES.map((m, i) => (
-                <Pressable
-                  key={`${m.age}-${m.away}`}
-                  onPress={() => router.push('/ndeshjet')}
-                  style={({ pressed }) => [
-                    styles.matchRow,
-                    i > 0 && styles.matchRowSep,
-                    pressed && styles.pressed,
-                  ]}
-                >
-                  <View style={styles.ageBadge}>
-                    <Text style={styles.ageText}>{m.age}</Text>
-                  </View>
-                  <View style={styles.teamHome}>
-                    <Image source={IMG.fcp} style={styles.matchLogo} resizeMode="contain" />
-                    <Text style={styles.teamName} numberOfLines={1}>
-                      Fc Prishtina
-                    </Text>
-                  </View>
-                  <View style={styles.vsCol}>
-                    <Text style={styles.vsText}>vs</Text>
-                    <Text style={styles.timeText}>{m.time}</Text>
-                  </View>
-                  <View style={styles.teamAway}>
-                    <Text style={styles.teamNameAway} numberOfLines={1}>
-                      {m.away}
-                    </Text>
-                    <Image source={m.awayLogo} style={styles.matchLogo} resizeMode="contain" />
-                  </View>
-                  <MaterialCommunityIcons name="chevron-right" size={I(22)} color={C.green} />
-                </Pressable>
-              ))}
+              {matches === null ? (
+                <View style={styles.matchEmpty}>
+                  <Text style={styles.matchEmptyText}>…</Text>
+                </View>
+              ) : todayMatches.length === 0 ? (
+                <View style={styles.matchEmpty}>
+                  <Text style={styles.matchEmptyText}>Nuk ka ndeshje sot.</Text>
+                </View>
+              ) : (
+                todayMatches.map((m, i) => (
+                  <Pressable
+                    key={m.id}
+                    onPress={() => router.push('/ndeshjet')}
+                    style={({ pressed }) => [
+                      styles.matchRow,
+                      i > 0 && styles.matchRowSep,
+                      pressed && styles.pressed,
+                    ]}
+                  >
+                    <View style={styles.ageBadge}>
+                      <Text style={styles.ageText} numberOfLines={1}>
+                        {m.team?.name ?? '—'}
+                      </Text>
+                    </View>
+                    <View style={styles.teamHome}>
+                      <Image source={IMG.fcp} style={styles.matchLogo} resizeMode="contain" />
+                      <Text style={styles.teamName} numberOfLines={1}>
+                        {clubName}
+                      </Text>
+                    </View>
+                    <View style={styles.vsCol}>
+                      <Text style={styles.vsText}>vs</Text>
+                      <Text style={styles.timeText}>{hhmm(m.scheduled_at)}</Text>
+                    </View>
+                    <View style={styles.teamAway}>
+                      <Text style={styles.teamNameAway} numberOfLines={1}>
+                        {m.opponent ?? '—'}
+                      </Text>
+                    </View>
+                    <MaterialCommunityIcons name="chevron-right" size={I(22)} color={C.green} />
+                  </Pressable>
+                ))
+              )}
             </View>
 
             {/* Recent activity + teams */}
@@ -247,14 +315,24 @@ export function AdminHome() {
                   <MaterialCommunityIcons name="shield-account-outline" size={I(17)} color="#7B4F8E" />
                   <Text style={styles.cardHeadText}>Ekipet</Text>
                 </View>
-                {TEAMS.map((team) => (
-                  <View key={team.name} style={styles.teamRow}>
-                    <Text style={styles.teamRowName} numberOfLines={1}>
-                      {team.name}
-                    </Text>
-                    <Text style={styles.teamRowCount}>{team.count}</Text>
+                {teams === null ? (
+                  <View style={styles.teamRow}>
+                    <Text style={styles.teamRowName}>…</Text>
                   </View>
-                ))}
+                ) : teams.length === 0 ? (
+                  <View style={styles.teamRow}>
+                    <Text style={styles.teamRowName}>Nuk ka ekipe.</Text>
+                  </View>
+                ) : (
+                  teams.slice(0, 4).map((t) => (
+                    <View key={t.id} style={styles.teamRow}>
+                      <Text style={styles.teamRowName} numberOfLines={1}>
+                        {t.name}
+                      </Text>
+                      <Text style={styles.teamRowCount}>{`${t.players_count ?? 0} lojtarë`}</Text>
+                    </View>
+                  ))
+                )}
                 <SeeAllFooter color={C.text} onPress={() => router.push('/teams')} />
               </View>
             </View>
@@ -296,10 +374,12 @@ export function AdminHome() {
 }
 
 function HeaderBlock({
+  clubName,
   onBell,
   onSettings,
   onClub,
 }: {
+  clubName: string;
   onBell: () => void;
   onSettings: () => void;
   onClub: () => void;
@@ -316,7 +396,9 @@ function HeaderBlock({
       <View style={styles.brandCol}>
         <Text style={styles.brandName}>GoalHub</Text>
         <View style={styles.clubRow}>
-          <Text style={styles.clubName}>FC Prishtina</Text>
+          <Text style={styles.clubName} numberOfLines={1}>
+            {clubName}
+          </Text>
           <MaterialCommunityIcons name="chevron-down" size={I(12)} color={C.muted} />
         </View>
       </View>
@@ -538,18 +620,6 @@ const styles = StyleSheet.create(scaled({
   statFoot: {
     marginTop: 4,
   },
-  statUp: {
-    fontFamily: Fonts.bodySemiBold,
-    fontSize: 11.5,
-    color: C.green,
-    lineHeight: 14,
-  },
-  statUpSub: {
-    fontFamily: Fonts.body,
-    fontSize: 10.5,
-    color: C.greenDark,
-    lineHeight: 13,
-  },
   statDown: {
     fontFamily: Fonts.bodySemiBold,
     fontSize: 11.5,
@@ -634,6 +704,16 @@ const styles = StyleSheet.create(scaled({
   matchRowSep: {
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: '#F5F5F5',
+  },
+  matchEmpty: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 18,
+  },
+  matchEmptyText: {
+    fontFamily: Fonts.body,
+    fontSize: 12.5,
+    color: C.muted,
   },
   pressed: {
     opacity: 0.6,

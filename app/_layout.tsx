@@ -38,12 +38,6 @@ export default function RootLayout() {
     Outfit_900Black,
   });
 
-  useEffect(() => {
-    if (loaded || error) {
-      SplashScreen.hideAsync();
-    }
-  }, [loaded, error]);
-
   if (!loaded && !error) {
     return null;
   }
@@ -70,7 +64,20 @@ function RootContent() {
 
 function RootNavigator() {
   const { isDark } = useTheme();
-  const { user } = useSession();
+  const { user, status } = useSession();
+
+  // Keep the splash up until the stored token has been checked, so neither the
+  // login screen nor the tabs flash before we know which one the user belongs on.
+  useEffect(() => {
+    if (status !== 'loading') {
+      SplashScreen.hideAsync();
+    }
+  }, [status]);
+
+  if (status === 'loading') {
+    return null;
+  }
+
   // Pill-role dashboards are light-only (#FAFBFA). Paint the native screen
   // behind the tabs the same tone so no native background (gray on iOS,
   // different on Android) shows through at the screen edges.

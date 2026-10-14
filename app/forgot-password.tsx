@@ -3,6 +3,7 @@ import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useState } from 'react';
 import {
+  ActivityIndicator,
   Image,
   KeyboardAvoidingView,
   Platform,
@@ -15,13 +16,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
+import { forgotPassword } from '@/lib/api/auth';
+import { ApiError } from '@/lib/api/errors';
 import { I, scaled } from '@/lib/responsive';
 
 /**
- * Forgot password — opened from the login page's "Forgot your password" link.
- *
- * Demo only: there is no backend to mail a reset link, so the button simply
- * returns you to the login page.
+ * Forgot password — asks the API to mail a reset link. The backend always
+ * returns the same message (whether or not the email exists), which we surface
+ * verbatim so the screen can't be used to enumerate accounts.
  */
 
 const C = {
@@ -38,6 +40,7 @@ const C = {
   green: '#36AC6B',
   /* The card's 20% green, flattened to an opaque tone. */
   greenTint: '#D7EEE1',
+  danger: '#D64545',
 };
 
 const IMG_PLAYER = require('@/assets/dashboard/lojtaret.png');
@@ -48,6 +51,35 @@ export default function ForgotPasswordScreen() {
   const router = useRouter();
 
   const [email, setEmail] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [sent, setSent] = useState<string | null>(null);
+
+  const submit = async () => {
+    if (busy) return;
+    const trimmed = email.trim();
+    if (!trimmed) {
+      setError('Shkruaj email adresën tënde.');
+      return;
+    }
+
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await forgotPassword(trimmed);
+      setSent(res.message);
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 429) {
+        setError('Shumë kërkesa. Provo përsëri pas një minute.');
+      } else if (err instanceof ApiError) {
+        setError(err.message);
+      } else {
+        setError('Diçka shkoi keq. Provo përsëri.');
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -89,29 +121,58 @@ export default function ForgotPasswordScreen() {
               Rivendos fjalëkalimin
             </Text>
 
-            <Text style={styles.ask}>Harrove fjalëkalimin?</Text>
-            <Text style={styles.help}>
-              Shkruaj email adresën tënde dhe ne do të dërgojmë një link për rivendosje.
-            </Text>
+            {sent ? (
+              <>
+                <Text style={styles.ask}>Kontrollo emailin</Text>
+                <Text style={styles.help}>{sent}</Text>
 
-            <Text style={styles.label}>Email</Text>
-            <TextInput
-              style={styles.field}
-              placeholder="email@goalhub.com"
-              placeholderTextColor={C.gray}
-              value={email}
-              onChangeText={setEmail}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
+                <Pressable
+                  style={({ pressed }) => [styles.primary, pressed && styles.pressed]}
+                  onPress={() => router.back()}
+                >
+                  <Text style={styles.primaryText}>Kthehu te hyrja</Text>
+                </Pressable>
+              </>
+            ) : (
+              <>
+                <Text style={styles.ask}>Harrove fjalëkalimin?</Text>
+                <Text style={styles.help}>
+                  Shkruaj email adresën tënde dhe ne do të dërgojmë një link për rivendosje.
+                </Text>
 
-            <Pressable
-              style={({ pressed }) => [styles.primary, pressed && styles.pressed]}
-              onPress={() => router.back()}
-            >
-              <Text style={styles.primaryText}>Send link</Text>
-            </Pressable>
+                <Text style={styles.label}>Email</Text>
+                <TextInput
+                  style={styles.field}
+                  placeholder="email@goalhub.com"
+                  placeholderTextColor={C.gray}
+                  value={email}
+                  onChangeText={setEmail}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  editable={!busy}
+                  onSubmitEditing={submit}
+                />
+
+                {error ? (
+                  <Text style={styles.error} accessibilityRole="alert">
+                    {error}
+                  </Text>
+                ) : null}
+
+                <Pressable
+                  style={({ pressed }) => [styles.primary, (pressed || busy) && styles.pressed]}
+                  onPress={submit}
+                  disabled={busy}
+                >
+                  {busy ? (
+                    <ActivityIndicator color={C.white} />
+                  ) : (
+                    <Text style={styles.primaryText}>Send link</Text>
+                  )}
+                </Pressable>
+              </>
+            )}
           </View>
 
           {/* The team photo closes the page. */}
@@ -250,6 +311,15 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 13,
       color: C.text,
+    },
+
+    error: {
+      marginTop: 8,
+      textAlign: 'center',
+      fontFamily: Fonts.bodySemiBold,
+      fontSize: 12,
+      lineHeight: 16,
+      color: C.danger,
     },
 
     primary: {

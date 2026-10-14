@@ -3,12 +3,18 @@ import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
+import { ApiError } from '@/lib/api/errors';
+import { matchesReport } from '@/lib/api/reports';
+import { listTeams } from '@/lib/api/teams';
+import type { ApiTeam, MatchesReport } from '@/lib/api/types';
 import { I, scaled } from '@/lib/responsive';
+import { useSession } from '@/lib/session';
 
 /**
  * Raporti i ndeshjeve — opened from "Vazhdo" on the Raportet e ndeshjeve card
@@ -59,13 +65,6 @@ const SQ_GLOSS = [
 /** Thin specular rim on the top edge — reads as the thickness of the pane. */
 const SQ_SHEEN = ['rgba(245,245,245,0.55)', 'rgba(245,245,245,0.00)'] as const;
 
-const SUMMARY = [
-  { label: 'Ndeshje gjithsej', value: '41', hint: 'të luajtura', tone: C.text },
-  { label: 'Fitore gjithsej', value: '18', hint: '44%', tone: C.green },
-  { label: 'Gola të shënuara', value: '83', hint: '2.0/ndeshje', tone: C.green },
-  { label: 'Gola të pësuara', value: '74', hint: '1.8/ndeshje', tone: C.text },
-];
-
 /* ── Fixtures ──────────────────────────────────────────────────────── */
 
 type Outcome = 'Fitore' | 'Barazim' | 'Humbje';
@@ -76,25 +75,12 @@ const OUTCOME_TONE: Record<Outcome, string> = {
   Humbje: C.red,
 };
 
-type Match = {
-  fixture: string;
-  comp: string;
-  rez: string;
-  plus: number;
-  minus: number;
-  status: Outcome;
-};
-
-const MATCHES: Match[] = [
-  { fixture: 'Malisheva - Ulpiana', comp: 'Superliga e Kosovës', rez: '3-1', plus: 3, minus: 1, status: 'Fitore' },
-  { fixture: 'Ulpiana - Feronikeli', comp: 'Superliga e Kosovës', rez: '1-1', plus: 1, minus: 1, status: 'Barazim' },
-  { fixture: 'Drita - Ulpiana', comp: 'Superliga e Kosovës', rez: '2-0', plus: 0, minus: 2, status: 'Humbje' },
-  { fixture: 'Ulpiana - Prishtina', comp: 'Kupa e Kosovës', rez: '4-2', plus: 4, minus: 2, status: 'Fitore' },
-  { fixture: 'Ballkani - Ulpiana', comp: 'Superliga e Kosovës', rez: '1-2', plus: 2, minus: 1, status: 'Fitore' },
-  { fixture: 'Ulpiana - Gjilani', comp: 'Superliga e Kosovës', rez: '0-0', plus: 0, minus: 0, status: 'Barazim' },
-  { fixture: 'Trepça - Ulpiana', comp: 'Superliga e Kosovës', rez: '3-1', plus: 1, minus: 3, status: 'Humbje' },
-  { fixture: 'Ulpiana - Llapi', comp: 'Kupa e Kosovës', rez: '2-1', plus: 2, minus: 1, status: 'Fitore' },
-];
+/** Goals are from the club's perspective, so the outcome reads straight off them. */
+function outcomeOf(gf: number, ga: number): Outcome {
+  if (gf > ga) return 'Fitore';
+  if (gf < ga) return 'Humbje';
+  return 'Barazim';
+}
 
 /** Match / competition / score / scored / conceded / outcome. */
 const COLS = [
@@ -106,16 +92,8 @@ const COLS = [
   { key: 'status', label: 'Statusi', flex: 1.1 },
 ] as const;
 
-const PAGES = [1, 2, 3, 4];
-
-/* ── Results by competition ────────────────────────────────────────── */
-
-type Comp = { name: string; played: number; win: number; draw: number; loss: number };
-
-const COMPS: Comp[] = [
-  { name: 'Superliga e Kosovës', played: 31, win: 14, draw: 4, loss: 13 },
-  { name: 'Kupa e Kosovës', played: 10, win: 4, draw: 3, loss: 3 },
-];
+/** The report returns every match at once, so the pager works on the client. */
+const PAGE_SIZE = 8;
 
 const LEGEND: { label: string; color: string }[] = [
   { label: 'Fitore', color: C.green },
@@ -123,16 +101,175 @@ const LEGEND: { label: string; color: string }[] = [
   { label: 'Humbje', color: C.red },
 ];
 
-/* ── Seasonal summary ──────────────────────────────────────────────── */
+type FilterKey = 'team' | 'result';
 
-const SEASON: { label: string; value: string; tone: string }[] = [
-  { label: 'Fitore', value: '18(44%)', tone: C.green },
-  { label: 'Barazim', value: '7(17%)', tone: C.orange },
-  { label: 'Humbje', value: '16(39%)', tone: C.red },
+const RESULT_OPTIONS = [
+  { value: 'win', label: 'Fitore' },
+  { value: 'draw', label: 'Barazim' },
+  { value: 'loss', label: 'Humbje' },
 ];
+
+/** A short run of page numbers ending at `last`, capped for width. */
+function pageWindow(current: number, last: number, span = 4): number[] {
+  const start = Math.max(1, Math.min(current, last - span + 1));
+  const end = Math.min(last, start + span - 1);
+  return Array.from({ length: Math.max(0, end - start + 1) }, (_, i) => start + i);
+}
 
 export default function MatchReportScreen() {
   const router = useRouter();
+  const { token, signOut } = useSession();
+
+  const [report, setReport] = useState<MatchesReport | null>(null);
+  const [teams, setTeams] = useState<ApiTeam[]>([]);
+  const [filters, setFilters] = useState<{ team: 'all' | number; result: string }>({
+    team: 'all',
+    result: 'all',
+  });
+  const [openFilter, setOpenFilter] = useState<FilterKey | null>(null);
+  const [page, setPage] = useState(1);
+  const [error, setError] = useState<string | null>(null);
+
+  const filterKey = `${filters.team}|${filters.result}`;
+
+  // The team filter's options — a one-shot, independent of the report.
+  useEffect(() => {
+    if (!token) return;
+    const controller = new AbortController();
+    listTeams(token, controller.signal)
+      .then((res) => {
+        if (!controller.signal.aborted) setTeams(res.data);
+      })
+      .catch(() => {
+        // Leave the filter at "Të gjitha ekipet".
+      });
+    return () => controller.abort();
+  }, [token]);
+
+  useEffect(() => {
+    if (!token) return;
+    const controller = new AbortController();
+    matchesReport(
+      token,
+      {
+        team_id: filters.team === 'all' ? undefined : filters.team,
+        result:
+          filters.result === 'all' ? undefined : (filters.result as 'win' | 'draw' | 'loss'),
+      },
+      controller.signal,
+    )
+      .then((res) => {
+        if (controller.signal.aborted) return;
+        setReport(res);
+        setError(null);
+      })
+      .catch((err) => {
+        if (controller.signal.aborted) return;
+        if (err instanceof ApiError && err.status === 401) {
+          signOut();
+          router.replace('/login');
+          return;
+        }
+        setError(
+          err instanceof ApiError && err.status === 0
+            ? 'Nuk mund të lidhemi me serverin. Kontrollo lidhjen.'
+            : 'Nuk mund të ngarkohet raporti.',
+        );
+      });
+    return () => controller.abort();
+  }, [token, filterKey, filters.team, filters.result, signOut, router]);
+
+  const stats = report?.stats;
+  const total = stats?.total ?? 0;
+  const summary = [
+    { label: 'Ndeshje gjithsej', value: stats ? String(stats.total) : '—', hint: 'të luajtura', tone: C.text },
+    {
+      label: 'Fitore gjithsej',
+      value: stats ? String(stats.wins) : '—',
+      hint: total > 0 ? `${Math.round((stats!.wins / total) * 100)}%` : '0%',
+      tone: C.green,
+    },
+    {
+      label: 'Gola të shënuara',
+      value: stats ? String(stats.gf) : '—',
+      hint: total > 0 ? `${(stats!.gf / total).toFixed(1)}/ndeshje` : '0.0/ndeshje',
+      tone: C.green,
+    },
+    {
+      label: 'Gola të pësuara',
+      value: stats ? String(stats.ga) : '—',
+      hint: total > 0 ? `${(stats!.ga / total).toFixed(1)}/ndeshje` : '0.0/ndeshje',
+      tone: C.text,
+    },
+  ];
+
+  const matches = (report?.matches ?? []).map((m) => {
+    const gf = m.goals_for ?? 0;
+    const ga = m.goals_against ?? 0;
+    return {
+      id: m.id,
+      fixture: `${m.opponent ?? '—'} - ${m.team?.name ?? '—'}`,
+      comp: m.competition ?? '—',
+      rez: `${gf}-${ga}`,
+      plus: gf,
+      minus: ga,
+      status: outcomeOf(gf, ga),
+    };
+  });
+  const lastPage = Math.max(1, Math.ceil(matches.length / PAGE_SIZE));
+  const current = Math.min(page, lastPage);
+  const visibleMatches = matches.slice((current - 1) * PAGE_SIZE, current * PAGE_SIZE);
+
+  const comps = (report?.by_competition ?? []).map((c) => ({
+    name: c.competition ?? '—',
+    played: c.wins + c.draws + c.losses,
+    win: Number(c.wins),
+    draw: Number(c.draws),
+    loss: Number(c.losses),
+  }));
+
+  const pct = (n: number) => (total > 0 ? Math.round((n / total) * 100) : 0);
+  const season = stats
+    ? [
+        { label: 'Fitore', value: `${stats.wins}(${pct(stats.wins)}%)`, tone: C.green },
+        { label: 'Barazim', value: `${stats.draws}(${pct(stats.draws)}%)`, tone: C.orange },
+        { label: 'Humbje', value: `${stats.losses}(${pct(stats.losses)}%)`, tone: C.red },
+      ]
+    : [
+        { label: 'Fitore', value: '—', tone: C.green },
+        { label: 'Barazim', value: '—', tone: C.orange },
+        { label: 'Humbje', value: '—', tone: C.red },
+      ];
+
+  const applyFilter = (key: FilterKey, value: string | number) => {
+    setFilters((prev) => ({ ...prev, [key]: value }));
+    setPage(1);
+    setOpenFilter(null);
+  };
+
+  const filterLabel = (key: FilterKey): string => {
+    if (key === 'team') {
+      return filters.team === 'all'
+        ? 'Të gjitha ekipet'
+        : teams.find((t) => t.id === filters.team)?.name ?? 'Të gjitha ekipet';
+    }
+    return filters.result === 'all'
+      ? 'Të gjitha rezultatet'
+      : RESULT_OPTIONS.find((o) => o.value === filters.result)?.label ?? 'Të gjitha rezultatet';
+  };
+
+  const filterItems = (key: FilterKey): { value: string | number; label: string }[] => {
+    if (key === 'team') {
+      return [
+        { value: 'all', label: 'Të gjitha ekipet' },
+        ...teams.map((t) => ({ value: t.id, label: t.name })),
+      ];
+    }
+    return [{ value: 'all', label: 'Të gjitha rezultatet' }, ...RESULT_OPTIONS];
+  };
+
+  const selectedFilterValue = (key: FilterKey): string | number =>
+    key === 'team' ? filters.team : filters.result;
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
@@ -177,7 +314,7 @@ export default function MatchReportScreen() {
             bounces={false}
             contentContainerStyle={styles.summaryRow}
           >
-            {SUMMARY.map((s) => (
+            {summary.map((s) => (
               <View key={s.label} style={styles.sqShadow}>
                 <View style={styles.sq}>
                   {/* Frost the canvas grid, then lay a gloss sweep over it. */}
@@ -227,28 +364,64 @@ export default function MatchReportScreen() {
           <View style={styles.colPad}>
             {/* ── Filters ───────────────────────────────────────── */}
             <View style={styles.filterRow}>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Filtro: Të gjitha ekipet"
-                style={({ pressed }) => [styles.filterBox, pressed && styles.pressed]}
-              >
-                <Text style={styles.filterText} numberOfLines={1}>
-                  Të gjitha ekipet
-                </Text>
-                <MaterialCommunityIcons name="chevron-down" size={I(14)} color={C.text} />
-              </Pressable>
-
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Filtro: Të gjitha rezultatet"
-                style={({ pressed }) => [styles.filterBox, pressed && styles.pressed]}
-              >
-                <Text style={styles.filterText} numberOfLines={1}>
-                  Të gjitha rezultatet
-                </Text>
-                <MaterialCommunityIcons name="chevron-down" size={I(14)} color={C.text} />
-              </Pressable>
+              {(['team', 'result'] as FilterKey[]).map((key) => (
+                <Pressable
+                  key={key}
+                  onPress={() => setOpenFilter((cur) => (cur === key ? null : key))}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Filtro: ${filterLabel(key)}`}
+                  style={({ pressed }) => [
+                    styles.filterBox,
+                    openFilter === key && styles.filterBoxOpen,
+                    pressed && styles.pressed,
+                  ]}
+                >
+                  <Text style={styles.filterText} numberOfLines={1}>
+                    {filterLabel(key)}
+                  </Text>
+                  <MaterialCommunityIcons
+                    name={openFilter === key ? 'chevron-up' : 'chevron-down'}
+                    size={I(14)}
+                    color={C.text}
+                  />
+                </Pressable>
+              ))}
             </View>
+
+            {/* The open filter's options — an inline strip so nothing clips
+                and every option stays tappable on Android. */}
+            {openFilter ? (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                bounces={false}
+                contentContainerStyle={styles.filterOptsRow}
+              >
+                {filterItems(openFilter).map((item) => {
+                  const active = item.value === selectedFilterValue(openFilter);
+                  return (
+                    <Pressable
+                      key={String(item.value)}
+                      onPress={() => applyFilter(openFilter, item.value)}
+                      accessibilityRole="button"
+                      accessibilityLabel={item.label}
+                      style={({ pressed }) => [
+                        styles.filterChip,
+                        active && styles.filterChipActive,
+                        pressed && styles.pressed,
+                      ]}
+                    >
+                      <Text
+                        style={[styles.filterChipText, active && styles.filterChipTextActive]}
+                        numberOfLines={1}
+                      >
+                        {item.label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+            ) : null}
 
             {/* ── Fixtures ──────────────────────────────────────── */}
             <View style={styles.card}>
@@ -268,8 +441,8 @@ export default function MatchReportScreen() {
                   ))}
                 </View>
 
-                {MATCHES.map((m) => (
-                  <View key={m.fixture} style={[styles.tr, styles.trBorder]}>
+                {visibleMatches.map((m) => (
+                  <View key={m.id} style={[styles.tr, styles.trBorder]}>
                     <Text
                       style={[styles.td, styles.tdMatch, { flex: 1.9 }]}
                       numberOfLines={1}
@@ -300,39 +473,73 @@ export default function MatchReportScreen() {
                   </View>
                 ))}
               </View>
+
+              {/* Loading / empty / error — kept inside the card so the table
+                  frame stays put. */}
+              {error ? (
+                <View style={styles.stateRow}>
+                  <Text style={styles.stateText}>{error}</Text>
+                </View>
+              ) : report === null ? (
+                <View style={styles.stateRow}>
+                  <ActivityIndicator color={C.blueBtn} />
+                </View>
+              ) : matches.length === 0 ? (
+                <View style={styles.stateRow}>
+                  <Text style={styles.stateText}>Asnjë ndeshje nuk u gjet.</Text>
+                </View>
+              ) : null}
             </View>
 
             {/* ── Pager ─────────────────────────────────────────── */}
-            <View style={styles.pager}>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Faqja e mëparshme"
-                hitSlop={8}
-                style={({ pressed }) => [styles.pagerArrow, pressed && styles.pressed]}
-              >
-                <MaterialCommunityIcons name="chevron-left" size={I(22)} color={C.text} />
-              </Pressable>
-
-              {PAGES.map((p) => (
+            {lastPage > 1 ? (
+              <View style={styles.pager}>
                 <Pressable
-                  key={p}
+                  onPress={() => setPage(current - 1)}
+                  disabled={current <= 1}
                   accessibilityRole="button"
-                  accessibilityLabel={`Faqja ${p}`}
-                  style={({ pressed }) => [styles.pageSq, pressed && styles.pressed]}
+                  accessibilityLabel="Faqja e mëparshme"
+                  hitSlop={8}
+                  style={({ pressed }) => [
+                    styles.pagerArrow,
+                    current <= 1 && styles.pagerDisabled,
+                    pressed && styles.pressed,
+                  ]}
                 >
-                  <Text style={styles.pageSqText}>{p}</Text>
+                  <MaterialCommunityIcons name="chevron-left" size={I(22)} color={C.text} />
                 </Pressable>
-              ))}
 
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Faqja tjetër"
-                hitSlop={8}
-                style={({ pressed }) => [styles.pagerArrow, pressed && styles.pressed]}
-              >
-                <MaterialCommunityIcons name="chevron-right" size={I(22)} color={C.text} />
-              </Pressable>
-            </View>
+                {pageWindow(current, lastPage).map((p) => (
+                  <Pressable
+                    key={p}
+                    onPress={() => setPage(p)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Faqja ${p}`}
+                    style={({ pressed }) => [
+                      p === current ? styles.pageSqActive : styles.pageSq,
+                      pressed && styles.pressed,
+                    ]}
+                  >
+                    <Text style={styles.pageSqText}>{p}</Text>
+                  </Pressable>
+                ))}
+
+                <Pressable
+                  onPress={() => setPage(current + 1)}
+                  disabled={current >= lastPage}
+                  accessibilityRole="button"
+                  accessibilityLabel="Faqja tjetër"
+                  hitSlop={8}
+                  style={({ pressed }) => [
+                    styles.pagerArrow,
+                    current >= lastPage && styles.pagerDisabled,
+                    pressed && styles.pressed,
+                  ]}
+                >
+                  <MaterialCommunityIcons name="chevron-right" size={I(22)} color={C.text} />
+                </Pressable>
+              </View>
+            ) : null}
 
             {/* ── Results by competition ────────────────────────── */}
             <View style={[styles.card, styles.cardGap]}>
@@ -354,36 +561,46 @@ export default function MatchReportScreen() {
                   ))}
                 </View>
 
-                {COMPS.map((c) => (
-                  <View key={c.name} style={styles.statBlock}>
-                    <View style={styles.statTop}>
-                      <Text style={styles.compName} numberOfLines={1}>
-                        {c.name}
-                      </Text>
-                      <Text style={styles.compPlayed}>{c.played} ndeshje</Text>
-                    </View>
+                {comps.length === 0 ? (
+                  <Text style={styles.stateText}>Nuk ka të dhëna kompeticionesh.</Text>
+                ) : (
+                  comps.map((c) => (
+                    <View key={c.name} style={styles.statBlock}>
+                      <View style={styles.statTop}>
+                        <Text style={styles.compName} numberOfLines={1}>
+                          {c.name}
+                        </Text>
+                        <Text style={styles.compPlayed}>{c.played} ndeshje</Text>
+                      </View>
 
-                    {/* One rail, split win / draw / loss. */}
-                    <View style={styles.splitBar}>
-                      <View style={[styles.splitFill, { flex: c.win, backgroundColor: C.green }]} />
-                      <View style={[styles.splitFill, { flex: c.draw, backgroundColor: C.orange }]} />
-                      <View style={[styles.splitFill, { flex: c.loss, backgroundColor: C.red }]} />
-                    </View>
+                      {/* One rail, split win / draw / loss. */}
+                      <View style={styles.splitBar}>
+                        <View
+                          style={[styles.splitFill, { flex: Math.max(c.win, 0.001), backgroundColor: C.green }]}
+                        />
+                        <View
+                          style={[styles.splitFill, { flex: Math.max(c.draw, 0.001), backgroundColor: C.orange }]}
+                        />
+                        <View
+                          style={[styles.splitFill, { flex: Math.max(c.loss, 0.001), backgroundColor: C.red }]}
+                        />
+                      </View>
 
-                    <View style={styles.tallyRow}>
-                      <Text style={[styles.tally, { color: C.green }]}>{c.win}F</Text>
-                      <Text style={[styles.tally, { color: C.orange }]}>{c.draw}F</Text>
-                      <Text style={[styles.tally, { color: C.red }]}>{c.loss}F</Text>
+                      <View style={styles.tallyRow}>
+                        <Text style={[styles.tally, { color: C.green }]}>{c.win}F</Text>
+                        <Text style={[styles.tally, { color: C.orange }]}>{c.draw}F</Text>
+                        <Text style={[styles.tally, { color: C.red }]}>{c.loss}F</Text>
+                      </View>
                     </View>
-                  </View>
-                ))}
+                  ))
+                )}
 
                 {/* ── Seasonal summary — framed box inside the same card ── */}
                 <View style={styles.seasonBox}>
                   <Text style={styles.seasonTitle}>Përmbledhje Sezonale</Text>
                   <View style={styles.seasonLine} />
 
-                  {SEASON.map((s) => (
+                  {season.map((s) => (
                     <View key={s.label} style={styles.seasonRow}>
                       <Text style={styles.seasonLabel}>{s.label}</Text>
                       <Text style={[styles.seasonValue, { color: s.tone }]}>{s.value}</Text>
@@ -558,6 +775,57 @@ const styles = StyleSheet.create(
       color: C.text,
     },
 
+    filterBoxOpen: {
+      borderColor: C.orange,
+    },
+
+    /* ── Filter options (inline strip under an open filter) ──── */
+    filterOptsRow: {
+      paddingTop: 8,
+      gap: 6,
+    },
+
+    filterChip: {
+      height: 28,
+      justifyContent: 'center',
+      paddingHorizontal: 11,
+      borderRadius: 14,
+      borderWidth: 1,
+      borderColor: 'rgba(0,0,0,0.15)',
+      backgroundColor: '#FFFFFF',
+    },
+
+    filterChipActive: {
+      backgroundColor: C.blueSoft,
+      borderColor: C.frame,
+    },
+
+    filterChipText: {
+      fontFamily: Fonts.body,
+      fontSize: 11.5,
+      color: C.hint,
+    },
+
+    filterChipTextActive: {
+      fontFamily: Fonts.bodySemiBold,
+      color: C.text,
+    },
+
+    /* ── Loading / empty / error ─────────────────────────────── */
+    stateRow: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: 12,
+      paddingVertical: 18,
+    },
+
+    stateText: {
+      fontFamily: Fonts.body,
+      fontSize: 12.5,
+      color: C.hint,
+      textAlign: 'center',
+    },
+
     /* ── Tables ──────────────────────────────────────────────── */
     card: {
       marginTop: 14,
@@ -661,11 +929,24 @@ const styles = StyleSheet.create(
       justifyContent: 'center',
     },
 
+    pagerDisabled: {
+      opacity: 0.3,
+    },
+
     pageSq: {
       width: 34,
       height: 34,
       borderRadius: 5,
       backgroundColor: C.blueBtn,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+
+    pageSqActive: {
+      width: 34,
+      height: 34,
+      borderRadius: 5,
+      backgroundColor: '#4E90D8',
       alignItems: 'center',
       justifyContent: 'center',
     },

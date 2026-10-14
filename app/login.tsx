@@ -1,7 +1,8 @@
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   Image,
   KeyboardAvoidingView,
   Platform,
@@ -14,16 +15,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
+import { ApiError } from '@/lib/api/errors';
 import { scaled } from '@/lib/responsive';
-import { DEMO_USERS, ROLE_ORDER, useSession } from '@/lib/session';
+import { useSession } from '@/lib/session';
 
 /**
- * Login / sign-up.
- *
- * There is no backend: the demo signs you in by matching what you typed against
- * the demo accounts, so the address decides the role — admin@goalhub.com opens
- * the administrator, ardit@goalhub.com the player, and so on. An unrecognised
- * address falls back to the administrator.
+ * Login. Credentials are exchanged for a Sanctum token against the API; a
+ * signed-in session is restored on launch, so this screen redirects home when
+ * one already exists. Account creation happens in the web app.
  */
 
 const C = {
@@ -39,29 +38,52 @@ const C = {
 
   green: '#36AC6B',
   greenSoft: 'rgba(54,172,107,0.20)',
+  danger: '#D64545',
 };
 
 const IMG_PLAYER = require('@/assets/dashboard/lojtaret.png');
 const IMG_BALL = require('@/assets/dashboard/ndeshjet.png');
 const IMG_TEAM = require('@/assets/dashboard/grupet.png');
 
-type Mode = 'signin' | 'signup';
+function errorMessage(error: unknown): string {
+  if (error instanceof ApiError) {
+    if (error.status === 429) return 'Too many attempts. Please wait a minute and try again.';
+    return error.message;
+  }
+  return 'Something went wrong. Please try again.';
+}
 
 export default function LoginScreen() {
   const router = useRouter();
-  const { signIn } = useSession();
+  const { user, signIn } = useSession();
 
-  const [mode, setMode] = useState<Mode>('signin');
-  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [confirm, setConfirm] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const submit = () => {
-    const typed = email.trim().toLowerCase();
-    const role = ROLE_ORDER.find((r) => DEMO_USERS[r].email === typed);
-    signIn(role ?? 'administrator');
-    router.replace('/');
+  // Already signed in (e.g. restored from storage) — skip the form.
+  useEffect(() => {
+    if (user) router.replace('/');
+  }, [user, router]);
+
+  const submit = async () => {
+    if (busy) return;
+    const trimmed = email.trim();
+    if (!trimmed || !password) {
+      setError('Enter your email and password.');
+      return;
+    }
+
+    setBusy(true);
+    setError(null);
+    try {
+      await signIn(trimmed, password);
+      router.replace('/');
+    } catch (err) {
+      setError(errorMessage(err));
+      setBusy(false);
+    }
   };
 
   return (
@@ -93,39 +115,7 @@ export default function LoginScreen() {
             </View>
           </View>
 
-          {/* Sign in / create account switch */}
-          <View style={styles.segment}>
-            <Pressable
-              style={[styles.segTab, mode === 'signin' && styles.segTabActive]}
-              onPress={() => setMode('signin')}
-            >
-              <Text style={[styles.segText, mode === 'signin' && styles.segTextActive]}>
-                Log in
-              </Text>
-            </Pressable>
-            <Pressable
-              style={[styles.segTab, mode === 'signup' && styles.segTabActive]}
-              onPress={() => setMode('signup')}
-            >
-              <Text style={[styles.segText, mode === 'signup' && styles.segTextActive]}>
-                Create an account
-              </Text>
-            </Pressable>
-          </View>
-
           {/* Fields */}
-          {mode === 'signup' && (
-            <TextInput
-              style={styles.field}
-              placeholder="Emri i plotë"
-              placeholderTextColor={C.gray}
-              value={name}
-              onChangeText={setName}
-              autoCapitalize="words"
-              autoCorrect={false}
-            />
-          )}
-
           <TextInput
             style={styles.field}
             placeholder="Email"
@@ -135,6 +125,7 @@ export default function LoginScreen() {
             keyboardType="email-address"
             autoCapitalize="none"
             autoCorrect={false}
+            editable={!busy}
           />
 
           <TextInput
@@ -146,36 +137,35 @@ export default function LoginScreen() {
             secureTextEntry
             autoCapitalize="none"
             autoCorrect={false}
+            editable={!busy}
+            onSubmitEditing={submit}
           />
 
-          {mode === 'signup' && (
-            <TextInput
-              style={styles.field}
-              placeholder="Confirm your password"
-              placeholderTextColor={C.gray}
-              value={confirm}
-              onChangeText={setConfirm}
-              secureTextEntry
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-          )}
-
-          {mode === 'signin' && (
-            <Pressable
-              style={styles.forgotRow}
-              hitSlop={8}
-              onPress={() => router.push('/forgot-password')}
-              accessibilityRole="button"
-            >
-              <Text style={styles.forgot}>Forgot your password</Text>
-            </Pressable>
-          )}
-
-          <Pressable style={styles.primary} onPress={submit}>
-            <Text style={styles.primaryText}>
-              {mode === 'signin' ? 'Log in' : 'Create an account'}
+          {error ? (
+            <Text style={styles.error} accessibilityRole="alert">
+              {error}
             </Text>
+          ) : null}
+
+          <Pressable
+            style={styles.forgotRow}
+            hitSlop={8}
+            onPress={() => router.push('/forgot-password')}
+            accessibilityRole="button"
+          >
+            <Text style={styles.forgot}>Forgot your password</Text>
+          </Pressable>
+
+          <Pressable
+            style={[styles.primary, busy && styles.primaryBusy]}
+            onPress={submit}
+            disabled={busy}
+          >
+            {busy ? (
+              <ActivityIndicator color={C.green} />
+            ) : (
+              <Text style={styles.primaryText}>Log in</Text>
+            )}
           </Pressable>
 
           {/* Everything the two modes share stays up here; the slack pushed
@@ -258,40 +248,6 @@ const styles = StyleSheet.create(
       color: C.gray,
     },
 
-    /* ── Sign in / create account switch ─────────────────────── */
-    segment: {
-      flexDirection: 'row',
-      gap: 3,
-      marginTop: 16,
-      padding: 3,
-      backgroundColor: C.white,
-      borderWidth: 1,
-      borderColor: C.frame,
-      borderRadius: 6,
-    },
-
-    segTab: {
-      flex: 1,
-      height: 38,
-      alignItems: 'center',
-      justifyContent: 'center',
-      borderRadius: 4,
-    },
-
-    segTabActive: {
-      backgroundColor: C.green,
-    },
-
-    segText: {
-      fontFamily: Fonts.bodySemiBold,
-      fontSize: 13,
-      color: C.text,
-    },
-
-    segTextActive: {
-      color: C.white,
-    },
-
     /* ── Fields ──────────────────────────────────────────────── */
     field: {
       height: 46,
@@ -305,6 +261,14 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 13,
       color: C.text,
+    },
+
+    error: {
+      marginTop: 10,
+      fontFamily: Fonts.bodySemiBold,
+      fontSize: 12,
+      lineHeight: 16,
+      color: C.danger,
     },
 
     forgotRow: {
@@ -329,6 +293,10 @@ const styles = StyleSheet.create(
       borderWidth: 1,
       borderColor: C.green,
       borderRadius: 5,
+    },
+
+    primaryBusy: {
+      opacity: 0.7,
     },
 
     primaryText: {

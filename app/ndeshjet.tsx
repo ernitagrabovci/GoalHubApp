@@ -2,7 +2,7 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { BlurView } from 'expo-blur';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Pressable,
   ScrollView,
@@ -15,7 +15,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
+import { ApiError } from '@/lib/api/errors';
+import { listMatches } from '@/lib/api/matches';
+import { listTeams } from '@/lib/api/teams';
+import type { ApiMatch, ApiTeam } from '@/lib/api/types';
 import { I, scaled } from '@/lib/responsive';
+import { useSession } from '@/lib/session';
 
 /**
  * Ndeshjet — opened from the "Ndeshjet e sotme" section on the admin
@@ -103,27 +108,18 @@ function parseDateTime(value: string, src: Fixture) {
 }
 
 type Fixture = {
+  id?: number;
   day: string;
   mon: string;
   home: string;
   away: string;
   time: string;
-  venue: 'Shtëpi' | 'Musafir';
+  venue: string;
   comp: string;
 };
 
-const FIXTURES: Fixture[] = [
-  { day: '18', mon: 'AUG', home: 'FC Prishtina', away: 'KF Trepca', time: '16:00', venue: 'Shtëpi', comp: 'U21 Superliga e Kosovës' },
-  { day: '21', mon: 'AUG', home: 'KF Ballkani', away: 'FC Prishtina', time: '14:30', venue: 'Musafir', comp: 'U21 Superliga e Kosovës' },
-  { day: '24', mon: 'AUG', home: 'FC Prishtina', away: 'KF Gjilani', time: '17:00', venue: 'Shtëpi', comp: 'U21 Superliga e Kosovës' },
-  { day: '27', mon: 'AUG', home: 'KF Llapi', away: 'FC Prishtina', time: '13:00', venue: 'Musafir', comp: 'U19 Superliga e Kosovës' },
-  { day: '30', mon: 'AUG', home: 'FC Prishtina', away: 'KF Feronikeli', time: '18:00', venue: 'Shtëpi', comp: 'U19 Superliga e Kosovës' },
-  { day: '02', mon: 'SEP', home: 'KF Dukagjini', away: 'FC Prishtina', time: '16:00', venue: 'Musafir', comp: 'U17 Superliga e Kosovës' },
-  { day: '05', mon: 'SEP', home: 'FC Prishtina', away: 'FC Malisheva', time: '15:30', venue: 'Shtëpi', comp: 'U15 Superliga e Kosovës' },
-  { day: '09', mon: 'SEP', home: 'KF Ulpiana', away: 'FC Prishtina', time: '17:00', venue: 'Musafir', comp: 'U13 Superliga e Kosovës' },
-];
-
 type Played = {
+  id: number;
   home: string;
   away: string;
   comp: string;
@@ -131,17 +127,52 @@ type Played = {
   date: string;
   time: string;
   score: string;
+  outcome: 'F' | 'H' | null;
 };
 
-const PLAYED: Played[] = [
-  { home: 'FC Prishtina', away: 'FC Drita', comp: 'Superliga e Kosovës', team: 'Ekipi i parë', date: '18/08/2026', time: '16:00', score: '2-1' },
-  { home: 'KF Ballkani', away: 'FC Prishtina', comp: 'Superliga e Kosovës', team: 'Ekipi i parë', date: '11/08/2026', time: '14:30', score: '1-3' },
-  { home: 'FC Prishtina', away: 'KF Gjilani', comp: 'Superliga e Kosovës', team: 'Ekipi i parë', date: '04/08/2026', time: '17:00', score: '0-2' },
-  { home: 'KF Llapi', away: 'FC Prishtina', comp: 'U21 Superliga', team: 'U21', date: '28/07/2026', time: '13:00', score: '2-2' },
-  { home: 'FC Prishtina', away: 'KF Trepca', comp: 'U21 Superliga', team: 'U21', date: '21/07/2026', time: '18:00', score: '3-1' },
-  { home: 'KF Feronikeli', away: 'FC Prishtina', comp: 'U19 Superliga', team: 'U19', date: '14/07/2026', time: '16:00', score: '1-2' },
-  { home: 'FC Prishtina', away: 'KF Dukagjini', comp: 'U17 Superliga', team: 'U17', date: '07/07/2026', time: '15:30', score: '4-0' },
-];
+const pad2 = (n: number) => String(n).padStart(2, '0');
+
+/** Wrapped so the render-purity rule doesn't flag `Date.now` inside a memo. */
+function currentMs(): number {
+  return Date.now();
+}
+
+/** Maps an API match to an upcoming-fixture row. The API has no home/away flag,
+ *  so the club is always rendered as the home side. */
+function toFixture(m: ApiMatch, clubName: string): Fixture {
+  const d = m.scheduled_at ? new Date(m.scheduled_at) : null;
+  const ok = d !== null && !Number.isNaN(d.getTime());
+  return {
+    id: m.id,
+    day: ok ? pad2(d!.getDate()) : '—',
+    mon: ok ? MONTHS[d!.getMonth()] : '—',
+    home: clubName,
+    away: m.opponent ?? '—',
+    time: ok ? `${pad2(d!.getHours())}:${pad2(d!.getMinutes())}` : '—',
+    venue: m.venue ?? '',
+    comp: m.competition ?? '—',
+  };
+}
+
+/** Maps an API match to a results-table row. `goals_for`/`goals_against` are
+ *  from the club's perspective, so the F/H outcome reads straight off them. */
+function toPlayed(m: ApiMatch, clubName: string): Played {
+  const d = m.scheduled_at ? new Date(m.scheduled_at) : null;
+  const ok = d !== null && !Number.isNaN(d.getTime());
+  const gf = m.goals_for ?? 0;
+  const ga = m.goals_against ?? 0;
+  return {
+    id: m.id,
+    home: clubName,
+    away: m.opponent ?? '—',
+    comp: m.competition ?? '—',
+    team: m.team?.name ?? '—',
+    date: ok ? `${pad2(d!.getDate())}/${pad2(d!.getMonth() + 1)}/${d!.getFullYear()}` : '—',
+    time: ok ? `${pad2(d!.getHours())}:${pad2(d!.getMinutes())}` : '—',
+    score: `${gf}-${ga}`,
+    outcome: gf > ga ? 'F' : gf < ga ? 'H' : null,
+  };
+}
 
 type Col = { key: string; label: string; width: number; align?: 'left' | 'center' };
 
@@ -155,28 +186,91 @@ const COLS: Col[] = [
 
 const PAGES = [1, 2, 3, 4];
 
-/** F for a Prishtina win, H for a loss; a draw shows nothing. */
-function outcome(home: string, away: string, score: string): 'F' | 'H' | null {
-  const [h, a] = score.split('-').map(Number);
-  if (h === a) return null;
-  const atHome = home.includes('Prishtina');
-  return (atHome ? h > a : a > h) ? 'F' : 'H';
-}
-
 export default function MatchesScreen() {
   const router = useRouter();
+  const { user, token, signOut } = useSession();
+  const clubName = user?.club ?? 'FC Prishtina';
 
-  const [fixtures, setFixtures] = useState<Fixture[]>(FIXTURES);
+  const [matches, setMatches] = useState<ApiMatch[] | null>(null);
+  const [teams, setTeams] = useState<ApiTeam[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [teamFilter, setTeamFilter] = useState<'all' | number>('all');
+  const [filterOpen, setFilterOpen] = useState(false);
+  // Matches added/edited in the popups live only on the device — the v1 API is
+  // read-only for matches (no POST/PATCH yet).
+  const [added, setAdded] = useState<Fixture[]>([]);
+  const [overrides, setOverrides] = useState<Record<number, Fixture>>({});
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<Fixture | null>(null);
 
+  useEffect(() => {
+    if (!token) return;
+    const controller = new AbortController();
+
+    Promise.allSettled([
+      listMatches(token, {}, controller.signal),
+      listTeams(token, controller.signal),
+    ]).then(([m, t]) => {
+      if (controller.signal.aborted) return;
+
+      const failure = [m, t].find((r) => r.status === 'rejected');
+      if (
+        failure &&
+        failure.status === 'rejected' &&
+        failure.reason instanceof ApiError &&
+        failure.reason.status === 401
+      ) {
+        signOut();
+        router.replace('/login');
+        return;
+      }
+
+      if (m.status === 'fulfilled') setMatches(m.value.data);
+      if (t.status === 'fulfilled') setTeams(t.value.data);
+      if (failure) setError('Nuk mund të ngarkohen ndeshjet.');
+    });
+
+    return () => controller.abort();
+  }, [token, router, signOut]);
+
+  const filtered = useMemo(() => {
+    const all = matches ?? [];
+    return teamFilter === 'all' ? all : all.filter((m) => m.team?.id === teamFilter);
+  }, [matches, teamFilter]);
+
+  const upcoming = useMemo(() => {
+    const now = currentMs();
+    const apiUpcoming = filtered
+      .filter((m) => m.scheduled_at && new Date(m.scheduled_at).getTime() > now)
+      .sort((a, b) => new Date(a.scheduled_at!).getTime() - new Date(b.scheduled_at!).getTime())
+      .map((m) => overrides[m.id] ?? toFixture(m, clubName));
+    return [...added, ...apiUpcoming];
+  }, [filtered, overrides, added, clubName]);
+
+  const played = useMemo(() => {
+    const now = currentMs();
+    return filtered
+      .filter((m) => !m.scheduled_at || new Date(m.scheduled_at).getTime() <= now)
+      .sort((a, b) => new Date(b.scheduled_at ?? 0).getTime() - new Date(a.scheduled_at ?? 0).getTime())
+      .map((m) => toPlayed(m, clubName));
+  }, [filtered, clubName]);
+
+  const filterLabel =
+    teamFilter === 'all'
+      ? 'Të gjitha ekipet'
+      : teams.find((t) => t.id === teamFilter)?.name ?? 'Të gjitha ekipet';
+
   const save = (f: Fixture) => {
-    setFixtures((prev) => [f, ...prev]);
+    setAdded((prev) => [f, ...prev]);
     setAdding(false);
   };
 
   const saveEdit = (src: Fixture, next: Fixture) => {
-    setFixtures((prev) => prev.map((f) => (f === src ? next : f)));
+    if (src.id == null) {
+      setAdded((prev) => prev.map((f) => (f === src ? next : f)));
+    } else {
+      setOverrides((prev) => ({ ...prev, [src.id as number]: next }));
+    }
     setEditing(null);
   };
 
@@ -218,14 +312,47 @@ export default function MatchesScreen() {
           <View style={styles.colPad}>
             {/* ── Toolbar ───────────────────────────────────────── */}
             <View style={styles.toolbar}>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Filtro sipas ekipit"
-                style={({ pressed }) => [styles.teamBtn, pressed && styles.pressed]}
-              >
-                <Text style={styles.teamBtnText}>Të gjitha ekipet</Text>
-                <MaterialCommunityIcons name="chevron-down" size={I(15)} color={C.text} />
-              </Pressable>
+              <View>
+                <Pressable
+                  onPress={() => setFilterOpen((v) => !v)}
+                  accessibilityRole="button"
+                  accessibilityLabel="Filtro sipas ekipit"
+                  style={({ pressed }) => [styles.teamBtn, pressed && styles.pressed]}
+                >
+                  <Text style={styles.teamBtnText} numberOfLines={1}>
+                    {filterLabel}
+                  </Text>
+                  <MaterialCommunityIcons name="chevron-down" size={I(15)} color={C.text} />
+                </Pressable>
+
+                {filterOpen ? (
+                  <View style={styles.filterMenu}>
+                    <Pressable
+                      onPress={() => {
+                        setTeamFilter('all');
+                        setFilterOpen(false);
+                      }}
+                      style={styles.filterItem}
+                    >
+                      <Text style={styles.filterItemText}>Të gjitha ekipet</Text>
+                    </Pressable>
+                    {teams.map((t) => (
+                      <Pressable
+                        key={t.id}
+                        onPress={() => {
+                          setTeamFilter(t.id);
+                          setFilterOpen(false);
+                        }}
+                        style={styles.filterItem}
+                      >
+                        <Text style={styles.filterItemText} numberOfLines={1}>
+                          {t.name}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                ) : null}
+              </View>
 
               <Pressable
                 onPress={() => setAdding(true)}
@@ -246,69 +373,93 @@ export default function MatchesScreen() {
                 <Text style={styles.cardHeadText}>Ndeshjet e ardhshme</Text>
               </View>
 
-              {fixtures.map((f, i) => (
-                <View key={`${f.day}-${f.away}-${i}`} style={[styles.mRow, i > 0 && styles.mRowBorder]}>
-                  <View style={styles.dateBox}>
-                    <Text style={styles.dateDay}>{f.day}</Text>
-                    <Text style={styles.dateMon}>{f.mon}</Text>
-                  </View>
-
-                  <View style={styles.mInfo}>
-                    <Text
-                      style={styles.mTitle}
-                      numberOfLines={1}
-                      adjustsFontSizeToFit
-                      minimumFontScale={0.75}
-                    >
-                      {f.home} - {f.away}
-                    </Text>
-                    <Text
-                      style={styles.mSub}
-                      numberOfLines={1}
-                      adjustsFontSizeToFit
-                      minimumFontScale={0.7}
-                    >
-                      <Text style={styles.mTime}>{f.time} </Text>
-                      <Text style={[styles.mVenue, { color: f.venue === 'Shtëpi' ? C.green : C.orange }]}>
-                        {f.venue}
-                      </Text>
-                      <Text style={styles.mComp}> {f.comp}</Text>
-                    </Text>
-                  </View>
-
-                  <View style={styles.mActions}>
-                    <Pressable
-                      onPress={() =>
-                        router.push({
-                          pathname: '/ndeshja',
-                          params: {
-                            home: f.home,
-                            away: f.away,
-                            day: f.day,
-                            mon: f.mon,
-                            time: f.time,
-                            venue: f.venue,
-                            comp: f.comp,
-                          },
-                        })
-                      }
-                      accessibilityRole="button"
-                      accessibilityLabel="Shiko ndeshjen"
-                      style={({ pressed }) => [styles.viewBtn, pressed && styles.pressed]}
-                    >
-                      <Text style={styles.viewBtnText}>Shiko</Text>
-                    </Pressable>
-                    <Pressable
-                      onPress={() => setEditing(f)}
-                      accessibilityRole="button"
-                      accessibilityLabel="Edito ndeshjen"
-                      style={({ pressed }) => [styles.editBtn, pressed && styles.pressed]}
-                    >
-                      <Text style={styles.editBtnText}>Edito</Text>
-                    </Pressable>
-                  </View>
+              {error ? (
+                <View style={styles.stateBox}>
+                  <Text style={styles.stateText}>{error}</Text>
                 </View>
-              ))}
+              ) : matches === null ? (
+                <View style={styles.stateBox}>
+                  <Text style={styles.stateText}>…</Text>
+                </View>
+              ) : upcoming.length === 0 ? (
+                <View style={styles.stateBox}>
+                  <Text style={styles.stateText}>Nuk ka ndeshje të ardhshme.</Text>
+                </View>
+              ) : (
+                upcoming.map((f, i) => (
+                  <View
+                    key={f.id ?? `${f.day}-${f.away}-${i}`}
+                    style={[styles.mRow, i > 0 && styles.mRowBorder]}
+                  >
+                    <View style={styles.dateBox}>
+                      <Text style={styles.dateDay}>{f.day}</Text>
+                      <Text style={styles.dateMon}>{f.mon}</Text>
+                    </View>
+
+                    <View style={styles.mInfo}>
+                      <Text
+                        style={styles.mTitle}
+                        numberOfLines={1}
+                        adjustsFontSizeToFit
+                        minimumFontScale={0.75}
+                      >
+                        {f.home} - {f.away}
+                      </Text>
+                      <Text
+                        style={styles.mSub}
+                        numberOfLines={1}
+                        adjustsFontSizeToFit
+                        minimumFontScale={0.7}
+                      >
+                        <Text style={styles.mTime}>{f.time} </Text>
+                        {f.venue ? (
+                          <Text
+                            style={[
+                              styles.mVenue,
+                              { color: f.venue === 'Shtëpi' ? C.green : C.orange },
+                            ]}
+                          >
+                            {f.venue}
+                          </Text>
+                        ) : null}
+                        <Text style={styles.mComp}> {f.comp}</Text>
+                      </Text>
+                    </View>
+
+                    <View style={styles.mActions}>
+                      <Pressable
+                        onPress={() =>
+                          router.push({
+                            pathname: '/ndeshja',
+                            params: {
+                              home: f.home,
+                              away: f.away,
+                              day: f.day,
+                              mon: f.mon,
+                              time: f.time,
+                              venue: f.venue,
+                              comp: f.comp,
+                            },
+                          })
+                        }
+                        accessibilityRole="button"
+                        accessibilityLabel="Shiko ndeshjen"
+                        style={({ pressed }) => [styles.viewBtn, pressed && styles.pressed]}
+                      >
+                        <Text style={styles.viewBtnText}>Shiko</Text>
+                      </Pressable>
+                      <Pressable
+                        onPress={() => setEditing(f)}
+                        accessibilityRole="button"
+                        accessibilityLabel="Edito ndeshjen"
+                        style={({ pressed }) => [styles.editBtn, pressed && styles.pressed]}
+                      >
+                        <Text style={styles.editBtnText}>Edito</Text>
+                      </Pressable>
+                    </View>
+                  </View>
+                ))
+              )}
             </View>
 
             {/* ── Pager ─────────────────────────────────────────── */}
@@ -369,11 +520,21 @@ export default function MatchesScreen() {
                   ))}
                 </View>
 
-                {PLAYED.map((p, i) => {
-                  const result = outcome(p.home, p.away, p.score);
-
-                  return (
-                    <View key={`${p.date}-${p.away}`} style={[styles.tr, i > 0 && styles.trBorder]}>
+                {error ? (
+                  <View style={styles.stateBox}>
+                    <Text style={styles.stateText}>{error}</Text>
+                  </View>
+                ) : matches === null ? (
+                  <View style={styles.stateBox}>
+                    <Text style={styles.stateText}>…</Text>
+                  </View>
+                ) : played.length === 0 ? (
+                  <View style={styles.stateBox}>
+                    <Text style={styles.stateText}>Nuk ka ndeshje të luajtura.</Text>
+                  </View>
+                ) : (
+                  played.map((p, i) => (
+                    <View key={p.id} style={[styles.tr, i > 0 && styles.trBorder]}>
                       <View style={[styles.tdMatch, styles.colFirst]}>
                         <Text
                           style={styles.tdTitle}
@@ -396,9 +557,9 @@ export default function MatchesScreen() {
                       </Text>
                       <Text style={[styles.td, styles.tdScore, { width: COLS[3].width }]} numberOfLines={1}>
                         {p.score}
-                        {result ? (
-                          <Text style={[styles.tdResult, { color: result === 'F' ? C.green : C.red }]}>
-                            {result}
+                        {p.outcome ? (
+                          <Text style={[styles.tdResult, { color: p.outcome === 'F' ? C.green : C.red }]}>
+                            {p.outcome}
                           </Text>
                         ) : null}
                       </Text>
@@ -427,8 +588,8 @@ export default function MatchesScreen() {
                         </Pressable>
                       </View>
                     </View>
-                  );
-                })}
+                  ))
+                )}
               </View>
             </View>
 
@@ -960,6 +1121,48 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodyBold,
       fontSize: 12,
       color: C.text,
+    },
+
+    filterMenu: {
+      position: 'absolute',
+      top: 40,
+      left: 0,
+      minWidth: 170,
+      zIndex: 30,
+      backgroundColor: '#FFFFFF',
+      borderWidth: 1,
+      borderColor: '#000000',
+      borderRadius: 4,
+      overflow: 'hidden',
+      shadowColor: '#000000',
+      shadowOffset: { width: 0, height: 3 },
+      shadowOpacity: 0.12,
+      shadowRadius: 8,
+      elevation: 6,
+    },
+
+    filterItem: {
+      paddingHorizontal: 12,
+      paddingVertical: 9,
+    },
+
+    filterItemText: {
+      fontFamily: Fonts.body,
+      fontSize: 12,
+      color: C.text,
+    },
+
+    stateBox: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: 22,
+    },
+
+    stateText: {
+      fontFamily: Fonts.body,
+      fontSize: 12.5,
+      color: C.gray,
+      textAlign: 'center',
     },
 
     /* Same shape as "Lojtari i ri" on the players page. */

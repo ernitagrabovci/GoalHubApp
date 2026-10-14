@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { InitialsTile, ListRow } from '@/components/list-row';
 import { IconSymbol, type IconSymbolName } from '@/components/ui/icon-symbol';
 import { Fonts, Radius, Spacing, type ThemeColors } from '@/constants/theme';
+import { ApiError } from '@/lib/api/errors';
 import { ALL_PLAYERS } from '@/lib/data';
 import { useLanguage } from '@/lib/i18n';
 import { useSession } from '@/lib/session';
@@ -14,9 +15,19 @@ import { useTheme, useThemedStyles } from '@/lib/theme';
 
 const VERSION = '1.0.0';
 
+function errorMessage(error: unknown): string {
+  if (error instanceof ApiError) {
+    if (error.status === 429) return 'Too many attempts. Please wait a minute and try again.';
+    if (error.status === 0) return 'Network error. Check your connection and try again.';
+    const field = error.fieldErrors?.current_password?.[0] ?? error.fieldErrors?.password?.[0];
+    return field ?? error.message;
+  }
+  return 'Something went wrong. Please try again.';
+}
+
 export default function ProfileScreen() {
   const router = useRouter();
-  const { user, signOut, updateProfile } = useSession();
+  const { user, signOut, updateProfile, changePassword } = useSession();
   const { t, lang, setLang } = useLanguage();
   const { colors, isDark, toggleTheme } = useTheme();
   const styles = useThemedStyles(createStyles);
@@ -28,38 +39,71 @@ export default function ProfileScreen() {
   const [curPass, setCurPass] = useState('');
   const [newPass, setNewPass] = useState('');
   const [confirmPass, setConfirmPass] = useState('');
+  const [passBusy, setPassBusy] = useState(false);
+  const [passError, setPassError] = useState<string | null>(null);
   const [nameDraft, setNameDraft] = useState('');
   const [emailDraft, setEmailDraft] = useState('');
+  const [editPass, setEditPass] = useState('');
+  const [editBusy, setEditBusy] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   const child = ALL_PLAYERS.find((p) => p.name === childName);
+  const nextEmail = emailDraft.trim();
+  const emailChanged = nextEmail !== '' && nextEmail !== user?.email;
 
   const handleSignOut = () => {
     signOut();
     router.replace('/login');
   };
 
-  const handlePassword = () => {
-    if (newPass && newPass === confirmPass) {
+  const handlePassword = async () => {
+    if (passBusy) return;
+    if (!newPass || newPass !== confirmPass) {
+      setPassError(t('profile.passwordMismatch'));
+      return;
+    }
+
+    setPassBusy(true);
+    setPassError(null);
+    try {
+      await changePassword(curPass, newPass);
       alert(t('profile.passwordUpdated'));
       setSecurityOpen(false);
       setCurPass('');
       setNewPass('');
       setConfirmPass('');
-    } else {
-      alert(t('profile.passwordMismatch'));
+    } catch (err) {
+      setPassError(errorMessage(err));
+    } finally {
+      setPassBusy(false);
     }
   };
 
-  const handleEdit = () => {
-    if (!user) return;
-    updateProfile({
-      name: nameDraft.trim() || user.name,
-      email: emailDraft.trim() || user.email,
-    });
-    setEditOpen(false);
-    setNameDraft('');
-    setEmailDraft('');
+  const handleEdit = async () => {
+    if (!user || editBusy) return;
+    if (emailChanged && !editPass) {
+      setEditError('Enter your password to change your email.');
+      return;
+    }
+
+    setEditBusy(true);
+    setEditError(null);
+    try {
+      await updateProfile({
+        name: nameDraft.trim() || user.name,
+        email: nextEmail || user.email,
+        password: emailChanged ? editPass : undefined,
+      });
+      setEditOpen(false);
+      setNameDraft('');
+      setEmailDraft('');
+      setEditPass('');
+    } catch (err) {
+      setEditError(errorMessage(err));
+    } finally {
+      setEditBusy(false);
+    }
   };
 
   const handleDelete = () => {
@@ -161,6 +205,7 @@ export default function ProfileScreen() {
                   placeholder={t('profile.name')}
                   value={nameDraft}
                   onChangeText={setNameDraft}
+                  editable={!editBusy}
                   placeholderTextColor={colors.textMuted}
                 />
                 <TextInput
@@ -170,9 +215,27 @@ export default function ProfileScreen() {
                   onChangeText={setEmailDraft}
                   autoCapitalize="none"
                   keyboardType="email-address"
+                  editable={!editBusy}
                   placeholderTextColor={colors.textMuted}
                 />
-                <Pressable style={styles.inlineBtn} onPress={handleEdit}>
+                {emailChanged ? (
+                  <TextInput
+                    style={styles.input}
+                    placeholder={t('profile.currentPassword')}
+                    value={editPass}
+                    onChangeText={setEditPass}
+                    secureTextEntry
+                    autoCapitalize="none"
+                    editable={!editBusy}
+                    placeholderTextColor={colors.textMuted}
+                  />
+                ) : null}
+                {editError ? (
+                  <Text style={styles.inlineError} accessibilityRole="alert">
+                    {editError}
+                  </Text>
+                ) : null}
+                <Pressable style={styles.inlineBtn} onPress={handleEdit} disabled={editBusy}>
                   <Text style={styles.inlineBtnText}>{t('profile.save')}</Text>
                 </Pressable>
               </View>
@@ -191,6 +254,8 @@ export default function ProfileScreen() {
                   value={curPass}
                   onChangeText={setCurPass}
                   secureTextEntry
+                  autoCapitalize="none"
+                  editable={!passBusy}
                   placeholderTextColor={colors.textMuted}
                 />
                 <TextInput
@@ -199,6 +264,8 @@ export default function ProfileScreen() {
                   value={newPass}
                   onChangeText={setNewPass}
                   secureTextEntry
+                  autoCapitalize="none"
+                  editable={!passBusy}
                   placeholderTextColor={colors.textMuted}
                 />
                 <TextInput
@@ -207,9 +274,16 @@ export default function ProfileScreen() {
                   value={confirmPass}
                   onChangeText={setConfirmPass}
                   secureTextEntry
+                  autoCapitalize="none"
+                  editable={!passBusy}
                   placeholderTextColor={colors.textMuted}
                 />
-                <Pressable style={styles.inlineBtn} onPress={handlePassword}>
+                {passError ? (
+                  <Text style={styles.inlineError} accessibilityRole="alert">
+                    {passError}
+                  </Text>
+                ) : null}
+                <Pressable style={styles.inlineBtn} onPress={handlePassword} disabled={passBusy}>
                   <Text style={styles.inlineBtnText}>{t('profile.save')}</Text>
                 </Pressable>
               </View>
@@ -423,6 +497,11 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontFamily: Fonts.body,
     fontSize: 12,
     color: colors.textMuted,
+  },
+  inlineError: {
+    fontFamily: Fonts.bodySemiBold,
+    fontSize: 12,
+    color: colors.danger,
   },
   inlineBtn: {
     marginTop: Spacing.xs,

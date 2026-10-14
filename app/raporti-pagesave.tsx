@@ -3,12 +3,17 @@ import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
+import { ApiError } from '@/lib/api/errors';
+import { financeReport } from '@/lib/api/reports';
+import type { FinanceReport } from '@/lib/api/types';
 import { I, scaled } from '@/lib/responsive';
+import { useSession } from '@/lib/session';
 
 /**
  * Raporti i pagesave — opened from "Vazhdo" on the Raportet e pagesave card
@@ -67,65 +72,102 @@ const SQ_GLOSS = [
 /** Thin specular rim on the top edge — reads as the thickness of the pane. */
 const SQ_SHEEN = ['rgba(245,245,245,0.55)', 'rgba(245,245,245,0.00)'] as const;
 
-const SUMMARY = [
-  { label: 'Kuota të mbledhura', value: '$16,840', hint: 'të paguara', tone: C.green },
-  { label: 'Kuota të vonuara', value: '$16,800', hint: 'me vonesë', tone: C.red },
-  { label: 'Kuota të papaguara', value: '$230', hint: 'borxh aktiv', tone: C.orange },
-  { label: 'Norma e mbledhjes', value: '40%', hint: 'kuota të paguara', tone: C.green },
-];
-
-/* ── Monthly collection grid ───────────────────────────────────────── */
-
-type Month = { month: string; collected: number; payments: number };
-
-/** Ten months, oldest first, charted above and listed below. */
-const MONTHS: Month[] = [
-  { month: 'Oct 2025', collected: 1170, payments: 38 },
-  { month: 'Nov 2025', collected: 1190, payments: 41 },
-  { month: 'Dec 2025', collected: 1180, payments: 36 },
-  { month: 'Jan 2026', collected: 1240, payments: 42 },
-  { month: 'Feb 2026', collected: 1320, payments: 45 },
-  { month: 'Mar 2026', collected: 1390, payments: 44 },
-  { month: 'Apr 2026', collected: 1430, payments: 47 },
-  { month: 'May 2026', collected: 1510, payments: 49 },
-  { month: 'Jun 2026', collected: 1360, payments: 43 },
-  { month: 'Jul 2026', collected: 1480, payments: 46 },
-];
-
-const COLLECTED_MIN = Math.min(...MONTHS.map((m) => m.collected));
-const COLLECTED_MAX = Math.max(...MONTHS.map((m) => m.collected));
-
+/** The chart's tick geometry — the tallest bar fills the slot. */
 const TICK_MIN = 40;
 const TICK_SPAN = 36;
 
 /** Tick length tracks the month's take, so the bars read longest-to-shortest. */
-function tickHeight(collected: number) {
-  const ratio = (collected - COLLECTED_MIN) / (COLLECTED_MAX - COLLECTED_MIN);
+function tickHeight(collected: number, min: number, max: number) {
+  if (max <= min) return TICK_MIN + TICK_SPAN / 2;
+  const ratio = (collected - min) / (max - min);
   return TICK_MIN + ratio * TICK_SPAN;
 }
 
-const PAGES = [1, 2, 3, 4];
-
-/* ── Membership-fee breakdown ──────────────────────────────────────── */
-
-const STATUS: { label: string; amount: number; pct: number; tone: string }[] = [
-  { label: 'Të paguara', amount: 16840, pct: 50, tone: C.green },
-  { label: 'Me vonesë', amount: 16800, pct: 50, tone: C.red },
-  { label: 'Të papaguara', amount: 230, pct: 1, tone: C.orange },
-];
-
-/* ── Per-team split ───────────────────────────────────────────────── */
-
-const TEAMS: { name: string; pct: number; amount: number }[] = [
-  { name: 'Ekipi i Parë', pct: 40, amount: 4840 },
-  { name: 'U21', pct: 46, amount: 4160 },
-  { name: 'U17', pct: 52, amount: 3280 },
-  { name: 'U15', pct: 38, amount: 2890 },
-  { name: 'U13', pct: 31, amount: 1670 },
-];
+/** Percent of a total, rounded; zero total reads as zero. */
+function share(part: number, total: number): number {
+  return total > 0 ? Math.round((part / total) * 100) : 0;
+}
 
 export default function PaymentReportScreen() {
   const router = useRouter();
+  const { token, signOut } = useSession();
+
+  const [report, setReport] = useState<FinanceReport | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!token) return;
+    const controller = new AbortController();
+    financeReport(token, controller.signal)
+      .then((res) => {
+        if (controller.signal.aborted) return;
+        setReport(res);
+        setError(null);
+      })
+      .catch((err) => {
+        if (controller.signal.aborted) return;
+        if (err instanceof ApiError && err.status === 401) {
+          signOut();
+          router.replace('/login');
+          return;
+        }
+        setError(
+          err instanceof ApiError && err.status === 0
+            ? 'Nuk mund të lidhemi me serverin. Kontrollo lidhjen.'
+            : 'Nuk mund të ngarkohet raporti.',
+        );
+      });
+    return () => controller.abort();
+  }, [token, signOut, router]);
+
+  const stats = report?.stats;
+  const summary = [
+    {
+      label: 'Kuota të mbledhura',
+      value: stats ? usd(Math.round(stats.paid)) : '—',
+      hint: 'të paguara',
+      tone: C.green,
+    },
+    {
+      label: 'Kuota të vonuara',
+      value: stats ? usd(Math.round(stats.delayed)) : '—',
+      hint: 'me vonesë',
+      tone: C.red,
+    },
+    {
+      label: 'Kuota të papaguara',
+      value: stats ? usd(Math.round(stats.unpaid)) : '—',
+      hint: 'borxh aktiv',
+      tone: C.orange,
+    },
+    {
+      label: 'Norma e mbledhjes',
+      value: stats ? `${stats.rate}%` : '—',
+      hint: 'kuota të paguara',
+      tone: C.green,
+    },
+  ];
+
+  const months = (report?.trend ?? []).map((m) => ({
+    month: m.label,
+    collected: Math.round(m.income),
+    payments: m.count,
+  }));
+  const collectedMin = months.length ? Math.min(...months.map((m) => m.collected)) : 0;
+  const collectedMax = months.length ? Math.max(...months.map((m) => m.collected)) : 0;
+
+  const feeTotal = stats ? stats.paid + stats.delayed + stats.unpaid : 0;
+  const status = [
+    { label: 'Të paguara', amount: stats?.paid ?? 0, pct: share(stats?.paid ?? 0, feeTotal), tone: C.green },
+    { label: 'Me vonesë', amount: stats?.delayed ?? 0, pct: share(stats?.delayed ?? 0, feeTotal), tone: C.red },
+    { label: 'Të papaguara', amount: stats?.unpaid ?? 0, pct: share(stats?.unpaid ?? 0, feeTotal), tone: C.orange },
+  ];
+
+  const teams = (report?.fees_by_team ?? []).map((t) => ({
+    name: t.team_name,
+    pct: share(t.paid, t.total),
+    amount: Math.round(t.paid),
+  }));
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
@@ -170,7 +212,7 @@ export default function PaymentReportScreen() {
             bounces={false}
             contentContainerStyle={styles.summaryRow}
           >
-            {SUMMARY.map((s) => (
+            {summary.map((s) => (
               <View key={s.label} style={styles.sqShadow}>
                 <View style={styles.sq}>
                   {/* Frost the canvas grid, then lay a gloss sweep over it. */}
@@ -227,13 +269,18 @@ export default function PaymentReportScreen() {
               </View>
               <View style={styles.headLine} />
 
-              {/* Ten ticks hung from one top edge, each labelled on its side. */}
+              {/* Twelve ticks hung from one top edge, each labelled on its side. */}
               <View style={styles.chart}>
-                {MONTHS.map((m) => (
+                {months.map((m) => (
                   <View key={m.month} style={styles.chartCol}>
                     {/* Fixed-height slot: the ticks differ, the labels don't. */}
                     <View style={styles.tickArea}>
-                      <View style={[styles.tick, { height: tickHeight(m.collected) }]} />
+                      <View
+                        style={[
+                          styles.tick,
+                          { height: tickHeight(m.collected, collectedMin, collectedMax) },
+                        ]}
+                      />
                     </View>
                     <View style={styles.tickLabelBox}>
                       <Text style={styles.tickLabel} numberOfLines={1}>
@@ -260,7 +307,7 @@ export default function PaymentReportScreen() {
                   </Text>
                 </View>
 
-                {MONTHS.map((m) => (
+                {months.map((m) => (
                   <View key={m.month} style={[styles.tr, styles.trBorder]}>
                     <Text
                       style={[styles.td, styles.tdMonth, { flex: 1.2 }]}
@@ -281,39 +328,17 @@ export default function PaymentReportScreen() {
                     <Text style={[styles.td, { flex: 1.4 }]}>{m.payments}</Text>
                   </View>
                 ))}
+
+                {error ? (
+                  <View style={styles.stateRow}>
+                    <Text style={styles.stateText}>{error}</Text>
+                  </View>
+                ) : report === null ? (
+                  <View style={styles.stateRow}>
+                    <ActivityIndicator color={C.blueBtn} />
+                  </View>
+                ) : null}
               </View>
-            </View>
-
-            {/* ── Pager ─────────────────────────────────────────── */}
-            <View style={styles.pager}>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Faqja e mëparshme"
-                hitSlop={8}
-                style={({ pressed }) => [styles.pagerArrow, pressed && styles.pressed]}
-              >
-                <MaterialCommunityIcons name="chevron-left" size={I(22)} color={C.text} />
-              </Pressable>
-
-              {PAGES.map((p) => (
-                <Pressable
-                  key={p}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Faqja ${p}`}
-                  style={({ pressed }) => [styles.pageSq, pressed && styles.pressed]}
-                >
-                  <Text style={styles.pageSqText}>{p}</Text>
-                </Pressable>
-              ))}
-
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Faqja tjetër"
-                hitSlop={8}
-                style={({ pressed }) => [styles.pagerArrow, pressed && styles.pressed]}
-              >
-                <MaterialCommunityIcons name="chevron-right" size={I(22)} color={C.text} />
-              </Pressable>
             </View>
 
             {/* ── Membership-fee breakdown ──────────────────────── */}
@@ -326,14 +351,14 @@ export default function PaymentReportScreen() {
               <View style={styles.headLine} />
 
               <View style={styles.body}>
-                {STATUS.map((s) => (
+                {status.map((s) => (
                   <View key={s.label} style={styles.statBlock}>
                     <View style={styles.statTop}>
                       <Text style={styles.statName} numberOfLines={1}>
                         {s.label}
                       </Text>
                       <Text style={[styles.statValue, { color: s.tone }]} numberOfLines={1}>
-                        {usdFull(s.amount)} ({s.pct}%)
+                        {usdFull(Math.round(s.amount))} ({s.pct}%)
                       </Text>
                     </View>
 
@@ -351,35 +376,44 @@ export default function PaymentReportScreen() {
             <View style={[styles.card, styles.cardGap]}>
               <View style={[styles.head, styles.headSplit]}>
                 <Text style={styles.headTextLeft} numberOfLines={1}>
-                  Prezenca në stërvitje
+                  Pagesat sipas ekipit
                 </Text>
                 <Text style={styles.headAside} numberOfLines={1}>
-                  sipas ekipit
+                  të paguara / gjithsej
                 </Text>
               </View>
               <View style={styles.headLine} />
 
               <View style={styles.body}>
-                {TEAMS.map((t) => (
-                  <View key={t.name} style={styles.statBlock}>
-                    <View style={styles.statTop}>
-                      <Text style={styles.statName} numberOfLines={1}>
-                        {t.name}
-                      </Text>
-                      <Text style={styles.statValue}>
-                        {t.pct}% · {usd(t.amount)}
-                      </Text>
-                    </View>
+                {teams.length === 0 ? (
+                  <Text style={styles.stateText}>Nuk ka të dhëna pagesash.</Text>
+                ) : (
+                  teams.map((t) => (
+                    <View key={t.name} style={styles.statBlock}>
+                      <View style={styles.statTop}>
+                        <Text style={styles.statName} numberOfLines={1}>
+                          {t.name}
+                        </Text>
+                        <Text style={styles.statValue}>
+                          {t.pct}% · {usd(t.amount)}
+                        </Text>
+                      </View>
 
-                    {/* One rail, split paid / unpaid. */}
-                    <View style={styles.splitBar}>
-                      <View style={[styles.splitFill, { flex: t.pct, backgroundColor: C.green }]} />
-                      <View
-                        style={[styles.splitFill, { flex: 100 - t.pct, backgroundColor: C.red }]}
-                      />
+                      {/* One rail, split paid / unpaid. */}
+                      <View style={styles.splitBar}>
+                        <View
+                          style={[styles.splitFill, { flex: Math.max(t.pct, 0.001), backgroundColor: C.green }]}
+                        />
+                        <View
+                          style={[
+                            styles.splitFill,
+                            { flex: Math.max(100 - t.pct, 0.001), backgroundColor: C.red },
+                          ]}
+                        />
+                      </View>
                     </View>
-                  </View>
-                ))}
+                  ))
+                )}
               </View>
             </View>
           </View>
@@ -688,6 +722,21 @@ const styles = StyleSheet.create(
     tdCollected: {
       fontFamily: Fonts.bodyBold,
       color: C.green,
+    },
+
+    /* ── Loading / empty / error ─────────────────────────────── */
+    stateRow: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: 12,
+      paddingVertical: 18,
+    },
+
+    stateText: {
+      fontFamily: Fonts.body,
+      fontSize: 12.5,
+      color: C.hint,
+      textAlign: 'center',
     },
 
     /* ── Pager ───────────────────────────────────────────────── */

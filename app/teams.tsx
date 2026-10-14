@@ -3,8 +3,9 @@ import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   Image,
   Pressable,
   ScrollView,
@@ -16,8 +17,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
+import { ApiError } from '@/lib/api/errors';
+import { matchesReport } from '@/lib/api/reports';
+import { listTeams, teamStats } from '@/lib/api/teams';
+import type { ApiTeam, MatchReportRow, TeamStats } from '@/lib/api/types';
 import { I, scaled } from '@/lib/responsive';
-import { TEAMS, type Team } from '@/lib/teams';
+import { useSession } from '@/lib/session';
 
 /**
  * Lista e ekipeve — opened from the admin dashboard's "Ekipet → Shiko të
@@ -70,12 +75,13 @@ const SQ_SHEEN = ['rgba(245,245,245,0.55)', 'rgba(245,245,245,0.00)'] as const;
 /* Data                                                                */
 /* ------------------------------------------------------------------ */
 
-const SUMMARY = [
-  { label: 'Ekipet gjithsej', value: '5', hint: 'Kategori aktive' },
-  { label: 'Lojtarët total', value: '85', hint: 'Të gjitha ekipet' },
-  { label: 'Nr. i trajnerëve', value: '5', hint: 'Staf teknik' },
-  { label: 'Sezoni aktual', value: '2025/2026', hint: 'Aktiv' },
-];
+function errorText(error: unknown): string {
+  if (error instanceof ApiError) {
+    if (error.status === 0) return 'Nuk mund të lidhemi me serverin. Kontrollo lidhjen.';
+    return error.message;
+  }
+  return 'Diçka shkoi keq. Provo përsëri.';
+}
 
 type Col = { key: string; label: string; width: number; color?: string };
 
@@ -91,7 +97,29 @@ const STAT_COLS: Col[] = [
   { key: 'diff', label: 'Diferenca', width: 76 },
 ];
 
-const STAT_ROWS = 4;
+/** A team's match record, rolled up from the club's fixture list. */
+type TeamAgg = { played: number; win: number; loss: number; draw: number; gf: number; ga: number };
+
+const EMPTY_AGG: TeamAgg = { played: 0, win: 0, loss: 0, draw: 0, gf: 0, ga: 0 };
+
+/** Rolls the fixtures up per team; matches without a score don't count. */
+function aggregate(rows: MatchReportRow[]): Map<number, TeamAgg> {
+  const byTeam = new Map<number, TeamAgg>();
+  for (const m of rows) {
+    const id = m.team?.id;
+    if (id == null || m.goals_for == null || m.goals_against == null) continue;
+
+    const a = byTeam.get(id) ?? { ...EMPTY_AGG };
+    a.played += 1;
+    a.gf += m.goals_for;
+    a.ga += m.goals_against;
+    if (m.goals_for > m.goals_against) a.win += 1;
+    else if (m.goals_for < m.goals_against) a.loss += 1;
+    else a.draw += 1;
+    byTeam.set(id, a);
+  }
+  return byTeam;
+}
 
 /** Two per row, with the odd last card keeping its half width. */
 function chunkPairs<T>(items: T[]): T[][] {
@@ -104,11 +132,81 @@ function chunkPairs<T>(items: T[]): T[][] {
 /* Screen                                                              */
 /* ------------------------------------------------------------------ */
 
-type ModalState = { title: string; team?: Team };
+/** The popup only needs a team's editable fields, not the full record. */
+type TeamEdit = { name: string; season: string; coach: string };
+
+type ModalState = { title: string; team?: TeamEdit };
 
 export default function TeamsScreen() {
   const router = useRouter();
+  const { user, token, signOut } = useSession();
   const [modal, setModal] = useState<ModalState | null>(null);
+
+  const [teams, setTeams] = useState<ApiTeam[] | null>(null);
+  const [stats, setStats] = useState<TeamStats | null>(null);
+  const [matches, setMatches] = useState<MatchReportRow[] | null>(null);
+  const [listError, setListError] = useState<string | null>(null);
+
+  // The team list, its counts and the club's fixtures are one-shots — fetched
+  // together, and a failure of one leaves only that section at "—". An abort is
+  // indistinguishable from a timeout (both surface as status 0), so guard on
+  // our own signal rather than the error.
+  useEffect(() => {
+    if (!token) return;
+    const controller = new AbortController();
+
+    Promise.allSettled([
+      listTeams(token, controller.signal),
+      teamStats(token, controller.signal),
+      matchesReport(token, {}, controller.signal),
+    ]).then(([teamsRes, statsRes, matchesRes]) => {
+      if (controller.signal.aborted) return;
+
+      const rejected = [teamsRes, statsRes, matchesRes].find((r) => r.status === 'rejected');
+      if (
+        rejected &&
+        rejected.status === 'rejected' &&
+        rejected.reason instanceof ApiError &&
+        rejected.reason.status === 401
+      ) {
+        signOut();
+        router.replace('/login');
+        return;
+      }
+
+      if (teamsRes.status === 'fulfilled') {
+        setTeams(teamsRes.value.data);
+      } else {
+        setTeams([]);
+        setListError(errorText(teamsRes.reason));
+      }
+
+      if (statsRes.status === 'fulfilled') setStats(statsRes.value);
+
+      if (matchesRes.status === 'fulfilled') setMatches(matchesRes.value.matches);
+      else setMatches([]);
+    });
+
+    return () => controller.abort();
+  }, [token, router, signOut]);
+
+  const count = (value: number | undefined) => (value == null ? '—' : String(value));
+  const seasonName = stats?.season ?? '—';
+
+  // One row per team: its squad size from `GET /teams`, its record from the
+  // fixture roll-up. A team with no fixtures shows a row of zeroes.
+  const byTeam = aggregate(matches ?? []);
+  const board = (teams ?? []).map((team) => {
+    const record = byTeam.get(team.id) ?? EMPTY_AGG;
+    return { team, record, diff: record.gf - record.ga };
+  });
+
+  const summary = [
+    { label: 'Ekipet gjithsej', value: count(stats?.total_teams), hint: 'Kategori aktive' },
+    { label: 'Lojtarët total', value: count(stats?.total_players), hint: 'Të gjitha ekipet' },
+    { label: 'Nr. i trajnerëve', value: count(stats?.total_trainers), hint: 'Staf teknik' },
+    { label: 'Sezoni aktual', value: seasonName, hint: 'Aktiv' },
+  ];
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
@@ -130,7 +228,9 @@ export default function TeamsScreen() {
               </Pressable>
               <View style={styles.headerText}>
                 <Text style={styles.title}>Lista e ekipeve</Text>
-                <Text style={styles.subtitle}>FC Prishtina - Sezoni 2025/2026</Text>
+                <Text style={styles.subtitle}>
+                  {user?.club || '—'} - Sezoni {seasonName}
+                </Text>
               </View>
             </View>
           </View>
@@ -144,7 +244,7 @@ export default function TeamsScreen() {
             contentContainerStyle={styles.summaryRow}
             bounces={false}
           >
-            {SUMMARY.map((s) => (
+            {summary.map((s) => (
               <View key={s.label} style={styles.sqShadow}>
                 <View style={styles.sq}>
                   {/* Frost the canvas grid, then lay a gloss sweep over it. */}
@@ -208,21 +308,42 @@ export default function TeamsScreen() {
 
             {/* ── Team cards ───────────────────────────────────── */}
             <View style={styles.frame}>
-              {chunkPairs(TEAMS).map((row, rowIndex) => (
-                <View key={rowIndex} style={styles.gridRow}>
-                  {row.map((team) => (
-                    <TeamCard
-                      key={team.name}
-                      team={team}
-                      onEdit={() => setModal({ title: 'Edito ekip', team })}
-                      onOpen={() =>
-                        router.push(`/ekipa?name=${encodeURIComponent(team.name)}`)
-                      }
-                    />
-                  ))}
-                  {row.length === 1 ? <View style={styles.gridSpacer} /> : null}
+              {listError ? (
+                <View style={styles.frameState}>
+                  <Text style={styles.frameStateText}>{listError}</Text>
                 </View>
-              ))}
+              ) : teams === null ? (
+                <View style={styles.frameState}>
+                  <ActivityIndicator color={C.blueBtn} />
+                </View>
+              ) : teams.length === 0 ? (
+                <View style={styles.frameState}>
+                  <Text style={styles.frameStateText}>Nuk ka ekipe.</Text>
+                </View>
+              ) : (
+                chunkPairs(teams).map((row, rowIndex) => (
+                  <View key={rowIndex} style={styles.gridRow}>
+                    {row.map((team) => (
+                      <TeamCard
+                        key={team.id}
+                        team={team}
+                        onEdit={() =>
+                          setModal({
+                            title: 'Edito ekip',
+                            team: {
+                              name: team.name,
+                              season: team.season ?? '',
+                              coach: team.trainer?.name ?? '',
+                            },
+                          })
+                        }
+                        onOpen={() => router.push(`/ekipa?id=${team.id}`)}
+                      />
+                    ))}
+                    {row.length === 1 ? <View style={styles.gridSpacer} /> : null}
+                  </View>
+                ))
+              )}
             </View>
 
             {/* ── Transferimet ─────────────────────────────────── */}
@@ -265,23 +386,72 @@ export default function TeamsScreen() {
                     ))}
                   </View>
 
-                  {Array.from({ length: STAT_ROWS }).map((_, i) => (
-                    <View key={i} style={[styles.tr, styles.trBorder]} />
-                  ))}
+                  {board.length === 0 ? (
+                    <View style={[styles.tr, styles.trBorder]}>
+                      <Text style={styles.tdEmpty}>Nuk ka të dhëna.</Text>
+                    </View>
+                  ) : (
+                    board.map(({ team, record, diff }) => {
+                      const cells = [
+                        team.name,
+                        team.players_count == null ? '—' : String(team.players_count),
+                        String(record.played),
+                        String(record.win),
+                        String(record.loss),
+                        String(record.draw),
+                        String(record.gf),
+                        String(record.ga),
+                        `${diff > 0 ? '+' : ''}${diff}`,
+                      ];
+                      return (
+                        <View key={team.id} style={[styles.tr, styles.trBorder]}>
+                          {cells.map((value, i) => (
+                            <Text
+                              key={STAT_COLS[i].key}
+                              style={[
+                                styles.td,
+                                { width: STAT_COLS[i].width },
+                                i === 0 ? styles.tdTeam : null,
+                                STAT_COLS[i].color ? { color: STAT_COLS[i].color } : null,
+                              ]}
+                              numberOfLines={1}
+                              adjustsFontSizeToFit
+                              minimumFontScale={0.7}
+                            >
+                              {value}
+                            </Text>
+                          ))}
+                        </View>
+                      );
+                    })
+                  )}
                 </View>
               </ScrollView>
             </View>
 
             {/* ── Team records ─────────────────────────────────── */}
             <View style={[styles.frame, styles.frameGreen]}>
-              {chunkPairs(TEAMS).map((row, rowIndex) => (
-                <View key={rowIndex} style={styles.gridRow}>
-                  {row.map((team) => (
-                    <TeamRecordCard key={team.name} team={team} />
-                  ))}
-                  {row.length === 1 ? <View style={styles.gridSpacer} /> : null}
+              {board.length === 0 ? (
+                <View style={styles.frameState}>
+                  <Text style={styles.frameStateText}>Nuk ka të dhëna.</Text>
                 </View>
-              ))}
+              ) : (
+                chunkPairs(board).map((row, rowIndex) => (
+                  <View key={rowIndex} style={styles.gridRow}>
+                    {row.map(({ team, record }) => (
+                      <TeamRecordCard
+                        key={team.id}
+                        name={team.name}
+                        season={team.season ?? '—'}
+                        win={record.win}
+                        loss={record.loss}
+                        goals={record.gf}
+                      />
+                    ))}
+                    {row.length === 1 ? <View style={styles.gridSpacer} /> : null}
+                  </View>
+                ))
+              )}
             </View>
           </View>
         </ScrollView>
@@ -304,7 +474,7 @@ function TeamCard({
   onEdit,
   onOpen,
 }: {
-  team: Team;
+  team: ApiTeam;
   onEdit: () => void;
   onOpen: () => void;
 }) {
@@ -313,19 +483,19 @@ function TeamCard({
       <Text style={styles.teamName} numberOfLines={1}>
         {team.name}
       </Text>
-      <Text style={styles.teamSeason}>{team.season}</Text>
+      <Text style={styles.teamSeason}>{team.season ?? '—'}</Text>
 
       <View style={styles.teamDivider} />
 
       <View style={styles.teamRow}>
         <Text style={styles.teamLabel}>Trajneri</Text>
         <Text style={styles.teamValue} numberOfLines={1}>
-          {team.coach}
+          {team.trainer?.name ?? '—'}
         </Text>
       </View>
       <View style={styles.teamRow}>
         <Text style={styles.teamLabel}>Lojtarët</Text>
-        <Text style={styles.teamValue}>{team.players}</Text>
+        <Text style={styles.teamValue}>{team.players_count ?? '—'}</Text>
       </View>
 
       <View style={styles.teamBtns}>
@@ -348,27 +518,39 @@ function TeamCard({
   );
 }
 
-function TeamRecordCard({ team }: { team: Team }) {
+function TeamRecordCard({
+  name,
+  season,
+  win,
+  loss,
+  goals,
+}: {
+  name: string;
+  season: string;
+  win: number;
+  loss: number;
+  goals: number;
+}) {
   return (
     <View style={[styles.teamCard, styles.recordCard]}>
       <Text style={styles.teamName} numberOfLines={1}>
-        {team.name}
+        {name}
       </Text>
-      <Text style={styles.teamSeason}>{team.season}</Text>
+      <Text style={styles.teamSeason}>{season}</Text>
 
       <View style={styles.teamDivider} />
 
       <View style={styles.recordRow}>
         <View style={styles.recordCol}>
-          <Text style={[styles.recordNum, { color: C.green }]}>{team.win}</Text>
+          <Text style={[styles.recordNum, { color: C.green }]}>{win}</Text>
           <Text style={styles.recordLabel}>Fitore</Text>
         </View>
         <View style={styles.recordCol}>
-          <Text style={[styles.recordNum, { color: C.red }]}>{team.loss}</Text>
+          <Text style={[styles.recordNum, { color: C.red }]}>{loss}</Text>
           <Text style={styles.recordLabel}>Humbje</Text>
         </View>
         <View style={styles.recordCol}>
-          <Text style={[styles.recordNum, { color: C.blue }]}>{team.goalsPlus}</Text>
+          <Text style={[styles.recordNum, { color: C.blue }]}>{goals}</Text>
           <Text style={styles.recordLabel}>Gola</Text>
         </View>
       </View>
@@ -386,7 +568,7 @@ function TeamModal({
   onClose,
 }: {
   title: string;
-  team?: Team;
+  team?: TeamEdit;
   onClose: () => void;
 }) {
   const [name, setName] = useState(team?.name ?? '');
@@ -673,6 +855,21 @@ const styles = StyleSheet.create(
       flex: 1,
     },
 
+    /* Loading / empty / error placeholder inside the team-card frame. */
+    frameState: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: 24,
+    },
+
+    frameStateText: {
+      fontFamily: Fonts.body,
+      fontSize: 12.5,
+      lineHeight: 16,
+      color: C.gray,
+      textAlign: 'center',
+    },
+
     teamCard: {
       flex: 1,
       minHeight: 132,
@@ -912,6 +1109,29 @@ const styles = StyleSheet.create(
       lineHeight: 14,
       color: C.gray,
       textAlign: 'center',
+    },
+
+    td: {
+      fontFamily: Fonts.body,
+      fontSize: 11.5,
+      lineHeight: 14,
+      color: C.text,
+      textAlign: 'center',
+      paddingHorizontal: 2,
+    },
+
+    tdTeam: {
+      fontFamily: Fonts.bodySemiBold,
+      textAlign: 'left',
+    },
+
+    tdEmpty: {
+      flex: 1,
+      paddingHorizontal: 12,
+      fontFamily: Fonts.body,
+      fontSize: 12.5,
+      lineHeight: 16,
+      color: C.gray,
     },
 
     pressed: {

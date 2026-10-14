@@ -1,12 +1,19 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
+import { ApiError } from '@/lib/api/errors';
+import { playersReport } from '@/lib/api/reports';
+import { listTeams } from '@/lib/api/teams';
+import type { ApiTeam, PlayerReportRow, PlayersReport } from '@/lib/api/types';
+import { POSITIONS, positionLabel } from '@/lib/player-position';
 import { I, scaled } from '@/lib/responsive';
+import { useSession } from '@/lib/session';
 
 /**
  * Raportet — opened from the "Shiko të gjithë" footer of the Raportet card
@@ -98,46 +105,57 @@ type Row = {
   vler: string;
 };
 
-const ROWS: Row[] = [
-  { name: 'Kastriot Avdiu', team: 'U13', pos: 'SU', nd: 8, gola: 12, asiste: 3, min: 623, kv: 0, kk: 0, prani: 63, vler: '7.5' },
-  { name: 'Ardit Rexha', team: 'E. i Parë', pos: 'SU', nd: 14, gola: 18, asiste: 6, min: 1180, kv: 0, kk: 0, prani: 92, vler: '8.4' },
-  { name: 'Erion Hoxha', team: 'U21', pos: 'MF', nd: 13, gola: 5, asiste: 9, min: 1042, kv: 0, kk: 0, prani: 88, vler: '7.8' },
-  { name: 'Bledar Krasniqi', team: 'E. i Parë', pos: 'MB', nd: 15, gola: 2, asiste: 3, min: 1310, kv: 0, kk: 0, prani: 95, vler: '7.9' },
-  { name: 'Migena Shahini', team: 'U17', pos: 'MB', nd: 11, gola: 1, asiste: 4, min: 902, kv: 0, kk: 0, prani: 81, vler: '7.2' },
-  { name: 'Endrit Nushi', team: 'U21', pos: 'PO', nd: 12, gola: 0, asiste: 0, min: 1080, kv: 4, kk: 0, prani: 90, vler: '8.1' },
-  { name: 'Lira Sula', team: 'U15', pos: 'SU', nd: 9, gola: 7, asiste: 2, min: 640, kv: 0, kk: 0, prani: 74, vler: '6.9' },
-  { name: 'Dritan Jakupi', team: 'U19', pos: 'MF', nd: 12, gola: 4, asiste: 5, min: 980, kv: 0, kk: 0, prani: 86, vler: '7.6' },
-  { name: 'Klea Hyseni', team: 'U15', pos: 'MB', nd: 8, gola: 0, asiste: 1, min: 560, kv: 0, kk: 0, prani: 68, vler: '6.4' },
-  { name: 'Gentian Meta', team: 'U13', pos: 'PO', nd: 10, gola: 0, asiste: 0, min: 780, kv: 2, kk: 1, prani: 79, vler: '7.1' },
+/** The report returns every player at once, so the pager works on the client. */
+const PAGE_SIZE = 8;
+
+/** Roll each position code up into one of the four goal groups. */
+const POSITION_GROUP: Record<string, string> = {
+  PO: 'Portier',
+  BDJ: 'Mbrojtës',
+  QBM: 'Mbrojtës',
+  BSI: 'Mbrojtës',
+  MMB: 'Mesfushorë',
+  MQ: 'Mesfushorë',
+  MO: 'Mesfushorë',
+  KDJ: 'Mesfushorë',
+  KSI: 'Mesfushorë',
+  SU: 'Sulmues',
+  SS: 'Sulmues',
+};
+
+/** Fixed order and colour for the goal bars, so the card is stable at zero. */
+const GOAL_GROUPS = [
+  { pos: 'Sulmues', color: C.orange },
+  { pos: 'Mesfushorë', color: C.blue },
+  { pos: 'Mbrojtës', color: C.green },
+  { pos: 'Portier', color: C.track },
 ];
 
-const PAGES = [1, 2, 3, 4];
+type FilterKey = 'team' | 'position';
 
-/* ── Attendance by team ────────────────────────────────────────────── */
+/** A player's report line, flattened for the wide table. */
+function toRow(p: PlayerReportRow): Row {
+  return {
+    name: p.name ?? '—',
+    team: p.team?.name ?? '—',
+    pos: p.position ?? '—',
+    nd: p.matches,
+    gola: p.goals,
+    asiste: p.assists,
+    min: p.minutes,
+    kv: p.yellow_cards,
+    kk: p.red_cards,
+    prani: p.attendance_pct,
+    vler: p.latest_rating != null ? Number(p.latest_rating).toFixed(1) : '—',
+  };
+}
 
-type Attendance = { team: string; pct: number; present: number; absent: number };
-
-const ATTENDANCE: Attendance[] = [
-  { team: 'Ekipi i Parë', pct: 89, present: 201, absent: 25 },
-  { team: 'U21', pct: 84, present: 160, absent: 30 },
-  { team: 'U17', pct: 78, present: 132, absent: 37 },
-  { team: 'U15', pct: 71, present: 118, absent: 48 },
-  { team: 'U13', pct: 65, present: 96, absent: 52 },
-];
-
-/* ── Goals by position ─────────────────────────────────────────────── */
-
-type Goals = { pos: string; total: number; color: string };
-
-const GOALS: Goals[] = [
-  { pos: 'Sulmues', total: 107, color: C.orange },
-  { pos: 'Mesfushorë', total: 65, color: C.blue },
-  { pos: 'Mbrojtës', total: 2, color: C.green },
-  { pos: 'Portier', total: 0, color: C.track },
-];
-
-/** Widest value on the scale, so the longest bar fills the rail. */
-const GOALS_MAX = 107;
+/** A short run of page numbers ending at `last`, capped for width. */
+function pageWindow(current: number, last: number, span = 4): number[] {
+  const start = Math.max(1, Math.min(current, last - span + 1));
+  const end = Math.min(last, start + span - 1);
+  return Array.from({ length: Math.max(0, end - start + 1) }, (_, i) => start + i);
+}
 
 /* ------------------------------------------------------------------ */
 
@@ -152,6 +170,120 @@ function MiniBar({ pct, color, width }: { pct: number; color: string; width: num
 
 export default function ReportsScreen() {
   const router = useRouter();
+  const { token, signOut } = useSession();
+
+  const [report, setReport] = useState<PlayersReport | null>(null);
+  const [teams, setTeams] = useState<ApiTeam[]>([]);
+  const [filters, setFilters] = useState<{ team: 'all' | number; position: string }>({
+    team: 'all',
+    position: 'all',
+  });
+  const [openFilter, setOpenFilter] = useState<FilterKey | null>(null);
+  const [page, setPage] = useState(1);
+  const [error, setError] = useState<string | null>(null);
+
+  const filterKey = `${filters.team}|${filters.position}`;
+
+  // The team filter's options — a one-shot, independent of the report.
+  useEffect(() => {
+    if (!token) return;
+    const controller = new AbortController();
+    listTeams(token, controller.signal)
+      .then((res) => {
+        if (!controller.signal.aborted) setTeams(res.data);
+      })
+      .catch(() => {
+        // Leave the filter at "Të gjitha ekipet"; the report carries its own
+        // error state.
+      });
+    return () => controller.abort();
+  }, [token]);
+
+  useEffect(() => {
+    if (!token) return;
+    const controller = new AbortController();
+    playersReport(
+      token,
+      {
+        team_id: filters.team === 'all' ? undefined : filters.team,
+        position: filters.position === 'all' ? undefined : filters.position,
+      },
+      controller.signal,
+    )
+      .then((res) => {
+        if (controller.signal.aborted) return;
+        setReport(res);
+        setError(null);
+      })
+      .catch((err) => {
+        if (controller.signal.aborted) return;
+        if (err instanceof ApiError && err.status === 401) {
+          signOut();
+          router.replace('/login');
+          return;
+        }
+        setError(
+          err instanceof ApiError && err.status === 0
+            ? 'Nuk mund të lidhemi me serverin. Kontrollo lidhjen.'
+            : 'Nuk mund të ngarkohen raportet.',
+        );
+      });
+    return () => controller.abort();
+  }, [token, filterKey, filters.team, filters.position, signOut, router]);
+
+  const rows = (report?.players ?? []).map(toRow);
+  const lastPage = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+  const current = Math.min(page, lastPage);
+  const visibleRows = rows.slice((current - 1) * PAGE_SIZE, current * PAGE_SIZE);
+
+  const attendance = (report?.attendance_by_team ?? []).map((t) => {
+    const total = t.present + t.absent;
+    return {
+      team: t.name,
+      pct: total > 0 ? Math.round((t.present / total) * 100) : 0,
+      present: t.present,
+      absent: t.absent,
+    };
+  });
+
+  const goalTotals: Record<string, number> = {};
+  for (const p of report?.players ?? []) {
+    const group = POSITION_GROUP[p.position ?? ''] ?? 'Mesfushorë';
+    goalTotals[group] = (goalTotals[group] ?? 0) + p.goals;
+  }
+  const goals = GOAL_GROUPS.map((g) => ({ ...g, total: goalTotals[g.pos] ?? 0 }));
+  const goalsMax = Math.max(1, ...goals.map((g) => g.total));
+
+  const applyFilter = (key: FilterKey, value: string | number) => {
+    setFilters((prev) => ({ ...prev, [key]: value }));
+    setPage(1);
+    setOpenFilter(null);
+  };
+
+  const filterLabel = (key: FilterKey): string => {
+    if (key === 'team') {
+      return filters.team === 'all'
+        ? 'Të gjitha ekipet'
+        : teams.find((t) => t.id === filters.team)?.name ?? 'Të gjitha ekipet';
+    }
+    return filters.position === 'all' ? 'Të gjitha pozicionet' : positionLabel(filters.position);
+  };
+
+  const filterItems = (key: FilterKey): { value: string | number; label: string }[] => {
+    if (key === 'team') {
+      return [
+        { value: 'all', label: 'Të gjitha ekipet' },
+        ...teams.map((t) => ({ value: t.id, label: t.name })),
+      ];
+    }
+    return [
+      { value: 'all', label: 'Të gjitha pozicionet' },
+      ...POSITIONS.map((p) => ({ value: p.code, label: p.label })),
+    ];
+  };
+
+  const selectedFilterValue = (key: FilterKey): string | number =>
+    key === 'team' ? filters.team : filters.position;
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
@@ -224,28 +356,64 @@ export default function ReportsScreen() {
 
             {/* ── Filters ───────────────────────────────────────── */}
             <View style={styles.filterRow}>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Filtro: Të gjitha ekipet"
-                style={({ pressed }) => [styles.filterBox, pressed && styles.pressed]}
-              >
-                <Text style={styles.filterText} numberOfLines={1}>
-                  Të gjitha ekipet
-                </Text>
-                <MaterialCommunityIcons name="chevron-down" size={I(14)} color={C.text} />
-              </Pressable>
-
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Filtro: Të gjitha pozicionet"
-                style={({ pressed }) => [styles.filterBox, pressed && styles.pressed]}
-              >
-                <Text style={styles.filterText} numberOfLines={1}>
-                  Të gjitha pozicionet
-                </Text>
-                <MaterialCommunityIcons name="chevron-down" size={I(14)} color={C.text} />
-              </Pressable>
+              {(['team', 'position'] as FilterKey[]).map((key) => (
+                <Pressable
+                  key={key}
+                  onPress={() => setOpenFilter((cur) => (cur === key ? null : key))}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Filtro: ${filterLabel(key)}`}
+                  style={({ pressed }) => [
+                    styles.filterBox,
+                    openFilter === key && styles.filterBoxOpen,
+                    pressed && styles.pressed,
+                  ]}
+                >
+                  <Text style={styles.filterText} numberOfLines={1}>
+                    {filterLabel(key)}
+                  </Text>
+                  <MaterialCommunityIcons
+                    name={openFilter === key ? 'chevron-up' : 'chevron-down'}
+                    size={I(14)}
+                    color={C.text}
+                  />
+                </Pressable>
+              ))}
             </View>
+
+            {/* The open filter's options — an inline strip so nothing clips
+                and every option stays tappable on Android. */}
+            {openFilter ? (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                bounces={false}
+                contentContainerStyle={styles.filterOptsRow}
+              >
+                {filterItems(openFilter).map((item) => {
+                  const active = item.value === selectedFilterValue(openFilter);
+                  return (
+                    <Pressable
+                      key={String(item.value)}
+                      onPress={() => applyFilter(openFilter, item.value)}
+                      accessibilityRole="button"
+                      accessibilityLabel={item.label}
+                      style={({ pressed }) => [
+                        styles.filterChip,
+                        active && styles.filterChipActive,
+                        pressed && styles.pressed,
+                      ]}
+                    >
+                      <Text
+                        style={[styles.filterChipText, active && styles.filterChipTextActive]}
+                        numberOfLines={1}
+                      >
+                        {item.label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+            ) : null}
 
             {/* ── Individual player report ──────────────────────── */}
             <View style={styles.card}>
@@ -276,7 +444,7 @@ export default function ReportsScreen() {
                     ))}
                   </View>
 
-                  {ROWS.map((r) => (
+                  {visibleRows.map((r) => (
                     <View key={r.name} style={[styles.tr, styles.trBorder]}>
                       {COLS.map((c) => {
                         if (c.key === 'name') {
@@ -313,39 +481,73 @@ export default function ReportsScreen() {
                   ))}
                 </View>
               </ScrollView>
+
+              {/* Loading / empty / error — kept inside the card so the table
+                  frame stays put. */}
+              {error ? (
+                <View style={styles.stateRow}>
+                  <Text style={styles.stateText}>{error}</Text>
+                </View>
+              ) : report === null ? (
+                <View style={styles.stateRow}>
+                  <ActivityIndicator color={C.blue} />
+                </View>
+              ) : rows.length === 0 ? (
+                <View style={styles.stateRow}>
+                  <Text style={styles.stateText}>Asnjë lojtar nuk u gjet.</Text>
+                </View>
+              ) : null}
             </View>
 
             {/* ── Pager ─────────────────────────────────────────── */}
-            <View style={styles.pager}>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Faqja e mëparshme"
-                hitSlop={8}
-                style={({ pressed }) => [styles.pagerArrow, pressed && styles.pressed]}
-              >
-                <MaterialCommunityIcons name="chevron-left" size={I(22)} color={C.text} />
-              </Pressable>
-
-              {PAGES.map((p) => (
+            {lastPage > 1 ? (
+              <View style={styles.pager}>
                 <Pressable
-                  key={p}
+                  onPress={() => setPage(current - 1)}
+                  disabled={current <= 1}
                   accessibilityRole="button"
-                  accessibilityLabel={`Faqja ${p}`}
-                  style={({ pressed }) => [styles.pageSq, pressed && styles.pressed]}
+                  accessibilityLabel="Faqja e mëparshme"
+                  hitSlop={8}
+                  style={({ pressed }) => [
+                    styles.pagerArrow,
+                    current <= 1 && styles.pagerDisabled,
+                    pressed && styles.pressed,
+                  ]}
                 >
-                  <Text style={styles.pageSqText}>{p}</Text>
+                  <MaterialCommunityIcons name="chevron-left" size={I(22)} color={C.text} />
                 </Pressable>
-              ))}
 
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Faqja tjetër"
-                hitSlop={8}
-                style={({ pressed }) => [styles.pagerArrow, pressed && styles.pressed]}
-              >
-                <MaterialCommunityIcons name="chevron-right" size={I(22)} color={C.text} />
-              </Pressable>
-            </View>
+                {pageWindow(current, lastPage).map((p) => (
+                  <Pressable
+                    key={p}
+                    onPress={() => setPage(p)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Faqja ${p}`}
+                    style={({ pressed }) => [
+                      p === current ? styles.pageSqActive : styles.pageSq,
+                      pressed && styles.pressed,
+                    ]}
+                  >
+                    <Text style={styles.pageSqText}>{p}</Text>
+                  </Pressable>
+                ))}
+
+                <Pressable
+                  onPress={() => setPage(current + 1)}
+                  disabled={current >= lastPage}
+                  accessibilityRole="button"
+                  accessibilityLabel="Faqja tjetër"
+                  hitSlop={8}
+                  style={({ pressed }) => [
+                    styles.pagerArrow,
+                    current >= lastPage && styles.pagerDisabled,
+                    pressed && styles.pressed,
+                  ]}
+                >
+                  <MaterialCommunityIcons name="chevron-right" size={I(22)} color={C.text} />
+                </Pressable>
+              </View>
+            ) : null}
 
             {/* ── Attendance ────────────────────────────────────── */}
             <View style={[styles.card, styles.cardGap]}>
@@ -358,29 +560,41 @@ export default function ReportsScreen() {
               <View style={styles.headLine} />
 
               <View style={styles.body}>
-                {ATTENDANCE.map((a) => (
-                  <View key={a.team} style={styles.statBlock}>
-                    <View style={styles.statTop}>
-                      <Text style={styles.statLabel} numberOfLines={1}>
-                        {a.team}
-                      </Text>
-                      <Text style={styles.statValue}>{a.pct}%</Text>
-                    </View>
+                {attendance.length === 0 ? (
+                  <Text style={styles.stateText}>Nuk ka të dhëna prezence.</Text>
+                ) : (
+                  attendance.map((a) => (
+                    <View key={a.team} style={styles.statBlock}>
+                      <View style={styles.statTop}>
+                        <Text style={styles.statLabel} numberOfLines={1}>
+                          {a.team}
+                        </Text>
+                        <Text style={styles.statValue}>{a.pct}%</Text>
+                      </View>
 
-                    {/* One rail, split present / absent. */}
-                    <View style={styles.splitBar}>
-                      <View style={[styles.splitFill, { flex: a.pct, backgroundColor: C.green }]} />
-                      <View
-                        style={[styles.splitFill, { flex: 100 - a.pct, backgroundColor: C.red }]}
-                      />
-                    </View>
+                      {/* One rail, split present / absent. */}
+                      <View style={styles.splitBar}>
+                        <View
+                          style={[
+                            styles.splitFill,
+                            { flex: Math.max(a.present, 0.001), backgroundColor: C.green },
+                          ]}
+                        />
+                        <View
+                          style={[
+                            styles.splitFill,
+                            { flex: Math.max(a.absent, 0.001), backgroundColor: C.red },
+                          ]}
+                        />
+                      </View>
 
-                    <View style={styles.statFoot}>
-                      <Text style={[styles.footText, { color: C.green }]}>{a.present} prezent</Text>
-                      <Text style={[styles.footText, { color: C.red }]}>{a.absent} mungesë</Text>
+                      <View style={styles.statFoot}>
+                        <Text style={[styles.footText, { color: C.green }]}>{a.present} prezent</Text>
+                        <Text style={[styles.footText, { color: C.red }]}>{a.absent} mungesë</Text>
+                      </View>
                     </View>
-                  </View>
-                ))}
+                  ))
+                )}
               </View>
             </View>
 
@@ -395,7 +609,7 @@ export default function ReportsScreen() {
               <View style={styles.headLine} />
 
               <View style={styles.body}>
-                {GOALS.map((g) => (
+                {goals.map((g) => (
                   <View key={g.pos} style={styles.statBlock}>
                     <View style={styles.statTop}>
                       <Text style={styles.statLabel} numberOfLines={1}>
@@ -409,7 +623,7 @@ export default function ReportsScreen() {
                         style={[
                           styles.barFill,
                           {
-                            width: `${(g.total / GOALS_MAX) * 100}%`,
+                            width: `${(g.total / goalsMax) * 100}%`,
                             backgroundColor: g.color,
                           },
                         ]}
@@ -593,6 +807,57 @@ const styles = StyleSheet.create(
       color: C.text,
     },
 
+    filterBoxOpen: {
+      borderColor: C.orange,
+    },
+
+    /* ── Filter options (inline strip under an open filter) ──── */
+    filterOptsRow: {
+      paddingTop: 8,
+      gap: 6,
+    },
+
+    filterChip: {
+      height: 28,
+      justifyContent: 'center',
+      paddingHorizontal: 11,
+      borderRadius: 14,
+      borderWidth: 1,
+      borderColor: 'rgba(0,0,0,0.15)',
+      backgroundColor: '#FFFFFF',
+    },
+
+    filterChipActive: {
+      backgroundColor: C.blueSoft,
+      borderColor: C.frame,
+    },
+
+    filterChipText: {
+      fontFamily: Fonts.body,
+      fontSize: 11.5,
+      color: C.hint,
+    },
+
+    filterChipTextActive: {
+      fontFamily: Fonts.bodySemiBold,
+      color: C.text,
+    },
+
+    /* ── Loading / empty / error ─────────────────────────────── */
+    stateRow: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: 12,
+      paddingVertical: 18,
+    },
+
+    stateText: {
+      fontFamily: Fonts.body,
+      fontSize: 12.5,
+      color: C.hint,
+      textAlign: 'center',
+    },
+
     /* ── Tables ──────────────────────────────────────────────── */
     card: {
       marginTop: 14,
@@ -728,11 +993,24 @@ const styles = StyleSheet.create(
       justifyContent: 'center',
     },
 
+    pagerDisabled: {
+      opacity: 0.3,
+    },
+
     pageSq: {
       width: 34,
       height: 34,
       borderRadius: 5,
       backgroundColor: '#86BCFD',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+
+    pageSqActive: {
+      width: 34,
+      height: 34,
+      borderRadius: 5,
+      backgroundColor: '#4E90D8',
       alignItems: 'center',
       justifyContent: 'center',
     },

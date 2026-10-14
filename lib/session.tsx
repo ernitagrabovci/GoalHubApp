@@ -1,8 +1,23 @@
-import { createContext, useContext, useMemo, useState, type ReactNode } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from 'react';
+
+import * as auth from '@/lib/api/auth';
+import { ApiError } from '@/lib/api/errors';
+import { toSessionUser } from '@/lib/api/mappers';
+import { clearToken, getToken, setToken } from '@/lib/api/token-store';
+import type { ApiClub, ApiUser } from '@/lib/api/types';
 
 export type Role = 'administrator' | 'trainer' | 'player' | 'parent' | 'financier';
 
-export type DemoUser = {
+export type SessionUser = {
+  id: number;
   role: Role;
   name: string;
   initials: string;
@@ -10,55 +25,6 @@ export type DemoUser = {
   club: string;
   subtitle: string;
   color: string;
-};
-
-/** Demo accounts mirroring the webapp seeders — UI preview only, no real backend. */
-export const DEMO_USERS: Record<Role, DemoUser> = {
-  administrator: {
-    role: 'administrator',
-    name: 'Ardian Dema',
-    initials: 'AD',
-    email: 'admin@goalhub.com',
-    club: 'FC Prishtina',
-    subtitle: 'Club administrator',
-    color: '#1a9e5c',
-  },
-  trainer: {
-    role: 'trainer',
-    name: 'Rexhep Hyseni',
-    initials: 'RH',
-    email: 'trainer@goalhub.com',
-    club: 'FC Prishtina',
-    subtitle: 'Head coach — First Team',
-    color: '#2fbf71',
-  },
-  player: {
-    role: 'player',
-    name: 'Ardit Llapashtica',
-    initials: 'AL',
-    email: 'ardit@goalhub.com',
-    club: 'FC Prishtina',
-    subtitle: 'Forward · No. 9',
-    color: '#f5a623',
-  },
-  parent: {
-    role: 'parent',
-    name: 'Besnik Gashi',
-    initials: 'BG',
-    email: 'parent@goalhub.com',
-    club: 'FC Prishtina Academy',
-    subtitle: 'Parent · FC Prishtina Academy',
-    color: '#8f86e8',
-  },
-  financier: {
-    role: 'financier',
-    name: 'Faton Krasniqi',
-    initials: 'FK',
-    email: 'finance@goalhub.com',
-    club: 'FC Prishtina',
-    subtitle: 'Club financier',
-    color: '#5aa7e6',
-  },
 };
 
 export const ROLE_ORDER: Role[] = ['administrator', 'trainer', 'player', 'parent', 'financier'];
@@ -71,27 +37,124 @@ export const ROLE_LABELS: Record<Role, string> = {
   financier: 'finance',
 };
 
+/** `loading` until the stored token has been checked on launch. */
+export type SessionStatus = 'loading' | 'signedOut' | 'signedIn';
+
+type UpdateProfileInput = { name: string; email: string; password?: string };
+
 type SessionValue = {
-  user: DemoUser | null;
-  signIn: (role: Role) => void;
+  user: SessionUser | null;
+  token: string | null;
+  status: SessionStatus;
+  signIn: (email: string, password: string) => Promise<void>;
   signOut: () => void;
-  updateProfile: (patch: { name: string; email: string }) => void;
+  updateProfile: (input: UpdateProfileInput) => Promise<void>;
+  changePassword: (currentPassword: string, password: string) => Promise<void>;
 };
 
 const SessionContext = createContext<SessionValue | null>(null);
 
 export function SessionProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<DemoUser | null>(null);
+  const [user, setUser] = useState<SessionUser | null>(null);
+  const [club, setClub] = useState<ApiClub | null>(null);
+  const [token, setTokenState] = useState<string | null>(null);
+  const [status, setStatus] = useState<SessionStatus>('loading');
+
+  // Restore a stored token on launch. A 401 means the token is dead, so drop
+  // it; a network failure keeps it so the next launch can retry.
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      const stored = await getToken();
+      if (!stored) {
+        if (!cancelled) setStatus('signedOut');
+        return;
+      }
+
+      try {
+        const { user: apiUser, club: apiClub } = await auth.me(stored);
+        if (cancelled) return;
+        setTokenState(stored);
+        setClub(apiClub);
+        setUser(toSessionUser(apiUser, apiClub));
+        setStatus('signedIn');
+      } catch (error) {
+        if (cancelled) return;
+        if (error instanceof ApiError && error.status === 401) {
+          await clearToken();
+        }
+        setStatus('signedOut');
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const signIn = useCallback(async (email: string, password: string) => {
+    const result = await auth.login(email, password);
+    await setToken(result.token);
+    setTokenState(result.token);
+    setClub(result.club);
+    setUser(toSessionUser(result.user, result.club));
+    setStatus('signedIn');
+  }, []);
+
+  const signOut = useCallback(() => {
+    const current = token;
+    setUser(null);
+    setClub(null);
+    setTokenState(null);
+    setStatus('signedOut');
+    clearToken().catch(() => {});
+    if (current) auth.logout(current).catch(() => {});
+  }, [token]);
+
+  const updateProfile = useCallback(
+    async ({ name, email, password }: UpdateProfileInput) => {
+      if (!token || !user) throw new ApiError('You are not signed in.', 401);
+
+      const nextName = name.trim();
+      const nextEmail = email.trim();
+      const emailChanged = nextEmail !== '' && nextEmail !== user.email;
+
+      if (emailChanged && !password) {
+        throw new ApiError('Enter your password to change your email.', 422);
+      }
+
+      let apiUser: ApiUser = {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        avatar: null,
+      };
+
+      if (nextName && nextName !== user.name) {
+        apiUser = (await auth.updateProfile(token, nextName)).user;
+      }
+      if (emailChanged) {
+        apiUser = (await auth.updateEmail(token, nextEmail, password as string)).user;
+      }
+
+      setUser(toSessionUser(apiUser, club));
+    },
+    [token, user, club]
+  );
+
+  const changePassword = useCallback(
+    async (currentPassword: string, password: string) => {
+      if (!token) throw new ApiError('You are not signed in.', 401);
+      await auth.changePassword(token, currentPassword, password);
+    },
+    [token]
+  );
 
   const value = useMemo<SessionValue>(
-    () => ({
-      user,
-      signIn: (role: Role) => setUser(DEMO_USERS[role]),
-      signOut: () => setUser(null),
-      updateProfile: (patch) =>
-        setUser((prev) => (prev ? { ...prev, ...patch } : prev)),
-    }),
-    [user]
+    () => ({ user, token, status, signIn, signOut, updateProfile, changePassword }),
+    [user, token, status, signIn, signOut, updateProfile, changePassword]
   );
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;

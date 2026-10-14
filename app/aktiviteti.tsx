@@ -1,12 +1,17 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
+import { ApiError } from '@/lib/api/errors';
+import { activityReport } from '@/lib/api/reports';
+import type { ActivityReport } from '@/lib/api/types';
 import { I, scaled } from '@/lib/responsive';
+import { useSession } from '@/lib/session';
 
 /**
  * Aktiviteti — opened from "Vazhdo" on the Aktiviteti card over on the users
@@ -43,84 +48,64 @@ type Entry = {
   tone: string;
 };
 
-const RECENT_LOGINS: Entry[] = [
-  {
-    name: 'Admin GoalHub',
-    role: 'Administrator',
-    action: 'Hyrje në sistem',
-    time: '3 orë më parë',
-    tone: C.green,
-  },
-  {
-    name: 'Regjep Hyseni',
-    role: 'Trajner Kryesor',
-    action: 'Hyrje në sistem',
-    time: '5 orë më parë',
-    tone: C.green,
-  },
-  {
-    name: 'Besnik Gashi',
-    role: 'Prind',
-    action: 'Hyrje në sistem',
-    time: '7 orë më parë',
-    tone: C.blue,
-  },
-  {
-    name: 'Arben Krasniqi',
-    role: 'Administrator',
-    action: 'Hyrje në sistem',
-    time: 'Dje, 21:14',
-    tone: C.green,
-  },
-  {
-    name: 'Drita Berisha',
-    role: 'Trajner',
-    action: 'Hyrje në sistem',
-    time: 'Dje, 18:02',
-    tone: C.green,
-  },
-  {
-    name: 'Kastriot Avdiu',
-    role: 'Lojtar',
-    action: 'Hyrje në sistem',
-    time: 'Dje, 16:40',
-    tone: C.orange,
-  },
-];
+/** Backend role keys → the Albanian names the log spells out. */
+const ROLE_NAMES: Record<string, string> = {
+  administrator: 'Administrator',
+  trainer: 'Trajner',
+  assistant_trainer: 'Trajner Asistent',
+  technical_staff: 'Staf Teknik',
+  player: 'Lojtar',
+  parent: 'Prind',
+  financier: 'Financier',
+};
 
-const NEW_ACCOUNTS: Entry[] = [
-  {
-    name: 'Endrit Hoxha',
-    role: 'Lojtar',
-    action: 'Llogari e re',
-    time: '2 ditë më parë',
-    tone: C.orange,
-  },
-  {
-    name: 'Luan Gashi',
-    role: 'Financier',
-    action: 'Llogari e re',
-    time: '4 ditë më parë',
-    tone: C.blue,
-  },
-  {
-    name: 'Fatime Morina',
-    role: 'Prind',
-    action: 'Llogari e re',
-    time: '1 javë më parë',
-    tone: C.blue,
-  },
-  {
-    name: 'Valon Dema',
-    role: 'Trajner',
-    action: 'Llogari e re',
-    time: '2 javë më parë',
-    tone: C.green,
-  },
-];
+/** Dot tint per role, so a line's colour reads as "who" before the label does. */
+const ROLE_TONES: Record<string, string> = {
+  administrator: C.green,
+  trainer: C.green,
+  assistant_trainer: C.green,
+  technical_staff: C.blue,
+  player: C.orange,
+  parent: C.blue,
+  financier: C.blue,
+};
+
+function roleName(role: string): string {
+  return ROLE_NAMES[role] ?? role;
+}
+
+function roleTone(role: string): string {
+  return ROLE_TONES[role] ?? C.gray;
+}
+
+/**
+ * `2026-10-14T09:00:00Z` → "3 orë më parë". Wrapped at module scope so the
+ * render-purity rule doesn't flag the `Date.now` inside a component body.
+ */
+function relativeTime(iso: string | null): string {
+  if (!iso) return '—';
+  const at = new Date(iso).getTime();
+  if (Number.isNaN(at)) return '—';
+
+  const minutes = Math.floor((Date.now() - at) / 60_000);
+  if (minutes < 1) return 'Tani';
+  if (minutes < 60) return `${minutes} min më parë`;
+
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} orë më parë`;
+
+  const days = Math.floor(hours / 24);
+  if (days === 1) return 'Dje';
+  if (days < 7) return `${days} ditë më parë`;
+
+  const weeks = Math.floor(days / 7);
+  if (weeks < 5) return `${weeks} javë më parë`;
+
+  return `${Math.floor(days / 30)} muaj më parë`;
+}
 
 /** One log line: tinted dot, who and what, then when. */
-function ActivityRow({ entry, pill }: { entry: Entry; pill?: boolean }) {
+function ActivityRow({ entry }: { entry: Entry }) {
   return (
     <View style={styles.row}>
       <View style={[styles.dot, { backgroundColor: entry.tone }]} />
@@ -134,12 +119,6 @@ function ActivityRow({ entry, pill }: { entry: Entry; pill?: boolean }) {
         </Text>
       </View>
 
-      {pill ? (
-        <View style={styles.pill}>
-          <Text style={styles.pillText}>Aktiv</Text>
-        </View>
-      ) : null}
-
       <Text style={styles.rowTime} numberOfLines={1}>
         {entry.time}
       </Text>
@@ -149,6 +128,47 @@ function ActivityRow({ entry, pill }: { entry: Entry; pill?: boolean }) {
 
 export default function ActivityScreen() {
   const router = useRouter();
+  const { token, signOut } = useSession();
+
+  const [data, setData] = useState<ActivityReport | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!token) return;
+    const controller = new AbortController();
+    activityReport(token, controller.signal)
+      .then((res) => {
+        if (controller.signal.aborted) return;
+        setData(res);
+        setError(null);
+      })
+      .catch((err) => {
+        if (controller.signal.aborted) return;
+        if (err instanceof ApiError && err.status === 401) {
+          signOut();
+          router.replace('/login');
+          return;
+        }
+        setError(
+          err instanceof ApiError && err.status === 0
+            ? 'Nuk mund të lidhemi me serverin. Kontrollo lidhjen.'
+            : 'Nuk mund të ngarkohet aktiviteti.',
+        );
+      });
+    return () => controller.abort();
+  }, [token, signOut, router]);
+
+  const logins: Entry[] = (data?.recent_logins ?? []).map((l) => ({
+    name: l.name,
+    role: roleName(l.role),
+    action: 'Hyrje në sistem',
+    time: relativeTime(l.last_login_at),
+    tone: roleTone(l.role),
+  }));
+
+  const roles = Object.entries(data?.by_role ?? {})
+    .map(([role, count]) => ({ role, label: roleName(role), tone: roleTone(role), count }))
+    .sort((a, b) => b.count - a.count);
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
@@ -195,27 +215,61 @@ export default function ActivityScreen() {
               </View>
               <View style={styles.headLine} />
 
-              {RECENT_LOGINS.map((e, index) => (
-                <View key={e.name} style={index > 0 ? styles.rowBorder : null}>
-                  <ActivityRow entry={e} />
+              {error ? (
+                <View style={styles.stateRow}>
+                  <Text style={styles.stateText}>{error}</Text>
                 </View>
-              ))}
+              ) : data === null ? (
+                <View style={styles.stateRow}>
+                  <ActivityIndicator color={C.blue} />
+                </View>
+              ) : logins.length === 0 ? (
+                <View style={styles.stateRow}>
+                  <Text style={styles.stateText}>Nuk ka hyrje të fundit.</Text>
+                </View>
+              ) : (
+                logins.map((e, index) => (
+                  <View key={`${e.name}-${index}`} style={index > 0 ? styles.rowBorder : null}>
+                    <ActivityRow entry={e} />
+                  </View>
+                ))
+              )}
             </View>
 
-            {/* ── New accounts ──────────────────────────────────── */}
+            {/* ── Accounts by role ──────────────────────────────── */}
             <View style={[styles.card, styles.cardGap]}>
               <View style={styles.head}>
                 <Text style={styles.headText} numberOfLines={1}>
-                  Llogaritë e reja
+                  Përdoruesit sipas rolit
                 </Text>
               </View>
               <View style={styles.headLine} />
 
-              {NEW_ACCOUNTS.map((e, index) => (
-                <View key={e.name} style={index > 0 ? styles.rowBorder : null}>
-                  <ActivityRow entry={e} pill />
+              {data === null ? (
+                <View style={styles.stateRow}>
+                  <ActivityIndicator color={C.blue} />
                 </View>
-              ))}
+              ) : roles.length === 0 ? (
+                <View style={styles.stateRow}>
+                  <Text style={styles.stateText}>Nuk ka të dhëna përdoruesish.</Text>
+                </View>
+              ) : (
+                roles.map((r, index) => (
+                  <View key={r.role} style={index > 0 ? styles.rowBorder : null}>
+                    <View style={styles.row}>
+                      <View style={[styles.dot, { backgroundColor: r.tone }]} />
+                      <View style={styles.rowText}>
+                        <Text style={styles.rowName} numberOfLines={1}>
+                          {r.label}
+                        </Text>
+                        <Text style={styles.rowMeta} numberOfLines={1}>
+                          {r.count} llogari
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+                ))
+              )}
 
               <Pressable
                 onPress={() => router.push('/perdoruesit')}
@@ -372,18 +426,19 @@ const styles = StyleSheet.create(
       marginTop: 1,
     },
 
-    pill: {
-      borderRadius: 10,
-      paddingHorizontal: 9,
-      paddingVertical: 3,
-      backgroundColor: C.green,
+    /* ── Loading / empty / error ─────────────────────────────── */
+    stateRow: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: 12,
+      paddingVertical: 18,
     },
 
-    pillText: {
-      fontFamily: Fonts.bodySemiBold,
-      fontSize: 9.5,
-      lineHeight: 12,
-      color: '#F5F5F5',
+    stateText: {
+      fontFamily: Fonts.body,
+      fontSize: 12.5,
+      color: C.hint,
+      textAlign: 'center',
     },
 
     rowTime: {

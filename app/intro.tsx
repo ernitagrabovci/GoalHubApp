@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Fonts, Spacing, type ThemeColors } from '@/constants/theme';
 import { useLanguage } from '@/lib/i18n';
+import { useSession } from '@/lib/session';
 import { useThemedStyles } from '@/lib/theme';
 
 const PLAY_OFFSET_S = 3;
@@ -16,6 +17,7 @@ export default function IntroScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { t } = useLanguage();
+  const { user } = useSession();
   const styles = useThemedStyles(createStyles);
   const [videoReady, setVideoReady] = useState(false);
 
@@ -37,8 +39,8 @@ export default function IntroScreen() {
 
   const goToLogin = useCallback(() => {
     if (dismissTimer.current) clearTimeout(dismissTimer.current);
-    router.replace('/login');
-  }, [router]);
+    router.replace(user ? '/' : '/login');
+  }, [router, user]);
 
   useEffect(() => {
     const statusSub = player.addListener('statusChange', ({ status }) => {

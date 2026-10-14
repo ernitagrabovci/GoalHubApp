@@ -1,8 +1,9 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   Image,
   Pressable,
   ScrollView,
@@ -14,7 +15,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
+import { getClub, updateClub } from '@/lib/api/club';
+import { ApiError } from '@/lib/api/errors';
+import type { ApiClubProfile } from '@/lib/api/types';
 import { I, scaled } from '@/lib/responsive';
+import { useSession } from '@/lib/session';
 
 /**
  * Cilësimet e klubit — the second settings sub-page.
@@ -187,8 +192,8 @@ type Form = {
   city: string;
   country: string;
   address: string;
-  selA: string;
-  selB: string;
+  federation: string;
+  category: string;
   contactEmail: string;
   phone: string;
   website: string;
@@ -207,8 +212,8 @@ const INITIAL_FORM: Form = {
   city: '',
   country: '',
   address: '',
-  selA: '',
-  selB: '',
+  federation: '',
+  category: '',
   contactEmail: '',
   phone: '',
   website: '',
@@ -219,8 +224,33 @@ const INITIAL_FORM: Form = {
   history: '',
 };
 
+/** Flattens the API record onto the form's field names; nulls read as blanks. */
+function toForm(club: ApiClubProfile): Form {
+  const text = (v: string | null) => v ?? '';
+  return {
+    officialName: text(club.name),
+    shortName: text(club.abbreviation),
+    foundationYear: club.founded_year == null ? '' : String(club.founded_year),
+    licenseNumber: text(club.license_number),
+    city: text(club.city),
+    country: text(club.country),
+    address: text(club.address),
+    federation: text(club.federation),
+    category: text(club.category),
+    contactEmail: text(club.email),
+    phone: text(club.phone),
+    website: text(club.website),
+    facebook: text(club.facebook),
+    instagram: text(club.instagram),
+    youtube: text(club.youtube),
+    twitter: text(club.twitter),
+    history: text(club.description),
+  };
+}
+
 export default function ClubSettingsScreen() {
   const router = useRouter();
+  const { token, signOut } = useSession();
 
   const [form, setForm] = useState<Form>(INITIAL_FORM);
   const [openSel, setOpenSel] = useState<string | null>(null);
@@ -229,7 +259,109 @@ export default function ClubSettingsScreen() {
   const [dueDay, setDueDay] = useState('5');
   const [tolerance, setTolerance] = useState('10');
 
-  const set = (k: keyof Form) => (v: string) => setForm((p) => ({ ...p, [k]: v }));
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    if (!token) return;
+    const controller = new AbortController();
+    getClub(token, controller.signal)
+      .then((club) => {
+        if (controller.signal.aborted) return;
+        setForm(toForm(club));
+        if (club.fee_due_day != null) setDueDay(String(club.fee_due_day));
+        if (club.fee_grace_days != null) setTolerance(String(club.fee_grace_days));
+        setError(null);
+      })
+      .catch((err) => {
+        if (controller.signal.aborted) return;
+        if (err instanceof ApiError && err.status === 401) {
+          signOut();
+          router.replace('/login');
+          return;
+        }
+        setError(
+          err instanceof ApiError && err.status === 0
+            ? 'Nuk mund të lidhemi me serverin. Kontrollo lidhjen.'
+            : 'Nuk mund të ngarkohen cilësimet e klubit.',
+        );
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false);
+      });
+    return () => controller.abort();
+  }, [token, signOut, router]);
+
+  const set = (k: keyof Form) => (v: string) => {
+    setSaved(false);
+    setForm((p) => ({ ...p, [k]: v }));
+  };
+
+  const setNumber = (setter: (v: string) => void) => (v: string) => {
+    setSaved(false);
+    setter(v.replace(/[^0-9]/g, ''));
+  };
+
+  const save = async () => {
+    if (!token || saving) return;
+    setSaving(true);
+    setError(null);
+    setSaved(false);
+
+    const optional = (v: string) => {
+      const trimmed = v.trim();
+      return trimmed === '' ? null : trimmed;
+    };
+    const optionalInt = (v: string) => {
+      const trimmed = v.trim();
+      return trimmed === '' ? null : Number(trimmed);
+    };
+
+    try {
+      const updated = await updateClub(token, {
+        name: form.officialName.trim(),
+        abbreviation: optional(form.shortName),
+        address: optional(form.address),
+        city: optional(form.city),
+        country: optional(form.country),
+        phone: optional(form.phone),
+        email: optional(form.contactEmail),
+        website: optional(form.website),
+        founded_year: form.foundationYear ? Number(form.foundationYear) : null,
+        federation: optional(form.federation),
+        category: optional(form.category),
+        license_number: optional(form.licenseNumber),
+        facebook: optional(form.facebook),
+        instagram: optional(form.instagram),
+        youtube: optional(form.youtube),
+        twitter: optional(form.twitter),
+        description: optional(form.history),
+        fee_due_day: optionalInt(dueDay),
+        fee_grace_days: optionalInt(tolerance),
+      });
+      setForm(toForm(updated));
+      if (updated.fee_due_day != null) setDueDay(String(updated.fee_due_day));
+      if (updated.fee_grace_days != null) setTolerance(String(updated.fee_grace_days));
+      setSaved(true);
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 401) {
+        signOut();
+        router.replace('/login');
+        return;
+      }
+      setError(
+        err instanceof ApiError && err.status === 422
+          ? 'Disa fusha nuk plotësojnë kushtet. Kontrollo email-in, faqen e internetit, lidhjet sociale dhe ditët e pagesës.'
+          : err instanceof ApiError && err.status === 0
+            ? 'Nuk mund të lidhemi me serverin. Kontrollo lidhjen.'
+            : 'Nuk mund të ruhen ndryshimet.',
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
@@ -262,6 +394,21 @@ export default function ClubSettingsScreen() {
           contentContainerStyle={styles.scroll}
         >
           <View style={styles.colPad}>
+            {/* Load / save feedback sits above the cards. */}
+            {error ? (
+              <View style={styles.stateRow}>
+                <Text style={styles.stateError}>{error}</Text>
+              </View>
+            ) : loading ? (
+              <View style={styles.stateRow}>
+                <ActivityIndicator color={C.greenBright} />
+              </View>
+            ) : saved ? (
+              <View style={styles.stateRow}>
+                <Text style={styles.stateSaved}>Ndryshimet u ruajtën.</Text>
+              </View>
+            ) : null}
+
             {/* ── Identitet Visual ─────────────────────────────── */}
             <View style={[styles.card, { marginTop: 12 }]}>
               <View style={styles.cardHead}>
@@ -329,8 +476,8 @@ export default function ClubSettingsScreen() {
                 </View>
                 <Field label="Adresa" value={form.address} onChangeText={set('address')} />
                 <View style={styles.gridRow}>
-                  <SelectField id="selA" label="Viti i themelimit" value={form.selA} onChange={set('selA')} options={YEARS} open={openSel === 'selA'} onToggle={setOpenSel} flex />
-                  <SelectField id="selB" label="Viti i themelimit" value={form.selB} onChange={set('selB')} options={YEARS} open={openSel === 'selB'} onToggle={setOpenSel} flex />
+                  <Field label="Federata" value={form.federation} onChangeText={set('federation')} flex />
+                  <Field label="Kategoria" value={form.category} onChangeText={set('category')} flex />
                 </View>
               </View>
             </View>
@@ -392,7 +539,7 @@ export default function ClubSettingsScreen() {
                 <View style={styles.payRow}>
                   <TextInput
                     value={dueDay}
-                    onChangeText={setDueDay}
+                    onChangeText={setNumber(setDueDay)}
                     keyboardType="number-pad"
                     maxLength={2}
                     allowFontScaling={false}
@@ -410,7 +557,7 @@ export default function ClubSettingsScreen() {
                 <View style={styles.payRow}>
                   <TextInput
                     value={tolerance}
-                    onChangeText={setTolerance}
+                    onChangeText={setNumber(setTolerance)}
                     keyboardType="number-pad"
                     maxLength={2}
                     allowFontScaling={false}
@@ -432,13 +579,22 @@ export default function ClubSettingsScreen() {
                 <Text style={styles.btnText}>Anulo</Text>
               </Pressable>
               <Pressable
-                onPress={() => {
-                  /* persist handled later */
-                }}
+                onPress={save}
+                disabled={saving}
                 accessibilityRole="button"
-                style={({ pressed }) => [styles.btn, styles.btnSave, pressed && styles.pressed]}
+                accessibilityLabel="Ruaj ndryshimet"
+                style={({ pressed }) => [
+                  styles.btn,
+                  styles.btnSave,
+                  saving && styles.btnDisabled,
+                  pressed && styles.pressed,
+                ]}
               >
-                <Text style={styles.btnText}>Ruaj ndryshimet</Text>
+                {saving ? (
+                  <ActivityIndicator color="#F5F5F5" />
+                ) : (
+                  <Text style={styles.btnText}>Ruaj ndryshimet</Text>
+                )}
               </Pressable>
             </View>
           </View>
@@ -840,6 +996,34 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodySemiBold,
       fontSize: 13,
       color: '#F5F5F5',
+    },
+
+    btnDisabled: {
+      opacity: 0.6,
+    },
+
+    /* Load / save feedback */
+    stateRow: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: 12,
+      paddingTop: 12,
+    },
+
+    stateError: {
+      fontFamily: Fonts.body,
+      fontSize: 12.5,
+      lineHeight: 16,
+      color: C.red,
+      textAlign: 'center',
+    },
+
+    stateSaved: {
+      fontFamily: Fonts.body,
+      fontSize: 12.5,
+      lineHeight: 16,
+      color: C.green,
+      textAlign: 'center',
     },
 
     pressed: {

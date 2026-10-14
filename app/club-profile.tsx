@@ -1,8 +1,9 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   Image,
   Pressable,
   ScrollView,
@@ -14,7 +15,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
+import { getClub, updateClub } from '@/lib/api/club';
+import { ApiError } from '@/lib/api/errors';
+import type { ApiClubProfile } from '@/lib/api/types';
 import { I, scaled } from '@/lib/responsive';
+import { useSession } from '@/lib/session';
 
 /**
  * Profil i klubit — the club's single profile-editing page (admin).
@@ -48,6 +53,7 @@ const C = {
 
   green: '#159447',
   greenBright: '#159447',
+  red: '#ED5050',
 
   greenCard: '#DDF6E7',
   greenBorder: '#69C994',
@@ -190,8 +196,8 @@ type Form = {
   city: string;
   country: string;
   address: string;
-  selA: string;
-  selB: string;
+  federation: string;
+  category: string;
   contactEmail: string;
   phone: string;
   website: string;
@@ -210,8 +216,8 @@ const INITIAL_FORM: Form = {
   city: '',
   country: '',
   address: '',
-  selA: '',
-  selB: '',
+  federation: '',
+  category: '',
   contactEmail: '',
   phone: '',
   website: '',
@@ -222,14 +228,125 @@ const INITIAL_FORM: Form = {
   history: '',
 };
 
+/** Flattens the API record onto the form's field names; nulls read as blanks. */
+function toForm(club: ApiClubProfile): Form {
+  const text = (v: string | null) => v ?? '';
+  return {
+    officialName: text(club.name),
+    shortName: text(club.abbreviation),
+    foundationYear: club.founded_year == null ? '' : String(club.founded_year),
+    licenseNumber: text(club.license_number),
+    city: text(club.city),
+    country: text(club.country),
+    address: text(club.address),
+    federation: text(club.federation),
+    category: text(club.category),
+    contactEmail: text(club.email),
+    phone: text(club.phone),
+    website: text(club.website),
+    facebook: text(club.facebook),
+    instagram: text(club.instagram),
+    youtube: text(club.youtube),
+    twitter: text(club.twitter),
+    history: text(club.description),
+  };
+}
+
 export default function ClubProfileScreen() {
   const router = useRouter();
+  const { token, signOut } = useSession();
 
   const [form, setForm] = useState<Form>(INITIAL_FORM);
   const [openSel, setOpenSel] = useState<string | null>(null);
   const [showLogo, setShowLogo] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
 
-  const set = (k: keyof Form) => (v: string) => setForm((p) => ({ ...p, [k]: v }));
+  useEffect(() => {
+    if (!token) return;
+    const controller = new AbortController();
+    getClub(token, controller.signal)
+      .then((club) => {
+        if (controller.signal.aborted) return;
+        setForm(toForm(club));
+        setError(null);
+      })
+      .catch((err) => {
+        if (controller.signal.aborted) return;
+        if (err instanceof ApiError && err.status === 401) {
+          signOut();
+          router.replace('/login');
+          return;
+        }
+        setError(
+          err instanceof ApiError && err.status === 0
+            ? 'Nuk mund të lidhemi me serverin. Kontrollo lidhjen.'
+            : 'Nuk mund të ngarkohet profili i klubit.',
+        );
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false);
+      });
+    return () => controller.abort();
+  }, [token, signOut, router]);
+
+  const set = (k: keyof Form) => (v: string) => {
+    setSaved(false);
+    setForm((p) => ({ ...p, [k]: v }));
+  };
+
+  const save = async () => {
+    if (!token || saving) return;
+    setSaving(true);
+    setError(null);
+    setSaved(false);
+
+    const optional = (v: string) => {
+      const trimmed = v.trim();
+      return trimmed === '' ? null : trimmed;
+    };
+
+    try {
+      const updated = await updateClub(token, {
+        name: form.officialName.trim(),
+        abbreviation: optional(form.shortName),
+        address: optional(form.address),
+        city: optional(form.city),
+        country: optional(form.country),
+        phone: optional(form.phone),
+        email: optional(form.contactEmail),
+        website: optional(form.website),
+        founded_year: form.foundationYear ? Number(form.foundationYear) : null,
+        federation: optional(form.federation),
+        category: optional(form.category),
+        license_number: optional(form.licenseNumber),
+        facebook: optional(form.facebook),
+        instagram: optional(form.instagram),
+        youtube: optional(form.youtube),
+        twitter: optional(form.twitter),
+        description: optional(form.history),
+      });
+      setForm(toForm(updated));
+      setSaved(true);
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 401) {
+        signOut();
+        router.replace('/login');
+        return;
+      }
+      setError(
+        err instanceof ApiError && err.status === 422
+          ? 'Disa fusha nuk plotësojnë kushtet. Kontrollo email-in, faqen e internetit dhe lidhjet sociale.'
+          : err instanceof ApiError && err.status === 0
+            ? 'Nuk mund të lidhemi me serverin. Kontrollo lidhjen.'
+            : 'Nuk mund të ruhen ndryshimet.',
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
@@ -255,7 +372,9 @@ export default function ClubProfileScreen() {
               </Pressable>
               <View style={styles.headerText}>
                 <Text style={styles.title}>Profil i klubit</Text>
-                <Text style={styles.subtitle}>FC Prishtina · Informacioni zyrtar</Text>
+                <Text style={styles.subtitle} numberOfLines={1}>
+                  {form.officialName || '—'} · Informacioni zyrtar
+                </Text>
               </View>
             </View>
           </View>
@@ -267,6 +386,21 @@ export default function ClubProfileScreen() {
           contentContainerStyle={styles.scroll}
         >
           <View style={styles.colPad}>
+            {/* Load / save feedback sits above the cards. */}
+            {error ? (
+              <View style={styles.stateRow}>
+                <Text style={styles.stateError}>{error}</Text>
+              </View>
+            ) : loading ? (
+              <View style={styles.stateRow}>
+                <ActivityIndicator color={C.greenBright} />
+              </View>
+            ) : saved ? (
+              <View style={styles.stateRow}>
+                <Text style={styles.stateSaved}>Ndryshimet u ruajtën.</Text>
+              </View>
+            ) : null}
+
             {/* ── Identitet Visual ─────────────────────────────── */}
             <View style={[styles.card, { marginTop: 14 }]}>
               <View style={styles.cardHead}>
@@ -336,8 +470,8 @@ export default function ClubProfileScreen() {
                 </View>
                 <Field label="Adresa" value={form.address} onChangeText={set('address')} />
                 <View style={styles.gridRow}>
-                  <SelectField id="selA" label="Viti i themelimit" value={form.selA} onChange={set('selA')} options={YEARS} open={openSel === 'selA'} onToggle={setOpenSel} flex />
-                  <SelectField id="selB" label="Viti i themelimit" value={form.selB} onChange={set('selB')} options={YEARS} open={openSel === 'selB'} onToggle={setOpenSel} flex />
+                  <Field label="Federata" value={form.federation} onChangeText={set('federation')} flex />
+                  <Field label="Kategoria" value={form.category} onChangeText={set('category')} flex />
                 </View>
               </View>
             </View>
@@ -435,6 +569,35 @@ export default function ClubProfileScreen() {
                   placeholder="Shkruaj historinë e klubit…"
                 />
               </View>
+            </View>
+
+            {/* ── Actions ──────────────────────────────────────── */}
+            <View style={styles.actions}>
+              <Pressable
+                onPress={() => router.back()}
+                accessibilityRole="button"
+                style={({ pressed }) => [styles.btn, styles.btnCancel, pressed && styles.pressed]}
+              >
+                <Text style={styles.btnText}>Anulo</Text>
+              </Pressable>
+              <Pressable
+                onPress={save}
+                disabled={saving}
+                accessibilityRole="button"
+                accessibilityLabel="Ruaj ndryshimet"
+                style={({ pressed }) => [
+                  styles.btn,
+                  styles.btnSave,
+                  saving && styles.btnDisabled,
+                  pressed && styles.pressed,
+                ]}
+              >
+                {saving ? (
+                  <ActivityIndicator color="#F5F5F5" />
+                ) : (
+                  <Text style={styles.btnText}>Ruaj ndryshimet</Text>
+                )}
+              </Pressable>
             </View>
           </View>
         </ScrollView>
@@ -901,6 +1064,65 @@ const styles = StyleSheet.create(
 
     pressed: {
       opacity: 0.5,
+    },
+
+    /* Load / save feedback */
+    stateRow: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: 12,
+      paddingTop: 12,
+    },
+
+    stateError: {
+      fontFamily: Fonts.body,
+      fontSize: 12.5,
+      lineHeight: 16,
+      color: C.red,
+      textAlign: 'center',
+    },
+
+    stateSaved: {
+      fontFamily: Fonts.body,
+      fontSize: 12.5,
+      lineHeight: 16,
+      color: C.green,
+      textAlign: 'center',
+    },
+
+    /* Actions below the cards */
+    actions: {
+      flexDirection: 'row',
+      justifyContent: 'flex-end',
+      gap: 9,
+      marginTop: 14,
+    },
+
+    btn: {
+      height: 40,
+      minWidth: 84,
+      borderRadius: 3,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: 18,
+    },
+
+    btnCancel: {
+      backgroundColor: C.red,
+    },
+
+    btnSave: {
+      backgroundColor: C.green,
+    },
+
+    btnDisabled: {
+      opacity: 0.6,
+    },
+
+    btnText: {
+      fontFamily: Fonts.bodySemiBold,
+      fontSize: 13,
+      color: '#F5F5F5',
     },
   }),
 );

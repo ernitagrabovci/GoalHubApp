@@ -1,22 +1,27 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
+import { ApiError } from '@/lib/api/errors';
+import { getTeam } from '@/lib/api/teams';
+import type { ApiTeamDetail } from '@/lib/api/types';
+import { statusLabel } from '@/lib/player-status';
 import { I, scaled } from '@/lib/responsive';
-import { TEAMS } from '@/lib/teams';
+import { useSession } from '@/lib/session';
 
 /**
- * Ekipa — opened from a team card's "Ekipa" button on "Lista e ekipeve".
+ * Ekipa — opened from a team card's "Ekipa" button on "Lista e ekipeve",
+ * carrying the team id in the URL.
  *
  * Same light #FAFBFA canvas. Two blue cards inside a thin green frame (the
  * squad summary + the season record, their black dividers level with each
- * other), then the players table, whose blank rows fill the page bottom —
- * the page itself never scrolls.
+ * other), then the Lojtarët table, whose rows scroll when the squad is longer
+ * than the space below the cards.
  */
 
 const C = {
@@ -47,15 +52,48 @@ const COLS: Col[] = [
   { key: 'status', label: 'Statusi', width: 84 },
 ];
 
+function errorText(error: unknown): string {
+  if (error instanceof ApiError) {
+    if (error.status === 0) return 'Nuk mund të lidhemi me serverin. Kontrollo lidhjen.';
+    return error.message;
+  }
+  return 'Diçka shkoi keq. Provo përsëri.';
+}
+
 export default function EkipaScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ name?: string }>();
-  const team = TEAMS.find((t) => t.name === params.name) ?? TEAMS[0];
+  const { token, signOut } = useSession();
+  const params = useLocalSearchParams<{ id?: string }>();
+  const teamId = params.id ? Number(params.id) : NaN;
 
-  // The rows area measures itself so the blank rows can fill it exactly.
-  const [tableH, setTableH] = useState(0);
-  const rowH = I(36);
-  const emptyRows = Math.max(2, Math.floor(tableH / rowH) - 1);
+  const [team, setTeam] = useState<ApiTeamDetail | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  // An abort is indistinguishable from a timeout (both surface as status 0),
+  // so guard on our own signal rather than the error.
+  useEffect(() => {
+    if (!token || !Number.isFinite(teamId)) return;
+    const controller = new AbortController();
+
+    getTeam(token, teamId, controller.signal)
+      .then((res) => {
+        if (!controller.signal.aborted) setTeam(res.data);
+      })
+      .catch((err) => {
+        if (controller.signal.aborted) return;
+        if (err instanceof ApiError && err.status === 401) {
+          signOut();
+          router.replace('/login');
+          return;
+        }
+        setError(errorText(err));
+      });
+
+    return () => controller.abort();
+  }, [token, teamId, router, signOut]);
+
+  const loadError = error ?? (Number.isFinite(teamId) ? null : 'Ekipi nuk u gjet.');
+  const rosterCount = team ? String(team.players.length) : '—';
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
@@ -76,7 +114,7 @@ export default function EkipaScreen() {
                 <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.text} />
               </Pressable>
               <View style={styles.headerText}>
-                <Text style={styles.title}>{team.name}</Text>
+                <Text style={styles.title}>{team?.name ?? '—'}</Text>
               </View>
             </View>
           </View>
@@ -89,9 +127,9 @@ export default function EkipaScreen() {
               <View style={styles.cardHalf}>
                 <View style={styles.cardHeadBlock}>
                   <Text style={styles.cardTitle} numberOfLines={1}>
-                    {team.name}
+                    {team?.name ?? '—'}
                   </Text>
-                  <Text style={styles.cardSub}>{team.season}</Text>
+                  <Text style={styles.cardSub}>{team?.season ?? '—'}</Text>
                 </View>
 
                 <View style={styles.cardDivider} />
@@ -99,12 +137,12 @@ export default function EkipaScreen() {
                 <View style={styles.kvRow}>
                   <Text style={styles.kvLabel}>Trajneri</Text>
                   <Text style={styles.kvValue} numberOfLines={1}>
-                    {team.coach}
+                    {team?.trainer?.name ?? '—'}
                   </Text>
                 </View>
                 <View style={styles.kvRow}>
                   <Text style={styles.kvLabel}>Lojtarët</Text>
-                  <Text style={styles.kvValue}>{team.players}</Text>
+                  <Text style={styles.kvValue}>{rosterCount}</Text>
                 </View>
               </View>
 
@@ -112,15 +150,15 @@ export default function EkipaScreen() {
                 <View style={styles.cardHeadBlock}>
                   <View style={styles.miniRow}>
                     <View style={styles.miniCol}>
-                      <Text style={[styles.miniNum, { color: C.text }]}>{team.matches}</Text>
+                      <Text style={[styles.miniNum, { color: C.text }]}>—</Text>
                       <Text style={styles.miniSub}>Ndeshje</Text>
                     </View>
                     <View style={styles.miniCol}>
-                      <Text style={[styles.miniNum, { color: C.green }]}>{team.win}</Text>
+                      <Text style={[styles.miniNum, { color: C.green }]}>—</Text>
                       <Text style={styles.miniSub}>Fitore</Text>
                     </View>
                     <View style={styles.miniCol}>
-                      <Text style={[styles.miniNum, { color: C.blue }]}>{team.goalsPlus}</Text>
+                      <Text style={[styles.miniNum, { color: C.blue }]}>—</Text>
                       <Text style={styles.miniSub}>Gola +</Text>
                     </View>
                   </View>
@@ -130,15 +168,15 @@ export default function EkipaScreen() {
 
                 <View style={styles.miniRow}>
                   <View style={styles.miniCol}>
-                    <Text style={[styles.miniNum, { color: C.red }]}>{team.loss}</Text>
+                    <Text style={[styles.miniNum, { color: C.red }]}>—</Text>
                     <Text style={styles.miniSub}>Humbje</Text>
                   </View>
                   <View style={styles.miniCol}>
-                    <Text style={[styles.miniNum, { color: C.text }]}>{team.draw}</Text>
+                    <Text style={[styles.miniNum, { color: C.text }]}>—</Text>
                     <Text style={styles.miniSub}>Barazim</Text>
                   </View>
                   <View style={styles.miniCol}>
-                    <Text style={[styles.miniNum, { color: C.red }]}>{team.goalsMinus}</Text>
+                    <Text style={[styles.miniNum, { color: C.red }]}>—</Text>
                     <Text style={styles.miniSub}>Gola -</Text>
                   </View>
                 </View>
@@ -148,13 +186,10 @@ export default function EkipaScreen() {
             {/* ── Lojtarët table ───────────────────────────────── */}
             <View style={styles.card}>
               <View style={styles.cardHead}>
-                <Text style={styles.cardHeadText}>Lojtarët ({team.players})</Text>
+                <Text style={styles.cardHeadText}>Lojtarët ({rosterCount})</Text>
               </View>
 
-              <View
-                style={styles.tblWrap}
-                onLayout={(e) => setTableH(e.nativeEvent.layout.height)}
-              >
+              <View style={styles.tblWrap}>
                 <View style={styles.tr}>
                   {COLS.map((c, i) => (
                     <Text
@@ -171,9 +206,50 @@ export default function EkipaScreen() {
                   ))}
                 </View>
 
-                {Array.from({ length: emptyRows }).map((_, i) => (
-                  <View key={i} style={[styles.tr, styles.trBorder]} />
-                ))}
+                <ScrollView
+                  showsVerticalScrollIndicator={false}
+                  contentContainerStyle={styles.rowsContent}
+                >
+                  {loadError ? (
+                    <View style={styles.stateRow}>
+                      <Text style={styles.stateText}>{loadError}</Text>
+                    </View>
+                  ) : team === null ? (
+                    <View style={styles.stateRow}>
+                      <ActivityIndicator color={C.blue} />
+                    </View>
+                  ) : team.players.length === 0 ? (
+                    <View style={styles.stateRow}>
+                      <Text style={styles.stateText}>Nuk ka lojtarë.</Text>
+                    </View>
+                  ) : (
+                    team.players.map((p) => (
+                      <View key={p.id} style={[styles.tr, styles.trBorder]}>
+                        <Text
+                          style={[styles.td, styles.thFirst, { width: COLS[0].width }]}
+                          numberOfLines={1}
+                        >
+                          {p.name ?? '—'}
+                        </Text>
+                        <Text style={[styles.td, { width: COLS[1].width }]}>
+                          {p.jersey_number != null ? String(p.jersey_number) : '—'}
+                        </Text>
+                        <Text
+                          style={[styles.td, { width: COLS[2].width }]}
+                          numberOfLines={1}
+                        >
+                          {p.position ?? '—'}
+                        </Text>
+                        <Text
+                          style={[styles.td, styles.thLast, { width: COLS[3].width }]}
+                          numberOfLines={1}
+                        >
+                          {statusLabel(p.health_status)}
+                        </Text>
+                      </View>
+                    ))
+                  )}
+                </ScrollView>
               </View>
             </View>
           </View>
@@ -377,10 +453,14 @@ const styles = StyleSheet.create(
       color: C.text,
     },
 
-    /* Rows area — measured so the blank rows can fill it exactly. */
+    /* Rows area — the scroll view fills it, so a long squad scrolls. */
     tblWrap: {
       flex: 1,
       minHeight: 0,
+    },
+
+    rowsContent: {
+      flexGrow: 1,
     },
 
     tr: {
@@ -402,6 +482,14 @@ const styles = StyleSheet.create(
       textAlign: 'center',
     },
 
+    td: {
+      fontFamily: Fonts.body,
+      fontSize: 11.5,
+      lineHeight: 14,
+      color: C.text,
+      textAlign: 'center',
+    },
+
     /* "Emri" sits at the start of the row, a little off the table's edge. */
     thFirst: {
       paddingLeft: 12,
@@ -412,6 +500,21 @@ const styles = StyleSheet.create(
     thLast: {
       paddingRight: 12,
       textAlign: 'right',
+    },
+
+    /* Loading / empty / error placeholder inside the rows area. */
+    stateRow: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: 24,
+    },
+
+    stateText: {
+      fontFamily: Fonts.body,
+      fontSize: 12.5,
+      lineHeight: 16,
+      color: C.gray,
+      textAlign: 'center',
     },
 
     pressed: {
