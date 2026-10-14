@@ -1,7 +1,7 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -13,7 +13,19 @@ import {
   parseWhen,
 } from '@/components/trainings/training-form';
 import { Fonts } from '@/constants/theme';
+import { ApiError } from '@/lib/api/errors';
+import { getTraining } from '@/lib/api/trainings';
 import { I, scaled } from '@/lib/responsive';
+import { useSession } from '@/lib/session';
+import {
+  durationLabel,
+  toAttendanceRows,
+  trainingDate,
+  trainingTime,
+  typeName,
+  type AttendanceRow,
+  type AttendanceStatus,
+} from '@/lib/trainings';
 
 /**
  * Stërvitja — one session in full, opened from the "Shiko" button on a row of
@@ -45,47 +57,34 @@ const C = {
 
 /* ── Attendance ────────────────────────────────────────────────────── */
 
-type Attendance = 'Prezent' | 'Mungon';
-
-type Player = {
-  name: string;
-  nr: string;
-  pos: string;
-  status: Attendance;
-};
-
-const ATTENDANCE_TONE: Record<Attendance, string> = {
+const ATTENDANCE_TONE: Record<AttendanceStatus, string> = {
   Prezent: C.green,
   Mungon: C.red,
+  Papërcaktuar: C.hint,
 };
 
 /* The last column is sized so "Prezent" and "Mungon" set at full size. */
-const COLS: { key: keyof Player; label: string; width: number }[] = [
+const COLS: { key: keyof AttendanceRow; label: string; width: number }[] = [
   { key: 'name', label: 'Lojtari', width: 108 },
   { key: 'nr', label: 'Nr.', width: 30 },
   { key: 'pos', label: 'Pozita', width: 76 },
   { key: 'status', label: 'Statusi', width: 98 },
 ];
 
-const PLAYERS: Player[] = [
-  { name: 'Bekim Rexhepi', nr: '1', pos: 'Portier', status: 'Prezent' },
-  { name: 'Dardan Krasniqi', nr: '2', pos: 'Mbrojtës', status: 'Prezent' },
-  { name: 'Endrit Hoxha', nr: '4', pos: 'Mesfushor', status: 'Mungon' },
-  { name: 'Genc Morina', nr: '6', pos: 'Mesfushor', status: 'Prezent' },
-  { name: 'Ardit Llapashtica', nr: '9', pos: 'Sulmues', status: 'Prezent' },
-  { name: 'Hamdi Shala', nr: '11', pos: 'Sulmues', status: 'Mungon' },
-];
-
 export default function TrainingScreen() {
   const router = useRouter();
+  const { token, signOut } = useSession();
 
   const params = useLocalSearchParams<{
+    id?: string;
     date?: string;
     time?: string;
     field?: string;
     type?: string;
     duration?: string;
   }>();
+
+  const trainingId = params.id ? Number(params.id) : null;
 
   /* The session's own facts start from the list row they were opened on, and
      move with the edit popup afterwards. */
@@ -94,8 +93,35 @@ export default function TrainingScreen() {
   const [field, setField] = useState(params.field ?? 'Salla e Brendshme');
   const [type, setType] = useState(params.type ?? 'Taktike');
   const [duration, setDuration] = useState(params.duration ?? '90 min');
+  const [players, setPlayers] = useState<AttendanceRow[]>([]);
 
   const [editing, setEditing] = useState(false);
+
+  useEffect(() => {
+    if (!token || !trainingId || Number.isNaN(trainingId)) return;
+    const controller = new AbortController();
+
+    getTraining(token, trainingId, controller.signal)
+      .then((res) => {
+        if (controller.signal.aborted) return;
+        const t = res.data;
+        setDate(trainingDate(t.scheduled_at));
+        setTime(trainingTime(t.scheduled_at));
+        setField(t.field ?? '—');
+        setType(typeName(t.type));
+        setDuration(durationLabel(t.duration_minutes));
+        setPlayers(toAttendanceRows(t));
+      })
+      .catch((e) => {
+        if (controller.signal.aborted) return;
+        if (e instanceof ApiError && e.status === 401) {
+          signOut();
+          router.replace('/login');
+        }
+      });
+
+    return () => controller.abort();
+  }, [token, trainingId, router, signOut]);
 
   const save = (d: TrainingDraft) => {
     setType(d.type);
@@ -242,8 +268,8 @@ export default function TrainingScreen() {
                     ))}
                   </View>
 
-                  {PLAYERS.map((p) => (
-                    <View key={p.nr} style={[styles.tr, styles.trBorder]}>
+                  {players.map((p) => (
+                    <View key={p.playerId} style={[styles.tr, styles.trBorder]}>
                       {COLS.map((c) => {
                         const isStatus = c.key === 'status';
 

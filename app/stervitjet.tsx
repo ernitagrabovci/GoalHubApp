@@ -1,14 +1,18 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
 import { TrainingDraft, TrainingFormModal, formatDate } from '@/components/trainings/training-form';
 import { Fonts } from '@/constants/theme';
+import { ApiError } from '@/lib/api/errors';
+import { listTrainings } from '@/lib/api/trainings';
 import { I, scaled } from '@/lib/responsive';
+import { useSession } from '@/lib/session';
+import { SQUAD_SIZE, toTrainingRow, type TrainingRow } from '@/lib/trainings';
 
 /**
  * Stërvitjet — the trainer's training list, opened from the "Stërvitjet" card
@@ -47,22 +51,7 @@ const FILTERS = ['Të gjitha llojet', 'Të gjitha statuset'];
 /* The squad these sessions belong to — shown as the page subtitle. */
 const TEAM = 'Ekipi i Parë';
 
-/* The squad size a brand new session is measured against. */
-const SQUAD = '24';
-
-type Status = 'Prezenca u regjistrua' | 'Pret regjistrim';
-
-type Training = {
-  date: string;
-  time: string;
-  type: string;
-  field: string;
-  duration: string;
-  presence: string;
-  status: Status;
-};
-
-const STATUS_TONE: Record<Status, string> = {
+const STATUS_TONE: Record<TrainingRow['status'], string> = {
   'Prezenca u regjistrua': C.green,
   'Pret regjistrim': C.orange,
 };
@@ -75,7 +64,7 @@ const TYPE_TONE: Record<string, string> = {
   Fizike: C.orange,
 };
 
-const COLS: { key: keyof Training; label: string; width: number }[] = [
+const COLS: { key: keyof TrainingRow; label: string; width: number }[] = [
   { key: 'date', label: 'Data & Ora', width: 78 },
   { key: 'type', label: 'Lloji', width: 70 },
   { key: 'field', label: 'Fusha', width: 116 },
@@ -87,95 +76,32 @@ const COLS: { key: keyof Training; label: string; width: number }[] = [
 /* Wide enough for the three actions of an unregistered session. */
 const ACTION_W = 168;
 
-const TRAININGS: Training[] = [
-  {
-    date: '18 Aug 2026',
-    time: '17:00',
-    type: 'Taktike',
-    field: 'Salla e Brendshme',
-    duration: '90 min',
-    presence: '0 /24',
-    status: 'Prezenca u regjistrua',
-  },
-  {
-    date: '17 Aug 2026',
-    time: '17:00',
-    type: 'Rregullt',
-    field: 'Salla e Brendshme',
-    duration: '90 min',
-    presence: '0 /24',
-    status: 'Pret regjistrim',
-  },
-  {
-    date: '15 Aug 2026',
-    time: '09:30',
-    type: 'Fizike',
-    field: 'Fusha 1',
-    duration: '75 min',
-    presence: '24 /24',
-    status: 'Prezenca u regjistrua',
-  },
-  {
-    date: '14 Aug 2026',
-    time: '17:00',
-    type: 'Rregullt',
-    field: 'Fusha 2',
-    duration: '90 min',
-    presence: '21 /24',
-    status: 'Prezenca u regjistrua',
-  },
-  {
-    date: '12 Aug 2026',
-    time: '10:00',
-    type: 'Taktike',
-    field: 'Salla e Brendshme',
-    duration: '60 min',
-    presence: '0 /24',
-    status: 'Pret regjistrim',
-  },
-  {
-    date: '11 Aug 2026',
-    time: '11:00',
-    type: 'Rikuperim',
-    field: 'Salla e Brendshme',
-    duration: '45 min',
-    presence: '12 /24',
-    status: 'Prezenca u regjistrua',
-  },
-  {
-    date: '10 Aug 2026',
-    time: '17:00',
-    type: 'Rregullt',
-    field: 'Fusha 1',
-    duration: '90 min',
-    presence: '23 /24',
-    status: 'Prezenca u regjistrua',
-  },
-  {
-    date: '8 Aug 2026',
-    time: '09:30',
-    type: 'Fizike',
-    field: 'Fusha 2',
-    duration: '75 min',
-    presence: '19 /24',
-    status: 'Prezenca u regjistrua',
-  },
-  {
-    date: '5 Aug 2026',
-    time: '17:00',
-    type: 'Rregullt',
-    field: 'Salla e Brendshme',
-    duration: '90 min',
-    presence: '0 /24',
-    status: 'Pret regjistrim',
-  },
-];
-
 export default function TrainingListScreen() {
   const router = useRouter();
+  const { token, signOut } = useSession();
 
-  const [trainings, setTrainings] = useState<Training[]>(TRAININGS);
+  const [trainings, setTrainings] = useState<TrainingRow[]>([]);
   const [adding, setAdding] = useState(false);
+
+  useEffect(() => {
+    if (!token) return;
+    const controller = new AbortController();
+
+    listTrainings(token, {}, controller.signal)
+      .then((res) => {
+        if (controller.signal.aborted) return;
+        setTrainings(res.data.map(toTrainingRow));
+      })
+      .catch((e) => {
+        if (controller.signal.aborted) return;
+        if (e instanceof ApiError && e.status === 401) {
+          signOut();
+          router.replace('/login');
+        }
+      });
+
+    return () => controller.abort();
+  }, [token, router, signOut]);
 
   /* A brand new session starts unregistered, with nobody marked yet. */
   const add = (d: TrainingDraft) => {
@@ -186,8 +112,9 @@ export default function TrainingListScreen() {
         type: d.type,
         field: d.field,
         duration: `${d.duration} min`,
-        presence: `0 /${SQUAD}`,
+        presence: `0 /${SQUAD_SIZE}`,
         status: 'Pret regjistrim',
+        team: prev[0]?.team,
       },
       ...prev,
     ]);
@@ -222,7 +149,7 @@ export default function TrainingListScreen() {
                   Lista e lojtarëve
                 </Text>
                 <Text style={styles.subtitle} numberOfLines={1}>
-                  {TEAM}
+                  {trainings[0]?.team ?? TEAM}
                 </Text>
               </View>
             </View>
@@ -295,7 +222,10 @@ export default function TrainingListScreen() {
                   </View>
 
                   {trainings.map((t, i) => (
-                    <View key={`${t.date}-${t.time}-${i}`} style={[styles.tr, styles.trBorder]}>
+                    <View
+                      key={t.id != null ? String(t.id) : `${t.date}-${t.time}-${i}`}
+                      style={[styles.tr, styles.trBorder]}
+                    >
                       {COLS.map((c) => {
                         /* The date cell stacks the day over the kick-off time. */
                         if (c.key === 'date') {
@@ -357,6 +287,7 @@ export default function TrainingListScreen() {
                             router.push({
                               pathname: '/stervitja',
                               params: {
+                                id: t.id != null ? String(t.id) : '',
                                 date: t.date,
                                 time: t.time,
                                 field: t.field,

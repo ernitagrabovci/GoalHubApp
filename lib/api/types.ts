@@ -202,6 +202,36 @@ export type ApiInjury = {
   created_at: string | null;
 };
 
+/** One attendance line, present only on `GET /trainings/{training}`. */
+export type ApiTrainingAttendance = {
+  player_id: number;
+  player_name: string | null;
+  /** `present`, `absent` or `unconfirmed`. */
+  status: string;
+  reason: string | null;
+  confirmed_at: string | null;
+};
+
+/** A training session, from `GET /trainings` (paginated) and `GET /trainings/{training}`. */
+export type ApiTraining = {
+  id: number;
+  /** `regular`, `tactical`, `physical` or `recovery`. */
+  type: string | null;
+  field: string | null;
+  scheduled_at: string | null;
+  duration_minutes: number | null;
+  notes: string | null;
+  attendance_finalized: boolean;
+  team?: { id: number; name: string } | null;
+  trainer?: { id: number; name: string } | null;
+  /** Counts, present on the index; absent on the show endpoint. */
+  attendances_count?: number;
+  present_count?: number;
+  reported_absences_count?: number;
+  /** Only present on the show endpoint. */
+  attendances?: ApiTrainingAttendance[];
+};
+
 /** One player's line in `GET /reports/players`. */
 export type PlayerReportRow = {
   id: number;
