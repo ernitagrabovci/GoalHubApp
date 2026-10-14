@@ -273,3 +273,72 @@ export type ApiClubProfile = {
     ends_at: string | null;
   };
 };
+
+/** Club-wide membership-fee totals, from `GET /finance/stats`. */
+export type FinanceStats = {
+  paid: number;
+  unpaid: number;
+  overdue: number;
+  collected: number;
+  pending: number;
+};
+
+/** One membership-fee row, from `GET /finance/fees` (paginated). */
+export type ApiFee = {
+  id: number;
+  month: string | null;
+  period_end: string | null;
+  amount: number;
+  discount: number;
+  final_amount: number;
+  due_date: string | null;
+  paid_at: string | null;
+  /** `paid`, `unpaid` or `overdue`. */
+  status: string;
+  payment_method: string | null;
+  invoice_number: string | null;
+  player: { id: number; name: string | null } | null;
+  team: { id: number; name: string } | null;
+};
+
+/** A system notification, from `GET /notifications` (paginated). */export type ApiNotification = {
+  id: number;
+  type: string;
+  title: string;
+  body: string | null;
+  link: string | null;
+  /** Who it came from — `admin`, `trainer` or `platform`. */
+  source: string | null;
+  is_read: boolean;
+  read_at: string | null;
+  created_at: string | null;
+};
+
+/** Unread counters, from `GET /badges`. */
+export type ApiBadges = {
+  notifications: number;
+  messages: number;
+  direct: number;
+  groups: number;
+  channel: number;
+};
+
+/** One payable period, from `GET /finance/players/{player}/unpaid`. */
+export type UnpaidPeriod = {
+  /** `null` on a future period that has no fee row yet. */
+  id: number | null;
+  period: string;
+  final_amount: number;
+  due_date: string | null;
+  status: string;
+  is_new: boolean;
+  period_start?: string;
+  period_end?: string;
+};
+
+/** A player's outstanding and upcoming periods. */
+export type PlayerPeriods = {
+  player: { id: number; name: string | null };
+  unpaid: UnpaidPeriod[];
+  future: UnpaidPeriod[];
+};

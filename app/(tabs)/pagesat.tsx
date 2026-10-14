@@ -3,7 +3,7 @@ import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Image,
   Pressable,
@@ -17,7 +17,20 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
+import { ApiError } from '@/lib/api/errors';
+import { financeStats, listFees, playerUnpaidPeriods, registerPayment } from '@/lib/api/finance';
+import { listPlayers } from '@/lib/api/players';
+import { listTeams } from '@/lib/api/teams';
+import type {
+  ApiFee,
+  ApiPlayer,
+  ApiTeam,
+  FinanceStats,
+  Paginated,
+  PlayerPeriods,
+} from '@/lib/api/types';
 import { I, scaled } from '@/lib/responsive';
+import { useSession } from '@/lib/session';
 
 /**
  * Kuota e anëtarësisë — the admin's "Pagesat" tab. Three headline counts, the
@@ -63,9 +76,15 @@ const MO = {
   err: '#C90000',
 };
 
-/* Popup option sets */
-const TEAM_OPTIONS = ['Ekipi i Parë', 'U21', 'U19', 'U17', 'U15'];
-const PAY_METHODS = ['Kesh', 'Transfer bankar', 'Kartë bankare', 'Online'];
+/* The payment methods the backend accepts (`cash`/`bank_transfer`/`card`),
+   shown with the labels the design uses. */
+type PayMethod = 'cash' | 'bank_transfer' | 'card';
+
+const PAY_METHODS: { key: PayMethod; label: string }[] = [
+  { key: 'cash', label: 'Kesh' },
+  { key: 'bank_transfer', label: 'Transfer bankar' },
+  { key: 'card', label: 'Kartë bankare' },
+];
 
 const IMG = {
   pagesatArt: require('@/assets/dashboard/pagesat-art.png'),
@@ -85,11 +104,21 @@ const SQ_GLOSS = [
 /** Thin specular rim on the top edge — reads as the thickness of the pane. */
 const SQ_SHEEN = ['rgba(245,245,245,0.55)', 'rgba(245,245,245,0.00)'] as const;
 
-const SUMMARY = [
-  { label: 'Kuota të mbledhura', value: '$16,840', note: '337 pagesa të kryera', tone: C.green },
-  { label: 'Pagesat e papaguara', value: '5', note: 'Brenda afatit', tone: C.orange },
-  { label: 'Pagesat e skaduara', value: '167', note: 'Tolerancë 10 ditësh', tone: C.red },
-];
+/** 16840 → "$16,840" — grouped thousands, no cents. */
+function usd(n: number) {
+  return `$${Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`;
+}
+
+/** The dialog's three date boxes → the `YYYY-MM-DD` the API wants, or `null`. */
+function toIsoDate(day: string, month: string, year: string): string | null {
+  if (!day || !month || !year) return null;
+  const d = Number(day);
+  const m = Number(month);
+  const y = Number(year);
+  if (!Number.isInteger(d) || !Number.isInteger(m) || !Number.isInteger(y)) return null;
+  if (d < 1 || d > 31 || m < 1 || m > 12 || y < 1900 || y > 9999) return null;
+  return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+}
 
 /** One colour per payment status, reused by the table. */
 const STATUS_TONE: Record<string, string> = {
@@ -98,27 +127,12 @@ const STATUS_TONE: Record<string, string> = {
   Skaduar: C.red,
 };
 
-type Payment = {
-  name: string;
-  team: string;
-  quota: string;
-  collected: string;
-  pending: string;
-  status: string;
+/** Backend fee status → the Albanian label the tones are keyed on. */
+const STATUS_LABEL: Record<string, string> = {
+  paid: 'Paguar',
+  unpaid: 'Papaguar',
+  overdue: 'Skaduar',
 };
-
-const PAYMENTS: Payment[] = [
-  { name: 'Driton Demiri', team: 'Ekipi i Parë', quota: '$150', collected: '$150', pending: '$0', status: 'Paguar' },
-  { name: 'Enver Mustafa', team: 'Ekipi i Parë', quota: '$150', collected: '$100', pending: '$50', status: 'Papaguar' },
-  { name: 'Ardit Lapashtica', team: 'Ekipi i Parë', quota: '$150', collected: '$0', pending: '$150', status: 'Skaduar' },
-  { name: 'Narti Cerkini', team: 'Ekipi i Parë', quota: '$150', collected: '$150', pending: '$0', status: 'Paguar' },
-  { name: 'Blerim Krasniqi', team: 'U21', quota: '$120', collected: '$60', pending: '$60', status: 'Papaguar' },
-  { name: 'Endrit Gashi', team: 'U19', quota: '$120', collected: '$120', pending: '$0', status: 'Paguar' },
-  { name: 'Leart Berisha', team: 'U19', quota: '$120', collected: '$0', pending: '$120', status: 'Skaduar' },
-  { name: 'Riad Hoxha', team: 'U17', quota: '$90', collected: '$90', pending: '$0', status: 'Paguar' },
-  { name: 'Arbnor Zeka', team: 'U17', quota: '$90', collected: '$45', pending: '$45', status: 'Papaguar' },
-  { name: 'Dion Nimani', team: 'U15', quota: '$90', collected: '$0', pending: '$90', status: 'Skaduar' },
-];
 
 /* Table columns — fixed widths so nothing gets squeezed; the frame scrolls. */
 const COL_NAME = 104;
@@ -129,19 +143,134 @@ const COL_PENDING = 62;
 const COL_STATUS = 70;
 const COL_ACTION = 58;
 
-const PAGES = [1, 2, 3, 4];
-
 export default function PaymentsScreen() {
   const router = useRouter();
+  const { token, signOut } = useSession();
 
-  const [payments, setPayments] = useState(PAYMENTS);
+  const [stats, setStats] = useState<FinanceStats | null>(null);
+  const [fees, setFees] = useState<Paginated<ApiFee> | null>(null);
+  const [teams, setTeams] = useState<ApiTeam[]>([]);
+  const [teamId, setTeamId] = useState<number | null>(null);
+  const [teamOpen, setTeamOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
+  const [error, setError] = useState<string | null>(null);
   const [registering, setRegistering] = useState(false);
+  /** Bumped after a payment is registered, to refetch the stats and the table. */
+  const [version, setVersion] = useState(0);
 
-  // The new payment lands on top so the admin sees what they just recorded.
-  const save = (p: Payment) => {
-    setPayments((prev) => [p, ...prev]);
-    setRegistering(false);
+  // Headline totals and the team filter list are one-shots.
+  useEffect(() => {
+    if (!token) return;
+    const controller = new AbortController();
+
+    Promise.allSettled([financeStats(token, controller.signal), listTeams(token, controller.signal)])
+      .then(([totals, teamList]) => {
+        if (controller.signal.aborted) return;
+
+        const failure = [totals, teamList].find((r) => r.status === 'rejected');
+        if (
+          failure &&
+          failure.status === 'rejected' &&
+          failure.reason instanceof ApiError &&
+          failure.reason.status === 401
+        ) {
+          signOut();
+          router.replace('/login');
+          return;
+        }
+
+        if (totals.status === 'fulfilled') setStats(totals.value);
+        if (teamList.status === 'fulfilled') setTeams(teamList.value.data);
+      });
+
+    return () => controller.abort();
+  }, [token, version, router, signOut]);
+
+  // The table refetches whenever the filters change.
+  useEffect(() => {
+    if (!token) return;
+    const controller = new AbortController();
+
+    listFees(
+      token,
+      { page, team_id: teamId ?? undefined, search: search || undefined },
+      controller.signal,
+    )
+      .then((res) => {
+        if (controller.signal.aborted) return;
+        setFees(res);
+        setError(null);
+      })
+      .catch((err) => {
+        if (controller.signal.aborted) return;
+        if (err instanceof ApiError && err.status === 401) {
+          signOut();
+          router.replace('/login');
+          return;
+        }
+        setError(
+          err instanceof ApiError && err.status === 0
+            ? 'Nuk mund të lidhemi me serverin. Kontrollo lidhjen.'
+            : 'Nuk mund të ngarkohen pagesat.',
+        );
+      });
+
+    return () => controller.abort();
+  }, [token, version, page, teamId, search, router, signOut]);
+
+  const summary = [
+    {
+      label: 'Kuota të mbledhura',
+      value: stats ? usd(stats.collected) : '—',
+      note: stats ? `${stats.paid} pagesa të kryera` : '—',
+      tone: C.green,
+    },
+    {
+      label: 'Pagesat e papaguara',
+      value: stats ? String(stats.unpaid) : '—',
+      note: 'Brenda afatit',
+      tone: C.orange,
+    },
+    {
+      label: 'Pagesat e skaduara',
+      value: stats ? String(stats.overdue) : '—',
+      note: 'Tolerancë 10 ditësh',
+      tone: C.red,
+    },
+  ];
+
+  const rows = (fees?.data ?? []).map((f) => {
+    const amount = usd(Number(f.final_amount) || 0);
+    const paid = f.status === 'paid';
+    return {
+      id: f.id,
+      name: f.player?.name ?? '—',
+      team: f.team?.name ?? '—',
+      quota: amount,
+      collected: paid ? amount : usd(0),
+      pending: paid ? usd(0) : amount,
+      status: STATUS_LABEL[f.status] ?? f.status,
+    };
+  });
+
+  const lastPage = fees?.meta.last_page ?? 0;
+  const pages = Array.from({ length: lastPage }, (_, i) => i + 1);
+  const selectedTeam = teams.find((t) => t.id === teamId)?.name ?? 'Të gjitha ekipet';
+
+  const pickTeam = (id: number | null) => {
+    setTeamId(id);
+    setPage(1);
+    setTeamOpen(false);
   };
+
+  const runSearch = () => {
+    setSearch(query);
+    setPage(1);
+  };
+
+  const reload = () => setVersion((v) => v + 1);
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
@@ -187,7 +316,7 @@ export default function PaymentsScreen() {
           {/* ── Headline counts ─────────────────────────────────── */}
           {/* Only three, so they share the row instead of scrolling. */}
           <View style={styles.summaryRow}>
-            {SUMMARY.map((s) => (
+            {summary.map((s) => (
               <View key={s.label} style={styles.sqShadow}>
                 <View style={styles.sq}>
                   {/* Frost the canvas grid, then lay a gloss sweep over it. */}
@@ -264,14 +393,51 @@ export default function PaymentsScreen() {
 
             {/* ── Filter / register ─────────────────────────────── */}
             <View style={styles.actions}>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Filtro sipas ekipit"
-                style={({ pressed }) => [styles.controlBtn, pressed && styles.pressed]}
-              >
-                <Text style={styles.controlText}>Të gjitha ekipet</Text>
-                <MaterialCommunityIcons name="chevron-down" size={I(14)} color="#000000" />
-              </Pressable>
+              <View>
+                <Pressable
+                  onPress={() => setTeamOpen((o) => !o)}
+                  accessibilityRole="button"
+                  accessibilityLabel="Filtro sipas ekipit"
+                  style={({ pressed }) => [styles.controlBtn, pressed && styles.pressed]}
+                >
+                  <Text style={styles.controlText} numberOfLines={1}>
+                    {selectedTeam}
+                  </Text>
+                  <MaterialCommunityIcons name="chevron-down" size={I(14)} color="#000000" />
+                </Pressable>
+
+                {teamOpen ? (
+                  <View style={styles.teamOpts}>
+                    <Pressable
+                      onPress={() => pickTeam(null)}
+                      accessibilityRole="button"
+                      style={styles.teamOpt}
+                    >
+                      <Text
+                        style={[styles.teamOptText, teamId === null && styles.teamOptTextOn]}
+                        numberOfLines={1}
+                      >
+                        Të gjitha ekipet
+                      </Text>
+                    </Pressable>
+                    {teams.map((t) => (
+                      <Pressable
+                        key={t.id}
+                        onPress={() => pickTeam(t.id)}
+                        accessibilityRole="button"
+                        style={styles.teamOpt}
+                      >
+                        <Text
+                          style={[styles.teamOptText, teamId === t.id && styles.teamOptTextOn]}
+                          numberOfLines={1}
+                        >
+                          {t.name}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                ) : null}
+              </View>
 
               <Pressable
                 onPress={() => setRegistering(true)}
@@ -292,8 +458,14 @@ export default function PaymentsScreen() {
                 style={styles.searchBox}
                 placeholder="Kërko me emër lojtarin"
                 placeholderTextColor={C.ghost}
+                value={query}
+                onChangeText={setQuery}
+                onSubmitEditing={runSearch}
+                returnKeyType="search"
+                autoCorrect={false}
               />
               <Pressable
+                onPress={runSearch}
                 accessibilityRole="button"
                 accessibilityLabel="Kërko"
                 style={({ pressed }) => [styles.searchBtn, pressed && styles.pressed]}
@@ -327,8 +499,20 @@ export default function PaymentsScreen() {
                     <View style={{ width: COL_ACTION }} />
                   </View>
 
-                  {payments.map((p, i) => (
-                    <View key={`${p.name}-${i}`} style={[styles.tr, styles.trBorder]}>
+                  {error ? (
+                    <View style={styles.tr}>
+                      <Text style={[styles.td, styles.thLeft]}>{error}</Text>
+                    </View>
+                  ) : fees === null ? (
+                    <View style={styles.tr}>
+                      <Text style={[styles.td, styles.thLeft]}>…</Text>
+                    </View>
+                  ) : rows.length === 0 ? (
+                    <View style={styles.tr}>
+                      <Text style={[styles.td, styles.thLeft]}>Nuk ka pagesa.</Text>
+                    </View>
+                  ) : rows.map((p) => (
+                    <View key={p.id} style={[styles.tr, styles.trBorder]}>
                       <Text
                         style={[styles.tdName, styles.thLeft, { width: COL_NAME }]}
                         numberOfLines={1}
@@ -388,36 +572,55 @@ export default function PaymentsScreen() {
             </View>
 
             {/* ── Pager ─────────────────────────────────────────── */}
-            <View style={styles.pager}>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Faqja e mëparshme"
-                hitSlop={8}
-                style={({ pressed }) => [styles.pagerArrow, pressed && styles.pressed]}
-              >
-                <MaterialCommunityIcons name="chevron-left" size={I(22)} color={C.text} />
-              </Pressable>
-
-              {PAGES.map((p) => (
+            {lastPage > 1 ? (
+              <View style={styles.pager}>
                 <Pressable
-                  key={p}
+                  onPress={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page <= 1}
                   accessibilityRole="button"
-                  accessibilityLabel={`Faqja ${p}`}
-                  style={({ pressed }) => [styles.pageSq, pressed && styles.pressed]}
+                  accessibilityLabel="Faqja e mëparshme"
+                  hitSlop={8}
+                  style={({ pressed }) => [
+                    styles.pagerArrow,
+                    page <= 1 && styles.pagerOff,
+                    pressed && styles.pressed,
+                  ]}
                 >
-                  <Text style={styles.pageSqText}>{p}</Text>
+                  <MaterialCommunityIcons name="chevron-left" size={I(22)} color={C.text} />
                 </Pressable>
-              ))}
 
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Faqja tjetër"
-                hitSlop={8}
-                style={({ pressed }) => [styles.pagerArrow, pressed && styles.pressed]}
-              >
-                <MaterialCommunityIcons name="chevron-right" size={I(22)} color={C.text} />
-              </Pressable>
-            </View>
+                {pages.map((p) => (
+                  <Pressable
+                    key={p}
+                    onPress={() => setPage(p)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Faqja ${p}`}
+                    style={({ pressed }) => [
+                      styles.pageSq,
+                      p === page && styles.pageSqOn,
+                      pressed && styles.pressed,
+                    ]}
+                  >
+                    <Text style={styles.pageSqText}>{p}</Text>
+                  </Pressable>
+                ))}
+
+                <Pressable
+                  onPress={() => setPage((p) => Math.min(lastPage, p + 1))}
+                  disabled={page >= lastPage}
+                  accessibilityRole="button"
+                  accessibilityLabel="Faqja tjetër"
+                  hitSlop={8}
+                  style={({ pressed }) => [
+                    styles.pagerArrow,
+                    page >= lastPage && styles.pagerOff,
+                    pressed && styles.pressed,
+                  ]}
+                >
+                  <MaterialCommunityIcons name="chevron-right" size={I(22)} color={C.text} />
+                </Pressable>
+              </View>
+            ) : null}
           </View>
         </ScrollView>
       </View>
@@ -431,7 +634,14 @@ export default function PaymentsScreen() {
             accessibilityRole="button"
             accessibilityLabel="Mbylle dritaren"
           />
-          <RegisterPaymentModal onClose={() => setRegistering(false)} onSave={save} />
+          <RegisterPaymentModal
+            teams={teams}
+            onClose={() => setRegistering(false)}
+            onSaved={() => {
+              setRegistering(false);
+              reload();
+            }}
+          />
         </View>
       ) : null}
     </SafeAreaView>
@@ -445,14 +655,17 @@ export default function PaymentsScreen() {
 /** In-flow dropdown: the options open directly under the field. */
 function PSelect({
   value,
+  placeholder,
   options,
   onChange,
 }: {
-  value: string;
-  options: string[];
-  onChange: (v: string) => void;
+  value: string | null;
+  placeholder?: string;
+  options: { key: string; label: string }[];
+  onChange: (key: string) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const current = options.find((o) => o.key === value);
 
   return (
     <View>
@@ -461,26 +674,32 @@ function PSelect({
         accessibilityRole="button"
         style={({ pressed }) => [styles.pmSel, pressed && styles.pressed]}
       >
-        <Text style={styles.pmSelText} numberOfLines={1}>
-          {value}
+        <Text
+          style={[styles.pmSelText, !current && styles.pmSelPlaceholder]}
+          numberOfLines={1}
+        >
+          {current?.label ?? placeholder ?? '—'}
         </Text>
         <MaterialCommunityIcons name="chevron-down" size={I(11)} color="#777777" />
       </Pressable>
       {open ? (
         <View style={styles.pmOpts}>
           {options.map((o) => {
-            const active = o === value;
+            const active = o.key === value;
             return (
               <Pressable
-                key={o}
+                key={o.key}
                 onPress={() => {
-                  onChange(o);
+                  onChange(o.key);
                   setOpen(false);
                 }}
                 style={[styles.pmOpt, active && styles.pmOptActive]}
               >
-                <Text style={[styles.pmOptText, active && styles.pmOptTextActive]} numberOfLines={1}>
-                  {o}
+                <Text
+                  style={[styles.pmOptText, active && styles.pmOptTextActive]}
+                  numberOfLines={1}
+                >
+                  {o.label}
                 </Text>
               </Pressable>
             );
@@ -491,43 +710,156 @@ function PSelect({
   );
 }
 
+/**
+ * Register-payment dialog. The team narrows the squad, the player loads their
+ * unpaid (and up to 12 upcoming) periods, and `Krijo` posts the settled rows to
+ * `POST /finance/payments`.
+ */
 function RegisterPaymentModal({
+  teams,
   onClose,
-  onSave,
+  onSaved,
 }: {
+  teams: ApiTeam[];
   onClose: () => void;
-  onSave: (p: Payment) => void;
+  onSaved: () => void;
 }) {
+  const router = useRouter();
+  const { token, signOut } = useSession();
   const { width, height } = useWindowDimensions();
   const cardW = Math.min(width - 24, 360);
   const maxBody = Math.max(280, height - 187);
 
-  const [team, setTeam] = useState(TEAM_OPTIONS[0]);
-  const [player, setPlayer] = useState('');
+  const [teamId, setTeamId] = useState<number | null>(null);
+  const [players, setPlayers] = useState<ApiPlayer[]>([]);
+  const [playerId, setPlayerId] = useState<number | null>(null);
+  const [periods, setPeriods] = useState<PlayerPeriods | null>(null);
+  const [picked, setPicked] = useState<string[]>([]);
   const [day, setDay] = useState('');
   const [month, setMonth] = useState('');
   const [year, setYear] = useState('');
-  const [method, setMethod] = useState(PAY_METHODS[0]);
+  const [method, setMethod] = useState<PayMethod>('cash');
   const [invoice, setInvoice] = useState('');
-  const [err, setErr] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
-  // Only the players who actually belong to the chosen team can be picked.
-  const squad = PAYMENTS.filter((p) => p.team === team).map((p) => p.name);
+  // The squad follows the chosen team.
+  useEffect(() => {
+    if (!token || teamId == null) return;
+    const controller = new AbortController();
+
+    listPlayers(token, { team_id: teamId }, controller.signal)
+      .then((res) => {
+        if (controller.signal.aborted) return;
+        setPlayers(res.data);
+      })
+      .catch((e) => {
+        if (controller.signal.aborted) return;
+        if (e instanceof ApiError && e.status === 401) {
+          signOut();
+          router.replace('/login');
+          return;
+        }
+        setPlayers([]);
+        setErr('Nuk mund të ngarkohen lojtarët.');
+      });
+
+    return () => controller.abort();
+  }, [token, teamId, router, signOut]);
+
+  // The player's payable periods load once a player is picked.
+  useEffect(() => {
+    if (!token || playerId == null) return;
+    const controller = new AbortController();
+
+    playerUnpaidPeriods(token, playerId, controller.signal)
+      .then((res) => {
+        if (controller.signal.aborted) return;
+        setPeriods(res);
+        setPicked([]);
+      })
+      .catch((e) => {
+        if (controller.signal.aborted) return;
+        if (e instanceof ApiError && e.status === 401) {
+          signOut();
+          router.replace('/login');
+          return;
+        }
+        setPeriods(null);
+        setErr('Nuk mund të ngarkohen kuotat e lojtarit.');
+      });
+
+    return () => controller.abort();
+  }, [token, playerId, router, signOut]);
+
+  const teamOpts = teams.map((t) => ({ key: String(t.id), label: t.name }));
+  const playerOpts = players.map((p) => ({ key: String(p.id), label: p.name ?? '—' }));
+
+  /* Each row is keyed by what it settles: an existing fee, or a new period. */
+  const periodRows = periods
+    ? [
+        ...periods.unpaid
+          .filter((p) => p.id != null)
+          .map((p) => ({ key: `fee:${p.id}`, label: p.period, amount: p.final_amount })),
+        ...periods.future.map((p) => ({
+          key: `new:${p.period_start}|${p.period_end}`,
+          label: p.period,
+          amount: p.final_amount,
+        })),
+      ]
+    : [];
+
+  const togglePeriod = (key: string) =>
+    setPicked((list) => (list.includes(key) ? list.filter((k) => k !== key) : [...list, key]));
 
   const submit = () => {
-    if (!team || !player || !day || !month || !year || !method || !invoice.trim()) {
-      setErr(true);
+    if (!token) return;
+    if (playerId == null) {
+      setErr('Zgjedh lojtarin.');
       return;
     }
-    const record = PAYMENTS.find((p) => p.name === player);
-    onSave({
-      name: player,
-      team,
-      quota: record?.quota ?? '$0',
-      collected: record?.quota ?? '$0',
-      pending: '$0',
-      status: 'Paguar',
-    });
+    if (picked.length === 0) {
+      setErr('Zgjedh të paktën një periudhë.');
+      return;
+    }
+    const paidAt = toIsoDate(day, month, year);
+    if (!paidAt) {
+      setErr('Shkruaj datën e pagesës (DD/MM/YYYY).');
+      return;
+    }
+
+    const feeIds = picked
+      .filter((k) => k.startsWith('fee:'))
+      .map((k) => Number(k.slice(4)));
+    const newPeriods = picked.filter((k) => k.startsWith('new:')).map((k) => k.slice(4));
+
+    setSaving(true);
+    setErr(null);
+
+    registerPayment(token, {
+      player_id: playerId,
+      fee_ids: feeIds.length ? feeIds : undefined,
+      new_periods: newPeriods.length ? newPeriods : undefined,
+      paid_at: paidAt,
+      payment_method: method,
+      invoice_number: invoice.trim() || undefined,
+    })
+      .then(() => onSaved())
+      .catch((e) => {
+        if (e instanceof ApiError && e.status === 401) {
+          signOut();
+          router.replace('/login');
+          return;
+        }
+        setSaving(false);
+        if (e instanceof ApiError && e.status === 0) {
+          setErr('Nuk mund të lidhemi me serverin. Kontrollo lidhjen.');
+        } else if (e instanceof ApiError && e.status === 422) {
+          setErr('Të dhënat nuk janë të vlefshme. Kontrollo fushat.');
+        } else {
+          setErr('Nuk mund të regjistrohet pagesa.');
+        }
+      });
   };
 
   return (
@@ -546,29 +878,74 @@ function RegisterPaymentModal({
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={styles.pmContent}
       >
-        {err ? <Text style={styles.pmErr}>Plotëso të gjitha fushat e kërkuara.</Text> : null}
+        {err ? <Text style={styles.pmErr}>{err}</Text> : null}
 
         <View style={styles.pmRow}>
           <View style={styles.pmCol}>
             <Text style={styles.pmLabel}>Ekipi:</Text>
             <PSelect
-              value={team}
-              options={TEAM_OPTIONS}
-              onChange={(v) => {
-                setTeam(v);
-                setPlayer('');
+              value={teamId == null ? null : String(teamId)}
+              placeholder="Zgjidh ekipin"
+              options={teamOpts}
+              onChange={(key) => {
+                setTeamId(Number(key));
+                setPlayerId(null);
+                setPlayers([]);
+                setPeriods(null);
+                setPicked([]);
+                setErr(null);
               }}
             />
           </View>
           <View style={styles.pmCol}>
             <Text style={styles.pmLabel}>Lojtari:</Text>
-            <PSelect value={player || 'Zgjidh lojtarin'} options={squad} onChange={setPlayer} />
+            <PSelect
+              value={playerId == null ? null : String(playerId)}
+              placeholder={teamId == null ? 'Zgjidh ekipin' : 'Zgjidh lojtarin'}
+              options={playerOpts}
+              onChange={(key) => {
+                setPlayerId(Number(key));
+                setPeriods(null);
+                setPicked([]);
+                setErr(null);
+              }}
+            />
           </View>
         </View>
 
         <Text style={[styles.pmLabel, styles.pmGap]}>Zgjedh periudhat:</Text>
-        <Text style={styles.pmHint}>Zgjidh lojtarin për të parë kuotat.</Text>
+        {playerId == null ? (
+          <Text style={styles.pmHint}>Zgjidh lojtarin për të parë kuotat.</Text>
+        ) : periods === null ? (
+          <Text style={styles.pmHint}>…</Text>
+        ) : periodRows.length === 0 ? (
+          <Text style={styles.pmHint}>Nuk ka kuota për pagesë.</Text>
+        ) : (
+          <View style={styles.pmPeriods}>
+            {periodRows.map((p) => {
+              const on = picked.includes(p.key);
+              return (
+                <Pressable
+                  key={p.key}
+                  onPress={() => togglePeriod(p.key)}
+                  accessibilityRole="checkbox"
+                  accessibilityState={{ checked: on }}
+                  style={({ pressed }) => [styles.pmPeriodRow, pressed && styles.pressed]}
+                >
+                  <View style={[styles.pmCheck, on && styles.pmCheckOn]} />
+                  <Text style={styles.pmPeriodText} numberOfLines={1}>
+                    {p.label}
+                  </Text>
+                  <Text style={styles.pmPeriodAmount} numberOfLines={1}>
+                    {usd(p.amount)}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        )}
 
+        <Text style={[styles.pmLabel, styles.pmGap]}>Data e pagesës:</Text>
         <View style={styles.pmClockRow}>
           <TextInput
             value={day}
@@ -605,7 +982,7 @@ function RegisterPaymentModal({
         </View>
 
         <Text style={[styles.pmLabel, styles.pmGap]}>Metodat e pagesës:</Text>
-        <PSelect value={method} options={PAY_METHODS} onChange={setMethod} />
+        <PSelect value={method} options={PAY_METHODS} onChange={(k) => setMethod(k as PayMethod)} />
 
         <Text style={[styles.pmLabel, styles.pmGap]}>Nr. Fatura:</Text>
         <TextInput
@@ -641,10 +1018,16 @@ function RegisterPaymentModal({
           </Pressable>
           <Pressable
             onPress={submit}
+            disabled={saving}
             accessibilityRole="button"
-            style={({ pressed }) => [styles.pmBtn, styles.pmBtnCreate, pressed && styles.pressed]}
+            style={({ pressed }) => [
+              styles.pmBtn,
+              styles.pmBtnCreate,
+              saving && styles.pmBtnOff,
+              pressed && styles.pressed,
+            ]}
           >
-            <Text style={styles.pmBtnText}>Krijo</Text>
+            <Text style={styles.pmBtnText}>{saving ? '…' : 'Krijo'}</Text>
           </Pressable>
         </View>
       </ScrollView>
@@ -902,6 +1285,37 @@ const styles = StyleSheet.create(
       color: '#000000',
     },
 
+    /* In-flow dropdown that opens under the team-filter button. */
+    teamOpts: {
+      position: 'absolute',
+      top: 38,
+      left: 0,
+      minWidth: 150,
+      zIndex: 5,
+      backgroundColor: '#F5F5F5',
+      borderWidth: 1,
+      borderColor: '#000000',
+      borderRadius: 4,
+      overflow: 'hidden',
+    },
+
+    teamOpt: {
+      height: 30,
+      justifyContent: 'center',
+      paddingHorizontal: 10,
+    },
+
+    teamOptText: {
+      fontFamily: Fonts.body,
+      fontSize: 12,
+      color: C.text,
+    },
+
+    teamOptTextOn: {
+      fontFamily: Fonts.bodySemiBold,
+      color: C.green,
+    },
+
     /* ── Search ──────────────────────────────────────────────── */
     searchRow: {
       flexDirection: 'row',
@@ -1055,6 +1469,10 @@ const styles = StyleSheet.create(
       justifyContent: 'center',
     },
 
+    pagerOff: {
+      opacity: 0.3,
+    },
+
     pageSq: {
       width: 34,
       height: 34,
@@ -1062,6 +1480,10 @@ const styles = StyleSheet.create(
       backgroundColor: C.blueBtn,
       alignItems: 'center',
       justifyContent: 'center',
+    },
+
+    pageSqOn: {
+      backgroundColor: '#4A90D9',
     },
 
     pageSqText: {
@@ -1209,6 +1631,10 @@ const styles = StyleSheet.create(
       color: MO.text,
     },
 
+    pmSelPlaceholder: {
+      color: MO.ph,
+    },
+
     pmOpts: {
       marginTop: 3,
       backgroundColor: MO.white,
@@ -1236,6 +1662,49 @@ const styles = StyleSheet.create(
 
     pmOptTextActive: {
       fontFamily: Fonts.bodySemiBold,
+    },
+
+    /* ── Period picker ───────────────────────────────────────── */
+    pmPeriods: {
+      borderWidth: 1,
+      borderColor: MO.inputBorder,
+      borderRadius: 4,
+      overflow: 'hidden',
+    },
+
+    pmPeriodRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 7,
+      height: 30,
+      paddingHorizontal: 8,
+    },
+
+    /* Square checkbox: black rim at rest, green fill once picked. */
+    pmCheck: {
+      width: 14,
+      height: 14,
+      borderRadius: 3,
+      borderWidth: 1.5,
+      borderColor: '#000000',
+      backgroundColor: 'transparent',
+    },
+
+    pmCheckOn: {
+      backgroundColor: MO.create,
+    },
+
+    pmPeriodText: {
+      flex: 1,
+      fontFamily: Fonts.body,
+      fontSize: 10.5,
+      color: MO.text,
+    },
+
+    pmPeriodAmount: {
+      fontFamily: Fonts.bodySemiBold,
+      fontSize: 10.5,
+      color: MO.text,
     },
 
     pmClockRow: {
@@ -1325,6 +1794,10 @@ const styles = StyleSheet.create(
 
     pmBtnCreate: {
       backgroundColor: MO.create,
+    },
+
+    pmBtnOff: {
+      opacity: 0.5,
     },
 
     pmBtnText: {

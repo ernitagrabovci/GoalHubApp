@@ -3,7 +3,7 @@ import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Pressable,
   ScrollView,
@@ -16,7 +16,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
+import { ApiError } from '@/lib/api/errors';
+import { badges, listNotifications, markNotificationsRead } from '@/lib/api/notifications';
+import type { ApiNotification, Paginated } from '@/lib/api/types';
 import { I, scaled } from '@/lib/responsive';
+import { useSession } from '@/lib/session';
 
 /**
  * The admin's system notifications — opened from the bell in the home header.
@@ -81,31 +85,173 @@ const SQ_GLOSS = [
 const SQ_SHEEN = ['rgba(245,245,245,0.55)', 'rgba(245,245,245,0.00)'] as const;
 
 /* Every square reads label / number / unit, so the count stays the loud part. */
-const SUMMARY = [
-  { label: 'Njoftime të palexuara', value: '0', hint: 'Nga sistemi', tone: C.red },
-  { label: 'Njoftime të dërguara sot', value: '0', hint: 'njoftime', tone: C.green },
-  { label: 'Njoftimet këtë muaj', value: '0', hint: 'dërgime', tone: C.text },
-];
 
-type Sent = { title: string; recipient: string; date: string };
+/** Who a notice came from — the backend `source` field. */
+const SOURCE_LABEL: Record<string, string> = {
+  admin: 'Admin',
+  trainer: 'Trajneri',
+  platform: 'Platformë',
+};
 
-const SENT: Sent[] = [
-  { title: 'Ndryshimi i orarit të stërvitjes', recipient: 'Të gjithë lojtarët', date: '17/09/2026' },
-  { title: 'Pagesa e kuotës mujore', recipient: 'Prindërit', date: '15/09/2026' },
-  { title: 'Ndeshja e së shtunës', recipient: 'Ekipi i Parë', date: '14/09/2026' },
-  { title: 'Raporti mujor është gati', recipient: 'Stafi', date: '12/09/2026' },
-  { title: 'Përditësim i kartelës mjekësore', recipient: 'Të gjithë lojtarët', date: '10/09/2026' },
-  { title: 'Transferim i ri i regjistruar', recipient: 'Stafi', date: '08/09/2026' },
-  { title: 'Mbledhja e prindërve', recipient: 'Prindërit', date: '05/09/2026' },
-  { title: 'Regjistrimi i sezonit të ri', recipient: 'Të gjithë lojtarët', date: '02/09/2026' },
-];
+function sourceLabel(source: string | null): string {
+  return source ? (SOURCE_LABEL[source] ?? source) : 'Sistemi';
+}
 
-const PAGES = [1, 2, 3, 4];
+/** `2026-09-17T10:00:00+00:00` → `17/09/2026`. */
+function shortDate(iso: string | null): string {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '—';
+  const dd = String(d.getDate()).padStart(2, '0');
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  return `${dd}/${mm}/${d.getFullYear()}`;
+}
+
+/** Compact Albanian "time ago" for the latest-notice row. */
+function relativeTime(iso: string | null): string {
+  if (!iso) return '—';
+  const at = new Date(iso).getTime();
+  if (Number.isNaN(at)) return '—';
+  const minutes = Math.floor((Date.now() - at) / 60_000);
+  if (minutes < 1) return 'Tani';
+  if (minutes < 60) return `${minutes} min më parë`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} orë më parë`;
+  const days = Math.floor(hours / 24);
+  if (days === 1) return 'Dje';
+  if (days < 7) return `${days} ditë më parë`;
+  const weeks = Math.floor(days / 7);
+  if (weeks < 5) return `${weeks} javë më parë`;
+  return `${Math.floor(days / 30)} muaj më parë`;
+}
+
+function inToday(iso: string | null): boolean {
+  if (!iso) return false;
+  const d = new Date(iso);
+  const n = new Date();
+  return (
+    d.getFullYear() === n.getFullYear() &&
+    d.getMonth() === n.getMonth() &&
+    d.getDate() === n.getDate()
+  );
+}
+
+function inThisMonth(iso: string | null): boolean {
+  if (!iso) return false;
+  const d = new Date(iso);
+  const n = new Date();
+  return d.getFullYear() === n.getFullYear() && d.getMonth() === n.getMonth();
+}
 
 export default function NotificationsScreen() {
   const router = useRouter();
+  const { token, signOut } = useSession();
 
+  const [list, setList] = useState<Paginated<ApiNotification> | null>(null);
+  const [unread, setUnread] = useState<number | null>(null);
+  const [page, setPage] = useState(1);
+  const [error, setError] = useState<string | null>(null);
   const [composing, setComposing] = useState(false);
+  const [markingRead, setMarkingRead] = useState(false);
+
+  // The unread badge is exact; the list itself is paginated.
+  useEffect(() => {
+    if (!token) return;
+    const controller = new AbortController();
+
+    badges(token, controller.signal)
+      .then((res) => {
+        if (controller.signal.aborted) return;
+        setUnread(res.notifications);
+      })
+      .catch((err) => {
+        if (controller.signal.aborted) return;
+        if (err instanceof ApiError && err.status === 401) {
+          signOut();
+          router.replace('/login');
+        }
+      });
+
+    return () => controller.abort();
+  }, [token, router, signOut]);
+
+  useEffect(() => {
+    if (!token) return;
+    const controller = new AbortController();
+
+    listNotifications(token, { page }, controller.signal)
+      .then((res) => {
+        if (controller.signal.aborted) return;
+        setList(res);
+        setError(null);
+      })
+      .catch((err) => {
+        if (controller.signal.aborted) return;
+        if (err instanceof ApiError && err.status === 401) {
+          signOut();
+          router.replace('/login');
+          return;
+        }
+        setError(
+          err instanceof ApiError && err.status === 0
+            ? 'Nuk mund të lidhemi me serverin. Kontrollo lidhjen.'
+            : 'Nuk mund të ngarkohen njoftimet.',
+        );
+      });
+
+    return () => controller.abort();
+  }, [token, page, router, signOut]);
+
+  const items = list?.data ?? [];
+  const latest = items[0] ?? null;
+
+  const summary = [
+    {
+      label: 'Njoftime të palexuara',
+      value: unread == null ? '—' : String(unread),
+      hint: 'Nga sistemi',
+      tone: C.red,
+    },
+    {
+      label: 'Njoftime të marra sot',
+      value: list ? String(items.filter((n) => inToday(n.created_at)).length) : '—',
+      hint: 'njoftime',
+      tone: C.green,
+    },
+    {
+      label: 'Njoftimet e marra këtë muaj',
+      value: list ? String(items.filter((n) => inThisMonth(n.created_at)).length) : '—',
+      hint: 'njoftime',
+      tone: C.text,
+    },
+  ];
+
+  const lastPage = list?.meta.last_page ?? 0;
+  const pages = Array.from({ length: lastPage }, (_, i) => i + 1);
+
+  // Marking read is global: the backend clears every unread notice at once, so
+  // the counter drops to zero and the loaded page is flipped locally to match.
+  const markAllRead = () => {
+    if (!token || markingRead || !unread) return;
+    setMarkingRead(true);
+
+    markNotificationsRead(token)
+      .then(() => {
+        setUnread(0);
+        setList((cur) =>
+          cur
+            ? { ...cur, data: cur.data.map((n) => (n.is_read ? n : { ...n, is_read: true })) }
+            : cur,
+        );
+      })
+      .catch((e) => {
+        if (e instanceof ApiError && e.status === 401) {
+          signOut();
+          router.replace('/login');
+        }
+      })
+      .finally(() => setMarkingRead(false));
+  };
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
@@ -135,7 +281,7 @@ export default function NotificationsScreen() {
                   Njoftimet
                 </Text>
                 <Text style={styles.subtitle} numberOfLines={1}>
-                  Dërgo njoftime tek lojtarët, prindërit dhe stafi
+                  Njoftimet e sistemit për klubin tënd
                 </Text>
               </View>
             </View>
@@ -150,7 +296,7 @@ export default function NotificationsScreen() {
           {/* ── Headline counts ─────────────────────────────────── */}
           {/* Only three, so they share the row instead of scrolling. */}
           <View style={styles.summaryRow}>
-            {SUMMARY.map((s) => (
+            {summary.map((s) => (
               <View key={s.label} style={styles.sqShadow}>
                 <View style={styles.sq}>
                   {/* Frost the canvas grid, then lay a gloss sweep over it. */}
@@ -218,6 +364,23 @@ export default function NotificationsScreen() {
                 </View>
                 <Text style={styles.controlText}>Njoftim i ri</Text>
               </Pressable>
+
+              <Pressable
+                onPress={markAllRead}
+                disabled={!unread || markingRead}
+                accessibilityRole="button"
+                accessibilityLabel="Shëno të lexuara"
+                style={({ pressed }) => [
+                  styles.controlBtn,
+                  (!unread || markingRead) && styles.controlOff,
+                  pressed && styles.pressed,
+                ]}
+              >
+                <MaterialCommunityIcons name="check-all" size={I(15)} color={C.frame} />
+                <Text style={styles.controlText} numberOfLines={1}>
+                  {markingRead ? '…' : 'Shëno të lexuara'}
+                </Text>
+              </Pressable>
             </View>
 
             {/* ── Latest system notice ──────────────────────────── */}
@@ -234,26 +397,37 @@ export default function NotificationsScreen() {
               </View>
               <View style={styles.headLine} />
 
-              <View style={styles.nRow}>
-                {/* Unread marker */}
-                <View style={styles.nDot} />
-                <View style={styles.nBody}>
-                  <Text
-                    style={styles.nTitle}
-                    numberOfLines={1}
-                    adjustsFontSizeToFit
-                    minimumFontScale={0.8}
-                  >
-                    Njoftime nga sistemi
-                  </Text>
-                  <Text style={styles.nMeta} numberOfLines={1}>
-                    <Text style={styles.nMetaBlue}>Trajneri</Text>. Admin GoalHub
+              {latest ? (
+                <View style={styles.nRow}>
+                  {/* Unread marker */}
+                  {!latest.is_read ? <View style={styles.nDot} /> : null}
+                  <View style={styles.nBody}>
+                    <Text
+                      style={styles.nTitle}
+                      numberOfLines={1}
+                      adjustsFontSizeToFit
+                      minimumFontScale={0.8}
+                    >
+                      {latest.title}
+                    </Text>
+                    <Text style={styles.nMeta} numberOfLines={1}>
+                      <Text style={styles.nMetaBlue}>{sourceLabel(latest.source)}</Text>
+                      {latest.body ? ` · ${latest.body}` : ''}
+                    </Text>
+                  </View>
+                  <Text style={styles.nTime} numberOfLines={1}>
+                    {relativeTime(latest.created_at)}
                   </Text>
                 </View>
-                <Text style={styles.nTime} numberOfLines={1}>
-                  2 javë më parë
-                </Text>
-              </View>
+              ) : (
+                <View style={styles.nRow}>
+                  <View style={styles.nBody}>
+                    <Text style={styles.nMeta} numberOfLines={1}>
+                      {error ?? (list ? 'Nuk ka njoftime.' : '…')}
+                    </Text>
+                  </View>
+                </View>
+              )}
             </View>
 
             {/* ── Sent log ──────────────────────────────────────── */}
@@ -265,7 +439,7 @@ export default function NotificationsScreen() {
                   adjustsFontSizeToFit
                   minimumFontScale={0.7}
                 >
-                  Njoftime nga sistemi
+                  Njoftimet e marra
                 </Text>
               </View>
               <View style={styles.headLineTable} />
@@ -274,67 +448,94 @@ export default function NotificationsScreen() {
               <View style={styles.tblInner}>
                 <View style={styles.tr}>
                   <Text style={[styles.th, styles.thLeft, styles.cTitle]}>Titulli</Text>
-                  <Text style={[styles.th, styles.thLeft, styles.cRecipient]}>Marrësi</Text>
+                  <Text style={[styles.th, styles.thLeft, styles.cRecipient]}>Burimi</Text>
                   <Text style={[styles.th, styles.cDate]}>Data</Text>
                 </View>
 
-                {SENT.map((n) => (
-                  <View key={n.title} style={[styles.tr, styles.trBorder]}>
-                    <Text
-                      style={[styles.tdName, styles.thLeft, styles.cTitle]}
-                      numberOfLines={1}
-                      adjustsFontSizeToFit
-                      minimumFontScale={0.7}
-                    >
-                      {n.title}
-                    </Text>
-                    <Text
-                      style={[styles.tdHint, styles.thLeft, styles.cRecipient]}
-                      numberOfLines={1}
-                      adjustsFontSizeToFit
-                      minimumFontScale={0.7}
-                    >
-                      {n.recipient}
-                    </Text>
-                    <Text style={[styles.td, styles.cDate]} numberOfLines={1}>
-                      {n.date}
+                {items.length === 0 ? (
+                  <View style={styles.tr}>
+                    <Text style={[styles.td, styles.thLeft]} numberOfLines={1}>
+                      {error ?? (list ? 'Nuk ka njoftime.' : '…')}
                     </Text>
                   </View>
-                ))}
+                ) : (
+                  items.map((n) => (
+                    <View key={n.id} style={[styles.tr, styles.trBorder]}>
+                      <Text
+                        style={[styles.tdName, styles.thLeft, styles.cTitle]}
+                        numberOfLines={1}
+                        adjustsFontSizeToFit
+                        minimumFontScale={0.7}
+                      >
+                        {n.title}
+                      </Text>
+                      <Text
+                        style={[styles.tdHint, styles.thLeft, styles.cRecipient]}
+                        numberOfLines={1}
+                        adjustsFontSizeToFit
+                        minimumFontScale={0.7}
+                      >
+                        {sourceLabel(n.source)}
+                      </Text>
+                      <Text style={[styles.td, styles.cDate]} numberOfLines={1}>
+                        {shortDate(n.created_at)}
+                      </Text>
+                    </View>
+                  ))
+                )}
               </View>
             </View>
 
             {/* ── Pager ─────────────────────────────────────────── */}
-            <View style={styles.pager}>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Faqja e mëparshme"
-                hitSlop={8}
-                style={({ pressed }) => [styles.pagerArrow, pressed && styles.pressed]}
-              >
-                <MaterialCommunityIcons name="chevron-left" size={I(22)} color={C.text} />
-              </Pressable>
-
-              {PAGES.map((p) => (
+            {lastPage > 1 ? (
+              <View style={styles.pager}>
                 <Pressable
-                  key={p}
+                  onPress={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page <= 1}
                   accessibilityRole="button"
-                  accessibilityLabel={`Faqja ${p}`}
-                  style={({ pressed }) => [styles.pageSq, pressed && styles.pressed]}
+                  accessibilityLabel="Faqja e mëparshme"
+                  hitSlop={8}
+                  style={({ pressed }) => [
+                    styles.pagerArrow,
+                    page <= 1 && styles.pagerOff,
+                    pressed && styles.pressed,
+                  ]}
                 >
-                  <Text style={styles.pageSqText}>{p}</Text>
+                  <MaterialCommunityIcons name="chevron-left" size={I(22)} color={C.text} />
                 </Pressable>
-              ))}
 
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Faqja tjetër"
-                hitSlop={8}
-                style={({ pressed }) => [styles.pagerArrow, pressed && styles.pressed]}
-              >
-                <MaterialCommunityIcons name="chevron-right" size={I(22)} color={C.text} />
-              </Pressable>
-            </View>
+                {pages.map((p) => (
+                  <Pressable
+                    key={p}
+                    onPress={() => setPage(p)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Faqja ${p}`}
+                    style={({ pressed }) => [
+                      styles.pageSq,
+                      p === page && styles.pageSqOn,
+                      pressed && styles.pressed,
+                    ]}
+                  >
+                    <Text style={styles.pageSqText}>{p}</Text>
+                  </Pressable>
+                ))}
+
+                <Pressable
+                  onPress={() => setPage((p) => Math.min(lastPage, p + 1))}
+                  disabled={page >= lastPage}
+                  accessibilityRole="button"
+                  accessibilityLabel="Faqja tjetër"
+                  hitSlop={8}
+                  style={({ pressed }) => [
+                    styles.pagerArrow,
+                    page >= lastPage && styles.pagerOff,
+                    pressed && styles.pressed,
+                  ]}
+                >
+                  <MaterialCommunityIcons name="chevron-right" size={I(22)} color={C.text} />
+                </Pressable>
+              </View>
+            ) : null}
           </View>
         </ScrollView>
       </View>
@@ -646,10 +847,12 @@ const styles = StyleSheet.create(
     },
 
     /* ── New notification ────────────────────────────────────── */
-    /* Sits on the left: the row exists only so the button has gutters. */
+    /* Compose sits left, mark-read right; the row just gives them gutters. */
     actions: {
       flexDirection: 'row',
       alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: 8,
       marginTop: 16,
     },
 
@@ -675,9 +878,15 @@ const styles = StyleSheet.create(
     },
 
     controlText: {
+      flexShrink: 1,
       fontFamily: Fonts.bodySemiBold,
       fontSize: 12,
       color: C.frame,
+    },
+
+    /* Greyed out while there is nothing left to mark, or a call is in flight. */
+    controlOff: {
+      opacity: 0.4,
     },
 
     /* ── Card shell ──────────────────────────────────────────── */
@@ -853,6 +1062,10 @@ const styles = StyleSheet.create(
       justifyContent: 'center',
     },
 
+    pagerOff: {
+      opacity: 0.3,
+    },
+
     pageSq: {
       width: 34,
       height: 34,
@@ -860,6 +1073,10 @@ const styles = StyleSheet.create(
       backgroundColor: C.blueBtn,
       alignItems: 'center',
       justifyContent: 'center',
+    },
+
+    pageSqOn: {
+      backgroundColor: '#4A90D9',
     },
 
     pageSqText: {
