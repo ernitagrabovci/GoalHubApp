@@ -7,7 +7,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
+import { ApiError } from '@/lib/api/errors';
+import { registerPayment } from '@/lib/api/finance';
 import { I, scaled } from '@/lib/responsive';
+import { useSession } from '@/lib/session';
 
 /**
  * Regjistro pagesën — opened from "Regjistro pagesën" on an unpaid row of the
@@ -46,12 +49,30 @@ const STATUS_TONE: Record<string, string> = {
   Skaduar: C.red,
 };
 
-const PAY_METHODS = ['Kesh', 'Transfer bankar', 'Kartë bankare', 'Online'];
+/* The three ways the backend accepts a payment, in the label the form shows. */
+const PAY_METHODS = ['Kesh', 'Transfer bankar', 'Kartë bankare'];
+
+const METHOD_VALUE: Record<string, 'cash' | 'bank_transfer' | 'card'> = {
+  Kesh: 'cash',
+  'Transfer bankar': 'bank_transfer',
+  'Kartë bankare': 'card',
+};
+
+/** Today as `YYYY-MM-DD`, the only date the form can submit. */
+function today(): string {
+  const d = new Date();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${d.getFullYear()}-${m}-${day}`;
+}
 
 export default function RegisterPaymentScreen() {
   const router = useRouter();
+  const { token, signOut } = useSession();
 
   const params = useLocalSearchParams<{
+    id?: string;
+    playerId?: string;
     name?: string;
     team?: string;
     period?: string;
@@ -60,14 +81,53 @@ export default function RegisterPaymentScreen() {
     status?: string;
   }>();
 
-  const name = params.name ?? 'Mergim Berisha';
-  const team = params.team ?? 'Ekipi i Parë';
-  const period = params.period ?? 'Janar 2027';
-  const amount = params.amount ?? '$40.00';
-  const due = params.due ?? '10/01/2027';
-  const status = params.status ?? 'Papaguar';
+  const feeId = params.id ? Number(params.id) : null;
+  const playerId = params.playerId ? Number(params.playerId) : null;
+
+  const name = params.name ?? '—';
+  const team = params.team ?? '—';
+  const period = params.period ?? '—';
+  const amount = params.amount ?? '—';
+  const due = params.due ?? '—';
+  const status = params.status ?? '—';
 
   const [method, setMethod] = useState(PAY_METHODS[0]);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const save = () => {
+    if (!token || saving) return;
+    if (!feeId || Number.isNaN(feeId) || !playerId || Number.isNaN(playerId)) {
+      setError('Mungon kuota ose lojtari.');
+      return;
+    }
+
+    setSaving(true);
+    setError(null);
+
+    registerPayment(token, {
+      player_id: playerId,
+      fee_ids: [feeId],
+      paid_at: today(),
+      payment_method: METHOD_VALUE[method] ?? 'cash',
+    })
+      .then(() => router.back())
+      .catch((err) => {
+        if (err instanceof ApiError && err.status === 401) {
+          signOut();
+          router.replace('/login');
+          return;
+        }
+        setSaving(false);
+        if (err instanceof ApiError && err.status === 0) {
+          setError('Nuk mund të lidhemi me serverin. Kontrollo lidhjen.');
+        } else if (err instanceof ApiError && err.status === 422) {
+          setError('Të dhënat nuk janë të vlefshme. Kontrollo fushat.');
+        } else {
+          setError('Nuk mund të regjistrohet pagesa.');
+        }
+      });
+  };
 
   /* Labels down the left, this quota's own values opposite them. */
   const DETAILS: [string, string][] = [
@@ -203,10 +263,22 @@ export default function RegisterPaymentScreen() {
                   </Text>
                 </View>
 
+                {error ? (
+                  <Text style={styles.errorText} numberOfLines={2}>
+                    {error}
+                  </Text>
+                ) : null}
+
                 <Pressable
+                  onPress={save}
+                  disabled={saving}
                   accessibilityRole="button"
                   accessibilityLabel="Ruaj cilësimet"
-                  style={({ pressed }) => [styles.saveBtn, pressed && styles.pressed]}
+                  style={({ pressed }) => [
+                    styles.saveBtn,
+                    saving && styles.saveBtnOff,
+                    pressed && styles.pressed,
+                  ]}
                 >
                   <Text style={styles.saveBtnText}>Ruaj cilësimet</Text>
                 </Pressable>
@@ -502,6 +574,18 @@ const styles = StyleSheet.create(
       backgroundColor: C.greenBtn,
       alignItems: 'center',
       justifyContent: 'center',
+    },
+
+    saveBtnOff: {
+      opacity: 0.5,
+    },
+
+    errorText: {
+      marginTop: 12,
+      fontFamily: Fonts.body,
+      fontSize: 11,
+      lineHeight: 15,
+      color: C.red,
     },
 
     saveBtnText: {

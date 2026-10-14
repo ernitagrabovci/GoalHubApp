@@ -1,5 +1,11 @@
 import { request } from '@/lib/api/client';
-import type { ApiFee, FinanceStats, Paginated, PlayerPeriods } from '@/lib/api/types';
+import type {
+  ApiFee,
+  FinanceReports,
+  FinanceStats,
+  Paginated,
+  PlayerPeriods,
+} from '@/lib/api/types';
 
 export type FeeListParams = {
   page?: number;
@@ -30,6 +36,15 @@ export function listFees(token: string, params: FeeListParams = {}, signal?: Abo
     search: params.search?.trim() || undefined,
   });
   return request<Paginated<ApiFee>>(`/finance/fees${query}`, { token, signal });
+}
+
+export function financeReports(token: string, signal?: AbortSignal) {
+  return request<FinanceReports>('/finance/reports', { token, signal });
+}
+
+/** One fee, from `GET /finance/fees/{id}` — wrapped in `{data}`. */
+export function getFee(token: string, id: number, signal?: AbortSignal) {
+  return request<{ data: ApiFee }>(`/finance/fees/${id}`, { token, signal });
 }
 
 /** A player's outstanding and upcoming periods, for the register dialog. */

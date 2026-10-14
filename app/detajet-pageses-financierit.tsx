@@ -1,12 +1,18 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
+import { ApiError } from '@/lib/api/errors';
+import { getFee } from '@/lib/api/finance';
+import type { ApiFee } from '@/lib/api/types';
+import { dmy, monthLabel, payMethod, statusLabel, usd } from '@/lib/finance';
 import { I, scaled } from '@/lib/responsive';
+import { useSession } from '@/lib/session';
 
 /**
  * One membership quota — opened from "Shiko" on the financier's Kuotat e
@@ -42,13 +48,12 @@ const STATUS_TONE: Record<string, string> = {
   Skaduar: C.red,
 };
 
-/* When the payment was registered. */
-const PAID_AT = '2025-09-08 00:00:00';
-
 export default function FinancierPaymentDetailScreen() {
   const router = useRouter();
+  const { token, signOut } = useSession();
 
   const params = useLocalSearchParams<{
+    id?: string;
     name?: string;
     team?: string;
     period?: string;
@@ -57,12 +62,40 @@ export default function FinancierPaymentDetailScreen() {
     status?: string;
   }>();
 
-  const name = params.name ?? 'Luan Jashari';
-  const team = params.team ?? 'Ekipi i Parë';
-  const period = params.period ?? 'Janar 2027';
-  const amount = params.amount ?? '$40.00';
-  const due = params.due ?? '10/01/2027';
-  const status = params.status ?? 'Paguar';
+  const feeId = params.id ? Number(params.id) : null;
+
+  const [fee, setFee] = useState<ApiFee | null>(null);
+
+  useEffect(() => {
+    if (!token || !feeId || Number.isNaN(feeId)) return;
+    const controller = new AbortController();
+
+    getFee(token, feeId, controller.signal)
+      .then((res) => {
+        if (controller.signal.aborted) return;
+        setFee(res.data);
+      })
+      .catch((err) => {
+        if (controller.signal.aborted) return;
+        if (err instanceof ApiError && err.status === 401) {
+          signOut();
+          router.replace('/login');
+        }
+      });
+
+    return () => controller.abort();
+  }, [token, feeId, router, signOut]);
+
+  /* Prefer the fetched row; fall back to what the list handed over. */
+  const name = fee?.player?.name ?? params.name ?? '—';
+  const team = fee?.team?.name ?? params.team ?? '—';
+  const period = fee ? monthLabel(fee.month) : (params.period ?? '—');
+  const amount = fee ? usd(Number(fee.final_amount) || 0) : (params.amount ?? '—');
+  const due = fee ? dmy(fee.due_date) : (params.due ?? '—');
+  const status = fee ? statusLabel(fee.status) : (params.status ?? '—');
+  const paidAt = fee ? dmy(fee.paid_at) : '—';
+  const method = fee ? payMethod(fee.payment_method) : '—';
+  const invoice = fee?.invoice_number ?? '—';
 
   const tone = STATUS_TONE[status] ?? C.green;
 
@@ -74,9 +107,9 @@ export default function FinancierPaymentDetailScreen() {
     ['Shuma', amount],
     ['Afati', due],
     ['Statusi', status],
-    ['Data e pagesës', PAID_AT],
-    ['Metoda', 'Kesh'],
-    ['Nr. faturës', 'FAT-2025-0918'],
+    ['Data e pagesës', paidAt],
+    ['Metoda', method],
+    ['Nr. faturës', invoice],
   ];
 
   return (
@@ -173,7 +206,7 @@ export default function FinancierPaymentDetailScreen() {
               </Text>
 
               <Text style={styles.doneStamp} numberOfLines={1}>
-                {PAID_AT}
+                {paidAt}
               </Text>
             </View>
           </View>

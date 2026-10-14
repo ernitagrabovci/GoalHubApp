@@ -1,12 +1,17 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
+import { ApiError } from '@/lib/api/errors';
+import { listNotifications } from '@/lib/api/notifications';
+import type { ApiNotification, Paginated } from '@/lib/api/types';
 import { I, scaled } from '@/lib/responsive';
+import { useSession } from '@/lib/session';
 
 /**
  * Njoftimet — the financier's own inbox, opened from the bell in the financier
@@ -39,66 +44,68 @@ const C = {
 
 /* Who a notice can come from — each sender reads in its own colour. */
 const SENDER_TONE: Record<string, string> = {
-  Admini: C.blue,
-  Trajneri: C.green,
-  Sistemi: C.text,
+  admin: C.blue,
+  trainer: C.green,
+  platform: C.text,
 };
 
-type Notice = {
-  title: string;
-  sender: string;
-  body: string;
-  /* Date and time of arrival, as one stamp. */
-  stamp: string;
+/** The backend `source` field → the Albanian sender the row shows. */
+const SOURCE_LABEL: Record<string, string> = {
+  admin: 'Admini',
+  trainer: 'Trajneri',
+  platform: 'Sistemi',
 };
 
-const NOTICES: Notice[] = [
-  {
-    title: 'Pagesa e re u regjistrua',
-    sender: 'Admini',
-    body: 'Ardit Llapashtica: $40.00 për Janar 2027.',
-    stamp: '06/08/2026 04:51',
-  },
-  {
-    title: 'Fatura FAT-2025-0918 u shlye',
-    sender: 'Admini',
-    body: 'Mergim Berisha, $40.00 me transfer bankar.',
-    stamp: '05/08/2026 19:12',
-  },
-  {
-    title: 'Raporti mujor është gati',
-    sender: 'Sistemi',
-    body: 'Përmbledhja e arkëtimit për Dhjetor 2026.',
-    stamp: '04/08/2026 08:00',
-  },
-  {
-    title: 'Kuota e shkurtit mbetet e papaguar',
-    sender: 'Sistemi',
-    body: '4 anëtarë ende pa paguar.',
-    stamp: '03/08/2026 17:20',
-  },
-  {
-    title: 'Kategoria U19 ka 3 vonesa',
-    sender: 'Sistemi',
-    body: 'Afati kaloi më 10/01/2027.',
-    stamp: '01/08/2026 11:05',
-  },
-  {
-    title: 'Buxheti i sezonit u përditësua',
-    sender: 'Admini',
-    body: 'Totali: $25,230.00 për kategori aktive.',
-    stamp: '29/07/2026 09:30',
-  },
-  {
-    title: 'Kujtesë: mbyllja e muajit',
-    sender: 'Sistemi',
-    body: 'Regjistro pagesat e mbetura para 31/01/2027.',
-    stamp: '27/07/2026 14:22',
-  },
-];
+function sourceLabel(source: string | null): string {
+  return source ? (SOURCE_LABEL[source] ?? source) : 'Sistemi';
+}
+
+/** `2026-08-06T04:51:00+00:00` → `06/08/2026 04:51`. */
+function stamp(iso: string | null): string {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '—';
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()} ${p(d.getHours())}:${p(
+    d.getMinutes(),
+  )}`;
+}
 
 export default function FinancierNotificationsScreen() {
   const router = useRouter();
+  const { token, signOut } = useSession();
+
+  const [list, setList] = useState<Paginated<ApiNotification> | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!token) return;
+    const controller = new AbortController();
+
+    listNotifications(token, {}, controller.signal)
+      .then((res) => {
+        if (controller.signal.aborted) return;
+        setList(res);
+        setError(null);
+      })
+      .catch((err) => {
+        if (controller.signal.aborted) return;
+        if (err instanceof ApiError && err.status === 401) {
+          signOut();
+          router.replace('/login');
+          return;
+        }
+        setError(
+          err instanceof ApiError && err.status === 0
+            ? 'Nuk mund të lidhemi me serverin. Kontrollo lidhjen.'
+            : 'Nuk mund të ngarkohen njoftimet.',
+        );
+      });
+
+    return () => controller.abort();
+  }, [token, router, signOut]);
+
+  const items = list?.data ?? [];
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
@@ -143,29 +150,38 @@ export default function FinancierNotificationsScreen() {
           <View style={styles.colPad}>
             {/* ── Received notices ────────────────────────────────── */}
             <View style={styles.card}>
-              {NOTICES.map((n, i) => (
-                <View
-                  key={`${n.title}-${n.stamp}`}
-                  style={[styles.tr, i > 0 && styles.trBorder]}
-                >
-                  {/* Every row is flagged the same way, read or not. */}
-                  <View style={styles.dot} />
-
+              {items.length === 0 ? (
+                <View style={styles.tr}>
                   <View style={styles.body}>
-                    <Text style={styles.nTitle} numberOfLines={2}>
-                      {n.title}
-                    </Text>
                     <Text style={styles.nMeta} numberOfLines={2}>
-                      <Text style={{ color: SENDER_TONE[n.sender] ?? C.text }}>{n.sender}</Text>
-                      {` · ${n.body}`}
+                      {error ?? (list ? 'Nuk ka njoftime.' : '…')}
                     </Text>
                   </View>
-
-                  <Text style={styles.nStamp} numberOfLines={2}>
-                    {n.stamp}
-                  </Text>
                 </View>
-              ))}
+              ) : (
+                items.map((n, i) => (
+                  <View key={n.id} style={[styles.tr, i > 0 && styles.trBorder]}>
+                    {/* Every row is flagged the same way, read or not. */}
+                    <View style={styles.dot} />
+
+                    <View style={styles.body}>
+                      <Text style={styles.nTitle} numberOfLines={2}>
+                        {n.title}
+                      </Text>
+                      <Text style={styles.nMeta} numberOfLines={2}>
+                        <Text style={{ color: SENDER_TONE[n.source ?? ''] ?? C.text }}>
+                          {sourceLabel(n.source)}
+                        </Text>
+                        {n.body ? ` · ${n.body}` : ''}
+                      </Text>
+                    </View>
+
+                    <Text style={styles.nStamp} numberOfLines={2}>
+                      {stamp(n.created_at)}
+                    </Text>
+                  </View>
+                ))
+              )}
             </View>
           </View>
         </ScrollView>

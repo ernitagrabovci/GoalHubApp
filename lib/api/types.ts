@@ -349,6 +349,24 @@ export type ApiFee = {
   team: { id: number; name: string } | null;
 };
 
+/** One month of the collection report, from `GET /finance/reports`. */
+export type FinanceReportMonth = {
+  label: string;
+  month: number;
+  year: number;
+  collected: number;
+  pending: number;
+  overdue: number;
+};
+
+/** The club's collection report totals, from `GET /finance/reports`. */
+export type FinanceReports = {
+  months: FinanceReportMonth[];
+  season_collected: number;
+  season_pending: number;
+  season_overdue: number;
+};
+
 /** A system notification, from `GET /notifications` (paginated). */export type ApiNotification = {
   id: number;
   type: string;

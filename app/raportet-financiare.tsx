@@ -3,13 +3,18 @@ import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
+import { ApiError } from '@/lib/api/errors';
+import { financeReports, listFees } from '@/lib/api/finance';
+import type { ApiFee, FinanceReports, Paginated } from '@/lib/api/types';
+import { dmy, monthLabel, payMethod, statusLabel, STATUS_TONE, usd } from '@/lib/finance';
 import { I, scaled } from '@/lib/responsive';
+import { useSession } from '@/lib/session';
 
 /**
  * Kuotat e anëtarësisë — the club's collection report, opened from "Shiko të
@@ -59,46 +64,7 @@ const SQ_SHEEN = ['rgba(245,245,245,0.55)', 'rgba(245,245,245,0.00)'] as const;
 
 type Square = { value: string; label: string; tone: string };
 
-const SUMMARY: Square[] = [
-  { value: '$25,230.00', label: 'kategori aktive', tone: C.text },
-  { value: '$4,240.00', label: 'të paguara (85)', tone: C.green },
-  { value: '$12,630.00', label: 'papaguar (253)', tone: C.orange },
-  { value: '17%', label: 'shkalla e pagesës', tone: C.text },
-];
-
-/* One colour per payment status. */
-const STATUS_TONE: Record<string, string> = {
-  Paguar: C.green,
-  Papaguar: C.orange,
-  Skaduar: C.red,
-};
-
-type Fee = {
-  name: string;
-  team: string;
-  month: string;
-  amount: string;
-  status: string;
-  /* The day it was settled, where it has been. */
-  paidOn: string;
-  method: string;
-};
-
-const FEES: Fee[] = [
-  { name: 'Ardit Llapashtica', team: 'Ekipi i Parë', month: 'Janar 2027', amount: '$40.00', status: 'Paguar', paidOn: '07/01/2027', method: 'Kesh' },
-  { name: 'Agon Gashi', team: 'Ekipi i Parë', month: 'Janar 2027', amount: '$40.00', status: 'Paguar', paidOn: '08/01/2027', method: 'Transfer bankar' },
-  { name: 'Bekim Rexhepi', team: 'Ekipi i Parë', month: 'Janar 2027', amount: '$40.00', status: 'Paguar', paidOn: '06/01/2027', method: 'Kartë bankare' },
-  { name: 'Era Gashi', team: 'U19', month: 'Janar 2027', amount: '$40.00', status: 'Paguar', paidOn: '09/01/2027', method: 'Online' },
-  { name: 'Dren Hyseni', team: 'Ekipi i Dytë', month: 'Janar 2027', amount: '$40.00', status: 'Paguar', paidOn: '07/01/2027', method: 'Kesh' },
-  { name: 'Fisnik Berisha', team: 'Ekipi i Dytë', month: 'Janar 2027', amount: '$40.00', status: 'Papaguar', paidOn: '—', method: '—' },
-  { name: 'Mergim Berisha', team: 'Ekipi i Parë', month: 'Janar 2027', amount: '$40.00', status: 'Skaduar', paidOn: '—', method: '—' },
-  { name: 'Endrit Hoxha', team: 'Ekipi i Parë', month: 'Dhjetor 2026', amount: '$40.00', status: 'Paguar', paidOn: '06/12/2026', method: 'Transfer bankar' },
-  { name: 'Dardan Krasniqi', team: 'Ekipi i Parë', month: 'Dhjetor 2026', amount: '$40.00', status: 'Paguar', paidOn: '09/12/2026', method: 'Kesh' },
-  { name: 'Art Gashi', team: 'U17', month: 'Dhjetor 2026', amount: '$40.00', status: 'Paguar', paidOn: '08/12/2026', method: 'Online' },
-];
-
 /* The year/month pair narrows the report down; "Të gjitha" keeps it whole. */
-const YEARS = ['2027', '2026', '2025'];
 const MONTHS = [
   'Të gjitha',
   'Janar',
@@ -124,14 +90,131 @@ const COL_STATUS = 66;
 const COL_PAID = 76;
 const COL_METHOD = 92;
 
-const PAGES = [1, 2, 3, 4];
+/** The share of everything billed that has actually landed, as a percentage. */
+function payRate(collected: number, pending: number): string {
+  const total = collected + pending;
+  if (total <= 0) return '—';
+  return `${Math.round((collected / total) * 100)}%`;
+}
 
 export default function FinancialReportsScreen() {
   const router = useRouter();
+  const { token, signOut } = useSession();
 
-  const [year, setYear] = useState(YEARS[0]);
+  const [reports, setReports] = useState<FinanceReports | null>(null);
+  const [fees, setFees] = useState<Paginated<ApiFee> | null>(null);
+  const [year, setYear] = useState('');
   const [month, setMonth] = useState(MONTHS[0]);
+  /* The pair the squares currently reflect, committed by "Kërko". */
+  const [applied, setApplied] = useState({ year: '', month: MONTHS[0] });
   const [open, setOpen] = useState<'year' | 'month' | null>(null);
+  const [page, setPage] = useState(1);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!token) return;
+    const controller = new AbortController();
+
+    financeReports(token, controller.signal)
+      .then((res) => {
+        if (controller.signal.aborted) return;
+        setReports(res);
+        /* Default the picker to the newest year the report carries. */
+        const years = [...new Set(res.months.map((m) => String(m.year)))].sort((a, b) =>
+          b.localeCompare(a),
+        );
+        const newest = years[0] ?? '';
+        setYear((prev) => prev || newest);
+        setApplied((prev) => (prev.year ? prev : { ...prev, year: newest }));
+      })
+      .catch((err) => {
+        if (controller.signal.aborted) return;
+        if (err instanceof ApiError && err.status === 401) {
+          signOut();
+          router.replace('/login');
+        }
+      });
+
+    return () => controller.abort();
+  }, [token, router, signOut]);
+
+  useEffect(() => {
+    if (!token) return;
+    const controller = new AbortController();
+
+    listFees(token, { page }, controller.signal)
+      .then((res) => {
+        if (controller.signal.aborted) return;
+        setFees(res);
+        setError(null);
+      })
+      .catch((err) => {
+        if (controller.signal.aborted) return;
+        if (err instanceof ApiError && err.status === 401) {
+          signOut();
+          router.replace('/login');
+          return;
+        }
+        setError(
+          err instanceof ApiError && err.status === 0
+            ? 'Nuk mund të lidhemi me serverin. Kontrollo lidhjen.'
+            : 'Nuk mund të ngarkohen kuotat.',
+        );
+      });
+
+    return () => controller.abort();
+  }, [token, page, router, signOut]);
+
+  /* Season totals, or the picked month's slice of the report. */
+  const monthIndex = MONTHS.indexOf(applied.month);
+  const picked =
+    monthIndex > 0
+      ? (reports?.months.find(
+          (m) => m.month === monthIndex && m.year === Number(applied.year),
+        ) ?? null)
+      : null;
+
+  const collected = picked ? picked.collected : (reports?.season_collected ?? 0);
+  const pending = picked ? picked.pending : (reports?.season_pending ?? 0);
+  const overdue = picked ? picked.overdue : (reports?.season_overdue ?? 0);
+
+  const squares: Square[] = reports
+    ? [
+        { value: usd(collected), label: 'të arkëtuara', tone: C.green },
+        { value: usd(pending), label: 'papaguar', tone: C.orange },
+        { value: String(overdue), label: 'skaduar', tone: C.red },
+        { value: payRate(collected, pending), label: 'shkalla e pagesës', tone: C.text },
+      ]
+    : [
+        { value: '—', label: 'të arkëtuara', tone: C.green },
+        { value: '—', label: 'papaguar', tone: C.orange },
+        { value: '—', label: 'skaduar', tone: C.red },
+        { value: '—', label: 'shkalla e pagesës', tone: C.text },
+      ];
+
+  const years = reports
+    ? [...new Set(reports.months.map((m) => String(m.year)))].sort((a, b) => b.localeCompare(a))
+    : [];
+  const yearOptions = years.length ? years : ['—'];
+
+  const rows = (fees?.data ?? []).map((f) => ({
+    id: f.id,
+    name: f.player?.name ?? '—',
+    team: f.team?.name ?? '—',
+    month: monthLabel(f.month),
+    amount: usd(Number(f.final_amount) || 0),
+    status: statusLabel(f.status),
+    paidOn: dmy(f.paid_at),
+    method: payMethod(f.payment_method),
+  }));
+
+  const lastPage = fees?.meta.last_page ?? 0;
+  const pages = Array.from({ length: lastPage }, (_, i) => i + 1);
+
+  const runSearch = () => {
+    setApplied({ year, month });
+    setOpen(null);
+  };
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
@@ -161,7 +244,7 @@ export default function FinancialReportsScreen() {
                   Kuotat e Anëtarësisë
                 </Text>
                 <Text style={styles.subtitle} numberOfLines={1}>
-                  845 rekorde
+                  {fees ? `${fees.meta.total} rekorde` : '—'}
                 </Text>
               </View>
             </View>
@@ -176,7 +259,7 @@ export default function FinancialReportsScreen() {
           <View style={styles.colPad}>
             {/* ── Headline squares ──────────────────────────────── */}
             <View style={styles.grid}>
-              {SUMMARY.map((s) => (
+              {squares.map((s) => (
                 <View key={s.label} style={styles.sqShadow}>
                   <View style={styles.sq}>
                     {/* Frost the canvas grid, then lay a gloss sweep over it. */}
@@ -226,7 +309,7 @@ export default function FinancialReportsScreen() {
             <View style={[styles.filterRow, open !== null && styles.filterRowOpen]}>
               {(
                 [
-                  { key: 'year', value: year, options: YEARS },
+                  { key: 'year', value: year, options: yearOptions },
                   { key: 'month', value: month, options: MONTHS },
                 ] as const
               ).map((pick) => (
@@ -238,7 +321,7 @@ export default function FinancialReportsScreen() {
                     style={({ pressed }) => [styles.pickBox, pressed && styles.pressed]}
                   >
                     <Text style={styles.pickText} numberOfLines={1}>
-                      {pick.value}
+                      {pick.value || '—'}
                     </Text>
                     <MaterialCommunityIcons name="chevron-down" size={I(12)} color={C.text} />
                   </Pressable>
@@ -280,6 +363,7 @@ export default function FinancialReportsScreen() {
               ))}
 
               <Pressable
+                onPress={runSearch}
                 accessibilityRole="button"
                 accessibilityLabel="Kërko"
                 style={({ pressed }) => [styles.searchBtn, pressed && styles.pressed]}
@@ -320,79 +404,112 @@ export default function FinancialReportsScreen() {
                     <Text style={[styles.th, { width: COL_METHOD }]}>Metoda</Text>
                   </View>
 
-                  {FEES.map((f, i) => (
-                    <View key={`${f.name}-${f.month}-${i}`} style={[styles.tr, styles.trBorder]}>
-                      <Text
-                        style={[styles.tdName, styles.thLeft, { width: COL_NAME }]}
-                        numberOfLines={1}
-                        adjustsFontSizeToFit
-                        minimumFontScale={0.7}
-                      >
-                        {f.name}
-                      </Text>
-                      <Text style={[styles.td, { width: COL_TEAM }]} numberOfLines={1}>
-                        {f.team}
-                      </Text>
-                      <Text style={[styles.td, { width: COL_MONTH }]} numberOfLines={1}>
-                        {f.month}
-                      </Text>
-                      <Text style={[styles.td, { width: COL_AMOUNT }]} numberOfLines={1}>
-                        {f.amount}
-                      </Text>
-                      <Text
-                        style={[
-                          styles.td,
-                          styles.tdStatus,
-                          { width: COL_STATUS, color: STATUS_TONE[f.status] ?? C.hint },
-                        ]}
-                        numberOfLines={1}
-                        adjustsFontSizeToFit
-                        minimumFontScale={0.7}
-                      >
-                        {f.status}
-                      </Text>
-                      <Text style={[styles.td, { width: COL_PAID }]} numberOfLines={1}>
-                        {f.paidOn}
-                      </Text>
-                      <Text style={[styles.td, { width: COL_METHOD }]} numberOfLines={1}>
-                        {f.method}
-                      </Text>
+                  {error ? (
+                    <View style={styles.tr}>
+                      <Text style={[styles.td, styles.thLeft]}>{error}</Text>
                     </View>
-                  ))}
+                  ) : fees === null ? (
+                    <View style={styles.tr}>
+                      <Text style={[styles.td, styles.thLeft]}>…</Text>
+                    </View>
+                  ) : rows.length === 0 ? (
+                    <View style={styles.tr}>
+                      <Text style={[styles.td, styles.thLeft]}>Nuk ka kuota.</Text>
+                    </View>
+                  ) : (
+                    rows.map((f, i) => (
+                      <View key={`${f.id}-${i}`} style={[styles.tr, styles.trBorder]}>
+                        <Text
+                          style={[styles.tdName, styles.thLeft, { width: COL_NAME }]}
+                          numberOfLines={1}
+                          adjustsFontSizeToFit
+                          minimumFontScale={0.7}
+                        >
+                          {f.name}
+                        </Text>
+                        <Text style={[styles.td, { width: COL_TEAM }]} numberOfLines={1}>
+                          {f.team}
+                        </Text>
+                        <Text style={[styles.td, { width: COL_MONTH }]} numberOfLines={1}>
+                          {f.month}
+                        </Text>
+                        <Text style={[styles.td, { width: COL_AMOUNT }]} numberOfLines={1}>
+                          {f.amount}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.td,
+                            styles.tdStatus,
+                            { width: COL_STATUS, color: STATUS_TONE[f.status] ?? C.hint },
+                          ]}
+                          numberOfLines={1}
+                          adjustsFontSizeToFit
+                          minimumFontScale={0.7}
+                        >
+                          {f.status}
+                        </Text>
+                        <Text style={[styles.td, { width: COL_PAID }]} numberOfLines={1}>
+                          {f.paidOn}
+                        </Text>
+                        <Text style={[styles.td, { width: COL_METHOD }]} numberOfLines={1}>
+                          {f.method}
+                        </Text>
+                      </View>
+                    ))
+                  )}
                 </View>
               </ScrollView>
 
               {/* ── Pager ─────────────────────────────────────────── */}
-              <View style={styles.pager}>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Faqja e mëparshme"
-                  hitSlop={8}
-                  style={({ pressed }) => [styles.pagerArrow, pressed && styles.pressed]}
-                >
-                  <MaterialCommunityIcons name="chevron-left" size={I(20)} color={C.text} />
-                </Pressable>
-
-                {PAGES.map((p) => (
+              {lastPage > 1 ? (
+                <View style={styles.pager}>
                   <Pressable
-                    key={p}
+                    onPress={() => setPage((p) => Math.max(1, p - 1))}
+                    disabled={page <= 1}
                     accessibilityRole="button"
-                    accessibilityLabel={`Faqja ${p}`}
-                    style={({ pressed }) => [styles.pageSq, pressed && styles.pressed]}
+                    accessibilityLabel="Faqja e mëparshme"
+                    hitSlop={8}
+                    style={({ pressed }) => [
+                      styles.pagerArrow,
+                      page <= 1 && styles.pagerOff,
+                      pressed && styles.pressed,
+                    ]}
                   >
-                    <Text style={styles.pageSqText}>{p}</Text>
+                    <MaterialCommunityIcons name="chevron-left" size={I(20)} color={C.text} />
                   </Pressable>
-                ))}
 
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Faqja tjetër"
-                  hitSlop={8}
-                  style={({ pressed }) => [styles.pagerArrow, pressed && styles.pressed]}
-                >
-                  <MaterialCommunityIcons name="chevron-right" size={I(20)} color={C.text} />
-                </Pressable>
-              </View>
+                  {pages.map((p) => (
+                    <Pressable
+                      key={p}
+                      onPress={() => setPage(p)}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Faqja ${p}`}
+                      style={({ pressed }) => [
+                        styles.pageSq,
+                        p === page && styles.pageSqOn,
+                        pressed && styles.pressed,
+                      ]}
+                    >
+                      <Text style={styles.pageSqText}>{p}</Text>
+                    </Pressable>
+                  ))}
+
+                  <Pressable
+                    onPress={() => setPage((p) => Math.min(lastPage, p + 1))}
+                    disabled={page >= lastPage}
+                    accessibilityRole="button"
+                    accessibilityLabel="Faqja tjetër"
+                    hitSlop={8}
+                    style={({ pressed }) => [
+                      styles.pagerArrow,
+                      page >= lastPage && styles.pagerOff,
+                      pressed && styles.pressed,
+                    ]}
+                  >
+                    <MaterialCommunityIcons name="chevron-right" size={I(20)} color={C.text} />
+                  </Pressable>
+                </View>
+              ) : null}
             </View>
           </View>
         </ScrollView>
@@ -731,6 +848,10 @@ const styles = StyleSheet.create(
       justifyContent: 'center',
     },
 
+    pagerOff: {
+      opacity: 0.3,
+    },
+
     pageSq: {
       width: 28,
       height: 28,
@@ -738,6 +859,10 @@ const styles = StyleSheet.create(
       backgroundColor: C.blueBtn,
       alignItems: 'center',
       justifyContent: 'center',
+    },
+
+    pageSqOn: {
+      backgroundColor: '#4A90D9',
     },
 
     pageSqText: {

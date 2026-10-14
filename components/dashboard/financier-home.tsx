@@ -1,6 +1,7 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useEffect, useState } from 'react';
 import {
   Image,
   Pressable,
@@ -12,6 +13,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
+import { ApiError } from '@/lib/api/errors';
+import { financeStats, listFees } from '@/lib/api/finance';
+import type { ApiFee, FinanceStats } from '@/lib/api/types';
+import { dmy, usd } from '@/lib/finance';
 import { I, scaled } from '@/lib/responsive';
 import { useSession } from '@/lib/session';
 
@@ -73,28 +78,10 @@ const IMG = {
 };
 
 /* =========================================================
-   RECENT PAYMENTS (6 rows)
+   SUMMARY GRID (2x2) — the labels; the counts come from the API
    ========================================================= */
 
-const PAYMENTS = [
-  { name: 'Ardit Llapashtica', date: '2026-04-09 00:00:00', amount: '€150.00' },
-  { name: 'Agon Gashi', date: '2026-04-08 00:00:00', amount: '€120.00' },
-  { name: 'Era Gashi', date: '2026-04-07 00:00:00', amount: '€110.00' },
-  { name: 'Art Gashi', date: '2026-04-06 00:00:00', amount: '€110.00' },
-  { name: 'Mergim Berisha', date: '2026-04-05 00:00:00', amount: '€150.00' },
-  { name: 'Dren Hyseni', date: '2026-04-04 00:00:00', amount: '€150.00' },
-];
-
-/* =========================================================
-   SUMMARY GRID (2x2)
-   ========================================================= */
-
-const SUMMARY = [
-  { label: 'Të paguar', value: '336' },
-  { label: 'Të papaguara', value: '336' },
-  { label: 'Me vonesë', value: '168' },
-  { label: 'Kritike', value: '168' },
-];
+const SUMMARY_LABELS = ['Të paguar', 'Të papaguara', 'Me vonesë', 'Kritike'];
 
 /* =========================================================
    MAIN COMPONENT
@@ -102,7 +89,45 @@ const SUMMARY = [
 
 export function FinancierHome() {
   const router = useRouter();
-  const { user } = useSession();
+  const { user, token, signOut } = useSession();
+
+  const [stats, setStats] = useState<FinanceStats | null>(null);
+  const [recent, setRecent] = useState<ApiFee[]>([]);
+
+  /* The headline totals and the recent-payments strip are one-shot. */
+  useEffect(() => {
+    if (!token) return;
+    const controller = new AbortController();
+
+    Promise.allSettled([
+      financeStats(token, controller.signal),
+      listFees(token, { status: 'paid' }, controller.signal),
+    ]).then(([totals, paid]) => {
+      if (controller.signal.aborted) return;
+
+      const failure = [totals, paid].find((r) => r.status === 'rejected');
+      if (
+        failure &&
+        failure.status === 'rejected' &&
+        failure.reason instanceof ApiError &&
+        failure.reason.status === 401
+      ) {
+        signOut();
+        router.replace('/login');
+        return;
+      }
+
+      if (totals.status === 'fulfilled') setStats(totals.value);
+      if (paid.status === 'fulfilled') setRecent(paid.value.data.slice(0, 6));
+    });
+
+    return () => controller.abort();
+  }, [token, router, signOut]);
+
+  /* Each grid cell reads straight off the totals; `Kritike` has no source. */
+  const summaryValues = stats
+    ? [String(stats.paid), String(stats.unpaid), String(stats.overdue), '—']
+    : ['—', '—', '—', '—'];
 
   const open = (route: string) => {
     router.push(route as never);
@@ -125,6 +150,7 @@ export function FinancierHome() {
 
           <View style={styles.padded}>
             <HeaderBlock
+              club={user?.club || 'FC Prishtina'}
               onBell={() => open('/njoftimet-financierit')}
               onSettings={() => open('/settings')}
             />
@@ -154,7 +180,7 @@ export function FinancierHome() {
               <StatCard
                 labelTop="Totali"
                 labelBottom="paguar"
-                value="€16,800.00"
+                value={stats ? usd(stats.collected) : '—'}
                 color={C.green}
                 valueSize={12.5}
                 img={IMG.statCalc}
@@ -164,7 +190,7 @@ export function FinancierHome() {
               <StatCard
                 labelTop="Totali"
                 labelBottom="papaguar"
-                value="€17,030.00"
+                value={stats ? usd(stats.pending) : '—'}
                 color={C.red}
                 valueSize={12.5}
                 img={IMG.statCalc}
@@ -174,7 +200,7 @@ export function FinancierHome() {
               <StatCard
                 labelTop="Vonëse"
                 labelBottom="Kritike"
-                value="336"
+                value={stats ? String(stats.overdue) : '—'}
                 color={C.gold}
                 valueSize={24}
                 img={IMG.statCalc}
@@ -189,13 +215,13 @@ export function FinancierHome() {
 
           <View style={styles.padded}>
             <View style={styles.grid}>
-              {SUMMARY.map((item) => (
-                <View key={item.label} style={styles.gridCard}>
+              {SUMMARY_LABELS.map((label, i) => (
+                <View key={label} style={styles.gridCard}>
                   <Text style={styles.gridLabel} numberOfLines={1}>
-                    {item.label}
+                    {label}
                   </Text>
                   <Text style={styles.gridValue}>
-                    {item.value}
+                    {summaryValues[i]}
                   </Text>
                 </View>
               ))}
@@ -219,25 +245,35 @@ export function FinancierHome() {
 
               {/* ROWS */}
 
-              {PAYMENTS.map((p, index) => (
-                <View key={p.name}>
-                  <View style={styles.tblRow}>
-                    <Text style={styles.tblName} numberOfLines={1}>
-                      {p.name}
-                    </Text>
-                    <Text style={styles.tblDate} numberOfLines={1}>
-                      {p.date}
-                    </Text>
-                    <Text style={styles.tblAmount} numberOfLines={1}>
-                      {p.amount}
-                    </Text>
-                  </View>
-
-                  {index < PAYMENTS.length - 1 ? (
-                    <View style={styles.rowDivider} />
-                  ) : null}
+              {recent.length === 0 ? (
+                <View style={styles.tblRow}>
+                  <Text style={styles.tblName} numberOfLines={1}>
+                    —
+                  </Text>
+                  <Text style={styles.tblDate} numberOfLines={1} />
+                  <Text style={styles.tblAmount} numberOfLines={1} />
                 </View>
-              ))}
+              ) : (
+                recent.map((p, index) => (
+                  <View key={p.id}>
+                    <View style={styles.tblRow}>
+                      <Text style={styles.tblName} numberOfLines={1}>
+                        {p.player?.name ?? '—'}
+                      </Text>
+                      <Text style={styles.tblDate} numberOfLines={1}>
+                        {dmy(p.paid_at)}
+                      </Text>
+                      <Text style={styles.tblAmount} numberOfLines={1}>
+                        {usd(Number(p.final_amount) || 0)}
+                      </Text>
+                    </View>
+
+                    {index < recent.length - 1 ? (
+                      <View style={styles.rowDivider} />
+                    ) : null}
+                  </View>
+                ))
+              )}
 
               {/* VIEW ALL FOOTER */}
 
@@ -314,9 +350,11 @@ export function FinancierHome() {
    ========================================================= */
 
 function HeaderBlock({
+  club,
   onBell,
   onSettings,
 }: {
+  club: string;
   onBell: () => void;
   onSettings: () => void;
 }) {
@@ -339,8 +377,8 @@ function HeaderBlock({
         </Text>
 
         <View style={styles.clubRow}>
-          <Text style={styles.clubName}>
-            FC Prishtina
+          <Text style={styles.clubName} numberOfLines={1}>
+            {club}
           </Text>
 
           <MaterialCommunityIcons

@@ -1,7 +1,7 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Pressable,
   ScrollView,
@@ -13,7 +13,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
+import { ApiError } from '@/lib/api/errors';
+import { listFees } from '@/lib/api/finance';
+import type { ApiFee, Paginated } from '@/lib/api/types';
+import { dmy, monthLabel, statusLabel, statusRank, STATUS_TONE, usd } from '@/lib/finance';
 import { I, scaled } from '@/lib/responsive';
+import { useSession } from '@/lib/session';
 
 /**
  * Kuotat e anëtarësisë — the whole club's membership fees, opened from
@@ -45,43 +50,6 @@ const C = {
   orange: '#E4A000',
 };
 
-/* One colour per payment status. */
-const STATUS_TONE: Record<string, string> = {
-  Paguar: C.green,
-  Papaguar: C.orange,
-  Skaduar: C.red,
-};
-
-/* The dropdown's options — every team in the club, plus the whole club. */
-const TEAMS = ['Të gjitha', 'Ekipi i Parë', 'Ekipi i Dytë', 'U19', 'U17'];
-
-type Quota = {
-  name: string;
-  team: string;
-  period: string;
-  amount: string;
-  due: string;
-  status: string;
-};
-
-const QUOTAS: Quota[] = [
-  { name: 'Ardit Llapashtica', team: 'Ekipi i Parë', period: 'Shkurt 2027', amount: '$90.00', due: '10/02/2027', status: 'Papaguar' },
-  { name: 'Agon Gashi', team: 'Ekipi i Parë', period: 'Shkurt 2027', amount: '$90.00', due: '10/02/2027', status: 'Papaguar' },
-  { name: 'Era Gashi', team: 'U19', period: 'Shkurt 2027', amount: '$40.00', due: '10/02/2027', status: 'Papaguar' },
-  { name: 'Art Gashi', team: 'U17', period: 'Shkurt 2027', amount: '$40.00', due: '10/02/2027', status: 'Papaguar' },
-  { name: 'Fisnik Berisha', team: 'Ekipi i Dytë', period: 'Janar 2027', amount: '$40.00', due: '10/01/2027', status: 'Skaduar' },
-  { name: 'Mergim Berisha', team: 'Ekipi i Parë', period: 'Janar 2027', amount: '$40.00', due: '10/01/2027', status: 'Skaduar' },
-  { name: 'Bekim Rexhepi', team: 'Ekipi i Parë', period: 'Janar 2027', amount: '$40.00', due: '10/01/2027', status: 'Paguar' },
-  { name: 'Dardan Krasniqi', team: 'Ekipi i Parë', period: 'Dhjetor 2026', amount: '$40.00', due: '10/12/2026', status: 'Paguar' },
-  { name: 'Endrit Hoxha', team: 'Ekipi i Parë', period: 'Dhjetor 2026', amount: '$40.00', due: '10/12/2026', status: 'Paguar' },
-  { name: 'Dren Hyseni', team: 'Ekipi i Dytë', period: 'Dhjetor 2026', amount: '$40.00', due: '10/12/2026', status: 'Paguar' },
-];
-
-/* Unpaid first, then the overdue, then everything already settled. */
-const RANK: Record<string, number> = { Papaguar: 0, Skaduar: 1, Paguar: 2 };
-
-const ROWS = [...QUOTAS].sort((a, b) => (RANK[a.status] ?? 3) - (RANK[b.status] ?? 3));
-
 /* Table columns — fixed widths so nothing gets squeezed; the frame scrolls. */
 const COL_NAME = 104;
 const COL_TEAM = 88;
@@ -91,13 +59,89 @@ const COL_DUE = 72;
 const COL_STATUS = 66;
 const COL_ACTION = 88;
 
-const PAGES = [1, 2, 3, 4];
-
 export default function MembershipFeesScreen() {
   const router = useRouter();
+  const { token, signOut } = useSession();
 
-  const [team, setTeam] = useState(TEAMS[0]);
+  const [fees, setFees] = useState<Paginated<ApiFee> | null>(null);
+  /* The teams the dropdown offers, gathered from the fees as they load. */
+  const [teams, setTeams] = useState<{ id: number; name: string }[]>([]);
+  const [teamId, setTeamId] = useState<number | null>(null);
   const [teamOpen, setTeamOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!token) return;
+    const controller = new AbortController();
+
+    listFees(
+      token,
+      { page, team_id: teamId ?? undefined, search: search || undefined },
+      controller.signal,
+    )
+      .then((res) => {
+        if (controller.signal.aborted) return;
+        setFees(res);
+        setError(null);
+        // Accumulate every team seen, so the roster survives a filter change.
+        setTeams((prev) => {
+          const seen = new Map(prev.map((t) => [t.id, t]));
+          for (const f of res.data) {
+            if (f.team) seen.set(f.team.id, { id: f.team.id, name: f.team.name });
+          }
+          return [...seen.values()].sort((a, b) => a.name.localeCompare(b.name));
+        });
+      })
+      .catch((err) => {
+        if (controller.signal.aborted) return;
+        if (err instanceof ApiError && err.status === 401) {
+          signOut();
+          router.replace('/login');
+          return;
+        }
+        setError(
+          err instanceof ApiError && err.status === 0
+            ? 'Nuk mund të lidhemi me serverin. Kontrollo lidhjen.'
+            : 'Nuk mund të ngarkohen kuotat.',
+        );
+      });
+
+    return () => controller.abort();
+  }, [token, page, teamId, search, router, signOut]);
+
+  /* Unpaid first, then the overdue, then the settled — the design's order. */
+  const rows = (fees?.data ?? [])
+    .map((f) => ({
+      id: f.id,
+      playerId: f.player?.id ?? null,
+      name: f.player?.name ?? '—',
+      team: f.team?.name ?? '—',
+      period: monthLabel(f.month),
+      amount: usd(Number(f.final_amount) || 0),
+      due: dmy(f.due_date),
+      paid: f.status === 'paid',
+      status: statusLabel(f.status),
+      rank: statusRank(f.status),
+    }))
+    .sort((a, b) => a.rank - b.rank);
+
+  const lastPage = fees?.meta.last_page ?? 0;
+  const pages = Array.from({ length: lastPage }, (_, i) => i + 1);
+  const selectedTeam = teams.find((t) => t.id === teamId)?.name ?? 'Të gjitha';
+
+  const pickTeam = (id: number | null) => {
+    setTeamId(id);
+    setPage(1);
+    setTeamOpen(false);
+  };
+
+  const runSearch = () => {
+    setSearch(query);
+    setPage(1);
+  };
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
@@ -127,7 +171,7 @@ export default function MembershipFeesScreen() {
                   Kuotat e anëtarësisë
                 </Text>
                 <Text style={styles.subtitle} numberOfLines={1}>
-                  845 rekorde
+                  {fees ? `${fees.meta.total} rekorde` : '—'}
                 </Text>
               </View>
             </View>
@@ -152,31 +196,41 @@ export default function MembershipFeesScreen() {
                   style={({ pressed }) => [styles.pickBox, pressed && styles.pressed]}
                 >
                   <Text style={styles.pickText} numberOfLines={1}>
-                    {team}
+                    {selectedTeam}
                   </Text>
                   <MaterialCommunityIcons name="chevron-down" size={I(14)} color={C.text} />
                 </Pressable>
 
                 {teamOpen ? (
                   <View style={styles.pickOpts}>
-                    {TEAMS.map((t) => {
-                      const active = t === team;
+                    <Pressable
+                      onPress={() => pickTeam(null)}
+                      accessibilityRole="button"
+                      accessibilityLabel="Të gjitha"
+                      style={[styles.pickOpt, teamId === null && styles.pickOptActive]}
+                    >
+                      <Text
+                        style={[styles.pickOptText, teamId === null && styles.pickOptTextActive]}
+                        numberOfLines={1}
+                      >
+                        Të gjitha
+                      </Text>
+                    </Pressable>
+                    {teams.map((t) => {
+                      const active = t.id === teamId;
                       return (
                         <Pressable
-                          key={t}
-                          onPress={() => {
-                            setTeam(t);
-                            setTeamOpen(false);
-                          }}
+                          key={t.id}
+                          onPress={() => pickTeam(t.id)}
                           accessibilityRole="button"
-                          accessibilityLabel={t}
+                          accessibilityLabel={t.name}
                           style={[styles.pickOpt, active && styles.pickOptActive]}
                         >
                           <Text
                             style={[styles.pickOptText, active && styles.pickOptTextActive]}
                             numberOfLines={1}
                           >
-                            {t}
+                            {t.name}
                           </Text>
                         </Pressable>
                       );
@@ -194,11 +248,17 @@ export default function MembershipFeesScreen() {
                   placeholder="Kërko anëtar..."
                   placeholderTextColor={C.gray}
                   accessibilityLabel="Kërko anëtar"
+                  value={query}
+                  onChangeText={setQuery}
+                  onSubmitEditing={runSearch}
+                  returnKeyType="search"
+                  autoCorrect={false}
                 />
                 <MaterialCommunityIcons name="magnify" size={I(17)} color={C.text} />
               </View>
 
               <Pressable
+                onPress={runSearch}
                 accessibilityRole="button"
                 accessibilityLabel="Kërko"
                 style={({ pressed }) => [styles.searchBtn, pressed && styles.pressed]}
@@ -239,11 +299,23 @@ export default function MembershipFeesScreen() {
                     <View style={{ width: COL_ACTION }} />
                   </View>
 
-                  {ROWS.map((r, i) => {
-                    const unpaid = r.status !== 'Paguar';
+                  {error ? (
+                    <View style={styles.tr}>
+                      <Text style={[styles.td, styles.thLeft]}>{error}</Text>
+                    </View>
+                  ) : fees === null ? (
+                    <View style={styles.tr}>
+                      <Text style={[styles.td, styles.thLeft]}>…</Text>
+                    </View>
+                  ) : rows.length === 0 ? (
+                    <View style={styles.tr}>
+                      <Text style={[styles.td, styles.thLeft]}>Nuk ka kuota.</Text>
+                    </View>
+                  ) : rows.map((r, i) => {
+                    const unpaid = !r.paid;
 
                     return (
-                      <View key={`${r.name}-${r.period}-${i}`} style={[styles.tr, styles.trBorder]}>
+                      <View key={`${r.id}-${i}`} style={[styles.tr, styles.trBorder]}>
                         <Text
                           style={[styles.tdName, styles.thLeft, { width: COL_NAME }]}
                           numberOfLines={1}
@@ -286,6 +358,8 @@ export default function MembershipFeesScreen() {
                                 router.push({
                                   pathname: '/regjistro-pagesen-financierit',
                                   params: {
+                                    id: String(r.id),
+                                    playerId: r.playerId != null ? String(r.playerId) : '',
                                     name: r.name,
                                     team: r.team,
                                     period: r.period,
@@ -314,6 +388,8 @@ export default function MembershipFeesScreen() {
                                 router.push({
                                   pathname: '/detajet-pageses-financierit',
                                   params: {
+                                    id: String(r.id),
+                                    playerId: r.playerId != null ? String(r.playerId) : '',
                                     name: r.name,
                                     team: r.team,
                                     period: r.period,
@@ -339,36 +415,55 @@ export default function MembershipFeesScreen() {
             </View>
 
             {/* ── Pager ─────────────────────────────────────────── */}
-            <View style={styles.pager}>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Faqja e mëparshme"
-                hitSlop={8}
-                style={({ pressed }) => [styles.pagerArrow, pressed && styles.pressed]}
-              >
-                <MaterialCommunityIcons name="chevron-left" size={I(22)} color={C.text} />
-              </Pressable>
-
-              {PAGES.map((p) => (
+            {lastPage > 1 ? (
+              <View style={styles.pager}>
                 <Pressable
-                  key={p}
+                  onPress={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page <= 1}
                   accessibilityRole="button"
-                  accessibilityLabel={`Faqja ${p}`}
-                  style={({ pressed }) => [styles.pageSq, pressed && styles.pressed]}
+                  accessibilityLabel="Faqja e mëparshme"
+                  hitSlop={8}
+                  style={({ pressed }) => [
+                    styles.pagerArrow,
+                    page <= 1 && styles.pagerOff,
+                    pressed && styles.pressed,
+                  ]}
                 >
-                  <Text style={styles.pageSqText}>{p}</Text>
+                  <MaterialCommunityIcons name="chevron-left" size={I(22)} color={C.text} />
                 </Pressable>
-              ))}
 
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Faqja tjetër"
-                hitSlop={8}
-                style={({ pressed }) => [styles.pagerArrow, pressed && styles.pressed]}
-              >
-                <MaterialCommunityIcons name="chevron-right" size={I(22)} color={C.text} />
-              </Pressable>
-            </View>
+                {pages.map((p) => (
+                  <Pressable
+                    key={p}
+                    onPress={() => setPage(p)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Faqja ${p}`}
+                    style={({ pressed }) => [
+                      styles.pageSq,
+                      p === page && styles.pageSqOn,
+                      pressed && styles.pressed,
+                    ]}
+                  >
+                    <Text style={styles.pageSqText}>{p}</Text>
+                  </Pressable>
+                ))}
+
+                <Pressable
+                  onPress={() => setPage((p) => Math.min(lastPage, p + 1))}
+                  disabled={page >= lastPage}
+                  accessibilityRole="button"
+                  accessibilityLabel="Faqja tjetër"
+                  hitSlop={8}
+                  style={({ pressed }) => [
+                    styles.pagerArrow,
+                    page >= lastPage && styles.pagerOff,
+                    pressed && styles.pressed,
+                  ]}
+                >
+                  <MaterialCommunityIcons name="chevron-right" size={I(22)} color={C.text} />
+                </Pressable>
+              </View>
+            ) : null}
           </View>
         </ScrollView>
       </View>
@@ -699,6 +794,10 @@ const styles = StyleSheet.create(
       justifyContent: 'center',
     },
 
+    pagerOff: {
+      opacity: 0.3,
+    },
+
     pageSq: {
       width: 34,
       height: 34,
@@ -706,6 +805,10 @@ const styles = StyleSheet.create(
       backgroundColor: C.blueBtn,
       alignItems: 'center',
       justifyContent: 'center',
+    },
+
+    pageSqOn: {
+      backgroundColor: '#4A90D9',
     },
 
     pageSqText: {
