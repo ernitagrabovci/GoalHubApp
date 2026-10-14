@@ -246,6 +246,7 @@ export default function PaymentsScreen() {
     const paid = f.status === 'paid';
     return {
       id: f.id,
+      playerId: f.player?.id ?? null,
       name: f.player?.name ?? '—',
       team: f.team?.name ?? '—',
       quota: amount,
@@ -555,7 +556,11 @@ export default function PaymentsScreen() {
                           onPress={() =>
                             router.push({
                               pathname: '/pagesa-lojtari',
-                              params: { name: p.name, team: p.team },
+                              params: {
+                                name: p.name,
+                                team: p.team,
+                                playerId: p.playerId != null ? String(p.playerId) : '',
+                              },
                             })
                           }
                           accessibilityRole="button"

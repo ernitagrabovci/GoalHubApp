@@ -3,12 +3,18 @@ import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
+import { ApiError } from '@/lib/api/errors';
+import { listFees } from '@/lib/api/finance';
+import type { ApiFee, Paginated } from '@/lib/api/types';
+import { dmy, monthLabel, statusLabel, STATUS_TONE, usd } from '@/lib/finance';
 import { I, scaled } from '@/lib/responsive';
+import { useSession } from '@/lib/session';
 
 /**
  * One player's membership quota — opened from "Shiko" on the Pagesat table.
@@ -52,37 +58,14 @@ const SQ_GLOSS = [
 /** Thin specular rim on the top edge — reads as the thickness of the pane. */
 const SQ_SHEEN = ['rgba(245,245,245,0.55)', 'rgba(245,245,245,0.00)'] as const;
 
-const SUMMARY = [
-  { label: 'Kuota të paguara', value: '5 kuota', hint: '$200.00 gjithsej', tone: C.green },
-  { label: 'Pagesat e papaguara', value: '1', hint: '$90.00 në pritje', tone: C.orange },
-  { label: 'Pagesat e skaduara', value: '1', hint: 'Tolerancë 10 ditore', tone: C.red },
-];
+type FeeStatus = 'paid' | 'unpaid' | 'overdue';
 
-const FILTERS = ['Të gjitha ekipet', 'Paguar', 'Pa paguar', 'Skaduar'];
-
-/** One colour per payment status, reused by the table. */
-const STATUS_TONE: Record<string, string> = {
-  Paguar: C.green,
-  Papaguar: C.orange,
-  Skaduar: C.red,
-};
-
-type Quota = {
-  period: string;
-  amount: string;
-  due: string;
-  paid: string;
-  status: string;
-};
-
-const QUOTAS: Quota[] = [
-  { period: 'Shtator 2026', amount: '$40.00', due: '10/09/2026', paid: '$40.00', status: 'Paguar' },
-  { period: 'Tetor 2026', amount: '$40.00', due: '10/10/2026', paid: '$40.00', status: 'Paguar' },
-  { period: 'Nëntor 2026', amount: '$40.00', due: '10/11/2026', paid: '$40.00', status: 'Paguar' },
-  { period: 'Dhjetor 2026', amount: '$40.00', due: '10/12/2026', paid: '$40.00', status: 'Paguar' },
-  { period: 'Janar 2027', amount: '$40.00', due: '10/01/2027', paid: '$40.00', status: 'Paguar' },
-  { period: 'Shkurt 2027', amount: '$90.00', due: '10/02/2027', paid: '$0.00', status: 'Papaguar' },
-  { period: 'Mars 2027', amount: '$90.00', due: '10/03/2027', paid: '$0.00', status: 'Skaduar' },
+/* The top filter narrows the table server-side; the first keeps it whole. */
+const FILTERS: { label: string; status?: FeeStatus }[] = [
+  { label: 'Të gjitha ekipet' },
+  { label: 'Paguar', status: 'paid' },
+  { label: 'Pa paguar', status: 'unpaid' },
+  { label: 'Skaduar', status: 'overdue' },
 ];
 
 /* Table columns — fixed widths so nothing gets squeezed; the frame scrolls. */
@@ -93,14 +76,120 @@ const COL_PAID = 62;
 const COL_STATUS = 66;
 const COL_ACTION = 62;
 
-const PAGES = [1, 2, 3, 4];
-
 export default function PlayerQuotaScreen() {
   const router = useRouter();
+  const { token, signOut } = useSession();
 
-  const params = useLocalSearchParams<{ name?: string; team?: string }>();
-  const name = params.name ?? '';
-  const team = params.team ?? '';
+  const params = useLocalSearchParams<{ name?: string; team?: string; playerId?: string }>();
+  const name = params.name ?? '—';
+  const team = params.team ?? '—';
+  const playerId = params.playerId ? Number(params.playerId) : null;
+
+  /* Unfiltered first page drives the headline squares; the table pages itself. */
+  const [summary, setSummary] = useState<ApiFee[] | null>(null);
+  const [fees, setFees] = useState<Paginated<ApiFee> | null>(null);
+  const [filter, setFilter] = useState(0);
+  const [page, setPage] = useState(1);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!token || !playerId || Number.isNaN(playerId)) return;
+    const controller = new AbortController();
+
+    listFees(token, { player_id: playerId }, controller.signal)
+      .then((res) => {
+        if (controller.signal.aborted) return;
+        setSummary(res.data);
+      })
+      .catch((err) => {
+        if (controller.signal.aborted) return;
+        if (err instanceof ApiError && err.status === 401) {
+          signOut();
+          router.replace('/login');
+        }
+      });
+
+    return () => controller.abort();
+  }, [token, playerId, router, signOut]);
+
+  useEffect(() => {
+    if (!token || !playerId || Number.isNaN(playerId)) return;
+    const controller = new AbortController();
+
+    listFees(token, { player_id: playerId, status: FILTERS[filter].status, page }, controller.signal)
+      .then((res) => {
+        if (controller.signal.aborted) return;
+        setFees(res);
+        setError(null);
+      })
+      .catch((err) => {
+        if (controller.signal.aborted) return;
+        if (err instanceof ApiError && err.status === 401) {
+          signOut();
+          router.replace('/login');
+          return;
+        }
+        setError(
+          err instanceof ApiError && err.status === 0
+            ? 'Nuk mund të lidhemi me serverin. Kontrollo lidhjen.'
+            : 'Nuk mund të ngarkohen kuotat.',
+        );
+      });
+
+    return () => controller.abort();
+  }, [token, playerId, filter, page, router, signOut]);
+
+  const picked = (status: FeeStatus) => (summary ?? []).filter((f) => f.status === status);
+  const total = (rows: ApiFee[]) =>
+    rows.reduce((sum, f) => sum + (Number(f.final_amount) || 0), 0);
+
+  const SUMMARY = summary
+    ? [
+        {
+          label: 'Kuota të paguara',
+          value: `${picked('paid').length} kuota`,
+          hint: `${usd(total(picked('paid')))} gjithsej`,
+          tone: C.green,
+        },
+        {
+          label: 'Pagesat e papaguara',
+          value: String(picked('unpaid').length),
+          hint: `${usd(total(picked('unpaid')))} në pritje`,
+          tone: C.orange,
+        },
+        {
+          label: 'Pagesat e skaduara',
+          value: String(picked('overdue').length),
+          hint: 'Tolerancë 10 ditore',
+          tone: C.red,
+        },
+      ]
+    : [
+        { label: 'Kuota të paguara', value: '—', hint: '—', tone: C.green },
+        { label: 'Pagesat e papaguara', value: '—', hint: '—', tone: C.orange },
+        { label: 'Pagesat e skaduara', value: '—', hint: '—', tone: C.red },
+      ];
+
+  const rows = (fees?.data ?? []).map((f) => {
+    const amount = usd(Number(f.final_amount) || 0);
+    const paid = f.status === 'paid';
+    return {
+      id: f.id,
+      period: monthLabel(f.month),
+      amount,
+      due: dmy(f.due_date),
+      paid: paid ? amount : usd(0),
+      status: statusLabel(f.status),
+    };
+  });
+
+  const lastPage = fees?.meta.last_page ?? 0;
+  const pages = Array.from({ length: lastPage }, (_, i) => i + 1);
+
+  const pickFilter = (i: number) => {
+    setFilter(i);
+    setPage(1);
+  };
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
@@ -214,12 +303,17 @@ export default function PlayerQuotaScreen() {
 
             {/* ── Status filters ────────────────────────────────── */}
             <View style={styles.filters}>
-              {FILTERS.map((f) => (
+              {FILTERS.map((f, i) => (
                 <Pressable
-                  key={f}
+                  key={f.label}
+                  onPress={() => pickFilter(i)}
                   accessibilityRole="button"
-                  accessibilityLabel={f}
-                  style={({ pressed }) => [styles.filterBtn, pressed && styles.pressed]}
+                  accessibilityLabel={f.label}
+                  style={({ pressed }) => [
+                    styles.filterBtn,
+                    i === filter && styles.filterBtnOn,
+                    pressed && styles.pressed,
+                  ]}
                 >
                   <Text
                     style={styles.filterText}
@@ -227,7 +321,7 @@ export default function PlayerQuotaScreen() {
                     adjustsFontSizeToFit
                     minimumFontScale={0.7}
                   >
-                    {f}
+                    {f.label}
                   </Text>
                 </Pressable>
               ))}
@@ -259,89 +353,127 @@ export default function PlayerQuotaScreen() {
                     <View style={{ width: COL_ACTION }} />
                   </View>
 
-                  {QUOTAS.map((q, i) => (
-                    <View key={`${q.period}-${i}`} style={[styles.tr, styles.trBorder]}>
-                      <Text
-                        style={[styles.tdName, styles.thLeft, { width: COL_PERIOD }]}
-                        numberOfLines={1}
-                        adjustsFontSizeToFit
-                        minimumFontScale={0.7}
-                      >
-                        {q.period}
-                      </Text>
-                      <Text style={[styles.td, { width: COL_AMOUNT }]} numberOfLines={1}>
-                        {q.amount}
-                      </Text>
-                      <Text style={[styles.td, { width: COL_DUE }]} numberOfLines={1}>
-                        {q.due}
-                      </Text>
-                      <Text style={[styles.td, { width: COL_PAID }]} numberOfLines={1}>
-                        {q.paid}
-                      </Text>
-                      <Text
-                        style={[
-                          styles.td,
-                          styles.tdStatus,
-                          { width: COL_STATUS, color: STATUS_TONE[q.status] ?? C.hint },
-                        ]}
-                        numberOfLines={1}
-                        adjustsFontSizeToFit
-                        minimumFontScale={0.7}
-                      >
-                        {q.status}
-                      </Text>
-                      <View style={[styles.colAction, { width: COL_ACTION }]}>
-                        <Pressable
-                          onPress={() =>
-                            router.push({
-                              pathname: '/detajet-pageses',
-                              params: { name, team },
-                            })
-                          }
-                          accessibilityRole="button"
-                          accessibilityLabel={`Detajet e ${q.period}`}
-                          style={({ pressed }) => [styles.viewBtn, pressed && styles.pressed]}
-                        >
-                          <Text style={styles.viewBtnText}>Detajet</Text>
-                        </Pressable>
-                      </View>
+                  {error ? (
+                    <View style={styles.tr}>
+                      <Text style={[styles.td, styles.thLeft]}>{error}</Text>
                     </View>
-                  ))}
+                  ) : fees === null ? (
+                    <View style={styles.tr}>
+                      <Text style={[styles.td, styles.thLeft]}>…</Text>
+                    </View>
+                  ) : rows.length === 0 ? (
+                    <View style={styles.tr}>
+                      <Text style={[styles.td, styles.thLeft]}>Nuk ka kuota.</Text>
+                    </View>
+                  ) : (
+                    rows.map((q, i) => (
+                      <View key={`${q.id}-${i}`} style={[styles.tr, styles.trBorder]}>
+                        <Text
+                          style={[styles.tdName, styles.thLeft, { width: COL_PERIOD }]}
+                          numberOfLines={1}
+                          adjustsFontSizeToFit
+                          minimumFontScale={0.7}
+                        >
+                          {q.period}
+                        </Text>
+                        <Text style={[styles.td, { width: COL_AMOUNT }]} numberOfLines={1}>
+                          {q.amount}
+                        </Text>
+                        <Text style={[styles.td, { width: COL_DUE }]} numberOfLines={1}>
+                          {q.due}
+                        </Text>
+                        <Text style={[styles.td, { width: COL_PAID }]} numberOfLines={1}>
+                          {q.paid}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.td,
+                            styles.tdStatus,
+                            { width: COL_STATUS, color: STATUS_TONE[q.status] ?? C.hint },
+                          ]}
+                          numberOfLines={1}
+                          adjustsFontSizeToFit
+                          minimumFontScale={0.7}
+                        >
+                          {q.status}
+                        </Text>
+                        <View style={[styles.colAction, { width: COL_ACTION }]}>
+                          <Pressable
+                            onPress={() =>
+                              router.push({
+                                pathname: '/detajet-pageses',
+                                params: {
+                                  id: String(q.id),
+                                  playerId: playerId != null ? String(playerId) : '',
+                                  name,
+                                  team,
+                                },
+                              })
+                            }
+                            accessibilityRole="button"
+                            accessibilityLabel={`Detajet e ${q.period}`}
+                            style={({ pressed }) => [styles.viewBtn, pressed && styles.pressed]}
+                          >
+                            <Text style={styles.viewBtnText}>Detajet</Text>
+                          </Pressable>
+                        </View>
+                      </View>
+                    ))
+                  )}
                 </View>
               </ScrollView>
             </View>
 
             {/* ── Pager ─────────────────────────────────────────── */}
-            <View style={styles.pager}>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Faqja e mëparshme"
-                hitSlop={8}
-                style={({ pressed }) => [styles.pagerArrow, pressed && styles.pressed]}
-              >
-                <MaterialCommunityIcons name="chevron-left" size={I(22)} color={C.text} />
-              </Pressable>
-
-              {PAGES.map((p) => (
+            {lastPage > 1 ? (
+              <View style={styles.pager}>
                 <Pressable
-                  key={p}
+                  onPress={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page <= 1}
                   accessibilityRole="button"
-                  accessibilityLabel={`Faqja ${p}`}
-                  style={({ pressed }) => [styles.pageSq, pressed && styles.pressed]}
+                  accessibilityLabel="Faqja e mëparshme"
+                  hitSlop={8}
+                  style={({ pressed }) => [
+                    styles.pagerArrow,
+                    page <= 1 && styles.pagerOff,
+                    pressed && styles.pressed,
+                  ]}
                 >
-                  <Text style={styles.pageSqText}>{p}</Text>
+                  <MaterialCommunityIcons name="chevron-left" size={I(22)} color={C.text} />
                 </Pressable>
-              ))}
 
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Faqja tjetër"
-                hitSlop={8}
-                style={({ pressed }) => [styles.pagerArrow, pressed && styles.pressed]}
-              >
-                <MaterialCommunityIcons name="chevron-right" size={I(22)} color={C.text} />
-              </Pressable>
-            </View>
+                {pages.map((p) => (
+                  <Pressable
+                    key={p}
+                    onPress={() => setPage(p)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Faqja ${p}`}
+                    style={({ pressed }) => [
+                      styles.pageSq,
+                      p === page && styles.pageSqOn,
+                      pressed && styles.pressed,
+                    ]}
+                  >
+                    <Text style={styles.pageSqText}>{p}</Text>
+                  </Pressable>
+                ))}
+
+                <Pressable
+                  onPress={() => setPage((p) => Math.min(lastPage, p + 1))}
+                  disabled={page >= lastPage}
+                  accessibilityRole="button"
+                  accessibilityLabel="Faqja tjetër"
+                  hitSlop={8}
+                  style={({ pressed }) => [
+                    styles.pagerArrow,
+                    page >= lastPage && styles.pagerOff,
+                    pressed && styles.pressed,
+                  ]}
+                >
+                  <MaterialCommunityIcons name="chevron-right" size={I(22)} color={C.text} />
+                </Pressable>
+              </View>
+            ) : null}
           </View>
         </ScrollView>
       </View>
@@ -540,6 +672,11 @@ const styles = StyleSheet.create(
       justifyContent: 'center',
     },
 
+    /* The one chip currently narrowing the table floods the solid blue. */
+    filterBtnOn: {
+      backgroundColor: C.blueBtn,
+    },
+
     filterText: {
       fontFamily: Fonts.bodySemiBold,
       fontSize: 11,
@@ -662,6 +799,10 @@ const styles = StyleSheet.create(
       justifyContent: 'center',
     },
 
+    pagerOff: {
+      opacity: 0.3,
+    },
+
     pageSq: {
       width: 34,
       height: 34,
@@ -669,6 +810,10 @@ const styles = StyleSheet.create(
       backgroundColor: C.blueBtn,
       alignItems: 'center',
       justifyContent: 'center',
+    },
+
+    pageSqOn: {
+      backgroundColor: '#4A90D9',
     },
 
     pageSqText: {

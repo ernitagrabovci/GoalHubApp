@@ -1,7 +1,7 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Pressable,
   ScrollView,
@@ -13,7 +13,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
+import { ApiError } from '@/lib/api/errors';
+import { getFee, listFees, registerPayment } from '@/lib/api/finance';
+import type { ApiFee } from '@/lib/api/types';
+import { dmy, monthLabel, statusLabel, STATUS_TONE, usd } from '@/lib/finance';
 import { I, scaled } from '@/lib/responsive';
+import { useSession } from '@/lib/session';
 
 /**
  * One payment — opened from "Detajet" on the player's quota table. The row's
@@ -51,7 +56,25 @@ const C = {
   ph: '#A8A8A8',
 };
 
-const PAY_METHODS = ['Kesh', 'Transfer bankar', 'Kartë bankare', 'Online'];
+/* The three ways the backend accepts a payment, in the label the form shows. */
+const PAY_METHODS = ['Kesh', 'Transfer bankar', 'Kartë bankare'];
+
+const METHOD_VALUE: Record<string, 'cash' | 'bank_transfer' | 'card'> = {
+  Kesh: 'cash',
+  'Transfer bankar': 'bank_transfer',
+  'Kartë bankare': 'card',
+};
+
+/** `10/02/2026` in three boxes → `2026-02-10`, or `null` when unusable. */
+function toIsoDate(day: string, month: string, year: string): string | null {
+  if (!day || !month || !year) return null;
+  const d = Number(day);
+  const m = Number(month);
+  const y = Number(year);
+  if (!Number.isInteger(d) || !Number.isInteger(m) || !Number.isInteger(y)) return null;
+  if (d < 1 || d > 31 || m < 1 || m > 12 || y < 1900 || y > 9999) return null;
+  return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+}
 
 /** Left table — labels and the bold values that sit opposite them. */
 const PROFILE: [string, string][] = [
@@ -67,33 +90,121 @@ const PROFILE: [string, string][] = [
   ['Kontr. mbaron', '-'],
 ];
 
-const STATUS_TONE: Record<string, string> = {
-  Paguar: C.green,
-  Papaguar: C.orange,
-  Skaduar: C.red,
-};
-
-type Other = { period: string; amount: string; status: string; due: string };
-
-const OTHER_QUOTAS: Other[] = [
-  { period: 'Janar 2027', amount: '$40.00', status: 'Paguar', due: '10/01/2027' },
-  { period: 'Shkurt 2027', amount: '$90.00', status: 'Papaguar', due: '10/02/2027' },
-  { period: 'Mars 2027', amount: '$90.00', status: 'Skaduar', due: '10/03/2027' },
-];
-
-
 export default function PaymentDetailScreen() {
   const router = useRouter();
+  const { token, signOut } = useSession();
 
-  const params = useLocalSearchParams<{ name?: string; team?: string }>();
-  const name = params.name ?? '';
-  const team = params.team ?? '';
+  const params = useLocalSearchParams<{
+    id?: string;
+    playerId?: string;
+    name?: string;
+    team?: string;
+  }>();
+  const name = params.name ?? '—';
+  const team = params.team ?? '—';
+  const feeId = params.id ? Number(params.id) : null;
+  const playerId = params.playerId ? Number(params.playerId) : null;
 
+  const [fee, setFee] = useState<ApiFee | null>(null);
+  const [others, setOthers] = useState<ApiFee[]>([]);
   const [day, setDay] = useState('');
   const [month, setMonth] = useState('');
   const [year, setYear] = useState('');
   const [method, setMethod] = useState(PAY_METHODS[0]);
   const [invoice, setInvoice] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  /* The viewed fee, and the player's other periods for the trailing list. */
+  useEffect(() => {
+    if (!token) return;
+    const controller = new AbortController();
+
+    if (feeId && !Number.isNaN(feeId)) {
+      getFee(token, feeId, controller.signal)
+        .then((res) => {
+          if (controller.signal.aborted) return;
+          setFee(res.data);
+        })
+        .catch((err) => {
+          if (controller.signal.aborted) return;
+          if (err instanceof ApiError && err.status === 401) {
+            signOut();
+            router.replace('/login');
+          }
+        });
+    }
+
+    return () => controller.abort();
+  }, [token, feeId, router, signOut]);
+
+  useEffect(() => {
+    if (!token || !playerId || Number.isNaN(playerId)) return;
+    const controller = new AbortController();
+
+    listFees(token, { player_id: playerId }, controller.signal)
+      .then((res) => {
+        if (controller.signal.aborted) return;
+        setOthers(res.data.filter((f) => f.id !== feeId));
+      })
+      .catch((err) => {
+        if (controller.signal.aborted) return;
+        if (err instanceof ApiError && err.status === 401) {
+          signOut();
+          router.replace('/login');
+        }
+      });
+
+    return () => controller.abort();
+  }, [token, playerId, feeId, router, signOut]);
+
+  const submit = () => {
+    if (!token || saving) return;
+    if (!feeId || Number.isNaN(feeId) || !playerId || Number.isNaN(playerId)) {
+      setError('Mungon kuota ose lojtari.');
+      return;
+    }
+    const paidAt = toIsoDate(day, month, year);
+    if (!paidAt) {
+      setError('Shkruaj datën e pagesës (DD/MM/YYYY).');
+      return;
+    }
+
+    setSaving(true);
+    setError(null);
+
+    registerPayment(token, {
+      player_id: playerId,
+      fee_ids: [feeId],
+      paid_at: paidAt,
+      payment_method: METHOD_VALUE[method] ?? 'cash',
+      invoice_number: invoice.trim() || undefined,
+    })
+      .then(() => {
+        setSaving(false);
+        setDay('');
+        setMonth('');
+        setYear('');
+        setInvoice('');
+        /* Pull the settled fee back so the boxes and list reflect it. */
+        return getFee(token, feeId).then((res) => setFee(res.data));
+      })
+      .catch((err) => {
+        if (err instanceof ApiError && err.status === 401) {
+          signOut();
+          router.replace('/login');
+          return;
+        }
+        setSaving(false);
+        if (err instanceof ApiError && err.status === 0) {
+          setError('Nuk mund të lidhemi me serverin. Kontrollo lidhjen.');
+        } else if (err instanceof ApiError && err.status === 422) {
+          setError('Të dhënat nuk janë të vlefshme. Kontrollo fushat.');
+        } else {
+          setError('Nuk mund të regjistrohet pagesa.');
+        }
+      });
+  };
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
@@ -123,7 +234,7 @@ export default function PaymentDetailScreen() {
                   {name}
                 </Text>
                 <Text style={styles.subtitle} numberOfLines={1}>
-                  {team} · Sulmues · Periudha 01/02/2026
+                  {team} · Sulmues · Periudha {fee ? dmy(fee.month) : '—'}
                 </Text>
               </View>
             </View>
@@ -210,14 +321,14 @@ export default function PaymentDetailScreen() {
                       adjustsFontSizeToFit
                       minimumFontScale={0.7}
                     >
-                      $40.00
+                      {fee ? usd(Number(fee.final_amount) || 0) : '—'}
                     </Text>
                   </View>
 
                   <View style={styles.qBox}>
                     <Text style={styles.qBoxLabel}>Periudha</Text>
                     <Text style={styles.qBoxValue} numberOfLines={1}>
-                      01/02/2026
+                      {fee ? dmy(fee.month) : '—'}
                     </Text>
                   </View>
 
@@ -229,7 +340,7 @@ export default function PaymentDetailScreen() {
                       style={[styles.qBoxValue, styles.qBoxValueOrange]}
                       numberOfLines={1}
                     >
-                      10/02/2026
+                      {fee ? dmy(fee.due_date) : '—'}
                     </Text>
                   </View>
                 </View>
@@ -318,12 +429,22 @@ export default function PaymentDetailScreen() {
                   <Text style={styles.fileHint}>Choose file</Text>
                 </View>
 
+                {error ? <Text style={styles.formError}>{error}</Text> : null}
+
                 <Pressable
+                  onPress={submit}
+                  disabled={saving}
                   accessibilityRole="button"
                   accessibilityLabel="Regjistro pagesën"
-                  style={({ pressed }) => [styles.greenBtn, pressed && styles.pressed]}
+                  style={({ pressed }) => [
+                    styles.greenBtn,
+                    saving && styles.btnOff,
+                    pressed && styles.pressed,
+                  ]}
                 >
-                  <Text style={styles.greenBtnText}>Regjistro pagesën</Text>
+                  <Text style={styles.greenBtnText}>
+                    {saving ? 'Duke ruajtur…' : 'Regjistro pagesën'}
+                  </Text>
                 </Pressable>
               </View>
             </View>
@@ -351,37 +472,48 @@ export default function PaymentDetailScreen() {
                   <Text style={[styles.th, styles.cDue]}>Afati</Text>
                 </View>
 
-                {OTHER_QUOTAS.map((q, i) => (
-                  <View key={`${q.period}-${i}`} style={[styles.tr, styles.trBorder]}>
-                    <Text
-                      style={[styles.tdName, styles.thLeft, styles.cPeriod]}
-                      numberOfLines={1}
-                      adjustsFontSizeToFit
-                      minimumFontScale={0.7}
-                    >
-                      {q.period}
-                    </Text>
-                    <Text style={[styles.td, styles.cAmount]} numberOfLines={1}>
-                      {q.amount}
-                    </Text>
-                    <Text
-                      style={[
-                        styles.td,
-                        styles.tdStatus,
-                        styles.cStatus,
-                        { color: STATUS_TONE[q.status] ?? C.hint },
-                      ]}
-                      numberOfLines={1}
-                      adjustsFontSizeToFit
-                      minimumFontScale={0.7}
-                    >
-                      {q.status}
-                    </Text>
-                    <Text style={[styles.td, styles.cDue]} numberOfLines={1}>
-                      {q.due}
+                {others.length ? (
+                  others.map((f) => {
+                    const label = statusLabel(f.status);
+                    return (
+                      <View key={f.id} style={[styles.tr, styles.trBorder]}>
+                        <Text
+                          style={[styles.tdName, styles.thLeft, styles.cPeriod]}
+                          numberOfLines={1}
+                          adjustsFontSizeToFit
+                          minimumFontScale={0.7}
+                        >
+                          {monthLabel(f.month)}
+                        </Text>
+                        <Text style={[styles.td, styles.cAmount]} numberOfLines={1}>
+                          {usd(Number(f.final_amount) || 0)}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.td,
+                            styles.tdStatus,
+                            styles.cStatus,
+                            { color: STATUS_TONE[label] ?? C.hint },
+                          ]}
+                          numberOfLines={1}
+                          adjustsFontSizeToFit
+                          minimumFontScale={0.7}
+                        >
+                          {label}
+                        </Text>
+                        <Text style={[styles.td, styles.cDue]} numberOfLines={1}>
+                          {dmy(f.due_date)}
+                        </Text>
+                      </View>
+                    );
+                  })
+                ) : (
+                  <View style={[styles.tr, styles.trBorder]}>
+                    <Text style={[styles.td, styles.cPeriod, styles.tdLeft]} numberOfLines={1}>
+                      Nuk ka kuota të tjera
                     </Text>
                   </View>
-                ))}
+                )}
 
                 <Pressable
                   accessibilityRole="button"
@@ -852,6 +984,18 @@ const styles = StyleSheet.create(
       color: '#F5F5F5',
     },
 
+    btnOff: {
+      opacity: 0.5,
+    },
+
+    formError: {
+      fontFamily: Fonts.body,
+      fontSize: 11,
+      lineHeight: 14,
+      color: C.red,
+      marginTop: 10,
+    },
+
     /* ── Other-quotas table ──────────────────────────────────── */
     /* No horizontal padding here: the row rule is drawn on the row itself, so
        the gutter has to live inside `tr` for the line to reach the card edge. */
@@ -908,6 +1052,10 @@ const styles = StyleSheet.create(
       fontSize: 12,
       lineHeight: 15,
       color: C.text,
+    },
+
+    tdLeft: {
+      textAlign: 'left',
     },
 
     td: {

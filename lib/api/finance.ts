@@ -9,6 +9,7 @@ import type {
 
 export type FeeListParams = {
   page?: number;
+  player_id?: number;
   team_id?: number;
   status?: 'paid' | 'unpaid' | 'overdue';
   search?: string;
@@ -31,6 +32,7 @@ export function financeStats(token: string, signal?: AbortSignal) {
 export function listFees(token: string, params: FeeListParams = {}, signal?: AbortSignal) {
   const query = toQuery({
     page: params.page,
+    player_id: params.player_id,
     team_id: params.team_id,
     status: params.status,
     search: params.search?.trim() || undefined,
