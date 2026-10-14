@@ -2,13 +2,17 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { BlurView } from 'expo-blur';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, TextInput, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
+import { ApiError } from '@/lib/api/errors';
+import { listConversations } from '@/lib/api/messages';
+import type { ApiContact, ApiConversation } from '@/lib/api/types';
 import { I, scaled } from '@/lib/responsive';
+import { useSession } from '@/lib/session';
 
 /**
  * Mesazhet — opened from the "Chat" pill in the admin bottom bar.
@@ -50,116 +54,40 @@ const MO = {
   white: '#F5F5F5',
 };
 
-/** Everyone a group can be built from — long enough that the box must scroll. */
-const PEOPLE = [
-  'Ardit Rexha',
-  'Erion Hoxha',
-  'Bledar Krasniqi',
-  'Migena Shahini',
-  'Endrit Nushi',
-  'Lira Sula',
-  'Dritan Jakupi',
-  'Klea Hyseni',
-  'Gentian Meta',
-  'Alma Prendi',
-  'Fatos Berisha',
-  'Sara Dema',
-];
-
 /** Read = blue double tick; still in flight = the same shape, greyed. */
 const TICKS = {
   read: { icon: 'check-all' as const, color: C.blue },
   delivered: { icon: 'check-all' as const, color: '#B4B4B4' },
-  sent: { icon: 'check' as const, color: '#B4B4B4' },
 };
-
-type Status = keyof typeof TICKS;
-
-type Chat = {
-  initials: string;
-  name: string;
-  preview: string;
-  time: string;
-  status: Status;
-};
-
-const CHATS: Chat[] = [
-  {
-    initials: 'AR',
-    name: 'Ardit Rexha',
-    preview: 'Stërvitja e nesërme fillon në orën 17:00.',
-    time: '09:42',
-    status: 'read',
-  },
-  {
-    initials: 'EH',
-    name: 'Erion Hoxha',
-    preview: 'Kam dërguar kartelën mjekësore të re.',
-    time: '08:15',
-    status: 'read',
-  },
-  {
-    initials: 'BK',
-    name: 'Bledar Krasniqi',
-    preview: 'Faleminderit për informacionin!',
-    time: 'Dje',
-    status: 'delivered',
-  },
-  {
-    initials: 'MS',
-    name: 'Migena Shahini',
-    preview: 'A mund ta shtyjmë afatin e pagesës?',
-    time: 'Dje',
-    status: 'read',
-  },
-  {
-    initials: 'EN',
-    name: 'Endrit Nushi',
-    preview: 'Jam gati për ndeshjen e së shtunës.',
-    time: 'Dje',
-    status: 'sent',
-  },
-  {
-    initials: 'LS',
-    name: 'Lira Sula',
-    preview: 'Prindërit e U15 kërkojnë më shumë detaje.',
-    time: 'Hën',
-    status: 'delivered',
-  },
-  {
-    initials: 'DJ',
-    name: 'Dritan Jakupi',
-    preview: 'Raporti mujor është dorëzuar.',
-    time: 'Hën',
-    status: 'read',
-  },
-  {
-    initials: 'KH',
-    name: 'Klea Hyseni',
-    preview: 'Kontrata ime skadon në dhjetor.',
-    time: '17/09',
-    status: 'sent',
-  },
-  {
-    initials: 'GM',
-    name: 'Gentian Meta',
-    preview: 'U19 humbi 2-1 në ndeshjen e djeshme.',
-    time: '16/09',
-    status: 'read',
-  },
-  {
-    initials: 'AP',
-    name: 'Alma Prendi',
-    preview: 'Faturat e muajit janë gati.',
-    time: '15/09',
-    status: 'delivered',
-  },
-];
 
 export default function MessagesScreen() {
   const router = useRouter();
+  const { token, signOut } = useSession();
 
+  const [conversations, setConversations] = useState<ApiConversation[]>([]);
+  const [contacts, setContacts] = useState<ApiContact[]>([]);
   const [creating, setCreating] = useState(false);
+
+  useEffect(() => {
+    if (!token) return;
+    const controller = new AbortController();
+
+    listConversations(token, controller.signal)
+      .then((res) => {
+        if (controller.signal.aborted) return;
+        setConversations(res.conversations);
+        setContacts(res.contacts);
+      })
+      .catch((e) => {
+        if (controller.signal.aborted) return;
+        if (e instanceof ApiError && e.status === 401) {
+          signOut();
+          router.replace('/login');
+        }
+      });
+
+    return () => controller.abort();
+  }, [token, router, signOut]);
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
@@ -216,16 +144,27 @@ export default function MessagesScreen() {
 
             {/* ── Conversations ─────────────────────────────────── */}
             <View style={styles.listCard}>
-              {CHATS.map((chat, index) => {
-                const tick = TICKS[chat.status];
+              {conversations.map((chat, index) => {
+                /* The tick belongs to the last message, and only when it is yours. */
+                const tick = chat.last_mine
+                  ? chat.last_read
+                    ? TICKS.read
+                    : TICKS.delivered
+                  : null;
+
                 return (
-                  <View key={chat.name}>
+                  <View key={`${chat.type}-${chat.id}`}>
                     {index > 0 ? <View style={styles.divider} /> : null}
                     <Pressable
                       onPress={() =>
                         router.push({
                           pathname: '/biseda',
-                          params: { name: chat.name, initials: chat.initials },
+                          params: {
+                            id: String(chat.id),
+                            type: chat.type,
+                            name: chat.name,
+                            initials: chat.initials,
+                          },
                         })
                       }
                       accessibilityRole="button"
@@ -241,18 +180,20 @@ export default function MessagesScreen() {
                           {chat.name}
                         </Text>
                         <View style={styles.previewRow}>
-                          <MaterialCommunityIcons
-                            name={tick.icon}
-                            size={I(14)}
-                            color={tick.color}
-                          />
+                          {tick ? (
+                            <MaterialCommunityIcons
+                              name={tick.icon}
+                              size={I(14)}
+                              color={tick.color}
+                            />
+                          ) : null}
                           <Text style={styles.preview} numberOfLines={1}>
-                            {chat.preview}
+                            {chat.last_message}
                           </Text>
                         </View>
                       </View>
 
-                      <Text style={styles.time}>{chat.time}</Text>
+                      <Text style={styles.time}>{chat.last_time}</Text>
                     </Pressable>
                   </View>
                 );
@@ -275,7 +216,10 @@ export default function MessagesScreen() {
             accessibilityRole="button"
             accessibilityLabel="Mbylle dritaren"
           />
-          <NewGroupModal onClose={() => setCreating(false)} />
+          <NewGroupModal
+            people={contacts.map((c) => c.name)}
+            onClose={() => setCreating(false)}
+          />
         </View>
       ) : null}
     </SafeAreaView>
@@ -291,7 +235,7 @@ function Radio({ on }: { on: boolean }) {
   return <View style={[styles.radio, on && styles.radioOn]} />;
 }
 
-function NewGroupModal({ onClose }: { onClose: () => void }) {
+function NewGroupModal({ people, onClose }: { people: string[]; onClose: () => void }) {
   const { width, height } = useWindowDimensions();
   const cardW = Math.min(width - 24, 360);
   /* Capped so a long roster scrolls inside the card instead of growing it. */
@@ -346,7 +290,7 @@ function NewGroupModal({ onClose }: { onClose: () => void }) {
               onScroll={(e) => setOffset(e.nativeEvent.contentOffset.y)}
               contentContainerStyle={styles.groupInner}
             >
-              {PEOPLE.map((person) => (
+              {people.map((person) => (
                 <Pressable
                   key={person}
                   onPress={() => toggle(person)}

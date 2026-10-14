@@ -2,13 +2,22 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { BlurView } from 'expo-blur';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
+import { ApiError } from '@/lib/api/errors';
+import {
+  getGroupThread,
+  getThread,
+  sendGroupMessage,
+  sendMessage,
+} from '@/lib/api/messages';
+import type { ApiMessage } from '@/lib/api/types';
 import { I, scaled } from '@/lib/responsive';
+import { useSession } from '@/lib/session';
 
 /**
  * A single conversation — opened by tapping a row on the Mesazhet page.
@@ -40,7 +49,6 @@ const C = {
 const TICKS = {
   read: { icon: 'check-all' as const, color: C.blue },
   delivered: { icon: 'check-all' as const, color: '#B4B4B4' },
-  sent: { icon: 'check' as const, color: '#B4B4B4' },
 };
 
 type Status = keyof typeof TICKS;
@@ -55,14 +63,18 @@ type Msg = {
   deleted?: boolean;
 };
 
-const THREAD: Msg[] = [
-  { id: '1', text: 'Përshëndetje! A e kemi stërvitjen nesër në orën 17:00?', time: '09:31', mine: false },
-  { id: '2', text: 'Po, si gjithmonë. Në fushën kryesore.', time: '09:33', mine: true, status: 'read' },
-  { id: '3', text: 'Faleminderit. A duhet të marrim pajisjet e reja?', time: '09:35', mine: false },
-  { id: '4', text: 'Po, këpucat dhe fanellat e stërvitjes.', time: '09:36', mine: true, status: 'read' },
-  { id: '5', text: "Në rregull, do t'i marr me vete.", time: '09:38', mine: false },
-  { id: '6', text: 'Perfekt. Shihemi nesër!', time: '09:40', mine: true, status: 'delivered' },
-];
+/** The API's message shape, read into the bubble the thread renders. */
+function toMsg(m: ApiMessage): Msg {
+  return {
+    id: String(m.id),
+    text: m.body,
+    time: m.time,
+    mine: m.mine,
+    status: m.mine ? (m.read ? 'read' : 'delivered') : undefined,
+    reaction: m.reactions[0]?.reaction,
+    deleted: m.deleted,
+  };
+}
 
 const EMOJI = ['👍', '❤️', '😂', '😮', '😢', '👏'];
 
@@ -80,14 +92,68 @@ function Veil() {
 
 export default function ConversationScreen() {
   const router = useRouter();
+  const { token, signOut } = useSession();
 
-  const { name, initials } = useLocalSearchParams<{ name?: string; initials?: string }>();
+  const { id, type, name, initials } = useLocalSearchParams<{
+    id?: string;
+    type?: string;
+    name?: string;
+    initials?: string;
+  }>();
 
-  const [msgs, setMsgs] = useState<Msg[]>(THREAD);
+  const peerId = id ? Number(id) : null;
+  const isGroup = type === 'group';
+
+  const [msgs, setMsgs] = useState<Msg[]>([]);
   /* The bubble whose action bar is unfolded — also the target of its actions. */
   const [selected, setSelected] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
+  /* What the composer's field holds, apart from the edit-in-place draft. */
+  const [composer, setComposer] = useState('');
+
+  useEffect(() => {
+    if (!token || !peerId || Number.isNaN(peerId)) return;
+    const controller = new AbortController();
+
+    const load = isGroup
+      ? getGroupThread(token, peerId, controller.signal).then((res) => res.messages)
+      : getThread(token, peerId, controller.signal).then((res) => res.messages);
+
+    load
+      .then((messages) => {
+        if (controller.signal.aborted) return;
+        setMsgs(messages.map(toMsg));
+      })
+      .catch((e) => {
+        if (controller.signal.aborted) return;
+        if (e instanceof ApiError && e.status === 401) {
+          signOut();
+          router.replace('/login');
+        }
+      });
+
+    return () => controller.abort();
+  }, [token, peerId, isGroup, router, signOut]);
+
+  const send = () => {
+    const body = composer.trim();
+    if (!body || !token || !peerId) return;
+    setComposer('');
+
+    const post = isGroup
+      ? sendGroupMessage(token, peerId, body)
+      : sendMessage(token, peerId, body);
+
+    post
+      .then((res) => setMsgs((prev) => [...prev, toMsg(res.message)]))
+      .catch((e) => {
+        if (e instanceof ApiError && e.status === 401) {
+          signOut();
+          router.replace('/login');
+        }
+      });
+  };
 
   const pickReaction = (emoji: string) => {
     setMsgs((prev) =>
@@ -297,8 +363,11 @@ export default function ConversationScreen() {
               style={styles.input}
               placeholder="Sheno mesazhin ..."
               placeholderTextColor={C.ghost}
+              value={composer}
+              onChangeText={setComposer}
             />
             <Pressable
+              onPress={send}
               accessibilityRole="button"
               accessibilityLabel="Dërgo mesazhin"
               style={({ pressed }) => [styles.sendBtn, pressed && styles.pressed]}

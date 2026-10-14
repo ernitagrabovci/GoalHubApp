@@ -371,6 +371,80 @@ export type ApiBadges = {
   channel: number;
 };
 
+/** One row of `GET /conversations` — an existing DM partner or group. */
+export type ApiConversation = {
+  type: 'dm' | 'group';
+  /** The partner's user id for a DM, the group id for a group. */
+  id: number;
+  name: string;
+  role_label: string;
+  role_color: string;
+  /** Two letters, or the 👥 glyph on a group. */
+  initials: string;
+  badge: string | null;
+  last_message: string;
+  last_mine: boolean;
+  last_read: boolean;
+  /** `09:42` when today, otherwise `17/09`. */
+  last_time: string;
+  unread_count: number;
+  url: string;
+  members_label: string | null;
+};
+
+/** Someone the requester is allowed to message (the composer's roster). */
+export type ApiContact = {
+  id: number;
+  name: string;
+  role_label: string;
+  role_color: string;
+  initials: string;
+  url: string;
+};
+
+/** One emoji tally on a message. */
+export type ApiMessageReaction = {
+  reaction: string;
+  count: number;
+  mine: boolean;
+};
+
+/** One message, as a chat bubble renders it. */
+export type ApiMessage = {
+  id: number;
+  body: string;
+  mine: boolean;
+  time: string;
+  /** `null` on a message you received. */
+  read: boolean | null;
+  sender: string | null;
+  edited: boolean;
+  deleted: boolean;
+  reactions: ApiMessageReaction[];
+};
+
+/** `GET /conversations` — the list plus who you can start talking to. */
+export type ConversationsResponse = {
+  conversations: ApiConversation[];
+  contacts: ApiContact[];
+  total_unread: number;
+};
+
+/** `GET /conversations/{user}` — one direct thread. */
+export type ThreadResponse = {
+  contact: { id: number; name: string };
+  messages: ApiMessage[];
+  read_ids: number[];
+  updates: ApiMessage[];
+};
+
+/** `GET /groups/{group}` — one group thread. */
+export type GroupThreadResponse = {
+  group: { id: number; name: string; members: string[] };
+  messages: ApiMessage[];
+  updates: ApiMessage[];
+};
+
 /** One payable period, from `GET /finance/players/{player}/unpaid`. */
 export type UnpaidPeriod = {
   /** `null` on a future period that has no fee row yet. */
