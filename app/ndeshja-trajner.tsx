@@ -1,12 +1,17 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
+import { ApiError } from '@/lib/api/errors';
+import { getMatch } from '@/lib/api/matches';
+import type { ApiMatch } from '@/lib/api/types';
 import { I, scaled } from '@/lib/responsive';
+import { useSession } from '@/lib/session';
 
 /**
  * One upcoming match, the trainer's own view — opened from "Shiko" on the
@@ -31,6 +36,9 @@ const C = {
   headLine: 'rgba(30,40,35,0.10)',
 
   green20: 'rgba(21,148,71,0.20)',
+
+  /* The starting-eleven cards. */
+  cardGreen: 'rgba(158,253,134,0.20)',
 };
 
 const SEASON_YEAR = '2026';
@@ -39,14 +47,29 @@ const INFO_LABELS = ['Kundershtari', 'Gara', 'Data', 'Vendodhja'];
 
 const MONTHS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
 
-/** "AUG" → "Aug" for the readable date line. */
+/** "AUG" → "Aug" for the route-param fallback. */
 function monthName(mon: string): string {
   if (MONTHS.indexOf(mon.toUpperCase()) < 0) return mon;
   return mon.charAt(0).toUpperCase() + mon.slice(1).toLowerCase();
 }
 
+const pad2 = (n: number) => String(n).padStart(2, '0');
+
+/** `2026-08-18T16:00:00Z` → `18 Aug 2026, 16:00`. */
+function formatDateTime(iso: string | null): string {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '—';
+  const mon = MONTHS[d.getMonth()];
+  const name = `${mon.charAt(0)}${mon.slice(1).toLowerCase()}`;
+  return `${pad2(d.getDate())} ${name} ${d.getFullYear()}, ${pad2(d.getHours())}:${pad2(
+    d.getMinutes(),
+  )}`;
+}
+
 export default function TrainerMatchViewScreen() {
   const router = useRouter();
+  const { token, signOut } = useSession();
 
   const params = useLocalSearchParams<{
     id?: string;
@@ -59,18 +82,61 @@ export default function TrainerMatchViewScreen() {
     comp?: string;
   }>();
 
-  const home = params.home ?? '';
-  const away = params.away ?? '';
-  const comp = params.comp ?? '';
+  const matchId = params.id ? Number(params.id) : null;
+  const [match, setMatch] = useState<ApiMatch | null>(null);
+
+  useEffect(() => {
+    if (!token || !matchId || Number.isNaN(matchId)) return;
+    const controller = new AbortController();
+
+    getMatch(token, matchId, controller.signal)
+      .then((res) => {
+        if (controller.signal.aborted) return;
+        setMatch(res.data);
+      })
+      .catch((e) => {
+        if (controller.signal.aborted) return;
+        if (e instanceof ApiError && e.status === 401) {
+          signOut();
+          router.replace('/login');
+        }
+      });
+
+    return () => controller.abort();
+  }, [token, matchId, router, signOut]);
+
+  const home = match?.team?.name ?? params.home ?? '';
+  const away = match?.opponent ?? params.away ?? '';
+  const comp = match?.competition ?? params.comp ?? '';
   const title = away ? `${home} - ${away}` : home;
 
   /* The side we are not: the fixture is always listed with Prishtina in it. */
-  const rival = home.includes('Prishtina') ? away : home;
+  const rival = match?.opponent ?? (home.includes('Prishtina') ? away : home);
 
-  const day = `${params.day ?? ''} ${monthName(params.mon ?? '')} ${SEASON_YEAR}`.trim();
-  const time = params.time ?? '';
+  const fallbackDate = `${params.day ?? ''} ${monthName(params.mon ?? '')} ${SEASON_YEAR}`.trim();
+  const dateLine = match
+    ? formatDateTime(match.scheduled_at)
+    : `${fallbackDate}${params.time ? `, ${params.time}` : ''}`;
 
-  const values = [rival, comp, time ? `${day}, ${time}` : day, params.venue ?? ''];
+  const values = [rival, comp, dateLine, match?.venue ?? params.venue ?? ''];
+
+  /* The match's statistics and starting eleven, once it has loaded. */
+  const statRows = (match?.player_stats ?? []).map((p) => ({
+    name: p.player_name ?? '—',
+    goals: p.goals ?? 0,
+    assists: p.assists ?? 0,
+  }));
+
+  const starters = (match?.lineup ?? [])
+    .filter((l) => l.type === 'starter')
+    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+    .map((l) => ({ name: l.player_name ?? '—', position: l.position ?? '' }));
+
+  const openResult = () =>
+    router.push({
+      pathname: '/fut-rezultatin',
+      params: { ...(matchId ? { id: String(matchId) } : {}), home, away },
+    });
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
@@ -122,7 +188,7 @@ export default function TrainerMatchViewScreen() {
                       away,
                       day: params.day ?? '',
                       mon: params.mon ?? '',
-                      time,
+                      time: params.time ?? '',
                       venue: params.venue ?? '',
                       comp,
                     },
@@ -135,12 +201,7 @@ export default function TrainerMatchViewScreen() {
                 <Text style={styles.actionText}>Cakto formacion</Text>
               </Pressable>
               <Pressable
-                onPress={() =>
-                  router.push({
-                    pathname: '/fut-rezultatin',
-                    params: { ...(params.id ? { id: params.id } : {}), home, away },
-                  })
-                }
+                onPress={openResult}
                 accessibilityRole="button"
                 accessibilityLabel="Fut rezultatin"
                 style={({ pressed }) => [styles.actionBtn, pressed && styles.pressed]}
@@ -187,19 +248,37 @@ export default function TrainerMatchViewScreen() {
                 </View>
                 <View style={styles.headLine} />
 
-                <View style={[styles.notePad, styles.noteFill]}>
-                  <Text style={styles.note}>Nuk ka statistika ende.</Text>
+                {statRows.length ? (
+                  <View style={[styles.statList, styles.noteFill]}>
+                    <View style={styles.statHead}>
+                      <Text style={styles.statHeadText}>Lojtari</Text>
+                      <Text style={styles.statHeadText}>Gola / Asiste</Text>
+                    </View>
+                    {statRows.map((p, i) => (
+                      <View key={`${p.name}-${i}`} style={styles.statLine}>
+                        <Text style={styles.statName} numberOfLines={1}>
+                          {p.name}
+                        </Text>
+                        <Text style={styles.statVal}>{`${p.goals} / ${p.assists}`}</Text>
+                      </View>
+                    ))}
+                  </View>
+                ) : (
+                  <View style={[styles.notePad, styles.noteFill]}>
+                    <Text style={styles.note}>Nuk ka statistika ende.</Text>
 
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel="Shto statistika"
-                    style={({ pressed }) => [styles.addBtn, pressed && styles.pressed]}
-                  >
-                    <Text style={styles.addBtnText} numberOfLines={1}>
-                      + Shto statistika
-                    </Text>
-                  </Pressable>
-                </View>
+                    <Pressable
+                      onPress={openResult}
+                      accessibilityRole="button"
+                      accessibilityLabel="Shto statistika"
+                      style={({ pressed }) => [styles.addBtn, pressed && styles.pressed]}
+                    >
+                      <Text style={styles.addBtnText} numberOfLines={1}>
+                        + Shto statistika
+                      </Text>
+                    </Pressable>
+                  </View>
+                )}
               </View>
             </View>
 
@@ -210,9 +289,23 @@ export default function TrainerMatchViewScreen() {
               </View>
               <View style={styles.headLine} />
 
-              <View style={styles.notePad}>
-                <Text style={styles.note}>Formacioni nuk është caktuar nga trajneri.</Text>
-              </View>
+              {starters.length ? (
+                <>
+                  <Text style={styles.sectionLabel}>{`Startuesit (${starters.length})`}</Text>
+                  <View style={styles.squadGrid}>
+                    {starters.map((s, i) => (
+                      <View key={`${s.name}-${i}`} style={styles.playerCard}>
+                        <Text style={styles.playerName}>{s.name}</Text>
+                        <Text style={styles.playerPosition}>{s.position}</Text>
+                      </View>
+                    ))}
+                  </View>
+                </>
+              ) : (
+                <View style={styles.notePad}>
+                  <Text style={styles.note}>Formacioni nuk është caktuar nga trajneri.</Text>
+                </View>
+              )}
             </View>
           </View>
         </ScrollView>
@@ -420,6 +513,99 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodySemiBold,
       fontSize: 10.5,
       color: C.text,
+    },
+
+    /* ── Player statistics (compact) ─────────────────────────── */
+    statList: {
+      backgroundColor: C.blue1,
+      paddingHorizontal: 8,
+      paddingBottom: 8,
+    },
+
+    statHead: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      paddingHorizontal: 4,
+      paddingTop: 8,
+      paddingBottom: 2,
+    },
+
+    statHeadText: {
+      fontFamily: Fonts.bodySemiBold,
+      fontSize: 9,
+      lineHeight: 12,
+      color: C.hint,
+    },
+
+    statLine: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: 6,
+      minHeight: 24,
+      paddingHorizontal: 4,
+    },
+
+    statName: {
+      flex: 1,
+      fontFamily: Fonts.body,
+      fontSize: 10.5,
+      lineHeight: 13,
+      color: C.text,
+    },
+
+    statVal: {
+      fontFamily: Fonts.bodyBold,
+      fontSize: 10.5,
+      lineHeight: 13,
+      color: C.text,
+    },
+
+    /* ── Formacioni ──────────────────────────────────────────── */
+    sectionLabel: {
+      fontFamily: Fonts.bodyBold,
+      fontSize: 12,
+      lineHeight: 16,
+      color: C.text,
+      paddingHorizontal: 10,
+      paddingTop: 10,
+    },
+
+    squadGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 6,
+      paddingHorizontal: 10,
+      paddingTop: 8,
+      paddingBottom: 12,
+    },
+
+    /* No fixed height — a two-line name grows the card, a short one shrinks it. */
+    playerCard: {
+      width: '31%',
+      minHeight: 40,
+      justifyContent: 'center',
+      paddingHorizontal: 7,
+      paddingVertical: 7,
+      backgroundColor: C.cardGreen,
+      borderWidth: 1,
+      borderColor: '#000000',
+      borderRadius: 4,
+    },
+
+    playerName: {
+      fontFamily: Fonts.bodyBold,
+      fontSize: 11.5,
+      lineHeight: 14,
+      color: '#000000',
+    },
+
+    playerPosition: {
+      fontFamily: Fonts.body,
+      fontSize: 9,
+      lineHeight: 12,
+      marginTop: 1,
+      color: '#000000',
     },
 
     pressed: {

@@ -2,13 +2,13 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
 import { ApiError } from '@/lib/api/errors';
-import { getMatch } from '@/lib/api/matches';
+import { deleteMatch, getMatch } from '@/lib/api/matches';
 import type { ApiMatch } from '@/lib/api/types';
 import { I, scaled } from '@/lib/responsive';
 import { useSession } from '@/lib/session';
@@ -46,45 +46,6 @@ const C = {
 const INFO_LABELS = ['Ekipi', 'Fiziku', 'Taktikat', 'Stabilitet'];
 
 const MONTHS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
-
-type StatRow = {
-  name: string;
-  goals: number;
-  assists: number;
-  min: number;
-  yellow: boolean;
-  red: boolean;
-  nota: number;
-};
-
-const STATS: StatRow[] = [
-  { name: 'Driton Demiri', goals: 0, assists: 0, min: 90, yellow: false, red: false, nota: 7.5 },
-  { name: 'Enver Mustafa', goals: 0, assists: 1, min: 90, yellow: true, red: false, nota: 6.8 },
-  { name: 'Ardit Lapashtica', goals: 1, assists: 0, min: 90, yellow: false, red: false, nota: 7.9 },
-  { name: 'Narti Cerkini', goals: 0, assists: 0, min: 90, yellow: false, red: false, nota: 6.5 },
-  { name: 'Blerim Krasniqi', goals: 0, assists: 2, min: 78, yellow: false, red: false, nota: 7.2 },
-  { name: 'Endrit Gashi', goals: 0, assists: 0, min: 90, yellow: true, red: false, nota: 6.9 },
-  { name: 'Leart Berisha', goals: 1, assists: 0, min: 90, yellow: false, red: false, nota: 8.1 },
-  { name: 'Riad Hoxha', goals: 0, assists: 1, min: 64, yellow: false, red: false, nota: 6.4 },
-  { name: 'Arbnor Zeka', goals: 0, assists: 0, min: 90, yellow: false, red: true, nota: 5.8 },
-  { name: 'Dion Nimani', goals: 0, assists: 0, min: 26, yellow: false, red: false, nota: 6.2 },
-];
-
-type Starter = { name: string; position: string };
-
-const STARTERS: Starter[] = [
-  { name: 'Driton Demiri', position: 'Portjer' },
-  { name: 'Enver Mustafa', position: 'Mbrojtës' },
-  { name: 'Ardit Lapashtica', position: 'Mbrojtës' },
-  { name: 'Narti Cerkini', position: 'Mbrojtës' },
-  { name: 'Blerim Krasniqi', position: 'Mbrojtës' },
-  { name: 'Endrit Gashi', position: 'Mesfushor' },
-  { name: 'Leart Berisha', position: 'Mesfushor' },
-  { name: 'Riad Hoxha', position: 'Mesfushor' },
-  { name: 'Arbnor Zeka', position: 'Sulmues' },
-  { name: 'Dion Nimani', position: 'Sulmues' },
-  { name: 'Yll Demaku', position: 'Sulmues' },
-];
 
 /** "18/08/2026" → "18 Aug 2026". */
 function formatDate(date: string): string {
@@ -189,6 +150,46 @@ export default function PlayedMatchScreen() {
       : `${formatDate(params.date ?? '')}, ${params.time ?? ''}`,
   ];
 
+  /* The line-up and per-player statistics come with the match; empty until load. */
+  const statRows = (match?.player_stats ?? []).map((p) => ({
+    name: p.player_name ?? '—',
+    goals: p.goals ?? 0,
+    assists: p.assists ?? 0,
+    min: p.minutes_played ?? 0,
+    yellow: (p.yellow_cards ?? 0) > 0,
+    red: (p.red_cards ?? 0) > 0,
+    nota: p.rating,
+  }));
+
+  const starters = (match?.lineup ?? [])
+    .filter((l) => l.type === 'starter')
+    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+    .map((l) => ({ name: l.player_name ?? '—', position: l.position ?? '' }));
+
+  const remove = () => {
+    if (!token || !matchId) return;
+    Alert.alert('Fshi ndeshjen', 'A jeni të sigurt që doni ta fshini ndeshjen?', [
+      { text: 'Anulo', style: 'cancel' },
+      {
+        text: 'Fshi',
+        style: 'destructive',
+        onPress: () => {
+          deleteMatch(token, matchId)
+            .then(() => router.back())
+            .catch((e) => {
+              if (e instanceof ApiError && e.status === 401) {
+                signOut();
+                router.replace('/login');
+                return;
+              }
+              const first = e instanceof ApiError ? e.fieldErrors?.status?.[0] : undefined;
+              Alert.alert('Gabim', first ?? 'Ndeshja nuk mund të fshihet.');
+            });
+        },
+      },
+    ]);
+  };
+
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
       <StatusBar style="dark" />
@@ -230,6 +231,12 @@ export default function PlayedMatchScreen() {
             {/* ── Row actions ───────────────────────────────────── */}
             <View style={styles.actions}>
               <Pressable
+                onPress={() =>
+                  router.push({
+                    pathname: '/fut-rezultatin',
+                    params: { ...(matchId ? { id: String(matchId) } : {}), home, away },
+                  })
+                }
                 accessibilityRole="button"
                 accessibilityLabel="Edito ndeshjen"
                 style={({ pressed }) => [styles.editBtn, pressed && styles.pressed]}
@@ -237,6 +244,7 @@ export default function PlayedMatchScreen() {
                 <Text style={styles.actionText}>Edito</Text>
               </Pressable>
               <Pressable
+                onPress={remove}
                 accessibilityRole="button"
                 accessibilityLabel="Fshi ndeshjen"
                 style={({ pressed }) => [styles.deleteBtn, pressed && styles.pressed]}
@@ -319,11 +327,15 @@ export default function PlayedMatchScreen() {
                 </View>
 
                 <View style={styles.noteRow}>
-                  <Text style={styles.note}>Statistikat janë regjistruar nga trajneri.</Text>
+                  <Text style={styles.note}>
+                    {statRows.length
+                      ? 'Statistikat janë regjistruar nga trajneri.'
+                      : 'Statistikat nuk janë regjistruar.'}
+                  </Text>
                 </View>
 
-                {STATS.map((p, i) => (
-                  <View key={p.name} style={[styles.tr, styles.trBorder]}>
+                {statRows.map((p, i) => (
+                  <View key={`${p.name}-${i}`} style={[styles.tr, styles.trBorder]}>
                     <Text style={[styles.tdName, styles.colName]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
                       {p.name}
                     </Text>
@@ -336,7 +348,9 @@ export default function PlayedMatchScreen() {
                     <View style={styles.colCard}>
                       {p.red ? <View style={[styles.cardSq, { backgroundColor: C.red }]} /> : null}
                     </View>
-                    <Text style={[styles.td, styles.colNota]}>{p.nota.toFixed(1)}</Text>
+                    <Text style={[styles.td, styles.colNota]}>
+                      {p.nota == null ? '—' : p.nota.toFixed(1)}
+                    </Text>
                   </View>
                 ))}
               </View>
@@ -349,16 +363,24 @@ export default function PlayedMatchScreen() {
               </View>
               <View style={styles.headLine} />
 
-              <Text style={styles.sectionLabel}>Startuesit (11)</Text>
+              {starters.length ? (
+                <>
+                  <Text style={styles.sectionLabel}>{`Startuesit (${starters.length})`}</Text>
 
-              <View style={styles.squadGrid}>
-                {STARTERS.map((s) => (
-                  <View key={s.name} style={styles.playerCard}>
-                    <Text style={styles.playerName}>{s.name}</Text>
-                    <Text style={styles.playerPosition}>{s.position}</Text>
+                  <View style={styles.squadGrid}>
+                    {starters.map((s, i) => (
+                      <View key={`${s.name}-${i}`} style={styles.playerCard}>
+                        <Text style={styles.playerName}>{s.name}</Text>
+                        <Text style={styles.playerPosition}>{s.position}</Text>
+                      </View>
+                    ))}
                   </View>
-                ))}
-              </View>
+                </>
+              ) : (
+                <View style={styles.emptyPad}>
+                  <Text style={styles.emptyNote}>Formacioni nuk është caktuar.</Text>
+                </View>
+              )}
             </View>
           </View>
         </ScrollView>
@@ -664,6 +686,20 @@ const styles = StyleSheet.create(
     },
 
     /* ── Formacioni ──────────────────────────────────────────── */
+    emptyPad: {
+      alignItems: 'center',
+      paddingHorizontal: 10,
+      paddingVertical: 18,
+    },
+
+    emptyNote: {
+      textAlign: 'center',
+      fontFamily: Fonts.body,
+      fontSize: 11,
+      lineHeight: 15,
+      color: C.gray,
+    },
+
     sectionLabel: {
       fontFamily: Fonts.bodyBold,
       fontSize: 12,
