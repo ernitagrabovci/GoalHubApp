@@ -1,7 +1,7 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Pressable,
   ScrollView,
@@ -13,7 +13,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
+import { ApiError } from '@/lib/api/errors';
+import { listLibrary } from '@/lib/api/library';
+import type { ApiTrainingMaterial } from '@/lib/api/types';
 import { I, scaled } from '@/lib/responsive';
+import { useSession } from '@/lib/session';
 
 /**
  * Libraria e trajnimeve — opened from "Libraria" on the trainer's Akademia
@@ -47,9 +51,24 @@ const C = {
 /* The level chips under the add button. "Të gjitha" is the resting state. */
 const LEVELS = ['Të gjitha', 'Fillestar', 'Mesëm', 'Avancuar'];
 
-const CATEGORIES = ['Të gjitha kategoritë', 'Teknika', 'Taktika', 'Fizike', 'Psikologjike'];
+/* The chip labels, mapped onto the level codes the API stores. */
+const LEVEL_TO_API: Record<string, string> = {
+  Fillestar: 'beginner',
+  Mesëm: 'intermediate',
+  Avancuar: 'advanced',
+};
 
-const PAGES = ['1', '2', '3', '4'];
+const LEVEL_LABEL: Record<string, string> = {
+  beginner: 'Fillestar',
+  intermediate: 'Mesëm',
+  advanced: 'Avancuar',
+};
+
+/* The library's `file_type`, under the label the Lloji column shows. */
+const TYPE_LABEL: Record<string, string> = { mp4: 'Video', gif: 'Video', pdf: 'PDF' };
+
+/* The dropdown's resting option, ahead of the API's distinct categories. */
+const ALL_CATEGORIES = 'Të gjitha kategoritë';
 
 type ColKey = 'name' | 'category' | 'level' | 'type' | 'coach' | 'date';
 
@@ -65,88 +84,86 @@ const COLS: { key: ColKey; label: string; width: number }[] = [
 /* The two row buttons plus the gap between them. */
 const ACTION_W = 110;
 
-type Material = {
-  name: string;
-  category: string;
-  level: string;
-  type: string;
-  coach: string;
-  date: string;
-};
+const MONTHS = ['Jan', 'Shk', 'Mar', 'Pri', 'Maj', 'Qer', 'Kor', 'Gus', 'Sht', 'Tet', 'Nën', 'Dhj'];
 
-const MATERIALS: Material[] = [
-  {
-    name: 'Pasimi i shkurtër në rreth',
-    category: 'Teknika',
-    level: 'Fillestar',
-    type: 'Video',
-    coach: 'Rexhep Hyseni',
-    date: '12 Gus 2026',
-  },
-  {
-    name: 'Rrethimi i topit 4v4',
-    category: 'Taktika',
-    level: 'Mesëm',
-    type: 'PDF',
-    coach: 'Rexhep Hyseni',
-    date: '09 Gus 2026',
-  },
-  {
-    name: 'Ndërtimi i lojës nga mbrapa',
-    category: 'Taktika',
-    level: 'Avancuar',
-    type: 'Video',
-    coach: 'Arben Krasniqi',
-    date: '05 Gus 2026',
-  },
-  {
-    name: 'Qëndrueshmëria aerobike',
-    category: 'Fizike',
-    level: 'Mesëm',
-    type: 'Plan',
-    coach: 'Drita Berisha',
-    date: '02 Gus 2026',
-  },
-  {
-    name: 'Gjuajtja në portë',
-    category: 'Teknika',
-    level: 'Fillestar',
-    type: 'Video',
-    coach: 'Rexhep Hyseni',
-    date: '28 Kor 2026',
-  },
-  {
-    name: 'Presingu i lartë',
-    category: 'Taktika',
-    level: 'Avancuar',
-    type: 'Sesion',
-    coach: 'Arben Krasniqi',
-    date: '24 Kor 2026',
-  },
-  {
-    name: 'Koordinimi me shkallë',
-    category: 'Fizike',
-    level: 'Fillestar',
-    type: 'Video',
-    coach: 'Drita Berisha',
-    date: '19 Kor 2026',
-  },
-  {
-    name: 'Topat e gjata dhe krosimi',
-    category: 'Teknika',
-    level: 'Mesëm',
-    type: 'PDF',
-    coach: 'Rexhep Hyseni',
-    date: '15 Kor 2026',
-  },
-];
+const pad2 = (n: number) => String(n).padStart(2, '0');
+
+const levelLabel = (value: string | null) => (value ? LEVEL_LABEL[value] ?? value : '—');
+
+const typeLabel = (value: string | null) => (value ? TYPE_LABEL[value] ?? value.toUpperCase() : '—');
+
+/** A `created_at` timestamp as "12 Gus 2026"; null or unparseable renders "—". */
+function formatDate(iso: string | null): string {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '—';
+  return `${pad2(d.getDate())} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+}
+
+/** A short run of page numbers ending at `last`, capped for width. */
+function pageWindow(current: number, last: number, span = 4): number[] {
+  const start = Math.max(1, Math.min(current, last - span + 1));
+  const end = Math.min(last, start + span - 1);
+  return Array.from({ length: Math.max(0, end - start + 1) }, (_, i) => start + i);
+}
 
 export default function TrainerLibraryScreen() {
   const router = useRouter();
+  const { token, signOut } = useSession();
 
   const [level, setLevel] = useState(LEVELS[0]);
-  const [category, setCategory] = useState(CATEGORIES[0]);
+  const [category, setCategory] = useState(ALL_CATEGORIES);
   const [catOpen, setCatOpen] = useState(false);
+  const [searchInput, setSearchInput] = useState('');
+  const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
+
+  const [materials, setMaterials] = useState<ApiTrainingMaterial[]>([]);
+  const [categories, setCategories] = useState<string[]>([]);
+  const [lastPage, setLastPage] = useState(1);
+
+  /* Debounced, so typing narrows the shelf without a request per keystroke. */
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSearch(searchInput.trim());
+      setPage(1);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchInput]);
+
+  useEffect(() => {
+    if (!token) return;
+    const controller = new AbortController();
+
+    listLibrary(
+      token,
+      {
+        page,
+        level: LEVEL_TO_API[level],
+        category: category === ALL_CATEGORIES ? undefined : category,
+        search: search || undefined,
+      },
+      controller.signal,
+    )
+      .then((res) => {
+        if (controller.signal.aborted) return;
+        setMaterials(res.data);
+        setCategories(res.categories);
+        setLastPage(res.meta.last_page);
+      })
+      .catch((e) => {
+        if (controller.signal.aborted) return;
+        if (e instanceof ApiError && e.status === 401) {
+          signOut();
+          router.replace('/login');
+        }
+      });
+
+    return () => controller.abort();
+  }, [token, router, signOut, level, category, search, page]);
+
+  const current = Math.min(page, Math.max(1, lastPage));
+  const categoryOptions = [ALL_CATEGORIES, ...categories];
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
@@ -208,7 +225,10 @@ export default function TrainerLibraryScreen() {
                 return (
                   <Pressable
                     key={l}
-                    onPress={() => setLevel(l)}
+                    onPress={() => {
+                      setLevel(l);
+                      setPage(1);
+                    }}
                     accessibilityRole="button"
                     accessibilityLabel={`Filtro: ${l}`}
                     style={({ pressed }) => [
@@ -244,7 +264,7 @@ export default function TrainerLibraryScreen() {
 
                 {catOpen ? (
                   <View style={styles.catOpts}>
-                    {CATEGORIES.map((c) => {
+                    {categoryOptions.map((c) => {
                       const active = c === category;
                       return (
                         <Pressable
@@ -252,6 +272,7 @@ export default function TrainerLibraryScreen() {
                           onPress={() => {
                             setCategory(c);
                             setCatOpen(false);
+                            setPage(1);
                           }}
                           accessibilityRole="button"
                           accessibilityLabel={c}
@@ -276,6 +297,8 @@ export default function TrainerLibraryScreen() {
                   placeholder="Kërko material..."
                   placeholderTextColor={C.gray}
                   accessibilityLabel="Kërko material"
+                  value={searchInput}
+                  onChangeText={setSearchInput}
                 />
                 <MaterialCommunityIcons name="magnify" size={I(17)} color={C.text} />
               </View>
@@ -302,30 +325,30 @@ export default function TrainerLibraryScreen() {
                     <View style={{ width: ACTION_W }} />
                   </View>
 
-                  {MATERIALS.map((m) => (
-                    <View key={m.name} style={[styles.tr, styles.trBorder]}>
+                  {materials.map((m) => (
+                    <View key={m.id} style={[styles.tr, styles.trBorder]}>
                       <Text
                         style={[styles.td, styles.tdName, { width: 150 }]}
                         numberOfLines={1}
                         adjustsFontSizeToFit
                         minimumFontScale={0.75}
                       >
-                        {m.name}
+                        {m.title}
                       </Text>
                       <Text style={[styles.td, { width: 96 }]} numberOfLines={1}>
-                        {m.category}
+                        {m.category ?? '—'}
                       </Text>
                       <Text style={[styles.td, { width: 78 }]} numberOfLines={1}>
-                        {m.level}
+                        {levelLabel(m.level)}
                       </Text>
                       <Text style={[styles.td, { width: 78 }]} numberOfLines={1}>
-                        {m.type}
+                        {typeLabel(m.file_type)}
                       </Text>
                       <Text style={[styles.td, { width: 110 }]} numberOfLines={1}>
-                        {m.coach}
+                        {m.trainer?.name ?? '—'}
                       </Text>
                       <Text style={[styles.td, { width: 86 }]} numberOfLines={1}>
-                        {m.date}
+                        {formatDate(m.created_at)}
                       </Text>
 
                       {/* Transparent, riding on the row itself. Only Edito is
@@ -335,18 +358,22 @@ export default function TrainerLibraryScreen() {
                           onPress={() =>
                             router.push({
                               pathname: '/edito-material-trajner',
-                              params: { name: m.name, level: m.level, category: m.category },
+                              params: {
+                                name: m.title,
+                                level: levelLabel(m.level),
+                                category: m.category ?? '',
+                              },
                             } as never)
                           }
                           accessibilityRole="button"
-                          accessibilityLabel={`Edito ${m.name}`}
+                          accessibilityLabel={`Edito ${m.title}`}
                           style={({ pressed }) => [styles.actEdit, pressed && styles.pressed]}
                         >
                           <Text style={styles.actEditText}>Edito</Text>
                         </Pressable>
                         <Pressable
                           accessibilityRole="button"
-                          accessibilityLabel={`Fshij ${m.name}`}
+                          accessibilityLabel={`Fshij ${m.title}`}
                           style={({ pressed }) => [styles.actDel, pressed && styles.pressed]}
                         >
                           <Text style={styles.actDelText}>Fshij</Text>
@@ -359,36 +386,54 @@ export default function TrainerLibraryScreen() {
             </View>
 
             {/* ── Pager ─────────────────────────────────────────── */}
-            <View style={styles.pager}>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Faqja e mëparshme"
-                hitSlop={8}
-                style={({ pressed }) => [styles.pagerArrow, pressed && styles.pressed]}
-              >
-                <MaterialCommunityIcons name="chevron-left" size={I(22)} color={C.text} />
-              </Pressable>
-
-              {PAGES.map((p) => (
+            {lastPage > 1 ? (
+              <View style={styles.pager}>
                 <Pressable
-                  key={p}
+                  onPress={() => setPage(current - 1)}
+                  disabled={current <= 1}
                   accessibilityRole="button"
-                  accessibilityLabel={`Faqja ${p}`}
-                  style={({ pressed }) => [styles.pageSq, pressed && styles.pressed]}
+                  accessibilityLabel="Faqja e mëparshme"
+                  hitSlop={8}
+                  style={({ pressed }) => [
+                    styles.pagerArrow,
+                    current <= 1 && styles.pagerDisabled,
+                    pressed && styles.pressed,
+                  ]}
                 >
-                  <Text style={styles.pageSqText}>{p}</Text>
+                  <MaterialCommunityIcons name="chevron-left" size={I(22)} color={C.text} />
                 </Pressable>
-              ))}
 
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Faqja tjetër"
-                hitSlop={8}
-                style={({ pressed }) => [styles.pagerArrow, pressed && styles.pressed]}
-              >
-                <MaterialCommunityIcons name="chevron-right" size={I(22)} color={C.text} />
-              </Pressable>
-            </View>
+                {pageWindow(current, lastPage).map((p) => (
+                  <Pressable
+                    key={p}
+                    onPress={() => setPage(p)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Faqja ${p}`}
+                    style={({ pressed }) => [
+                      p === current ? styles.pageSqActive : styles.pageSq,
+                      pressed && styles.pressed,
+                    ]}
+                  >
+                    <Text style={styles.pageSqText}>{p}</Text>
+                  </Pressable>
+                ))}
+
+                <Pressable
+                  onPress={() => setPage(current + 1)}
+                  disabled={current >= lastPage}
+                  accessibilityRole="button"
+                  accessibilityLabel="Faqja tjetër"
+                  hitSlop={8}
+                  style={({ pressed }) => [
+                    styles.pagerArrow,
+                    current >= lastPage && styles.pagerDisabled,
+                    pressed && styles.pressed,
+                  ]}
+                >
+                  <MaterialCommunityIcons name="chevron-right" size={I(22)} color={C.text} />
+                </Pressable>
+              </View>
+            ) : null}
           </View>
         </ScrollView>
       </View>
@@ -731,11 +776,24 @@ const styles = StyleSheet.create(
       justifyContent: 'center',
     },
 
+    pagerDisabled: {
+      opacity: 0.3,
+    },
+
     pageSq: {
       width: 34,
       height: 34,
       borderRadius: 5,
       backgroundColor: C.blueBtn,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+
+    pageSqActive: {
+      width: 34,
+      height: 34,
+      borderRadius: 5,
+      backgroundColor: '#4E90D8',
       alignItems: 'center',
       justifyContent: 'center',
     },

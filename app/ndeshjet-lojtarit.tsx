@@ -1,12 +1,17 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
+import { ApiError } from '@/lib/api/errors';
+import { listMyMatches } from '@/lib/api/matches';
+import type { ApiMatch } from '@/lib/api/types';
 import { I, scaled } from '@/lib/responsive';
+import { useSession } from '@/lib/session';
 
 /**
  * Ndeshjet — the player's view of the season's matches, opened from the
@@ -38,9 +43,8 @@ const C = {
   blue: '#86BCFD',
 };
 
-const COMP = 'Superliga e Kosovës';
-
 type Played = {
+  id: number;
   date: string;
   /* The fixture, home side first. */
   fixture: string;
@@ -51,14 +55,36 @@ type Played = {
   comp: string;
 };
 
-const PLAYED: Played[] = [
-  { date: '18/08/2026', fixture: 'KF Trepca - FC Prishtina', time: '16:00', venue: 'Musafir', score: '2 - 1', comp: COMP },
-  { date: '11/08/2026', fixture: 'FC Prishtina - FC Drita', time: '18:00', venue: 'Shtëpi', score: '0 - 1', comp: COMP },
-  { date: '04/08/2026', fixture: 'FC Prishtina - KF Gjilani', time: '15:30', venue: 'Shtëpi', score: '1 - 1', comp: COMP },
-  { date: '28/07/2026', fixture: 'KF Llapi - FC Prishtina', time: '17:00', venue: 'Musafir', score: '0 - 2', comp: COMP },
-  { date: '21/07/2026', fixture: 'FC Prishtina - KF Ballkani', time: '19:00', venue: 'Shtëpi', score: '3 - 1', comp: COMP },
-  { date: '14/07/2026', fixture: 'KF Feronikeli - FC Prishtina', time: '17:00', venue: 'Musafir', score: '0 - 3', comp: COMP },
-];
+const pad2 = (n: number) => String(n).padStart(2, '0');
+
+/** One API match, laid onto the played-results row. The API's `venue` decides
+ *  which side of the fixture the club sits on. */
+function toPlayed(m: ApiMatch): Played {
+  const d = m.scheduled_at ? new Date(m.scheduled_at) : null;
+  const ok = d !== null && !Number.isNaN(d.getTime());
+  const team = m.team?.name ?? '—';
+  const opponent = m.opponent ?? '—';
+  const home = m.venue === 'away' ? opponent : team;
+  const guest = m.venue === 'away' ? team : opponent;
+  const scored = m.goals_for != null && m.goals_against != null;
+
+  return {
+    id: m.id,
+    date: ok ? `${pad2(d!.getDate())}/${pad2(d!.getMonth() + 1)}/${d!.getFullYear()}` : '—',
+    fixture: `${home} - ${guest}`,
+    time: ok ? `${pad2(d!.getHours())}:${pad2(d!.getMinutes())}` : '—',
+    venue: m.venue === 'away' ? 'Musafir' : 'Shtëpi',
+    score: scored ? `${m.goals_for} - ${m.goals_against}` : '—',
+    comp: m.competition ?? '—',
+  };
+}
+
+/** A short run of page numbers ending at `last`, capped for width. */
+function pageWindow(current: number, last: number, span = 4): number[] {
+  const start = Math.max(1, Math.min(current, last - span + 1));
+  const end = Math.min(last, start + span - 1);
+  return Array.from({ length: Math.max(0, end - start + 1) }, (_, i) => start + i);
+}
 
 const COLS: { key: keyof Played; label: string; width: number }[] = [
   { key: 'fixture', label: 'Ndeshja', width: 150 },
@@ -70,10 +96,36 @@ const COLS: { key: keyof Played; label: string; width: number }[] = [
 /* Just wide enough for the row's one button. */
 const ACTION_W = 56;
 
-const PAGES = ['1', '2', '3', '4'];
-
 export default function PlayerMatchesScreen() {
   const router = useRouter();
+  const { token, signOut } = useSession();
+
+  const [matches, setMatches] = useState<Played[]>([]);
+  const [page, setPage] = useState(1);
+  const [lastPage, setLastPage] = useState(1);
+
+  useEffect(() => {
+    if (!token) return;
+    const controller = new AbortController();
+
+    listMyMatches(token, { status: 'played', page }, controller.signal)
+      .then((res) => {
+        if (controller.signal.aborted) return;
+        setMatches(res.data.map(toPlayed));
+        setLastPage(res.meta.last_page);
+      })
+      .catch((e) => {
+        if (controller.signal.aborted) return;
+        if (e instanceof ApiError && e.status === 401) {
+          signOut();
+          router.replace('/login');
+        }
+      });
+
+    return () => controller.abort();
+  }, [token, router, signOut, page]);
+
+  const current = Math.min(page, Math.max(1, lastPage));
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
@@ -143,8 +195,8 @@ export default function PlayerMatchesScreen() {
                     <View style={{ width: ACTION_W }} />
                   </View>
 
-                  {PLAYED.map((p) => (
-                    <View key={`${p.date}-${p.fixture}`} style={[styles.tr, styles.trBorder]}>
+                  {matches.map((p) => (
+                    <View key={p.id} style={[styles.tr, styles.trBorder]}>
                       <Text
                         style={[styles.td, styles.tdFixture, { width: COLS[0].width }]}
                         numberOfLines={1}
@@ -205,36 +257,54 @@ export default function PlayerMatchesScreen() {
             </View>
 
             {/* ── Pager ─────────────────────────────────────────── */}
-            <View style={styles.pager}>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Faqja e mëparshme"
-                hitSlop={8}
-                style={({ pressed }) => [styles.pagerArrow, pressed && styles.pressed]}
-              >
-                <MaterialCommunityIcons name="chevron-left" size={I(22)} color={C.text} />
-              </Pressable>
-
-              {PAGES.map((p) => (
+            {lastPage > 1 ? (
+              <View style={styles.pager}>
                 <Pressable
-                  key={p}
+                  onPress={() => setPage(current - 1)}
+                  disabled={current <= 1}
                   accessibilityRole="button"
-                  accessibilityLabel={`Faqja ${p}`}
-                  style={({ pressed }) => [styles.pageSq, pressed && styles.pressed]}
+                  accessibilityLabel="Faqja e mëparshme"
+                  hitSlop={8}
+                  style={({ pressed }) => [
+                    styles.pagerArrow,
+                    current <= 1 && styles.pagerDisabled,
+                    pressed && styles.pressed,
+                  ]}
                 >
-                  <Text style={styles.pageSqText}>{p}</Text>
+                  <MaterialCommunityIcons name="chevron-left" size={I(22)} color={C.text} />
                 </Pressable>
-              ))}
 
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Faqja tjetër"
-                hitSlop={8}
-                style={({ pressed }) => [styles.pagerArrow, pressed && styles.pressed]}
-              >
-                <MaterialCommunityIcons name="chevron-right" size={I(22)} color={C.text} />
-              </Pressable>
-            </View>
+                {pageWindow(current, lastPage).map((p) => (
+                  <Pressable
+                    key={p}
+                    onPress={() => setPage(p)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Faqja ${p}`}
+                    style={({ pressed }) => [
+                      p === current ? styles.pageSqActive : styles.pageSq,
+                      pressed && styles.pressed,
+                    ]}
+                  >
+                    <Text style={styles.pageSqText}>{p}</Text>
+                  </Pressable>
+                ))}
+
+                <Pressable
+                  onPress={() => setPage(current + 1)}
+                  disabled={current >= lastPage}
+                  accessibilityRole="button"
+                  accessibilityLabel="Faqja tjetër"
+                  hitSlop={8}
+                  style={({ pressed }) => [
+                    styles.pagerArrow,
+                    current >= lastPage && styles.pagerDisabled,
+                    pressed && styles.pressed,
+                  ]}
+                >
+                  <MaterialCommunityIcons name="chevron-right" size={I(22)} color={C.text} />
+                </Pressable>
+              </View>
+            ) : null}
           </View>
         </ScrollView>
       </View>
@@ -423,11 +493,24 @@ const styles = StyleSheet.create(
       justifyContent: 'center',
     },
 
+    pagerDisabled: {
+      opacity: 0.3,
+    },
+
     pageSq: {
       width: 34,
       height: 34,
       borderRadius: 5,
       backgroundColor: C.blue,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+
+    pageSqActive: {
+      width: 34,
+      height: 34,
+      borderRadius: 5,
+      backgroundColor: '#4E90D8',
       alignItems: 'center',
       justifyContent: 'center',
     },

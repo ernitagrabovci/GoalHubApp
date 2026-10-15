@@ -258,6 +258,25 @@ export type ApiTraining = {
   attendances?: ApiTrainingAttendance[];
 };
 
+/** A coaching-library item, from `GET /library` (paginated). */
+export type ApiTrainingMaterial = {
+  id: number;
+  title: string;
+  /** `beginner`, `intermediate` or `advanced`. */
+  level: string | null;
+  category: string | null;
+  description: string | null;
+  file_path: string | null;
+  /** `mp4`, `gif`, `pdf` or null. */
+  file_type: string | null;
+  is_shared: boolean;
+  trainer: { id: number; name: string } | null;
+  created_at: string | null;
+};
+
+/** `GET /library` — the paginated shelf plus the distinct categories. */
+export type TrainingLibraryResponse = Paginated<ApiTrainingMaterial> & { categories: string[] };
+
 /** One player's line in `GET /reports/players`. */
 export type PlayerReportRow = {
   id: number;

@@ -63,7 +63,15 @@ const COLS: Col[] = [
   { key: 'kk', label: 'KK', width: 28, color: C.red },
 ];
 
-const PAGES = [1, 2, 3, 4];
+/** The stats endpoint returns every player at once, so the pager works on the client. */
+const PAGE_SIZE = 8;
+
+/** A short run of page numbers ending at `last`, capped for width. */
+function pageWindow(current: number, last: number, span = 4): number[] {
+  const start = Math.max(1, Math.min(current, last - span + 1));
+  const end = Math.min(last, start + span - 1);
+  return Array.from({ length: Math.max(0, end - start + 1) }, (_, i) => start + i);
+}
 
 /** A numeric cell, coerced from a possibly-string API value; null renders "—". */
 function cell(value: number | string | null | undefined): string {
@@ -92,6 +100,7 @@ export default function PlayerStatisticsScreen() {
   const [data, setData] = useState<PlayerStatisticsResponse | null>(null);
   const [teams, setTeams] = useState<ApiTeam[]>([]);
   const [teamFilter, setTeamFilter] = useState('');
+  const [page, setPage] = useState(1);
 
   useEffect(() => {
     if (!token) return;
@@ -149,6 +158,11 @@ export default function PlayerStatisticsScreen() {
       value: totals ? totals.minutes.toLocaleString('en-US') : '—',
     },
   ];
+
+  const rows = data?.data ?? [];
+  const lastPage = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+  const current = Math.min(page, lastPage);
+  const visibleRows = rows.slice((current - 1) * PAGE_SIZE, current * PAGE_SIZE);
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
@@ -218,7 +232,10 @@ export default function PlayerStatisticsScreen() {
               label="Filtro sipas ekipit"
               options={teamOptions}
               value={teamFilter}
-              onChange={setTeamFilter}
+              onChange={(v) => {
+                setTeamFilter(v);
+                setPage(1);
+              }}
               boxStyle={styles.teamBtn}
               textStyle={styles.teamBtnText}
             />
@@ -246,7 +263,7 @@ export default function PlayerStatisticsScreen() {
                   ))}
                 </View>
 
-                {(data?.data ?? []).map((r) => {
+                {visibleRows.map((r) => {
                   const values = rowValues(r);
                   return (
                     <View key={r.player_id} style={[styles.tr, styles.trBorder]}>
@@ -270,36 +287,54 @@ export default function PlayerStatisticsScreen() {
             </View>
 
             {/* ── Pager ─────────────────────────────────────────── */}
-            <View style={styles.pager}>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Faqja e mëparshme"
-                hitSlop={8}
-                style={({ pressed }) => [styles.pagerArrow, pressed && styles.pressed]}
-              >
-                <MaterialCommunityIcons name="chevron-left" size={I(22)} color={C.text} />
-              </Pressable>
-
-              {PAGES.map((p) => (
+            {lastPage > 1 ? (
+              <View style={styles.pager}>
                 <Pressable
-                  key={p}
+                  onPress={() => setPage(current - 1)}
+                  disabled={current <= 1}
                   accessibilityRole="button"
-                  accessibilityLabel={`Faqja ${p}`}
-                  style={({ pressed }) => [styles.pageSq, pressed && styles.pressed]}
+                  accessibilityLabel="Faqja e mëparshme"
+                  hitSlop={8}
+                  style={({ pressed }) => [
+                    styles.pagerArrow,
+                    current <= 1 && styles.pagerDisabled,
+                    pressed && styles.pressed,
+                  ]}
                 >
-                  <Text style={styles.pageSqText}>{p}</Text>
+                  <MaterialCommunityIcons name="chevron-left" size={I(22)} color={C.text} />
                 </Pressable>
-              ))}
 
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Faqja tjetër"
-                hitSlop={8}
-                style={({ pressed }) => [styles.pagerArrow, pressed && styles.pressed]}
-              >
-                <MaterialCommunityIcons name="chevron-right" size={I(22)} color={C.text} />
-              </Pressable>
-            </View>
+                {pageWindow(current, lastPage).map((p) => (
+                  <Pressable
+                    key={p}
+                    onPress={() => setPage(p)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Faqja ${p}`}
+                    style={({ pressed }) => [
+                      p === current ? styles.pageSqActive : styles.pageSq,
+                      pressed && styles.pressed,
+                    ]}
+                  >
+                    <Text style={styles.pageSqText}>{p}</Text>
+                  </Pressable>
+                ))}
+
+                <Pressable
+                  onPress={() => setPage(current + 1)}
+                  disabled={current >= lastPage}
+                  accessibilityRole="button"
+                  accessibilityLabel="Faqja tjetër"
+                  hitSlop={8}
+                  style={({ pressed }) => [
+                    styles.pagerArrow,
+                    current >= lastPage && styles.pagerDisabled,
+                    pressed && styles.pressed,
+                  ]}
+                >
+                  <MaterialCommunityIcons name="chevron-right" size={I(22)} color={C.text} />
+                </Pressable>
+              </View>
+            ) : null}
           </View>
         </ScrollView>
       </View>
@@ -516,11 +551,24 @@ const styles = StyleSheet.create(
       justifyContent: 'center',
     },
 
+    pagerDisabled: {
+      opacity: 0.3,
+    },
+
     pageSq: {
       width: 34,
       height: 34,
       borderRadius: 5,
       backgroundColor: '#86BCFD',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+
+    pageSqActive: {
+      width: 34,
+      height: 34,
+      borderRadius: 5,
+      backgroundColor: '#4E90D8',
       alignItems: 'center',
       justifyContent: 'center',
     },

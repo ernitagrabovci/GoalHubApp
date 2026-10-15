@@ -22,6 +22,12 @@ export function listMatches(token: string, params: MatchListParams = {}, signal?
   return request<Paginated<ApiMatch>>(`/matches${query}`, { token, signal });
 }
 
+/** The signed-in player's own team's matches — read-only, any role may ask. */
+export function listMyMatches(token: string, params: MatchListParams = {}, signal?: AbortSignal) {
+  const query = toQuery({ status: params.status, page: params.page });
+  return request<Paginated<ApiMatch>>(`/my/matches${query}`, { token, signal });
+}
+
 /** `GET /matches/{match}` returns a single resource envelope. */
 type MatchResponse = { data: ApiMatch };
 

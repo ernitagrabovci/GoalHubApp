@@ -1,12 +1,17 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
+import { ApiError } from '@/lib/api/errors';
+import { listLibrary } from '@/lib/api/library';
+import type { ApiTrainingMaterial } from '@/lib/api/types';
 import { I, scaled } from '@/lib/responsive';
+import { useSession } from '@/lib/session';
 
 /**
  * Planet e sesioneve — opened from "Planet e sesioneve" on the trainer's
@@ -32,7 +37,26 @@ const C = {
   green20: 'rgba(21,148,71,0.20)',
 };
 
-const PAGES = ['1', '2', '3', '4'];
+/* The library's `level`, under the label the Niveli column shows. */
+const LEVEL_LABEL: Record<string, string> = {
+  beginner: 'Fillestar',
+  intermediate: 'Mesëm',
+  advanced: 'Avancuar',
+};
+
+/* The library's `file_type`, under the label the Lloji column shows. */
+const TYPE_LABEL: Record<string, string> = { mp4: 'Video', gif: 'Video', pdf: 'PDF' };
+
+const levelLabel = (value: string | null) => (value ? LEVEL_LABEL[value] ?? value : '—');
+
+const typeLabel = (value: string | null) => (value ? TYPE_LABEL[value] ?? value.toUpperCase() : '—');
+
+/** A short run of page numbers ending at `last`, capped for width. */
+function pageWindow(current: number, last: number, span = 4): number[] {
+  const start = Math.max(1, Math.min(current, last - span + 1));
+  const end = Math.min(last, start + span - 1);
+  return Array.from({ length: Math.max(0, end - start + 1) }, (_, i) => start + i);
+}
 
 type ColKey = 'name' | 'level' | 'category' | 'coach' | 'type';
 
@@ -47,75 +71,36 @@ const COLS: { key: ColKey; label: string; width: number }[] = [
 /* The single row button, plus the gap before it. */
 const ACTION_W = 56;
 
-type Plan = {
-  name: string;
-  level: string;
-  category: string;
-  coach: string;
-  type: string;
-};
-
-const PLANS: Plan[] = [
-  {
-    name: 'Pasimi dhe kontrolli i topit',
-    level: 'Fillestar',
-    category: 'Teknika',
-    coach: 'Rexhep Hyseni',
-    type: 'Sesion',
-  },
-  {
-    name: 'Rrethimi dhe posedimi 4v4',
-    level: 'Mesëm',
-    category: 'Taktika',
-    coach: 'Rexhep Hyseni',
-    type: 'Sesion',
-  },
-  {
-    name: 'Ndërtimi i lojës nga mbrapa',
-    level: 'Avancuar',
-    category: 'Taktika',
-    coach: 'Arben Krasniqi',
-    type: 'PDF',
-  },
-  {
-    name: 'Qëndrueshmëria aerobike',
-    level: 'Mesëm',
-    category: 'Fizike',
-    coach: 'Drita Berisha',
-    type: 'Plan',
-  },
-  {
-    name: 'Gjuajtja dhe finalizimi',
-    level: 'Fillestar',
-    category: 'Teknika',
-    coach: 'Rexhep Hyseni',
-    type: 'Video',
-  },
-  {
-    name: 'Presingu i lartë i organizuar',
-    level: 'Avancuar',
-    category: 'Taktika',
-    coach: 'Arben Krasniqi',
-    type: 'Sesion',
-  },
-  {
-    name: 'Koordinimi dhe shpejtësia',
-    level: 'Fillestar',
-    category: 'Fizike',
-    coach: 'Drita Berisha',
-    type: 'Video',
-  },
-  {
-    name: 'Tranzicioni mbrojtje-sulm',
-    level: 'Mesëm',
-    category: 'Taktika',
-    coach: 'Arben Krasniqi',
-    type: 'PDF',
-  },
-];
-
 export default function SessionPlansScreen() {
   const router = useRouter();
+  const { token, signOut } = useSession();
+
+  const [plans, setPlans] = useState<ApiTrainingMaterial[]>([]);
+  const [page, setPage] = useState(1);
+  const [lastPage, setLastPage] = useState(1);
+
+  useEffect(() => {
+    if (!token) return;
+    const controller = new AbortController();
+
+    listLibrary(token, { page }, controller.signal)
+      .then((res) => {
+        if (controller.signal.aborted) return;
+        setPlans(res.data);
+        setLastPage(res.meta.last_page);
+      })
+      .catch((e) => {
+        if (controller.signal.aborted) return;
+        if (e instanceof ApiError && e.status === 401) {
+          signOut();
+          router.replace('/login');
+        }
+      });
+
+    return () => controller.abort();
+  }, [token, router, signOut, page]);
+
+  const current = Math.min(page, Math.max(1, lastPage));
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
@@ -186,27 +171,27 @@ export default function SessionPlansScreen() {
                     <View style={{ width: ACTION_W }} />
                   </View>
 
-                  {PLANS.map((p) => (
-                    <View key={p.name} style={[styles.tr, styles.trBorder]}>
+                  {plans.map((p) => (
+                    <View key={p.id} style={[styles.tr, styles.trBorder]}>
                       <Text
                         style={[styles.td, styles.tdName, { width: 150 }]}
                         numberOfLines={1}
                         adjustsFontSizeToFit
                         minimumFontScale={0.75}
                       >
-                        {p.name}
+                        {p.title}
                       </Text>
                       <Text style={[styles.td, { width: 78 }]} numberOfLines={1}>
-                        {p.level}
+                        {levelLabel(p.level)}
                       </Text>
                       <Text style={[styles.td, { width: 96 }]} numberOfLines={1}>
-                        {p.category}
+                        {p.category ?? '—'}
                       </Text>
                       <Text style={[styles.td, { width: 110 }]} numberOfLines={1}>
-                        {p.coach}
+                        {p.trainer?.name ?? '—'}
                       </Text>
                       <Text style={[styles.td, { width: 78 }]} numberOfLines={1}>
-                        {p.type}
+                        {typeLabel(p.file_type)}
                       </Text>
 
                       {/* Transparent, riding on the row itself. */}
@@ -214,7 +199,7 @@ export default function SessionPlansScreen() {
                         <Pressable
                           onPress={() => router.push('/detajet-video-trajner' as never)}
                           accessibilityRole="button"
-                          accessibilityLabel={`Shiko ${p.name}`}
+                          accessibilityLabel={`Shiko ${p.title}`}
                           style={({ pressed }) => [styles.actView, pressed && styles.pressed]}
                         >
                           <Text style={styles.actViewText}>Shiko</Text>
@@ -227,36 +212,54 @@ export default function SessionPlansScreen() {
             </View>
 
             {/* ── Pager ─────────────────────────────────────────── */}
-            <View style={styles.pager}>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Faqja e mëparshme"
-                hitSlop={8}
-                style={({ pressed }) => [styles.pagerArrow, pressed && styles.pressed]}
-              >
-                <MaterialCommunityIcons name="chevron-left" size={I(22)} color={C.text} />
-              </Pressable>
-
-              {PAGES.map((p) => (
+            {lastPage > 1 ? (
+              <View style={styles.pager}>
                 <Pressable
-                  key={p}
+                  onPress={() => setPage(current - 1)}
+                  disabled={current <= 1}
                   accessibilityRole="button"
-                  accessibilityLabel={`Faqja ${p}`}
-                  style={({ pressed }) => [styles.pageSq, pressed && styles.pressed]}
+                  accessibilityLabel="Faqja e mëparshme"
+                  hitSlop={8}
+                  style={({ pressed }) => [
+                    styles.pagerArrow,
+                    current <= 1 && styles.pagerDisabled,
+                    pressed && styles.pressed,
+                  ]}
                 >
-                  <Text style={styles.pageSqText}>{p}</Text>
+                  <MaterialCommunityIcons name="chevron-left" size={I(22)} color={C.text} />
                 </Pressable>
-              ))}
 
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Faqja tjetër"
-                hitSlop={8}
-                style={({ pressed }) => [styles.pagerArrow, pressed && styles.pressed]}
-              >
-                <MaterialCommunityIcons name="chevron-right" size={I(22)} color={C.text} />
-              </Pressable>
-            </View>
+                {pageWindow(current, lastPage).map((p) => (
+                  <Pressable
+                    key={p}
+                    onPress={() => setPage(p)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Faqja ${p}`}
+                    style={({ pressed }) => [
+                      p === current ? styles.pageSqActive : styles.pageSq,
+                      pressed && styles.pressed,
+                    ]}
+                  >
+                    <Text style={styles.pageSqText}>{p}</Text>
+                  </Pressable>
+                ))}
+
+                <Pressable
+                  onPress={() => setPage(current + 1)}
+                  disabled={current >= lastPage}
+                  accessibilityRole="button"
+                  accessibilityLabel="Faqja tjetër"
+                  hitSlop={8}
+                  style={({ pressed }) => [
+                    styles.pagerArrow,
+                    current >= lastPage && styles.pagerDisabled,
+                    pressed && styles.pressed,
+                  ]}
+                >
+                  <MaterialCommunityIcons name="chevron-right" size={I(22)} color={C.text} />
+                </Pressable>
+              </View>
+            ) : null}
           </View>
         </ScrollView>
       </View>
@@ -445,11 +448,24 @@ const styles = StyleSheet.create(
       justifyContent: 'center',
     },
 
+    pagerDisabled: {
+      opacity: 0.3,
+    },
+
     pageSq: {
       width: 34,
       height: 34,
       borderRadius: 5,
       backgroundColor: C.blueBtn,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+
+    pageSqActive: {
+      width: 34,
+      height: 34,
+      borderRadius: 5,
+      backgroundColor: '#4E90D8',
       alignItems: 'center',
       justifyContent: 'center',
     },

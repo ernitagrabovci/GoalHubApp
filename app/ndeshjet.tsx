@@ -123,7 +123,27 @@ const COLS: Col[] = [
   { key: 'actions', label: 'Veprimet', width: 46 },
 ];
 
-const PAGES = [1, 2, 3, 4];
+/** The two tables are split on the client, so page through them client-side. */
+const PAGE_SIZE = 8;
+
+/** A short run of page numbers ending at `last`, capped for width. */
+function pageWindow(current: number, last: number, span = 4): number[] {
+  const start = Math.max(1, Math.min(current, last - span + 1));
+  const end = Math.min(last, start + span - 1);
+  return Array.from({ length: Math.max(0, end - start + 1) }, (_, i) => start + i);
+}
+
+/** Every match page — the two tables page over the club's full history, and the
+ *  endpoint only serves 20 rows at a time. */
+async function fetchAllMatches(token: string, signal: AbortSignal): Promise<ApiMatch[]> {
+  const first = await listMatches(token, { page: 1 }, signal);
+  const rows = [...first.data];
+  for (let p = 2; p <= first.meta.last_page; p++) {
+    const page = await listMatches(token, { page: p }, signal);
+    rows.push(...page.data);
+  }
+  return rows;
+}
 
 export default function MatchesScreen() {
   const router = useRouter();
@@ -137,6 +157,8 @@ export default function MatchesScreen() {
   const [filterOpen, setFilterOpen] = useState(false);
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<ApiMatch | null>(null);
+  const [upcomingPage, setUpcomingPage] = useState(1);
+  const [playedPage, setPlayedPage] = useState(1);
   /* Bumped after a successful write so the lists refetch from the server. */
   const [reload, setReload] = useState(0);
 
@@ -145,7 +167,7 @@ export default function MatchesScreen() {
     const controller = new AbortController();
 
     Promise.allSettled([
-      listMatches(token, {}, controller.signal),
+      fetchAllMatches(token, controller.signal),
       listTeams(token, controller.signal),
     ]).then(([m, t]) => {
       if (controller.signal.aborted) return;
@@ -162,7 +184,7 @@ export default function MatchesScreen() {
         return;
       }
 
-      if (m.status === 'fulfilled') setMatches(m.value.data);
+      if (m.status === 'fulfilled') setMatches(m.value);
       if (t.status === 'fulfilled') setTeams(t.value.data);
       setError(failure ? 'Nuk mund të ngarkohen ndeshjet.' : null);
     });
@@ -190,6 +212,14 @@ export default function MatchesScreen() {
       .sort((a, b) => new Date(b.scheduled_at ?? 0).getTime() - new Date(a.scheduled_at ?? 0).getTime())
       .map((m) => toPlayed(m, clubName));
   }, [filtered, clubName]);
+
+  const upcomingLast = Math.max(1, Math.ceil(upcoming.length / PAGE_SIZE));
+  const upcomingCur = Math.min(upcomingPage, upcomingLast);
+  const upcomingRows = upcoming.slice((upcomingCur - 1) * PAGE_SIZE, upcomingCur * PAGE_SIZE);
+
+  const playedLast = Math.max(1, Math.ceil(played.length / PAGE_SIZE));
+  const playedCur = Math.min(playedPage, playedLast);
+  const playedRows = played.slice((playedCur - 1) * PAGE_SIZE, playedCur * PAGE_SIZE);
 
   const filterLabel =
     teamFilter === 'all'
@@ -264,6 +294,8 @@ export default function MatchesScreen() {
                     <Pressable
                       onPress={() => {
                         setTeamFilter('all');
+                        setUpcomingPage(1);
+                        setPlayedPage(1);
                         setFilterOpen(false);
                       }}
                       style={styles.filterItem}
@@ -275,6 +307,8 @@ export default function MatchesScreen() {
                         key={t.id}
                         onPress={() => {
                           setTeamFilter(t.id);
+                          setUpcomingPage(1);
+                          setPlayedPage(1);
                           setFilterOpen(false);
                         }}
                         style={styles.filterItem}
@@ -315,12 +349,12 @@ export default function MatchesScreen() {
                 <View style={styles.stateBox}>
                   <Text style={styles.stateText}>…</Text>
                 </View>
-              ) : upcoming.length === 0 ? (
+              ) : upcomingRows.length === 0 ? (
                 <View style={styles.stateBox}>
                   <Text style={styles.stateText}>Nuk ka ndeshje të ardhshme.</Text>
                 </View>
               ) : (
-                upcoming.map((f, i) => (
+                upcomingRows.map((f, i) => (
                   <View
                     key={f.id ?? `${f.day}-${f.away}-${i}`}
                     style={[styles.mRow, i > 0 && styles.mRowBorder]}
@@ -398,36 +432,54 @@ export default function MatchesScreen() {
             </View>
 
             {/* ── Pager ─────────────────────────────────────────── */}
-            <View style={styles.pager}>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Faqja e mëparshme"
-                hitSlop={8}
-                style={({ pressed }) => [styles.pagerArrow, pressed && styles.pressed]}
-              >
-                <MaterialCommunityIcons name="chevron-left" size={I(22)} color={C.text} />
-              </Pressable>
-
-              {PAGES.map((p) => (
+            {upcomingLast > 1 ? (
+              <View style={styles.pager}>
                 <Pressable
-                  key={p}
+                  onPress={() => setUpcomingPage(upcomingCur - 1)}
+                  disabled={upcomingCur <= 1}
                   accessibilityRole="button"
-                  accessibilityLabel={`Faqja ${p}`}
-                  style={({ pressed }) => [styles.pageSq, pressed && styles.pressed]}
+                  accessibilityLabel="Faqja e mëparshme"
+                  hitSlop={8}
+                  style={({ pressed }) => [
+                    styles.pagerArrow,
+                    upcomingCur <= 1 && styles.pagerDisabled,
+                    pressed && styles.pressed,
+                  ]}
                 >
-                  <Text style={styles.pageSqText}>{p}</Text>
+                  <MaterialCommunityIcons name="chevron-left" size={I(22)} color={C.text} />
                 </Pressable>
-              ))}
 
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Faqja tjetër"
-                hitSlop={8}
-                style={({ pressed }) => [styles.pagerArrow, pressed && styles.pressed]}
-              >
-                <MaterialCommunityIcons name="chevron-right" size={I(22)} color={C.text} />
-              </Pressable>
-            </View>
+                {pageWindow(upcomingCur, upcomingLast).map((p) => (
+                  <Pressable
+                    key={p}
+                    onPress={() => setUpcomingPage(p)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Faqja ${p}`}
+                    style={({ pressed }) => [
+                      p === upcomingCur ? styles.pageSqActive : styles.pageSq,
+                      pressed && styles.pressed,
+                    ]}
+                  >
+                    <Text style={styles.pageSqText}>{p}</Text>
+                  </Pressable>
+                ))}
+
+                <Pressable
+                  onPress={() => setUpcomingPage(upcomingCur + 1)}
+                  disabled={upcomingCur >= upcomingLast}
+                  accessibilityRole="button"
+                  accessibilityLabel="Faqja tjetër"
+                  hitSlop={8}
+                  style={({ pressed }) => [
+                    styles.pagerArrow,
+                    upcomingCur >= upcomingLast && styles.pagerDisabled,
+                    pressed && styles.pressed,
+                  ]}
+                >
+                  <MaterialCommunityIcons name="chevron-right" size={I(22)} color={C.text} />
+                </Pressable>
+              </View>
+            ) : null}
 
             {/* ── Ndeshjet e luajtura ───────────────────────────── */}
             <View style={styles.card}>
@@ -463,12 +515,12 @@ export default function MatchesScreen() {
                   <View style={styles.stateBox}>
                     <Text style={styles.stateText}>…</Text>
                   </View>
-                ) : played.length === 0 ? (
+                ) : playedRows.length === 0 ? (
                   <View style={styles.stateBox}>
                     <Text style={styles.stateText}>Nuk ka ndeshje të luajtura.</Text>
                   </View>
                 ) : (
-                  played.map((p, i) => (
+                  playedRows.map((p, i) => (
                     <View key={p.id} style={[styles.tr, i > 0 && styles.trBorder]}>
                       <View style={[styles.tdMatch, styles.colFirst]}>
                         <Text
@@ -530,36 +582,54 @@ export default function MatchesScreen() {
             </View>
 
             {/* ── Pager ─────────────────────────────────────────── */}
-            <View style={styles.pager}>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Faqja e mëparshme"
-                hitSlop={8}
-                style={({ pressed }) => [styles.pagerArrow, pressed && styles.pressed]}
-              >
-                <MaterialCommunityIcons name="chevron-left" size={I(22)} color={C.text} />
-              </Pressable>
-
-              {PAGES.map((p) => (
+            {playedLast > 1 ? (
+              <View style={styles.pager}>
                 <Pressable
-                  key={p}
+                  onPress={() => setPlayedPage(playedCur - 1)}
+                  disabled={playedCur <= 1}
                   accessibilityRole="button"
-                  accessibilityLabel={`Faqja ${p}`}
-                  style={({ pressed }) => [styles.pageSq, pressed && styles.pressed]}
+                  accessibilityLabel="Faqja e mëparshme"
+                  hitSlop={8}
+                  style={({ pressed }) => [
+                    styles.pagerArrow,
+                    playedCur <= 1 && styles.pagerDisabled,
+                    pressed && styles.pressed,
+                  ]}
                 >
-                  <Text style={styles.pageSqText}>{p}</Text>
+                  <MaterialCommunityIcons name="chevron-left" size={I(22)} color={C.text} />
                 </Pressable>
-              ))}
 
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Faqja tjetër"
-                hitSlop={8}
-                style={({ pressed }) => [styles.pagerArrow, pressed && styles.pressed]}
-              >
-                <MaterialCommunityIcons name="chevron-right" size={I(22)} color={C.text} />
-              </Pressable>
-            </View>
+                {pageWindow(playedCur, playedLast).map((p) => (
+                  <Pressable
+                    key={p}
+                    onPress={() => setPlayedPage(p)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Faqja ${p}`}
+                    style={({ pressed }) => [
+                      p === playedCur ? styles.pageSqActive : styles.pageSq,
+                      pressed && styles.pressed,
+                    ]}
+                  >
+                    <Text style={styles.pageSqText}>{p}</Text>
+                  </Pressable>
+                ))}
+
+                <Pressable
+                  onPress={() => setPlayedPage(playedCur + 1)}
+                  disabled={playedCur >= playedLast}
+                  accessibilityRole="button"
+                  accessibilityLabel="Faqja tjetër"
+                  hitSlop={8}
+                  style={({ pressed }) => [
+                    styles.pagerArrow,
+                    playedCur >= playedLast && styles.pagerDisabled,
+                    pressed && styles.pressed,
+                  ]}
+                >
+                  <MaterialCommunityIcons name="chevron-right" size={I(22)} color={C.text} />
+                </Pressable>
+              </View>
+            ) : null}
           </View>
         </ScrollView>
       </View>
@@ -971,11 +1041,24 @@ const styles = StyleSheet.create(
       justifyContent: 'center',
     },
 
+    pagerDisabled: {
+      opacity: 0.3,
+    },
+
     pageSq: {
       width: 34,
       height: 34,
       borderRadius: 5,
       backgroundColor: C.blueBtn,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+
+    pageSqActive: {
+      width: 34,
+      height: 34,
+      borderRadius: 5,
+      backgroundColor: '#4E90D8',
       alignItems: 'center',
       justifyContent: 'center',
     },
