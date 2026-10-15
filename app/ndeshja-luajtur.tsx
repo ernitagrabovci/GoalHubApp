@@ -1,12 +1,17 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
+import { ApiError } from '@/lib/api/errors';
+import { getMatch } from '@/lib/api/matches';
+import type { ApiMatch } from '@/lib/api/types';
 import { I, scaled } from '@/lib/responsive';
+import { useSession } from '@/lib/session';
 
 /**
  * A played match — opened from "Shiko" on the results table in ndeshjet. Shows
@@ -89,11 +94,30 @@ function formatDate(date: string): string {
   return `${day} ${mon.charAt(0).toUpperCase()}${mon.slice(1).toLowerCase()} ${year}`;
 }
 
-/** A win is Prishtina scoring more than the opponent. */
-function outcome(home: string, score: string): 'F' | 'H' | 'B' {
+const pad2 = (n: number) => String(n).padStart(2, '0');
+
+/** `2026-08-18T16:00:00Z` → `18 Aug 2026, 16:00`. */
+function formatDateTime(iso: string | null): string {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '—';
+  const mon = MONTHS[d.getMonth()];
+  const name = `${mon.charAt(0)}${mon.slice(1).toLowerCase()}`;
+  return `${pad2(d.getDate())} ${name} ${d.getFullYear()}, ${pad2(d.getHours())}:${pad2(
+    d.getMinutes(),
+  )}`;
+}
+
+/** Win/draw/loss from the club's own goals — the API reports both sides. */
+function verdict(scored: number, conceded: number): 'F' | 'H' | 'B' {
+  if (scored === conceded) return 'B';
+  return scored > conceded ? 'F' : 'H';
+}
+
+/** Fallback verdict from a static "h - a" score, when the club is the home side. */
+function staticOutcome(atHome: boolean, score: string): 'F' | 'H' | 'B' {
   const [h, a] = score.split('-').map(Number);
   if (h === a) return 'B';
-  const atHome = home.includes('Prishtina');
   return (atHome ? h > a : a > h) ? 'F' : 'H';
 }
 
@@ -105,8 +129,10 @@ const RESULT = {
 
 export default function PlayedMatchScreen() {
   const router = useRouter();
+  const { token, signOut } = useSession();
 
   const params = useLocalSearchParams<{
+    id?: string;
     home?: string;
     away?: string;
     team?: string;
@@ -116,18 +142,51 @@ export default function PlayedMatchScreen() {
     score?: string;
   }>();
 
-  const home = params.home ?? '';
-  const away = params.away ?? '';
-  const score = params.score ?? '';
+  const matchId = params.id ? Number(params.id) : null;
+  const [match, setMatch] = useState<ApiMatch | null>(null);
+
+  useEffect(() => {
+    if (!token || !matchId || Number.isNaN(matchId)) return;
+    const controller = new AbortController();
+
+    getMatch(token, matchId, controller.signal)
+      .then((res) => {
+        if (controller.signal.aborted) return;
+        setMatch(res.data);
+      })
+      .catch((e) => {
+        if (controller.signal.aborted) return;
+        if (e instanceof ApiError && e.status === 401) {
+          signOut();
+          router.replace('/login');
+        }
+      });
+
+    return () => controller.abort();
+  }, [token, matchId, router, signOut]);
+
+  const home = match?.team?.name ?? params.home ?? '';
+  const away = match?.opponent ?? params.away ?? '';
   const title = away ? `${home} - ${away}` : home;
 
-  const result = RESULT[outcome(home, score)];
+  const score = match
+    ? `${match.goals_for ?? '—'} - ${match.goals_against ?? '—'}`
+    : params.score ?? '';
+
+  /* With live data the club is always the home side, so its own goal count decides. */
+  const result = RESULT[
+    match?.goals_for != null && match?.goals_against != null
+      ? verdict(match.goals_for, match.goals_against)
+      : staticOutcome(home.includes('Prishtina'), score)
+  ];
 
   const values = [
-    params.team ?? '',
-    home.includes('Prishtina') ? 'Shtëpi' : 'Musafir',
-    params.comp ?? '',
-    `${formatDate(params.date ?? '')}, ${params.time ?? ''}`,
+    match?.team?.name ?? params.team ?? '',
+    match?.venue ?? (match || home.includes('Prishtina') ? 'Shtëpi' : 'Musafir'),
+    match?.competition ?? params.comp ?? '',
+    match
+      ? formatDateTime(match.scheduled_at)
+      : `${formatDate(params.date ?? '')}, ${params.time ?? ''}`,
   ];
 
   return (

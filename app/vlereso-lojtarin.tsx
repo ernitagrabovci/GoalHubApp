@@ -14,7 +14,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
+import { ApiError } from '@/lib/api/errors';
+import { ratePlayer } from '@/lib/api/players';
 import { I, scaled } from '@/lib/responsive';
+import { useSession } from '@/lib/session';
 
 /**
  * Vlerëso lojtarin — the trainer's grading form, opened from the "Vlerëso"
@@ -108,7 +111,7 @@ function RatingRow({
         if (!width) return;
         const next = startRef.current + (g.dx / width) * (MAX - MIN);
         const clamped = Math.min(MAX, Math.max(MIN, next));
-        changeRef.current(Math.round(clamped * 10) / 10);
+        changeRef.current(Math.round(clamped));
       },
     }),
   );
@@ -151,8 +154,14 @@ function RatingRow({
 
 export default function RatePlayerScreen() {
   const router = useRouter();
+  const { token, signOut } = useSession();
 
-  const params = useLocalSearchParams<{ name?: string }>();
+  const params = useLocalSearchParams<{
+    id?: string;
+    name?: string;
+    team?: string;
+    nr?: string;
+  }>();
   const name = params.name ?? 'Narti Cerkini';
 
   const [scores, setScores] = useState<number[]>(() => CATEGORIES.map(() => START));
@@ -160,9 +169,60 @@ export default function RatePlayerScreen() {
   const [month, setMonth] = useState('');
   const [year, setYear] = useState('');
   const [comment, setComment] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const setScore = (index: number, value: number) =>
     setScores((prev) => prev.map((score, i) => (i === index ? value : score)));
+
+  /** The rating date from the DD/MM/YYYY boxes, or today when they are not a
+      usable date. */
+  const ratedAt = (): string => {
+    const d = Number(day);
+    const m = Number(month);
+    const y = Number(year);
+    if (d >= 1 && d <= 31 && m >= 1 && m <= 12 && y >= 1000 && y <= 9999) {
+      return `${String(y).padStart(4, '0')}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+    }
+    return new Date().toISOString().slice(0, 10);
+  };
+
+  const save = () => {
+    if (!token || saving) return;
+    const id = Number(params.id);
+    if (!id || Number.isNaN(id)) {
+      setError('Mungon lojtari.');
+      return;
+    }
+    setSaving(true);
+    setError(null);
+
+    ratePlayer(token, id, {
+      technique: scores[0],
+      physical: scores[1],
+      tactics: scores[2],
+      consistency: scores[3],
+      teamwork: scores[4],
+      comment: comment.trim() || null,
+      rated_at: ratedAt(),
+    })
+      .then(() => router.back())
+      .catch((err) => {
+        if (err instanceof ApiError && err.status === 401) {
+          signOut();
+          router.replace('/login');
+          return;
+        }
+        setSaving(false);
+        if (err instanceof ApiError && err.status === 0) {
+          setError('Nuk mund të lidhemi me serverin. Kontrollo lidhjen.');
+        } else if (err instanceof ApiError && err.status === 422) {
+          setError('Të dhënat nuk janë të vlefshme. Kontrollo fushat.');
+        } else {
+          setError('Vlerësimi nuk mund të ruhet.');
+        }
+      });
+  };
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
@@ -266,6 +326,12 @@ export default function RatePlayerScreen() {
               />
 
               {/* ── Actions ────────────────────────────────────────── */}
+              {error ? (
+                <Text style={styles.errorText} numberOfLines={2}>
+                  {error}
+                </Text>
+              ) : null}
+
               <View style={styles.actions}>
                 <Pressable
                   onPress={() => router.back()}
@@ -280,16 +346,18 @@ export default function RatePlayerScreen() {
                   <Text style={styles.btnText}>Anulo</Text>
                 </Pressable>
                 <Pressable
-                  onPress={() => router.back()}
+                  onPress={save}
+                  disabled={saving}
                   accessibilityRole="button"
-                  accessibilityLabel="Krijo sezonin"
+                  accessibilityLabel="Ruaj vlerësimin"
                   style={({ pressed }) => [
                     styles.btn,
                     styles.btnCreate,
+                    saving && styles.btnOff,
                     pressed && styles.pressed,
                   ]}
                 >
-                  <Text style={styles.btnText}>Krijo sezonin</Text>
+                  <Text style={styles.btnText}>Ruaj vlerësimin</Text>
                 </Pressable>
               </View>
             </View>
@@ -514,6 +582,14 @@ const styles = StyleSheet.create(
     },
 
     /* ── Actions ─────────────────────────────────────────────── */
+    errorText: {
+      marginTop: 14,
+      fontFamily: Fonts.body,
+      fontSize: 11,
+      lineHeight: 15,
+      color: C.cancel,
+    },
+
     actions: {
       flexDirection: 'row',
       justifyContent: 'flex-end',
@@ -535,6 +611,10 @@ const styles = StyleSheet.create(
 
     btnCreate: {
       backgroundColor: C.create,
+    },
+
+    btnOff: {
+      opacity: 0.5,
     },
 
     btnText: {

@@ -1,13 +1,16 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
+import { ApiError } from '@/lib/api/errors';
+import { getTraining, saveAttendance } from '@/lib/api/trainings';
 import { I, scaled } from '@/lib/responsive';
+import { useSession } from '@/lib/session';
 
 /**
  * Regjistro prezencën — the trainer marks who turned up, opened from the
@@ -42,20 +45,19 @@ const C = {
 
 type Mark = 'prezent' | 'mungon';
 
-type Player = {
+/** One row of the sheet, drawn from the training's own attendance lines. */
+type Roster = {
+  playerId: number;
   name: string;
-  nr: string;
-  pos: string;
+  reason: string | null;
 };
 
-const PLAYERS: Player[] = [
-  { name: 'Bekim Rexhepi', nr: '1', pos: 'Portier' },
-  { name: 'Dardan Krasniqi', nr: '2', pos: 'Mbrojtës' },
-  { name: 'Endrit Hoxha', nr: '4', pos: 'Mesfushor' },
-  { name: 'Genc Morina', nr: '6', pos: 'Mesfushor' },
-  { name: 'Ardit Llapashtica', nr: '9', pos: 'Sulmues' },
-  { name: 'Hamdi Shala', nr: '11', pos: 'Sulmues' },
-];
+/** The backend's three states, as the sheet's two marks plus "unmarked". */
+function statusToMark(status: string): Mark | null {
+  if (status === 'present') return 'prezent';
+  if (status === 'absent') return 'mungon';
+  return null;
+}
 
 /* The two mark columns are as wide as the "everyone" buttons that head them,
    so a player's pair sits directly under the shortcuts. */
@@ -69,8 +71,10 @@ const W = {
 
 export default function RegisterAttendanceScreen() {
   const router = useRouter();
+  const { token, signOut } = useSession();
 
   const params = useLocalSearchParams<{
+    id?: string;
     date?: string;
     time?: string;
     field?: string;
@@ -78,22 +82,102 @@ export default function RegisterAttendanceScreen() {
     duration?: string;
   }>();
 
+  const trainingId = params.id != null ? Number(params.id) : NaN;
+  const validId = Number.isFinite(trainingId);
+
   const date = params.date ?? '18 Aug 2026';
   const time = params.time ?? '17:00';
   const field = params.field ?? 'Salla e Brendshme';
   const type = params.type ?? 'Taktike';
   const duration = params.duration ?? '90 min';
 
-  const [marks, setMarks] = useState<(Mark | null)[]>(() => PLAYERS.map(() => null));
+  const [roster, setRoster] = useState<Roster[]>([]);
+  const [marks, setMarks] = useState<(Mark | null)[]>([]);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(
+    params.id != null && !Number.isFinite(trainingId) ? 'Mungon stërvitja.' : null,
+  );
+
+  /* Load the training's real attendance sheet. */
+  useEffect(() => {
+    if (!token || !validId) return;
+    const controller = new AbortController();
+
+    getTraining(token, trainingId, controller.signal)
+      .then((res) => {
+        if (controller.signal.aborted) return;
+        const rows = res.data.attendances ?? [];
+        setRoster(
+          rows.map((a) => ({
+            playerId: a.player_id,
+            name: a.player_name ?? '—',
+            reason: a.reason,
+          })),
+        );
+        setMarks(rows.map((a) => statusToMark(a.status)));
+      })
+      .catch((err) => {
+        if (controller.signal.aborted) return;
+        if (err instanceof ApiError && err.status === 401) {
+          signOut();
+          router.replace('/login');
+          return;
+        }
+        setError('Nuk mund të ngarkohet lista e lojtarëve.');
+      });
+
+    return () => controller.abort();
+  }, [token, trainingId, validId, signOut, router]);
 
   const present = marks.filter((m) => m === 'prezent').length;
   const absent = marks.filter((m) => m === 'mungon').length;
 
-  const setAll = (mark: Mark) => setMarks(PLAYERS.map(() => mark));
+  const setAll = (mark: Mark) => setMarks(roster.map(() => mark));
 
   /* Tapping the mark a player already carries takes it back off. */
   const toggle = (index: number, mark: Mark) =>
     setMarks((prev) => prev.map((m, i) => (i === index ? (m === mark ? null : mark) : m)));
+
+  const save = () => {
+    if (!token || saving) return;
+    if (!validId) {
+      setError('Mungon stërvitja.');
+      return;
+    }
+
+    setSaving(true);
+    setError(null);
+
+    const attendance: Record<
+      number,
+      { status: 'present' | 'absent' | 'unconfirmed'; reason?: string | null }
+    > = {};
+    roster.forEach((r, i) => {
+      const m = marks[i];
+      attendance[r.playerId] = {
+        status: m === 'prezent' ? 'present' : m === 'mungon' ? 'absent' : 'unconfirmed',
+        reason: r.reason,
+      };
+    });
+
+    saveAttendance(token, trainingId, attendance)
+      .then(() => router.back())
+      .catch((err) => {
+        if (err instanceof ApiError && err.status === 401) {
+          signOut();
+          router.replace('/login');
+          return;
+        }
+        setSaving(false);
+        if (err instanceof ApiError && err.status === 0) {
+          setError('Nuk mund të lidhemi me serverin. Kontrollo lidhjen.');
+        } else if (err instanceof ApiError && err.status === 422) {
+          setError('Të dhënat nuk janë të vlefshme. Kontrollo fushat.');
+        } else {
+          setError('Nuk mund të regjistrohet prezenca.');
+        }
+      });
+  };
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
@@ -275,8 +359,8 @@ export default function RegisterAttendanceScreen() {
                     </View>
                   </View>
 
-                  {PLAYERS.map((p, i) => (
-                    <View key={p.nr} style={[styles.tr, styles.trBorder]}>
+                  {roster.map((p, i) => (
+                    <View key={p.playerId} style={[styles.tr, styles.trBorder]}>
                       <Text
                         style={[styles.td, styles.tdName, { width: W.name }]}
                         numberOfLines={1}
@@ -286,7 +370,7 @@ export default function RegisterAttendanceScreen() {
                         {p.name}
                       </Text>
                       <Text style={[styles.td, { width: W.nr }]} numberOfLines={1}>
-                        {p.nr}
+                        —
                       </Text>
                       <Text
                         style={[styles.td, { width: W.pos }]}
@@ -294,7 +378,7 @@ export default function RegisterAttendanceScreen() {
                         adjustsFontSizeToFit
                         minimumFontScale={0.75}
                       >
-                        {p.pos}
+                        —
                       </Text>
 
                       <View style={{ width: W.prezent }}>
@@ -346,14 +430,26 @@ export default function RegisterAttendanceScreen() {
             </View>
 
             {/* ── Tally and save — under the table, on the page ────── */}
+            {error ? (
+              <Text style={styles.errorText} numberOfLines={2}>
+                {error}
+              </Text>
+            ) : null}
+
             <View style={styles.footRow}>
               <Text style={styles.footText} numberOfLines={1}>
                 {`${present} prezent • ${absent} mungesë`}
               </Text>
               <Pressable
+                onPress={save}
+                disabled={saving || !validId}
                 accessibilityRole="button"
                 accessibilityLabel="Ruaj prezencën"
-                style={({ pressed }) => [styles.saveBtn, pressed && styles.pressed]}
+                style={({ pressed }) => [
+                  styles.saveBtn,
+                  (saving || !validId) && styles.saveBtnOff,
+                  pressed && styles.pressed,
+                ]}
               >
                 <Text style={styles.saveBtnText} numberOfLines={1}>
                   Ruaj prezencën
@@ -650,6 +746,14 @@ const styles = StyleSheet.create(
     },
 
     /* ── Tally and save ──────────────────────────────────────── */
+    errorText: {
+      marginTop: 10,
+      fontFamily: Fonts.body,
+      fontSize: 11,
+      lineHeight: 15,
+      color: C.red,
+    },
+
     /* Sits under the table's frame, on the page itself. */
     footRow: {
       flexDirection: 'row',
@@ -673,6 +777,10 @@ const styles = StyleSheet.create(
       paddingHorizontal: 12,
       backgroundColor: C.green,
       borderRadius: 4,
+    },
+
+    saveBtnOff: {
+      opacity: 0.5,
     },
 
     saveBtnText: {

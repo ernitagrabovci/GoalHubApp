@@ -49,6 +49,7 @@ export default function TrainerMatchViewScreen() {
   const router = useRouter();
 
   const params = useLocalSearchParams<{
+    id?: string;
     home?: string;
     away?: string;
     day?: string;
@@ -116,6 +117,7 @@ export default function TrainerMatchViewScreen() {
                   router.push({
                     pathname: '/cakto-formacion',
                     params: {
+                      ...(params.id ? { id: params.id } : {}),
                       home,
                       away,
                       day: params.day ?? '',
@@ -134,7 +136,10 @@ export default function TrainerMatchViewScreen() {
               </Pressable>
               <Pressable
                 onPress={() =>
-                  router.push({ pathname: '/fut-rezultatin', params: { home, away } })
+                  router.push({
+                    pathname: '/fut-rezultatin',
+                    params: { ...(params.id ? { id: params.id } : {}), home, away },
+                  })
                 }
                 accessibilityRole="button"
                 accessibilityLabel="Fut rezultatin"

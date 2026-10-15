@@ -1,12 +1,19 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useEffect, useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
+import { ApiError } from '@/lib/api/errors';
+import { getPlayer } from '@/lib/api/players';
+import type { ApiPlayer } from '@/lib/api/types';
+import { positionLabel } from '@/lib/player-position';
+import { statusLabel } from '@/lib/player-status';
 import { I, scaled } from '@/lib/responsive';
+import { useSession } from '@/lib/session';
 
 /**
  * Single player page — opened from the "Progres i mirë / Progres i keq"
@@ -73,23 +80,91 @@ const ATTENDANCE = [
   { label: 'pa status', value: '0', dot: C.hintSoft },
 ];
 
-const DETAILS = [
-  { label: 'Mosha', value: '21 vjeç' },
-  { label: 'Kombësia', value: 'Kosovar' },
-  { label: 'Email', value: 'narti@gmail.com' },
-  { label: 'Licensa FFK', value: '111' },
-  { label: 'Kontrata nga', value: '25 gusht 2026' },
-  { label: 'Kontrata deri', value: '26 gusht 2027' },
+const MONTHS = [
+  'janar',
+  'shkurt',
+  'mars',
+  'prill',
+  'maj',
+  'qershor',
+  'korrik',
+  'gusht',
+  'shtator',
+  'tetor',
+  'nëntor',
+  'dhjetor',
 ];
+
+/** `2026-08-25` → `25 gusht 2026`; empty/unparseable dates render as a dash. */
+function formatContract(iso: string | null | undefined): string {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '—';
+  return `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+}
+
+/** `health_status` → the existing pill tones; anything unknown stays green. */
+const STATUS_TONE: Record<string, string> = {
+  active: C.green,
+  injured: C.red,
+  rehabilitation: C.orange,
+  suspended: C.redDark,
+};
 
 export default function PlayerProfileScreen() {
   const router = useRouter();
+  const { token, signOut } = useSession();
 
-  const params = useLocalSearchParams<{ name?: string; team?: string; nr?: string; pos?: string }>();
-  const name = params.name ?? 'Narti Cerkini';
-  const team = params.team ?? 'Ekipi i Parë';
-  const nr = params.nr ?? '1';
-  const pos = params.pos ?? 'Portier';
+  const params = useLocalSearchParams<{
+    id?: string;
+    name?: string;
+    team?: string;
+    nr?: string;
+    pos?: string;
+  }>();
+
+  const playerId = params.id ? Number(params.id) : null;
+  const [player, setPlayer] = useState<ApiPlayer | null>(null);
+
+  useEffect(() => {
+    if (!token || !playerId || Number.isNaN(playerId)) return;
+    const controller = new AbortController();
+
+    getPlayer(token, playerId, controller.signal)
+      .then((res) => {
+        if (controller.signal.aborted) return;
+        setPlayer(res.data);
+      })
+      .catch((e) => {
+        if (controller.signal.aborted) return;
+        if (e instanceof ApiError && e.status === 401) {
+          signOut();
+          router.replace('/login');
+        }
+      });
+
+    return () => controller.abort();
+  }, [token, playerId, router, signOut]);
+
+  const name = player?.name ?? params.name ?? 'Narti Cerkini';
+  const team = player?.team?.name ?? params.team ?? 'Ekipi i Parë';
+  const nr =
+    player?.jersey_number != null ? String(player.jersey_number) : params.nr ?? '1';
+  const pos = player?.position
+    ? positionLabel(player.position)
+    : params.pos ?? 'Portier';
+
+  // Personal-details rows. With no fetched player the original static values
+  // stay, so the design reads the same; otherwise each mapped field is driven
+  // by the API and the unmapped rows (nationality, FFK licence) stay static.
+  const details = [
+    { label: 'Mosha', value: player ? (player.age != null ? `${player.age} vjeç` : '—') : '21 vjeç' },
+    { label: 'Kombësia', value: 'Kosovar' },
+    { label: 'Email', value: player ? player.email ?? '—' : 'narti@gmail.com' },
+    { label: 'Licensa FFK', value: '111' },
+    { label: 'Kontrata nga', value: player ? formatContract(player.contract_start) : '25 gusht 2026' },
+    { label: 'Kontrata deri', value: player ? formatContract(player.contract_end) : '26 gusht 2027' },
+  ];
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
@@ -142,7 +217,15 @@ export default function PlayerProfileScreen() {
               <View style={[styles.duoCard, styles.card]}>
                 <View style={styles.identityTop}>
                   <View style={styles.profileBox}>
-                    <MaterialCommunityIcons name="account" size={I(34)} color="#000000" />
+                    {player?.avatar ? (
+                      <Image
+                        source={{ uri: player.avatar }}
+                        style={styles.profileImg}
+                        resizeMode="cover"
+                      />
+                    ) : (
+                      <MaterialCommunityIcons name="account" size={I(34)} color="#000000" />
+                    )}
                   </View>
                   <View style={styles.identityText}>
                     <Text style={styles.playerName} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
@@ -154,8 +237,19 @@ export default function PlayerProfileScreen() {
                     <Text style={styles.playerTeam} numberOfLines={1}>
                       {team}
                     </Text>
-                    <View style={styles.activePill}>
-                      <Text style={styles.activePillText}>Aktiv</Text>
+                    <View
+                      style={[
+                        styles.activePill,
+                        {
+                          backgroundColor: player
+                            ? STATUS_TONE[player.health_status] ?? C.green
+                            : C.green,
+                        },
+                      ]}
+                    >
+                      <Text style={styles.activePillText}>
+                        {player ? statusLabel(player.health_status) : 'Aktiv'}
+                      </Text>
                     </View>
                   </View>
                 </View>
@@ -273,10 +367,10 @@ export default function PlayerProfileScreen() {
 
               {/* Personal details card */}
               <View style={[styles.duoCard, styles.card]}>
-                {DETAILS.map((d, i) => (
+                {details.map((d, i) => (
                   <View
                     key={d.label}
-                    style={[styles.detRow, i < DETAILS.length - 1 && styles.detRowLine]}
+                    style={[styles.detRow, i < details.length - 1 && styles.detRowLine]}
                   >
                     <Text style={styles.detLabel} numberOfLines={1}>
                       {d.label}
@@ -504,6 +598,13 @@ const styles = StyleSheet.create(
       borderColor: '#000000',
       alignItems: 'center',
       justifyContent: 'center',
+    },
+
+    /* Fills the avatar box when the player record carries a photo. */
+    profileImg: {
+      width: 62,
+      height: 62,
+      borderRadius: 7,
     },
 
     identityText: {

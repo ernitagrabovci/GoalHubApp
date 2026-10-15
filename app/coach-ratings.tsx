@@ -1,12 +1,17 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
+import { ApiError } from '@/lib/api/errors';
+import { listRatings } from '@/lib/api/ratings';
+import type { PlayerRatingRow } from '@/lib/api/types';
 import { I, scaled } from '@/lib/responsive';
+import { useSession } from '@/lib/session';
 
 /**
  * Vlerësimi i trajnerit — opened from the "Vlerësimet" card on the players
@@ -35,32 +40,60 @@ const C = {
 const CATEGORIES = ['Teknika', 'Fiziku', 'Taktikat', 'Stabiliteti', 'Punë ekipore'];
 
 type RatedPlayer = {
+  id: number;
   name: string;
   team: string;
   nr: string;
-  scores: [number, number, number, number, number];
+  /* The card's overall score and the five category scores (0–10), from the API. */
+  overall: number | null;
+  scores: (number | null)[];
 };
 
-/* Scores are 0–10; seven and up reads as progress, below that as a problem. */
-const PLAYERS: RatedPlayer[] = [
-  { name: 'Ardit Lapashtica', team: 'Ekipi i Parë', nr: '9', scores: [8.7, 8.2, 8.5, 7.9, 8.8] },
-  { name: 'Narti Cerkini', team: 'Ekipi i Parë', nr: '1', scores: [7.9, 8.4, 7.2, 8.6, 8.1] },
-  { name: 'Blerim Krasniqi', team: 'U21', nr: '10', scores: [8.2, 6.4, 7.8, 7.1, 8.4] },
-  { name: 'Endrit Gashi', team: 'U21', nr: '7', scores: [6.9, 8.8, 7.4, 7.6, 8.2] },
-  { name: 'Leart Berisha', team: 'U17', nr: '4', scores: [7.4, 7.8, 8.9, 8.3, 7.7] },
-  { name: 'Riad Hoxha', team: 'U17', nr: '11', scores: [5.8, 6.2, 6.9, 5.4, 7.1] },
-  { name: 'Arbnor Zeka', team: 'U15', nr: '6', scores: [7.1, 6.8, 7.9, 8.0, 7.5] },
-  { name: 'Dion Nimani', team: 'U15', nr: '3', scores: [8.5, 8.1, 7.6, 8.4, 8.9] },
-  { name: 'Yll Demaku', team: 'U13', nr: '8', scores: [6.4, 5.9, 6.7, 6.2, 7.3] },
-  { name: 'Arion Selimi', team: 'U13', nr: '2', scores: [7.8, 7.5, 8.1, 7.9, 8.0] },
-];
+/** Coerces a possibly-string API number; null/empty stays null. */
+const num = (value: number | string | null): number | null =>
+  value === null || value === '' ? null : Number(value);
+
+/** One `GET /ratings` row, laid onto the card's shape. */
+const toRatedPlayer = (row: PlayerRatingRow): RatedPlayer => ({
+  id: row.player_id,
+  name: row.name ?? '—',
+  team: row.team ?? '—',
+  nr: row.jersey_number != null ? String(row.jersey_number) : '—',
+  overall: num(row.average),
+  scores: [
+    num(row.technique),
+    num(row.physical),
+    num(row.tactics),
+    num(row.consistency),
+    num(row.teamwork),
+  ],
+});
 
 /** Anything below seven is flagged red, everything else green. */
 const tone = (score: number) => (score >= 7 ? C.green : C.red);
-const average = (scores: number[]) => scores.reduce((a, b) => a + b, 0) / scores.length;
 
 export default function CoachRatingsScreen() {
   const router = useRouter();
+  const { token, signOut } = useSession();
+  const [rows, setRows] = useState<PlayerRatingRow[]>([]);
+
+  useEffect(() => {
+    if (!token) return;
+    const controller = new AbortController();
+    listRatings(token, {}, controller.signal)
+      .then((res) => {
+        if (controller.signal.aborted) return;
+        setRows(res.data);
+      })
+      .catch((e) => {
+        if (controller.signal.aborted) return;
+        if (e instanceof ApiError && e.status === 401) {
+          signOut();
+          router.replace('/login');
+        }
+      });
+    return () => controller.abort();
+  }, [token, router, signOut]);
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
@@ -110,11 +143,13 @@ export default function CoachRatingsScreen() {
 
             {/* ── Rating cards ──────────────────────────────────── */}
             <View style={styles.grid}>
-              {PLAYERS.map((player) => {
-                const overall = average(player.scores);
+              {rows.map((row) => {
+                const player = toRatedPlayer(row);
+                const overall = player.overall ?? 0;
+                const overallTone = player.overall != null ? tone(player.overall) : C.hint;
 
                 return (
-                  <View key={player.name} style={styles.card}>
+                  <View key={player.id} style={styles.card}>
                     <View style={styles.cardTop}>
                       <View style={styles.cardTopLeft}>
                         <Text style={styles.name} numberOfLines={1}>
@@ -124,8 +159,8 @@ export default function CoachRatingsScreen() {
                           {player.team} nr.{player.nr}
                         </Text>
                       </View>
-                      <Text style={[styles.overall, { color: tone(overall) }]}>
-                        {overall.toFixed(1)}
+                      <Text style={[styles.overall, { color: overallTone }]}>
+                        {player.overall != null ? player.overall.toFixed(1) : '—'}
                       </Text>
                     </View>
 
@@ -133,6 +168,7 @@ export default function CoachRatingsScreen() {
 
                     {CATEGORIES.map((category, i) => {
                       const value = player.scores[i];
+                      const valueTone = value != null ? tone(value) : C.hint;
 
                       return (
                         <View key={category} style={styles.catRow}>
@@ -144,14 +180,14 @@ export default function CoachRatingsScreen() {
                               style={[
                                 styles.barFill,
                                 {
-                                  width: `${value * 10}%`,
-                                  backgroundColor: tone(value),
+                                  width: `${(value ?? 0) * 10}%`,
+                                  backgroundColor: valueTone,
                                 },
                               ]}
                             />
                           </View>
-                          <Text style={[styles.catValue, { color: tone(value) }]}>
-                            {value.toFixed(1)}
+                          <Text style={[styles.catValue, { color: valueTone }]}>
+                            {value != null ? value.toFixed(1) : '—'}
                           </Text>
                         </View>
                       );
@@ -161,7 +197,12 @@ export default function CoachRatingsScreen() {
                       onPress={() =>
                         router.push({
                           pathname: '/player-profile',
-                          params: { name: player.name, team: player.team, nr: player.nr },
+                          params: {
+                            id: String(player.id),
+                            name: player.name,
+                            team: player.team,
+                            nr: player.nr,
+                          },
                         })
                       }
                       accessibilityRole="button"

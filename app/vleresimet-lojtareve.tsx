@@ -3,12 +3,17 @@ import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
+import { ApiError } from '@/lib/api/errors';
+import { listRatings } from '@/lib/api/ratings';
+import type { PlayerRatingRow } from '@/lib/api/types';
 import { I, scaled } from '@/lib/responsive';
+import { useSession } from '@/lib/session';
 
 /**
  * Vlerësimet e lojtarëve — the trainer's ratings screen, opened from the
@@ -17,6 +22,9 @@ import { I, scaled } from '@/lib/responsive';
  * A copy of the administrator's `coach-ratings` screen: the three team totals
  * sit above the cards, and each card ends in a "Vlerëso" action instead of the
  * verdict line. Keep the two files in step when either side changes.
+ *
+ * The cards come from `GET /ratings`; the header and the team average /
+ * un-rated totals have no API equivalent and stay static.
  */
 
 const C = {
@@ -109,6 +117,7 @@ function SummarySquare({ square }: { square: Square }) {
 const CATEGORIES = ['Teknika', 'Fiziku', 'Taktikat', 'Stabiliteti', 'Punë ekipore'];
 
 type RatedPlayer = {
+  id: number;
   name: string;
   team: string;
   nr: string;
@@ -116,18 +125,29 @@ type RatedPlayer = {
 };
 
 /* Scores are 0–10; seven and up reads as progress, below that as a problem. */
-const PLAYERS: RatedPlayer[] = [
-  { name: 'Ardit Lapashtica', team: 'Ekipi i Parë', nr: '9', scores: [8.7, 8.2, 8.5, 7.9, 8.8] },
-  { name: 'Narti Cerkini', team: 'Ekipi i Parë', nr: '1', scores: [7.9, 8.4, 7.2, 8.6, 8.1] },
-  { name: 'Blerim Krasniqi', team: 'U21', nr: '10', scores: [8.2, 6.4, 7.8, 7.1, 8.4] },
-  { name: 'Endrit Gashi', team: 'U21', nr: '7', scores: [6.9, 8.8, 7.4, 7.6, 8.2] },
-  { name: 'Leart Berisha', team: 'U17', nr: '4', scores: [7.4, 7.8, 8.9, 8.3, 7.7] },
-  { name: 'Riad Hoxha', team: 'U17', nr: '11', scores: [5.8, 6.2, 6.9, 5.4, 7.1] },
-  { name: 'Arbnor Zeka', team: 'U15', nr: '6', scores: [7.1, 6.8, 7.9, 8.0, 7.5] },
-  { name: 'Dion Nimani', team: 'U15', nr: '3', scores: [8.5, 8.1, 7.6, 8.4, 8.9] },
-  { name: 'Yll Demaku', team: 'U13', nr: '8', scores: [6.4, 5.9, 6.7, 6.2, 7.3] },
-  { name: 'Arion Selimi', team: 'U13', nr: '2', scores: [7.8, 7.5, 8.1, 7.9, 8.0] },
-];
+
+/** A rating coerced from a possibly-string API value; a missing one reads as 0. */
+function ratingScore(value: number | string | null): number {
+  const n = Number(value ?? 0);
+  return Number.isFinite(n) ? n : 0;
+}
+
+/** Maps an averaged ratings row onto the card's `RatedPlayer` shape. */
+function toRatedPlayer(row: PlayerRatingRow): RatedPlayer {
+  return {
+    id: row.player_id,
+    name: row.name ?? '—',
+    team: row.team ?? '—',
+    nr: row.jersey_number != null ? String(row.jersey_number) : '—',
+    scores: [
+      ratingScore(row.technique),
+      ratingScore(row.physical),
+      ratingScore(row.tactics),
+      ratingScore(row.consistency),
+      ratingScore(row.teamwork),
+    ],
+  };
+}
 
 /** Anything below seven is flagged red, everything else green. */
 const tone = (score: number) => (score >= 7 ? C.green : C.red);
@@ -135,6 +155,37 @@ const average = (scores: number[]) => scores.reduce((a, b) => a + b, 0) / scores
 
 export default function PlayerRatingsScreen() {
   const router = useRouter();
+  const { token, signOut } = useSession();
+
+  const [rows, setRows] = useState<PlayerRatingRow[]>([]);
+
+  useEffect(() => {
+    if (!token) return;
+    const controller = new AbortController();
+    listRatings(token, {}, controller.signal)
+      .then((res) => {
+        if (controller.signal.aborted) return;
+        setRows(res.data);
+      })
+      .catch((e) => {
+        if (controller.signal.aborted) return;
+        if (e instanceof ApiError && e.status === 401) {
+          signOut();
+          router.replace('/login');
+        }
+      });
+    return () => controller.abort();
+  }, [token, router, signOut]);
+
+  const players = rows.map(toRatedPlayer);
+
+  // Only "Të vlerësuar" has a clear API equivalent — the rated-player count.
+  // The team average and the un-rated total stay static.
+  const summary: Square[] = SUMMARY.map((s) =>
+    s.label === 'Të vlerësuar'
+      ? { ...s, value: players.length ? String(players.length) : '—' }
+      : s,
+  );
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
@@ -174,18 +225,18 @@ export default function PlayerRatingsScreen() {
           <View style={styles.colPad}>
             {/* ── Team totals ───────────────────────────────────── */}
             <View style={styles.summaryRow}>
-              {SUMMARY.map((s) => (
+              {summary.map((s) => (
                 <SummarySquare key={s.label} square={s} />
               ))}
             </View>
 
             {/* ── Rating cards ──────────────────────────────────── */}
             <View style={styles.grid}>
-              {PLAYERS.map((player) => {
+              {players.map((player) => {
                 const overall = average(player.scores);
 
                 return (
-                  <View key={player.name} style={styles.card}>
+                  <View key={player.id} style={styles.card}>
                     <View style={styles.cardTop}>
                       <View style={styles.cardTopLeft}>
                         <Text style={styles.name} numberOfLines={1}>
@@ -239,7 +290,15 @@ export default function PlayerRatingsScreen() {
                       </Text>
                       <Pressable
                         onPress={() =>
-                          router.push({ pathname: '/vlereso-lojtarin', params: { name: player.name } })
+                          router.push({
+                            pathname: '/vlereso-lojtarin',
+                            params: {
+                              id: String(player.id),
+                              name: player.name,
+                              team: player.team,
+                              nr: player.nr,
+                            },
+                          })
                         }
                         accessibilityRole="button"
                         accessibilityLabel={`Vlerëso ${player.name}`}

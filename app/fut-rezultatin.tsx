@@ -1,7 +1,7 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Pressable,
   ScrollView,
@@ -13,7 +13,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
+import { ApiError } from '@/lib/api/errors';
+import { getMatch, saveMatchResult, type MatchStatInput } from '@/lib/api/matches';
 import { I, scaled } from '@/lib/responsive';
+import { useSession } from '@/lib/session';
 
 /**
  * Fut rezultatin — opened from the button of the same name on the trainer's
@@ -59,6 +62,8 @@ const COLS: { key: ColKey | 'name'; label: string; width: number }[] = [
 ];
 
 type StatRow = {
+  /* The backend player id, or null for the static fallback rows. */
+  playerId: number | null;
   name: string;
   goals: string;
   assists: string;
@@ -68,25 +73,35 @@ type StatRow = {
   nota: string;
 };
 
-/* The eleven who played, carrying the line from the played-match page. */
+/* The eleven who played — shown only when the page has no match id to load. */
 const STATS: StatRow[] = [
-  { name: 'Driton Demiri', goals: '0', assists: '0', minutes: '90', yellow: '0', red: '0', nota: '7.5' },
-  { name: 'Enver Mustafa', goals: '0', assists: '1', minutes: '90', yellow: '1', red: '0', nota: '6.8' },
-  { name: 'Ardit Lapashtica', goals: '1', assists: '0', minutes: '90', yellow: '0', red: '0', nota: '7.9' },
-  { name: 'Narti Cerkini', goals: '0', assists: '0', minutes: '90', yellow: '0', red: '0', nota: '6.5' },
-  { name: 'Blerim Krasniqi', goals: '0', assists: '2', minutes: '78', yellow: '0', red: '0', nota: '7.2' },
-  { name: 'Endrit Gashi', goals: '0', assists: '0', minutes: '90', yellow: '1', red: '0', nota: '6.9' },
-  { name: 'Leart Berisha', goals: '1', assists: '0', minutes: '90', yellow: '0', red: '0', nota: '8.1' },
-  { name: 'Riad Hoxha', goals: '0', assists: '1', minutes: '64', yellow: '0', red: '0', nota: '6.4' },
-  { name: 'Arbnor Zeka', goals: '0', assists: '0', minutes: '90', yellow: '0', red: '1', nota: '5.8' },
-  { name: 'Dion Nimani', goals: '0', assists: '0', minutes: '26', yellow: '0', red: '0', nota: '6.2' },
-  { name: 'Yll Demaku', goals: '0', assists: '0', minutes: '12', yellow: '0', red: '0', nota: '6.0' },
+  { playerId: null, name: 'Driton Demiri', goals: '0', assists: '0', minutes: '90', yellow: '0', red: '0', nota: '7.5' },
+  { playerId: null, name: 'Enver Mustafa', goals: '0', assists: '1', minutes: '90', yellow: '1', red: '0', nota: '6.8' },
+  { playerId: null, name: 'Ardit Lapashtica', goals: '1', assists: '0', minutes: '90', yellow: '0', red: '0', nota: '7.9' },
+  { playerId: null, name: 'Narti Cerkini', goals: '0', assists: '0', minutes: '90', yellow: '0', red: '0', nota: '6.5' },
+  { playerId: null, name: 'Blerim Krasniqi', goals: '0', assists: '2', minutes: '78', yellow: '0', red: '0', nota: '7.2' },
+  { playerId: null, name: 'Endrit Gashi', goals: '0', assists: '0', minutes: '90', yellow: '1', red: '0', nota: '6.9' },
+  { playerId: null, name: 'Leart Berisha', goals: '1', assists: '0', minutes: '90', yellow: '0', red: '0', nota: '8.1' },
+  { playerId: null, name: 'Riad Hoxha', goals: '0', assists: '1', minutes: '64', yellow: '0', red: '0', nota: '6.4' },
+  { playerId: null, name: 'Arbnor Zeka', goals: '0', assists: '0', minutes: '90', yellow: '0', red: '1', nota: '5.8' },
+  { playerId: null, name: 'Dion Nimani', goals: '0', assists: '0', minutes: '26', yellow: '0', red: '0', nota: '6.2' },
+  { playerId: null, name: 'Yll Demaku', goals: '0', assists: '0', minutes: '12', yellow: '0', red: '0', nota: '6.0' },
 ];
+
+/** A number out of a text box; empty or invalid falls back. */
+function numOr(value: string, fallback: number): number {
+  const n = Number(value.replace(',', '.'));
+  return Number.isFinite(n) ? n : fallback;
+}
 
 export default function EnterResultScreen() {
   const router = useRouter();
+  const { token, signOut } = useSession();
 
-  const params = useLocalSearchParams<{ home?: string; away?: string }>();
+  const params = useLocalSearchParams<{ id?: string; home?: string; away?: string }>();
+
+  const matchId = params.id ? Number(params.id) : null;
+  const hasId = matchId !== null && !Number.isNaN(matchId);
 
   const home = params.home ?? 'FC Prishtina';
   const away = params.away ?? '';
@@ -95,12 +110,131 @@ export default function EnterResultScreen() {
 
   const [homeScore, setHomeScore] = useState('0');
   const [awayScore, setAwayScore] = useState('0');
-  const [stats, setStats] = useState<StatRow[]>(STATS);
+  /* The match's venue, once loaded — decides which box is our own goals. */
+  const [venue, setVenue] = useState<string | null>(null);
+  /* The id-less fallback keeps the design's demo line. */
+  const [stats, setStats] = useState<StatRow[]>(() => (hasId ? [] : STATS));
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   /* Which score box is unrolled, or null when both are shut. */
   const [openBox, setOpenBox] = useState<'home' | 'away' | null>(null);
 
-  const setStat = (name: string, key: ColKey, value: string) =>
-    setStats((prev) => prev.map((r) => (r.name === name ? { ...r, [key]: value } : r)));
+  /* Whichever side is the club is `goals_for`. The match's `venue` tells us the
+     club's own side (`home` → club is the home team); without a loaded match we
+     fall back to the design's "the fixture is always listed with Prishtina in
+     it" rule. */
+  const clubIsHome = venue != null ? venue === 'home' : home.includes('Prishtina');
+
+  const setStat = (index: number, key: ColKey, value: string) =>
+    setStats((prev) => prev.map((r, i) => (i === index ? { ...r, [key]: value } : r)));
+
+  /* Load the match, then its per-player line. `lineup` is the fallback order:
+     call-ups first, then any saved stats, then nothing. */
+  useEffect(() => {
+    if (!token || !hasId) return;
+    const controller = new AbortController();
+
+    getMatch(token, matchId as number, controller.signal)
+      .then((res) => {
+        if (controller.signal.aborted) return;
+        const match = res.data;
+        const atHome = match.venue === 'home';
+        setVenue(match.venue);
+        setHomeScore(String(atHome ? match.goals_for ?? 0 : match.goals_against ?? 0));
+        setAwayScore(String(atHome ? match.goals_against ?? 0 : match.goals_for ?? 0));
+
+        if (match.lineup && match.lineup.length > 0) {
+          setStats(
+            match.lineup
+              .filter((l) => l.type !== 'out')
+              .map((l) => ({
+                playerId: l.player_id,
+                name: l.player_name ?? '—',
+                goals: '0',
+                assists: '0',
+                minutes: l.type === 'starter' ? '90' : '0',
+                yellow: '0',
+                red: '0',
+                nota: '',
+              })),
+          );
+        } else if (match.player_stats && match.player_stats.length > 0) {
+          setStats(
+            match.player_stats.map((s) => ({
+              playerId: s.player_id,
+              name: s.player_name ?? '—',
+              goals: String(s.goals ?? 0),
+              assists: String(s.assists ?? 0),
+              minutes: s.minutes_played != null ? String(s.minutes_played) : '',
+              yellow: String(s.yellow_cards ?? 0),
+              red: String(s.red_cards ?? 0),
+              nota: s.rating != null ? String(s.rating) : '',
+            })),
+          );
+        } else {
+          setStats([]);
+        }
+        setError(null);
+      })
+      .catch((err) => {
+        if (controller.signal.aborted) return;
+        if (err instanceof ApiError && err.status === 401) {
+          signOut();
+          router.replace('/login');
+          return;
+        }
+        setError('Nuk mund të ngarkohen statistikat.');
+      });
+
+    return () => controller.abort();
+  }, [token, matchId, hasId, router, signOut]);
+
+  const save = () => {
+    if (saving) return;
+    /* No match id: nothing to save to, close as before. */
+    if (!hasId || !token) {
+      router.back();
+      return;
+    }
+
+    const payload: Record<number, MatchStatInput> = {};
+    for (const row of stats) {
+      if (row.playerId == null) continue;
+      payload[row.playerId] = {
+        goals: Math.max(0, Math.trunc(numOr(row.goals, 0))),
+        assists: Math.max(0, Math.trunc(numOr(row.assists, 0))),
+        minutes_played: row.minutes.trim() === '' ? null : Math.max(0, Math.trunc(numOr(row.minutes, 0))),
+        yellow_cards: Math.max(0, Math.trunc(numOr(row.yellow, 0))),
+        red_cards: Math.max(0, Math.trunc(numOr(row.red, 0))),
+        rating: row.nota.trim() === '' ? null : numOr(row.nota, 0),
+      };
+    }
+
+    setSaving(true);
+    setError(null);
+
+    saveMatchResult(token, matchId as number, {
+      goals_for: numOr(clubIsHome ? homeScore : awayScore, 0),
+      goals_against: numOr(clubIsHome ? awayScore : homeScore, 0),
+      stats: Object.keys(payload).length ? payload : undefined,
+    })
+      .then(() => router.back())
+      .catch((err) => {
+        if (err instanceof ApiError && err.status === 401) {
+          signOut();
+          router.replace('/login');
+          return;
+        }
+        setSaving(false);
+        if (err instanceof ApiError && err.status === 0) {
+          setError('Nuk mund të lidhemi me serverin. Kontrollo lidhjen.');
+        } else if (err instanceof ApiError && err.status === 422) {
+          setError('Të dhënat nuk janë të vlefshme.');
+        } else {
+          setError('Nuk mund të ruhet rezultati.');
+        }
+      });
+  };
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
@@ -231,7 +365,10 @@ export default function EnterResultScreen() {
                   </View>
 
                   {stats.map((row, i) => (
-                    <View key={row.name} style={[styles.tr, i > 0 && styles.trBorder]}>
+                    <View
+                      key={`${row.playerId ?? 'static'}-${i}`}
+                      style={[styles.tr, i > 0 && styles.trBorder]}
+                    >
                       {COLS.map((c) =>
                         c.key === 'name' ? (
                           <Text
@@ -247,7 +384,7 @@ export default function EnterResultScreen() {
                           <TextInput
                             key={c.key}
                             value={row[c.key]}
-                            onChangeText={(text) => setStat(row.name, c.key as ColKey, text)}
+                            onChangeText={(text) => setStat(i, c.key as ColKey, text)}
                             keyboardType={c.key === 'nota' ? 'decimal-pad' : 'number-pad'}
                             allowFontScaling={false}
                             style={[styles.tdInput, { width: c.width }]}
@@ -261,11 +398,22 @@ export default function EnterResultScreen() {
             </View>
 
             {/* ── Save ──────────────────────────────────────────── */}
+            {error ? (
+              <Text style={styles.errorText} numberOfLines={2}>
+                {error}
+              </Text>
+            ) : null}
+
             <Pressable
-              onPress={() => router.back()}
+              onPress={save}
+              disabled={saving}
               accessibilityRole="button"
               accessibilityLabel="Ruaj rezultatin"
-              style={({ pressed }) => [styles.saveBtn, pressed && styles.pressed]}
+              style={({ pressed }) => [
+                styles.saveBtn,
+                saving && styles.saveBtnOff,
+                pressed && styles.pressed,
+              ]}
             >
               <Text style={styles.saveText} numberOfLines={1}>
                 Ruaj rezultatin
@@ -615,6 +763,19 @@ const styles = StyleSheet.create(
     },
 
     /* ── Save ────────────────────────────────────────────────── */
+    errorText: {
+      marginTop: 12,
+      textAlign: 'center',
+      fontFamily: Fonts.body,
+      fontSize: 11,
+      lineHeight: 15,
+      color: C.red,
+    },
+
+    saveBtnOff: {
+      opacity: 0.5,
+    },
+
     saveBtn: {
       minHeight: 34,
       marginTop: 14,

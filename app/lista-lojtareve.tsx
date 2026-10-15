@@ -3,12 +3,18 @@ import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useEffect, useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
+import { ApiError } from '@/lib/api/errors';
+import { listPlayers } from '@/lib/api/players';
+import type { ApiPlayer } from '@/lib/api/types';
+import { positionLabel } from '@/lib/player-position';
 import { I, scaled } from '@/lib/responsive';
+import { useSession } from '@/lib/session';
 
 /**
  * Lista e lojtarëve — the trainer's squad, opened from the "Lojtarët" card on
@@ -82,6 +88,7 @@ const TEAM = 'Ekipi i Parë';
 type Status = 'Aktiv' | 'I lënduar' | 'I pezulluar';
 
 type Player = {
+  id: number;
   nr: string;
   name: string;
   pos: string;
@@ -107,18 +114,27 @@ const COLS: { key: keyof Player; label: string; width: number }[] = [
 
 const ACTION_W = 68;
 
-const PLAYERS: Player[] = [
-  { nr: '1', name: 'Ardit Llapashtica', pos: 'Sulmues', att: '18/20', rating: '7.8', status: 'Aktiv' },
-  { nr: '2', name: 'Bekim Rexhepi', pos: 'Portier', att: '20/20', rating: '7.4', status: 'Aktiv' },
-  { nr: '3', name: 'Dardan Krasniqi', pos: 'Mbrojtës', att: '17/20', rating: '7.1', status: 'Aktiv' },
-  { nr: '4', name: 'Endrit Hoxha', pos: 'Mesfushor', att: '19/20', rating: '8.0', status: 'Aktiv' },
-  { nr: '5', name: 'Fisnik Berisha', pos: 'Mbrojtës', att: '14/20', rating: '6.6', status: 'I lënduar' },
-  { nr: '6', name: 'Genc Morina', pos: 'Mesfushor', att: '20/20', rating: '7.7', status: 'Aktiv' },
-  { nr: '7', name: 'Hamdi Shala', pos: 'Sulmues', att: '16/20', rating: '7.2', status: 'I pezulluar' },
-  { nr: '8', name: 'Ilir Bytyqi', pos: 'Portier', att: '15/20', rating: '6.9', status: 'Aktiv' },
-  { nr: '9', name: 'Jetmir Zeka', pos: 'Mbrojtës', att: '18/20', rating: '7.3', status: 'Aktiv' },
-  { nr: '10', name: 'Kujtim Gashi', pos: 'Mesfushor', att: '19/20', rating: '7.5', status: 'Aktiv' },
-];
+/** Backend `health_status` → the table's existing labels, reusing the same
+ *  three tones. `rehabilitation` reads as a player still out injured. */
+function statusOf(health: string): Status {
+  if (health === 'suspended') return 'I pezulluar';
+  if (health === 'injured' || health === 'rehabilitation') return 'I lënduar';
+  return 'Aktiv';
+}
+
+/** A fetched squad member → the table's row shape. Attendance and rating carry
+ *  no API equivalent on the squad list, so they hold the dash placeholder. */
+function toRow(p: ApiPlayer): Player {
+  return {
+    id: p.id,
+    nr: p.jersey_number != null ? String(p.jersey_number) : '—',
+    name: p.name ?? '—',
+    pos: positionLabel(p.position),
+    att: '—',
+    rating: '—',
+    status: statusOf(p.health_status),
+  };
+}
 
 /** A square of the summary row — frosted, then glossed. */
 function SummarySquare({ square }: { square: Square }) {
@@ -163,6 +179,26 @@ function SummarySquare({ square }: { square: Square }) {
 
 export default function PlayerListScreen() {
   const router = useRouter();
+  const { token, signOut } = useSession();
+  const [rows, setRows] = useState<Player[]>([]);
+
+  useEffect(() => {
+    if (!token) return;
+    const controller = new AbortController();
+    listPlayers(token, {}, controller.signal)
+      .then((res) => {
+        if (controller.signal.aborted) return;
+        setRows(res.data.map(toRow));
+      })
+      .catch((e) => {
+        if (controller.signal.aborted) return;
+        if (e instanceof ApiError && e.status === 401) {
+          signOut();
+          router.replace('/login');
+        }
+      });
+    return () => controller.abort();
+  }, [token, router, signOut]);
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
@@ -255,8 +291,8 @@ export default function PlayerListScreen() {
                     <View style={{ width: ACTION_W }} />
                   </View>
 
-                  {PLAYERS.map((p) => (
-                    <View key={p.nr} style={[styles.tr, styles.trBorder]}>
+                  {rows.map((p) => (
+                    <View key={p.id} style={[styles.tr, styles.trBorder]}>
                       {COLS.map((c) => {
                         const isStatus = c.key === 'status';
                         return (
@@ -282,7 +318,13 @@ export default function PlayerListScreen() {
                           onPress={() =>
                             router.push({
                               pathname: '/lojtari',
-                              params: { name: p.name, team: TEAM, nr: p.nr, pos: p.pos },
+                              params: {
+                                id: String(p.id),
+                                name: p.name,
+                                team: TEAM,
+                                nr: p.nr,
+                                pos: p.pos,
+                              },
                             })
                           }
                           accessibilityRole="button"

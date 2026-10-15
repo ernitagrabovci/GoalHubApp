@@ -310,6 +310,7 @@ export default function TrainingListScreen() {
                                 router.push({
                                   pathname: '/regjistro-prezencen',
                                   params: {
+                                    id: String(t.id),
                                     date: t.date,
                                     time: t.time,
                                     field: t.field,

@@ -1,12 +1,17 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
+import { ApiError } from '@/lib/api/errors';
+import { listNotifications } from '@/lib/api/notifications';
+import type { ApiNotification, Paginated } from '@/lib/api/types';
 import { I, scaled } from '@/lib/responsive';
+import { useSession } from '@/lib/session';
 
 /**
  * Njoftimet — the trainer's own inbox, opened from the bell in the trainer
@@ -34,68 +39,71 @@ const C = {
   blue: '#0766D8',
 };
 
-/* Who a notice can come from — each sender reads in its own colour. */
+/* Who a notice can come from — the backend `source` field, in its own colour. */
+const SOURCE_LABEL: Record<string, string> = {
+  admin: 'Admin',
+  trainer: 'Trajneri',
+  platform: 'Platformë',
+};
+
 const SENDER_TONE: Record<string, string> = {
-  Admini: C.blue,
+  Admin: C.blue,
   Trajneri: C.green,
+  Platformë: C.text,
   Sistemi: C.text,
 };
 
-type Notice = {
-  title: string;
-  sender: string;
-  body: string;
-  /* Date and time of arrival, as one stamp. */
-  stamp: string;
-};
+function sourceLabel(source: string | null): string {
+  return source ? (SOURCE_LABEL[source] ?? source) : 'Sistemi';
+}
 
-const NOTICES: Notice[] = [
-  {
-    title: 'Lojtar i ri u regjistrua: Narti Çerkini',
-    sender: 'Admini',
-    body: 'Lojtari Narti Çerkini u shtua në ekip.',
-    stamp: '06/08/2026 04:51',
-  },
-  {
-    title: 'Stërvitja e së martës u zhvendos',
-    sender: 'Trajneri',
-    body: 'Orari i stërvitjes ndryshoi në 18:00.',
-    stamp: '05/08/2026 19:12',
-  },
-  {
-    title: 'Raporti mujor është gati',
-    sender: 'Sistemi',
-    body: 'Raporti i gushtit u gjenerua automatikisht.',
-    stamp: '04/08/2026 08:00',
-  },
-  {
-    title: 'Lëndim i ri i regjistruar: Driton Demiri',
-    sender: 'Trajneri',
-    body: 'Lojtari u shtua në kartelën mjekësore.',
-    stamp: '02/08/2026 16:40',
-  },
-  {
-    title: 'Pagesa e kuotës u konfirmua',
-    sender: 'Admini',
-    body: 'Kuota mujore e Narti Çerkini u pagua.',
-    stamp: '01/08/2026 11:05',
-  },
-  {
-    title: 'Ndeshja e së shtunës u caktua',
-    sender: 'Admini',
-    body: 'Kundërshtari: KF Prishtina, ora 17:00.',
-    stamp: '29/07/2026 09:30',
-  },
-  {
-    title: 'Transferim i ri i regjistruar',
-    sender: 'Sistemi',
-    body: 'Lojtari Endrit Hoxha kaloi te U19.',
-    stamp: '27/07/2026 14:22',
-  },
-];
+/** `2026-08-06T04:51:00+00:00` → `06/08/2026 04:51`. */
+function stamp(iso: string | null): string {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '—';
+  const dd = String(d.getDate()).padStart(2, '0');
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mi = String(d.getMinutes()).padStart(2, '0');
+  return `${dd}/${mm}/${d.getFullYear()} ${hh}:${mi}`;
+}
 
 export default function TrainerNotificationsScreen() {
   const router = useRouter();
+  const { token, signOut } = useSession();
+
+  const [list, setList] = useState<Paginated<ApiNotification> | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!token) return;
+    const controller = new AbortController();
+
+    listNotifications(token, {}, controller.signal)
+      .then((res) => {
+        if (controller.signal.aborted) return;
+        setList(res);
+        setError(null);
+      })
+      .catch((err) => {
+        if (controller.signal.aborted) return;
+        if (err instanceof ApiError && err.status === 401) {
+          signOut();
+          router.replace('/login');
+          return;
+        }
+        setError(
+          err instanceof ApiError && err.status === 0
+            ? 'Nuk mund të lidhemi me serverin. Kontrollo lidhjen.'
+            : 'Nuk mund të ngarkohen njoftimet.',
+        );
+      });
+
+    return () => controller.abort();
+  }, [token, router, signOut]);
+
+  const items = list?.data ?? [];
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
@@ -140,29 +148,39 @@ export default function TrainerNotificationsScreen() {
           <View style={styles.colPad}>
             {/* ── Received notices ────────────────────────────────── */}
             <View style={styles.card}>
-              {NOTICES.map((n, i) => (
-                <View
-                  key={`${n.title}-${n.stamp}`}
-                  style={[styles.tr, i > 0 && styles.trBorder]}
-                >
-                  {/* Every row is flagged the same way, read or not. */}
-                  <View style={styles.dot} />
-
+              {items.length === 0 ? (
+                <View style={styles.tr}>
                   <View style={styles.body}>
-                    <Text style={styles.nTitle} numberOfLines={2}>
-                      {n.title}
-                    </Text>
                     <Text style={styles.nMeta} numberOfLines={2}>
-                      <Text style={{ color: SENDER_TONE[n.sender] ?? C.text }}>{n.sender}</Text>
-                      {` · ${n.body}`}
+                      {error ?? (list ? 'Nuk ka njoftime.' : '…')}
                     </Text>
                   </View>
-
-                  <Text style={styles.nStamp} numberOfLines={2}>
-                    {n.stamp}
-                  </Text>
                 </View>
-              ))}
+              ) : (
+                items.map((n, i) => {
+                  const sender = sourceLabel(n.source);
+                  return (
+                    <View key={n.id} style={[styles.tr, i > 0 && styles.trBorder]}>
+                      {/* Every row is flagged the same way, read or not. */}
+                      <View style={styles.dot} />
+
+                      <View style={styles.body}>
+                        <Text style={styles.nTitle} numberOfLines={2}>
+                          {n.title}
+                        </Text>
+                        <Text style={styles.nMeta} numberOfLines={2}>
+                          <Text style={{ color: SENDER_TONE[sender] ?? C.text }}>{sender}</Text>
+                          {n.body ? ` · ${n.body}` : ''}
+                        </Text>
+                      </View>
+
+                      <Text style={styles.nStamp} numberOfLines={2}>
+                        {stamp(n.created_at)}
+                      </Text>
+                    </View>
+                  );
+                })
+              )}
             </View>
           </View>
         </ScrollView>

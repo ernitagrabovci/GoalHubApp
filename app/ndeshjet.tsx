@@ -571,6 +571,7 @@ export default function MatchesScreen() {
                             router.push({
                               pathname: '/ndeshja-luajtur',
                               params: {
+                                id: String(p.id),
                                 home: p.home,
                                 away: p.away,
                                 team: p.team,

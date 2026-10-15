@@ -3,13 +3,26 @@ import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, TextInput, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
+import { ApiError } from '@/lib/api/errors';
+import { listTeams } from '@/lib/api/teams';
+import type { ApiMember, ApiTeam, Paginated } from '@/lib/api/types';
+import {
+  changeUserRole,
+  createUser,
+  deleteUser,
+  listUsers,
+  toggleUser,
+  updateUser,
+} from '@/lib/api/users';
+import type { UserRole } from '@/lib/api/users';
 import { I, scaled } from '@/lib/responsive';
+import { useSession } from '@/lib/session';
 
 /**
  * Lista e përdoruesve — opened from "Përdoruesit" in the admin pill bar.
@@ -118,56 +131,91 @@ type User = {
   last: string;
 };
 
-const USERS: User[] = [
-  {
-    name: 'Kastriot Avdiu',
-    email: 'k.avdiu@goalhub.app',
-    role: 'Lojtar',
-    team: 'U13',
-    status: 'Aktiv',
-    last: 'Sot, 09:12',
-  },
-  {
-    name: 'Arben Krasniqi',
-    email: 'a.krasniqi@goalhub.app',
-    role: 'Administrator',
-    team: 'Ekipi i Parë',
-    status: 'Aktiv',
-    last: 'Sot, 08:40',
-  },
-  {
-    name: 'Drita Berisha',
-    email: 'd.berisha@goalhub.app',
-    role: 'Trajner',
-    team: 'U17',
-    status: 'Aktiv',
-    last: 'Dje, 19:05',
-  },
-  {
-    name: 'Luan Gashi',
-    email: 'l.gashi@goalhub.app',
-    role: 'Financier',
-    team: 'Ekipi i Parë',
-    status: 'Aktiv',
-    last: 'Dje, 14:22',
-  },
-  {
-    name: 'Fatime Morina',
-    email: 'f.morina@goalhub.app',
-    role: 'Prind',
-    team: 'U15',
-    status: 'Aktiv',
-    last: '12 Sht, 20:31',
-  },
-  {
-    name: 'Endrit Hoxha',
-    email: 'e.hoxha@goalhub.app',
-    role: 'Lojtar',
-    team: 'U21',
-    status: 'Joaktiv',
-    last: '04 Sht, 11:07',
-  },
+/**
+ * The `GET /users` row carries the club-member shape (`ApiMember` in
+ * types.ts — its `ApiUser` is the signed-in auth user). Aliased here to keep
+ * the row vocabulary of this screen.
+ */
+type ApiUser = ApiMember;
+
+/** Backend role slug → the Albanian label the "Roli" column shows. */
+const ROLE_LABEL_BY_SLUG: Record<string, string> = {
+  administrator: 'Administrator',
+  trainer: 'Trajner',
+  assistant_trainer: 'Trajner',
+  technical_staff: 'Trajner',
+  player: 'Lojtar',
+  parent: 'Prind',
+  financier: 'Financier',
+};
+
+function roleLabel(row: ApiUser): string {
+  return ROLE_LABEL_BY_SLUG[row.role] ?? row.role_label ?? row.role;
+}
+
+/** The Albanian label the pickers show → the backend role slug they submit. */
+const ROLE_SLUG_BY_LABEL: Record<string, UserRole> = {
+  Administrator: 'administrator',
+  Trajner: 'trainer',
+  Lojtar: 'player',
+  Prind: 'parent',
+  Financier: 'financier',
+};
+
+/** The edit popup's standing option for "no team". */
+const NO_TEAM = 'Pa ekip';
+
+/** The write calls' inline error, mapped from the HTTP failure. */
+function writeErrorText(err: unknown): string {
+  if (err instanceof ApiError) {
+    if (err.status === 0) return 'Nuk mund të lidhemi me serverin. Kontrollo lidhjen.';
+    if (err.status === 422) return 'Të dhënat nuk janë të vlefshme. Kontrollo fushat.';
+    if (err.status === 403) return 'Nuk keni leje për këtë veprim.';
+    if (err.status === 404) return 'Përdoruesi nuk u gjet.';
+  }
+  return 'Diçka shkoi keq. Provo përsëri.';
+}
+
+const MONTHS_SHORT = [
+  'Jan', 'Shk', 'Mar', 'Pri', 'Maj', 'Qer', 'Kor', 'Gsh', 'Sht', 'Tet', 'Nën', 'Dhj',
 ];
+
+/** `last_login_at` → `Sot, 09:12` / `Dje, 19:05` / `12 Sht, 20:31`; null → `—`. */
+function formatLast(iso: string | null): string {
+  if (!iso) return '—';
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return '—';
+  const hh = String(date.getHours()).padStart(2, '0');
+  const mm = String(date.getMinutes()).padStart(2, '0');
+  const now = new Date();
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
+  if (date.toDateString() === now.toDateString()) return `Sot, ${hh}:${mm}`;
+  if (date.toDateString() === yesterday.toDateString()) return `Dje, ${hh}:${mm}`;
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${day} ${MONTHS_SHORT[date.getMonth()]}, ${hh}:${mm}`;
+}
+
+/** A fetched member row mapped onto the table's own `User` shape. */
+function toUser(row: ApiUser): User {
+  return {
+    name: row.name,
+    email: row.email ?? '—',
+    role: roleLabel(row),
+    team: row.team?.name ?? '—',
+    status: row.is_active ? 'Aktiv' : 'Joaktiv',
+    last: formatLast(row.last_login_at),
+  };
+}
+
+/** A short run of page numbers centred on `current`. */
+function pageWindow(current: number, last: number, span = 5): number[] {
+  if (last <= span) return Array.from({ length: last }, (_, i) => i + 1);
+  let start = Math.max(1, current - Math.floor(span / 2));
+  const end = Math.min(last, start + span - 1);
+  start = Math.max(1, end - span + 1);
+  return Array.from({ length: end - start + 1 }, (_, i) => start + i);
+}
 
 /** The table runs past the right edge, so every column carries its own width. */
 const USER_COLS = [
@@ -179,17 +227,19 @@ const USER_COLS = [
   { key: 'last', label: 'Hyrja e fundit', width: 104 },
 ] as const;
 
-/** Wide enough for the two row buttons side by side. */
-const ACTION_W = 142;
+/** Wide enough for the three row buttons side by side. */
+const ACTION_W = 182;
 
 const STATUS_TONE: Record<User['status'], string> = {
   Aktiv: C.green,
   Joaktiv: C.red,
 };
 
-const PAGES = [1, 2, 3, 4];
-
 const ROLES = ['Administrator', 'Trajner', 'Lojtar', 'Prind', 'Financier'];
+
+/** Creating a player goes through the player form (squad record + first fee),
+    so the create picker offers only the staff roles. */
+const CREATE_ROLES = ROLES.filter((r) => r !== 'Lojtar');
 
 const TEAMS = ['Ekipi i Parë', 'U21', 'U19', 'U17', 'U15', 'U13'];
 
@@ -295,7 +345,17 @@ function PopupSelect({
   );
 }
 
-function CreateUserModal({ onClose }: { onClose: () => void }) {
+function CreateUserModal({
+  token,
+  onClose,
+  onSaved,
+  onExpired,
+}: {
+  token: string | null;
+  onClose: () => void;
+  onSaved: () => void;
+  onExpired: () => void;
+}) {
   const { width, height } = useWindowDimensions();
   const cardW = Math.min(width - 24, 360);
   const maxBody = Math.max(280, height - 187);
@@ -306,15 +366,47 @@ function CreateUserModal({ onClose }: { onClose: () => void }) {
   const [confirm, setConfirm] = useState('');
   const [role, setRole] = useState(ROLES[0]);
   const [title, setTitle] = useState('');
-  const [err, setErr] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
 
   const submit = () => {
-    const complete = fullName.trim() && email.trim() && password && confirm;
-    if (!complete || password !== confirm) {
-      setErr(true);
+    if (!token || busy) return;
+
+    const name = fullName.trim();
+    const mail = email.trim();
+    if (!name || !mail) {
+      setErr('Emri dhe email adresa janë të detyrueshme.');
       return;
     }
-    onClose();
+    if (password.length < 8) {
+      setErr('Fjalëkalimi duhet të ketë të paktën 8 karaktere.');
+      return;
+    }
+    if (password !== confirm) {
+      setErr('Fjalëkalimet nuk përputhen.');
+      return;
+    }
+
+    setBusy(true);
+    setErr(null);
+
+    createUser(token, {
+      name,
+      email: mail,
+      password,
+      password_confirmation: confirm,
+      role: ROLE_SLUG_BY_LABEL[role] ?? 'trainer',
+      role_label: title.trim() || null,
+    })
+      .then(() => onSaved())
+      .catch((e) => {
+        if (e instanceof ApiError && e.status === 401) {
+          onExpired();
+          return;
+        }
+        setBusy(false);
+        setErr(writeErrorText(e));
+      });
   };
 
   return (
@@ -335,11 +427,7 @@ function CreateUserModal({ onClose }: { onClose: () => void }) {
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={styles.pmContent}
       >
-        {err ? (
-          <Text style={styles.pmErr}>
-            Plotëso të gjitha fushat e kërkuara dhe sigurohu që fjalëkalimet përputhen.
-          </Text>
-        ) : null}
+        {err ? <Text style={styles.pmErr}>{err}</Text> : null}
 
         <View style={styles.pmRow}>
           <View style={styles.pmCol}>
@@ -388,7 +476,7 @@ function CreateUserModal({ onClose }: { onClose: () => void }) {
         </View>
 
         <Text style={[styles.pmLabel, styles.pmGap]}>Roli:</Text>
-        <PopupSelect value={role} options={ROLES} onChange={setRole} />
+        <PopupSelect value={role} options={CREATE_ROLES} onChange={setRole} />
 
         <Text style={[styles.pmLabel, styles.pmGap]}>Titulli i personalizuar (opsional):</Text>
         <TextInput
@@ -408,8 +496,14 @@ function CreateUserModal({ onClose }: { onClose: () => void }) {
           </Pressable>
           <Pressable
             onPress={submit}
+            disabled={busy}
             accessibilityRole="button"
-            style={({ pressed }) => [styles.pmBtn, styles.pmBtnCreate, pressed && styles.pressed]}
+            style={({ pressed }) => [
+              styles.pmBtn,
+              styles.pmBtnCreate,
+              busy && styles.pmBtnOff,
+              pressed && styles.pressed,
+            ]}
           >
             <Text style={styles.pmBtnText}>Krijo</Text>
           </Pressable>
@@ -423,25 +517,81 @@ function CreateUserModal({ onClose }: { onClose: () => void }) {
 /* "Edito përdoruesin" popup                                           */
 /* ------------------------------------------------------------------ */
 
-function EditUserModal({ user, onClose }: { user: User; onClose: () => void }) {
+function EditUserModal({
+  member,
+  teams,
+  token,
+  onClose,
+  onSaved,
+  onExpired,
+}: {
+  member: ApiUser;
+  teams: ApiTeam[];
+  token: string | null;
+  onClose: () => void;
+  onSaved: () => void;
+  onExpired: () => void;
+}) {
   const { width, height } = useWindowDimensions();
   const cardW = Math.min(width - 24, 360);
   const maxBody = Math.max(280, height - 187);
 
-  const [fullName, setFullName] = useState(user.name);
-  const [email, setEmail] = useState(user.email);
-  const [role, setRole] = useState(user.role);
-  const [team, setTeam] = useState(user.team);
-  const [status, setStatus] = useState<User['status']>(user.status);
-  const [title, setTitle] = useState('');
-  const [err, setErr] = useState(false);
+  /* Real teams when they load, the standing list otherwise. */
+  const teamOptions = [NO_TEAM, ...(teams.length ? teams.map((t) => t.name) : TEAMS)];
+
+  const [fullName, setFullName] = useState(member.name);
+  const [email, setEmail] = useState(member.email ?? '');
+  const [role, setRole] = useState(roleLabel(member));
+  const [team, setTeam] = useState(member.team?.name ?? NO_TEAM);
+  const [status, setStatus] = useState<User['status']>(member.is_active ? 'Aktiv' : 'Joaktiv');
+  const [title, setTitle] = useState(member.role_label ?? '');
+  const [err, setErr] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
 
   const submit = () => {
-    if (!fullName.trim() || !email.trim()) {
-      setErr(true);
+    if (!token || busy) return;
+
+    const name = fullName.trim();
+    const mail = email.trim();
+    if (!name || !mail) {
+      setErr('Emri dhe email adresa janë të detyrueshme.');
       return;
     }
-    onClose();
+
+    /* Leave the stored slug alone when the label never moved, so the collapsed
+       "Trajner" label can't demote an assistant/technical-staff account. */
+    const roleSlug: UserRole =
+      role === roleLabel(member)
+        ? (member.role as UserRole)
+        : ROLE_SLUG_BY_LABEL[role] ?? (member.role as UserRole);
+
+    const teamId = team === NO_TEAM ? null : teams.find((t) => t.name === team)?.id ?? null;
+
+    /* The write endpoints can't set `is_active`, so a moved status rides the toggle. */
+    const statusChanged = (status === 'Aktiv') !== member.is_active;
+
+    setBusy(true);
+    setErr(null);
+
+    updateUser(token, member.id, {
+      name,
+      email: mail,
+      role: roleSlug,
+      role_label: title.trim() || null,
+      team_id: teamId,
+    })
+      .then(async () => {
+        if (statusChanged) await toggleUser(token, member.id);
+      })
+      .then(() => onSaved())
+      .catch((e) => {
+        if (e instanceof ApiError && e.status === 401) {
+          onExpired();
+          return;
+        }
+        setBusy(false);
+        setErr(writeErrorText(e));
+      });
   };
 
   return (
@@ -462,7 +612,7 @@ function EditUserModal({ user, onClose }: { user: User; onClose: () => void }) {
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={styles.pmContent}
       >
-        {err ? <Text style={styles.pmErr}>Emri dhe email adresa janë të detyrueshme.</Text> : null}
+        {err ? <Text style={styles.pmErr}>{err}</Text> : null}
 
         <View style={styles.pmRow}>
           <View style={styles.pmCol}>
@@ -494,7 +644,7 @@ function EditUserModal({ user, onClose }: { user: User; onClose: () => void }) {
           </View>
           <View style={styles.pmCol}>
             <Text style={styles.pmLabel}>Ekipi:</Text>
-            <PopupSelect value={team} options={TEAMS} onChange={setTeam} />
+            <PopupSelect value={team} options={teamOptions} onChange={setTeam} />
           </View>
         </View>
 
@@ -523,8 +673,14 @@ function EditUserModal({ user, onClose }: { user: User; onClose: () => void }) {
           </Pressable>
           <Pressable
             onPress={submit}
+            disabled={busy}
             accessibilityRole="button"
-            style={({ pressed }) => [styles.pmBtn, styles.pmBtnCreate, pressed && styles.pressed]}
+            style={({ pressed }) => [
+              styles.pmBtn,
+              styles.pmBtnCreate,
+              busy && styles.pmBtnOff,
+              pressed && styles.pressed,
+            ]}
           >
             <Text style={styles.pmBtnText}>Ruaj</Text>
           </Pressable>
@@ -535,46 +691,105 @@ function EditUserModal({ user, onClose }: { user: User; onClose: () => void }) {
 }
 
 /* ------------------------------------------------------------------ */
-/* "Çaktivizo përdoruesin" popup                                       */
+/* Toggle / delete confirmation popup                                  */
 /* ------------------------------------------------------------------ */
 
-function DeactivateUserModal({ user, onClose }: { user: User; onClose: () => void }) {
+function ConfirmUserModal({
+  member,
+  action,
+  token,
+  onClose,
+  onDone,
+  onExpired,
+}: {
+  member: ApiUser;
+  action: 'toggle' | 'delete';
+  token: string | null;
+  onClose: () => void;
+  onDone: () => void;
+  onExpired: () => void;
+}) {
   const { width } = useWindowDimensions();
   const cardW = Math.min(width - 24, 360);
+
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const deleting = action === 'delete';
+  const activating = !member.is_active;
+
+  const title = deleting
+    ? 'Fshi llogarinë'
+    : activating
+      ? 'Aktivizo përdoruesin'
+      : 'Çaktivizo përdoruesin';
+  const sub = deleting
+    ? 'Ky veprim është i pakthyeshëm'
+    : activating
+      ? 'Llogaria rifiton aksesin'
+      : 'Llogaria humb aksesin menjëherë';
+  const prompt = deleting
+    ? 'A jeni i sigurt që dëshironi të fshini këtë përdorues?'
+    : activating
+      ? 'A jeni i sigurt që dëshironi të aktivizoni këtë përdorues?'
+      : 'A jeni i sigurt që dëshironi të çaktivizoni këtë përdorues?';
+  const confirmLabel = deleting ? 'Fshi' : activating ? 'Aktivizo' : 'Çaktivizo';
+  const note = deleting
+    ? 'Llogaria dhe të dhënat e saj fshihen përgjithmonë. Veprimi regjistrohet në log.'
+    : activating
+      ? 'Përdoruesi do të mund të hyjë sërish në platformë. Veprimi regjistrohet në log.'
+      : 'Përdoruesi nuk do të mund të hyjë në platformë derisa llogaria të riaktivizohet. Veprimi regjistrohet në log.';
+
+  const run = () => {
+    if (!token || busy) return;
+    setBusy(true);
+    setErr(null);
+
+    const call: Promise<unknown> =
+      action === 'delete' ? deleteUser(token, member.id) : toggleUser(token, member.id);
+
+    call
+      .then(() => onDone())
+      .catch((e) => {
+        if (e instanceof ApiError && e.status === 401) {
+          onExpired();
+          return;
+        }
+        setBusy(false);
+        setErr(writeErrorText(e));
+      });
+  };
 
   return (
     <View style={[styles.pmCard, { width: cardW }]}>
       <View style={styles.pmHeader}>
         <Text style={styles.pmTitle} numberOfLines={1}>
-          Çaktivizo përdoruesin
+          {title}
         </Text>
         <Text style={styles.pmSub} numberOfLines={1}>
-          Llogaria humb aksesin menjëherë
+          {sub}
         </Text>
       </View>
       <View style={styles.pmDivider} />
 
       <View style={styles.pmContent}>
-        <Text style={styles.pmPrompt}>
-          A jeni i sigurt që dëshironi të çaktivizoni këtë përdorues?
-        </Text>
+        <Text style={styles.pmPrompt}>{prompt}</Text>
 
         {/* Tinted red so the consequence reads before the buttons do. */}
         <View style={styles.pmPreview}>
           <Text style={styles.pmPreviewText} numberOfLines={1}>
-            {user.name}
+            {member.name}
           </Text>
         </View>
         <Text style={styles.pmMeta} numberOfLines={1}>
-          {user.email} · {user.role}
+          {member.email ?? '—'} · {roleLabel(member)}
         </Text>
 
         <View style={styles.pmNote}>
-          <Text style={styles.pmNoteText}>
-            Përdoruesi nuk do të mund të hyjë në platformë derisa llogaria të riaktivizohet.
-            Veprimi regjistrohet në log.
-          </Text>
+          <Text style={styles.pmNoteText}>{note}</Text>
         </View>
+
+        {err ? <Text style={styles.pmErr}>{err}</Text> : null}
 
         <View style={styles.pmActions}>
           <Pressable
@@ -585,11 +800,17 @@ function DeactivateUserModal({ user, onClose }: { user: User; onClose: () => voi
             <Text style={styles.pmBtnText}>Anulo</Text>
           </Pressable>
           <Pressable
-            onPress={onClose}
+            onPress={run}
+            disabled={busy}
             accessibilityRole="button"
-            style={({ pressed }) => [styles.pmBtn, styles.pmBtnCreate, pressed && styles.pressed]}
+            style={({ pressed }) => [
+              styles.pmBtn,
+              styles.pmBtnCreate,
+              busy && styles.pmBtnOff,
+              pressed && styles.pressed,
+            ]}
           >
-            <Text style={styles.pmBtnText}>Çaktivizo</Text>
+            <Text style={styles.pmBtnText}>{confirmLabel}</Text>
           </Pressable>
         </View>
       </View>
@@ -599,9 +820,118 @@ function DeactivateUserModal({ user, onClose }: { user: User; onClose: () => voi
 
 export default function UsersListScreen() {
   const router = useRouter();
+  const { user, token, signOut } = useSession();
   const [creating, setCreating] = useState(false);
-  const [editing, setEditing] = useState<User | null>(null);
-  const [removing, setRemoving] = useState<User | null>(null);
+  const [editing, setEditing] = useState<ApiUser | null>(null);
+  const [confirm, setConfirm] = useState<{ member: ApiUser; action: 'toggle' | 'delete' } | null>(
+    null,
+  );
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [rows, setRows] = useState<ApiUser[]>([]);
+  const [teams, setTeams] = useState<ApiTeam[]>([]);
+  const [meta, setMeta] = useState<Paginated<ApiUser>['meta'] | null>(null);
+  const [page, setPage] = useState(1);
+  const [reload, setReload] = useState(0);
+
+  /* Role swap controls. */
+  const [openPicker, setOpenPicker] = useState<'user' | 'role' | null>(null);
+  const [roleUserId, setRoleUserId] = useState<number | null>(null);
+  /** `null` keeps the picker on the selected member's current role. */
+  const [roleNewLabel, setRoleNewLabel] = useState<string | null>(null);
+  const [roleBusy, setRoleBusy] = useState(false);
+  const [roleError, setRoleError] = useState<string | null>(null);
+
+  const refresh = useCallback(() => setReload((r) => r + 1), []);
+
+  const handleExpired = useCallback(() => {
+    signOut();
+    router.replace('/login');
+  }, [signOut, router]);
+
+  useEffect(() => {
+    if (!token) return;
+    const controller = new AbortController();
+    listUsers(token, { page }, controller.signal)
+      .then((res) => {
+        if (controller.signal.aborted) return;
+        setRows(res.data);
+        setMeta(res.meta);
+      })
+      .catch((e) => {
+        if (controller.signal.aborted) return;
+        if (e instanceof ApiError && e.status === 401) {
+          signOut();
+          router.replace('/login');
+        }
+      });
+    return () => controller.abort();
+  }, [token, page, reload, router, signOut]);
+
+  /* The edit popup's team picker reads from the club's real teams. */
+  useEffect(() => {
+    if (!token) return;
+    const controller = new AbortController();
+    listTeams(token, controller.signal)
+      .then((res) => {
+        if (!controller.signal.aborted) setTeams(res.data);
+      })
+      .catch(() => {});
+    return () => controller.abort();
+  }, [token]);
+
+  /* Derived, not synced in an effect: the picker follows a row that still
+     exists (falling back to the first), and its label tracks that member's
+     current role until the user picks a different one. */
+  const roleMember = rows.find((r) => r.id === roleUserId) ?? rows[0] ?? null;
+  const roleLabelShown = roleNewLabel ?? (roleMember ? roleLabel(roleMember) : ROLES[2]);
+
+  const saveRole = () => {
+    if (roleBusy) return;
+    setRoleError(null);
+
+    if (!token || !roleMember) {
+      setRoleError('Zgjidh një përdorues.');
+      return;
+    }
+    if (roleMember.id === user?.id) {
+      setRoleError('Nuk mund të ndryshoni rolin tuaj.');
+      return;
+    }
+
+    const nextRole: UserRole =
+      roleLabelShown === roleLabel(roleMember)
+        ? (roleMember.role as UserRole)
+        : ROLE_SLUG_BY_LABEL[roleLabelShown] ?? 'player';
+
+    setRoleBusy(true);
+    changeUserRole(token, roleMember.id, nextRole)
+      .then(() => {
+        setRoleBusy(false);
+        refresh();
+      })
+      .catch((e) => {
+        if (e instanceof ApiError && e.status === 401) {
+          handleExpired();
+          return;
+        }
+        setRoleBusy(false);
+        setRoleError(writeErrorText(e));
+      });
+  };
+
+  /* Deleting your own account is blocked before the popup even opens. */
+  const requestDelete = (member: ApiUser) => {
+    if (member.id === user?.id) {
+      setActionError('Nuk mund të fshini llogarinë tuaj.');
+      return;
+    }
+    setActionError(null);
+    setConfirm({ member, action: 'delete' });
+  };
+
+  const current = meta?.current_page ?? 1;
+  const lastPage = meta?.last_page ?? 1;
+  const pages = pageWindow(current, lastPage);
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
@@ -697,6 +1027,12 @@ export default function UsersListScreen() {
               </Pressable>
             </View>
 
+            {actionError ? (
+              <Text style={styles.screenErr} numberOfLines={2}>
+                {actionError}
+              </Text>
+            ) : null}
+
             {/* ── Users table ───────────────────────────────────── */}
             <View style={styles.card}>
               <View style={styles.head}>
@@ -725,60 +1061,76 @@ export default function UsersListScreen() {
                     <View style={{ width: ACTION_W }} />
                   </View>
 
-                  {USERS.map((u) => (
-                    <View key={u.email} style={[styles.tr, styles.trBorder]}>
-                      <Text
-                        style={[styles.td, styles.tdName, { width: 118 }]}
-                        numberOfLines={1}
-                        adjustsFontSizeToFit
-                        minimumFontScale={0.75}
-                      >
-                        {u.name}
-                      </Text>
-                      <Text style={[styles.td, { width: 168 }]} numberOfLines={1}>
-                        {u.email}
-                      </Text>
-                      <Text style={[styles.td, { width: 96 }]} numberOfLines={1}>
-                        {u.role}
-                      </Text>
-                      <Text style={[styles.td, { width: 88 }]} numberOfLines={1}>
-                        {u.team}
-                      </Text>
-                      <Text
-                        style={[
-                          styles.td,
-                          styles.tdStatus,
-                          { width: 74, color: STATUS_TONE[u.status] },
-                        ]}
-                        numberOfLines={1}
-                      >
-                        {u.status}
-                      </Text>
-                      <Text style={[styles.td, { width: 104 }]} numberOfLines={1}>
-                        {u.last}
-                      </Text>
+                  {rows.map((u) => {
+                    const row = toUser(u);
+                    return (
+                      <View key={u.id} style={[styles.tr, styles.trBorder]}>
+                        <Text
+                          style={[styles.td, styles.tdName, { width: 118 }]}
+                          numberOfLines={1}
+                          adjustsFontSizeToFit
+                          minimumFontScale={0.75}
+                        >
+                          {row.name}
+                        </Text>
+                        <Text style={[styles.td, { width: 168 }]} numberOfLines={1}>
+                          {row.email}
+                        </Text>
+                        <Text style={[styles.td, { width: 96 }]} numberOfLines={1}>
+                          {row.role}
+                        </Text>
+                        <Text style={[styles.td, { width: 88 }]} numberOfLines={1}>
+                          {row.team}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.td,
+                            styles.tdStatus,
+                            { width: 74, color: STATUS_TONE[row.status] },
+                          ]}
+                          numberOfLines={1}
+                        >
+                          {row.status}
+                        </Text>
+                        <Text style={[styles.td, { width: 104 }]} numberOfLines={1}>
+                          {row.last}
+                        </Text>
 
-                      {/* Transparent, outlined, and sitting on the row itself. */}
-                      <View style={[styles.actions, { width: ACTION_W }]}>
-                        <Pressable
-                          onPress={() => setEditing(u)}
-                          accessibilityRole="button"
-                          accessibilityLabel={`Edito ${u.name}`}
-                          style={({ pressed }) => [styles.actEdit, pressed && styles.pressed]}
-                        >
-                          <Text style={styles.actEditText}>Edito</Text>
-                        </Pressable>
-                        <Pressable
-                          onPress={() => setRemoving(u)}
-                          accessibilityRole="button"
-                          accessibilityLabel={`Çaktivizo ${u.name}`}
-                          style={({ pressed }) => [styles.actOff, pressed && styles.pressed]}
-                        >
-                          <Text style={styles.actOffText}>Çaktivizo</Text>
-                        </Pressable>
+                        {/* Transparent, outlined, and sitting on the row itself. */}
+                        <View style={[styles.actions, { width: ACTION_W }]}>
+                          <Pressable
+                            onPress={() => setEditing(u)}
+                            accessibilityRole="button"
+                            accessibilityLabel={`Edito ${row.name}`}
+                            style={({ pressed }) => [styles.actEdit, pressed && styles.pressed]}
+                          >
+                            <Text style={styles.actEditText}>Edito</Text>
+                          </Pressable>
+                          <Pressable
+                            onPress={() => setConfirm({ member: u, action: 'toggle' })}
+                            accessibilityRole="button"
+                            accessibilityLabel={`${u.is_active ? 'Çaktivizo' : 'Aktivizo'} ${row.name}`}
+                            style={({ pressed }) => [
+                              u.is_active ? styles.actOff : styles.actOn,
+                              pressed && styles.pressed,
+                            ]}
+                          >
+                            <Text style={u.is_active ? styles.actOffText : styles.actOnText}>
+                              {u.is_active ? 'Çaktivizo' : 'Aktivizo'}
+                            </Text>
+                          </Pressable>
+                          <Pressable
+                            onPress={() => requestDelete(u)}
+                            accessibilityRole="button"
+                            accessibilityLabel={`Fshi ${row.name}`}
+                            style={({ pressed }) => [styles.actOff, pressed && styles.pressed]}
+                          >
+                            <Text style={styles.actOffText}>Fshi</Text>
+                          </Pressable>
+                        </View>
                       </View>
-                    </View>
-                  ))}
+                    );
+                  })}
                 </View>
               </ScrollView>
             </View>
@@ -786,6 +1138,7 @@ export default function UsersListScreen() {
             {/* ── Pager ─────────────────────────────────────────── */}
             <View style={styles.pager}>
               <Pressable
+                onPress={() => setPage((p) => Math.max(1, p - 1))}
                 accessibilityRole="button"
                 accessibilityLabel="Faqja e mëparshme"
                 hitSlop={8}
@@ -794,9 +1147,10 @@ export default function UsersListScreen() {
                 <MaterialCommunityIcons name="chevron-left" size={I(22)} color={C.text} />
               </Pressable>
 
-              {PAGES.map((p) => (
+              {pages.map((p) => (
                 <Pressable
                   key={p}
+                  onPress={() => setPage(p)}
                   accessibilityRole="button"
                   accessibilityLabel={`Faqja ${p}`}
                   style={({ pressed }) => [styles.pageSq, pressed && styles.pressed]}
@@ -806,6 +1160,7 @@ export default function UsersListScreen() {
               ))}
 
               <Pressable
+                onPress={() => setPage((p) => Math.min(lastPage, p + 1))}
                 accessibilityRole="button"
                 accessibilityLabel="Faqja tjetër"
                 hitSlop={8}
@@ -832,27 +1187,84 @@ export default function UsersListScreen() {
 
                 <View style={styles.pickRow}>
                   <Pressable
+                    onPress={() => setOpenPicker((v) => (v === 'user' ? null : 'user'))}
                     accessibilityRole="button"
                     accessibilityLabel="Zgjidh përdoruesin"
                     style={({ pressed }) => [styles.picker, pressed && styles.pressed]}
                   >
                     <Text style={styles.pickerText} numberOfLines={1}>
-                      {USERS[0].name}
+                      {roleMember?.name ?? '—'}
                     </Text>
                     <MaterialCommunityIcons name="chevron-down" size={I(13)} color={C.text} />
                   </Pressable>
 
                   <Pressable
+                    onPress={() => setOpenPicker((v) => (v === 'role' ? null : 'role'))}
                     accessibilityRole="button"
                     accessibilityLabel="Roli i ri"
                     style={({ pressed }) => [styles.picker, pressed && styles.pressed]}
                   >
                     <Text style={styles.pickerText} numberOfLines={1}>
-                      {ROLES[2]}
+                      {roleLabelShown}
                     </Text>
                     <MaterialCommunityIcons name="chevron-down" size={I(13)} color={C.text} />
                   </Pressable>
                 </View>
+
+                {openPicker === 'user' ? (
+                  <View style={styles.pmOpts}>
+                    {rows.map((u) => {
+                      const active = u.id === roleMember?.id;
+                      return (
+                        <Pressable
+                          key={u.id}
+                          onPress={() => {
+                            setRoleUserId(u.id);
+                            setRoleNewLabel(null);
+                            setOpenPicker(null);
+                          }}
+                          accessibilityRole="button"
+                          accessibilityLabel={u.name}
+                          style={[styles.pmOpt, active && styles.pmOptActive]}
+                        >
+                          <Text
+                            style={[styles.pmOptText, active && styles.pmOptTextActive]}
+                            numberOfLines={1}
+                          >
+                            {u.name}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                ) : null}
+
+                {openPicker === 'role' ? (
+                  <View style={styles.pmOpts}>
+                    {ROLES.map((r) => {
+                      const active = r === roleLabelShown;
+                      return (
+                        <Pressable
+                          key={r}
+                          onPress={() => {
+                            setRoleNewLabel(r);
+                            setOpenPicker(null);
+                          }}
+                          accessibilityRole="button"
+                          accessibilityLabel={r}
+                          style={[styles.pmOpt, active && styles.pmOptActive]}
+                        >
+                          <Text
+                            style={[styles.pmOptText, active && styles.pmOptTextActive]}
+                            numberOfLines={1}
+                          >
+                            {r}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                ) : null}
 
                 {/* The one warm note on the page — deliberate, and easy to miss. */}
                 <View style={styles.roleNote}>
@@ -862,11 +1274,23 @@ export default function UsersListScreen() {
                   </Text>
                 </View>
 
+                {roleError ? (
+                  <Text style={styles.roleErr} numberOfLines={2}>
+                    {roleError}
+                  </Text>
+                ) : null}
+
                 <View style={styles.roleActions}>
                   <Pressable
+                    onPress={saveRole}
+                    disabled={roleBusy}
                     accessibilityRole="button"
                     accessibilityLabel="Ruaj ndryshimin e rolit"
-                    style={({ pressed }) => [styles.roleSave, pressed && styles.pressed]}
+                    style={({ pressed }) => [
+                      styles.roleSave,
+                      roleBusy && styles.pmBtnOff,
+                      pressed && styles.pressed,
+                    ]}
                   >
                     <Text style={styles.roleSaveText}>Ruaj ndryshimin e rolit</Text>
                   </Pressable>
@@ -908,7 +1332,15 @@ export default function UsersListScreen() {
             accessibilityRole="button"
             accessibilityLabel="Mbylle dritaren"
           />
-          <CreateUserModal onClose={() => setCreating(false)} />
+          <CreateUserModal
+            token={token}
+            onClose={() => setCreating(false)}
+            onSaved={() => {
+              setCreating(false);
+              refresh();
+            }}
+            onExpired={handleExpired}
+          />
         </View>
       ) : null}
 
@@ -921,20 +1353,40 @@ export default function UsersListScreen() {
             accessibilityRole="button"
             accessibilityLabel="Mbylle dritaren"
           />
-          <EditUserModal user={editing} onClose={() => setEditing(null)} />
+          <EditUserModal
+            member={editing}
+            teams={teams}
+            token={token}
+            onClose={() => setEditing(null)}
+            onSaved={() => {
+              setEditing(null);
+              refresh();
+            }}
+            onExpired={handleExpired}
+          />
         </View>
       ) : null}
 
-      {removing ? (
+      {confirm ? (
         <View style={styles.ovWrap}>
           <BlurView style={styles.ovFill} intensity={45} tint="dark" />
           <Pressable
             style={[styles.ovFill, styles.ovDim]}
-            onPress={() => setRemoving(null)}
+            onPress={() => setConfirm(null)}
             accessibilityRole="button"
             accessibilityLabel="Mbylle dritaren"
           />
-          <DeactivateUserModal user={removing} onClose={() => setRemoving(null)} />
+          <ConfirmUserModal
+            member={confirm.member}
+            action={confirm.action}
+            token={token}
+            onClose={() => setConfirm(null)}
+            onDone={() => {
+              setConfirm(null);
+              refresh();
+            }}
+            onExpired={handleExpired}
+          />
         </View>
       ) : null}
     </SafeAreaView>
@@ -1200,6 +1652,15 @@ const styles = StyleSheet.create(
       color: C.text,
     },
 
+    /* Inline failure of a row action, sitting just above the table. */
+    screenErr: {
+      marginTop: 10,
+      fontFamily: Fonts.body,
+      fontSize: 11,
+      lineHeight: 15,
+      color: C.red,
+    },
+
     /* ── Cards ───────────────────────────────────────────────── */
     card: {
       marginTop: 14,
@@ -1319,6 +1780,23 @@ const styles = StyleSheet.create(
       color: C.red,
     },
 
+    /* The green twin of "Çaktivizo", for an account that is switched off. */
+    actOn: {
+      height: 24,
+      paddingHorizontal: 9,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 1,
+      borderColor: C.green,
+      borderRadius: 4,
+    },
+
+    actOnText: {
+      fontFamily: Fonts.bodySemiBold,
+      fontSize: 10.5,
+      color: C.green,
+    },
+
     /* ── Pager ───────────────────────────────────────────────── */
     pager: {
       flexDirection: 'row',
@@ -1411,6 +1889,16 @@ const styles = StyleSheet.create(
       fontSize: 11,
       lineHeight: 15,
       color: C.hint,
+    },
+
+    /* Inline failure of the role swap, above its save button. */
+    roleErr: {
+      marginTop: 12,
+      textAlign: 'center',
+      fontFamily: Fonts.body,
+      fontSize: 11,
+      lineHeight: 15,
+      color: C.red,
     },
 
     roleActions: {
@@ -1743,6 +2231,11 @@ const styles = StyleSheet.create(
     pmBtnCreate: {
       width: 74,
       backgroundColor: MO.create,
+    },
+
+    /* A submit button held while its write is in flight. */
+    pmBtnOff: {
+      opacity: 0.5,
     },
 
     pmBtnText: {

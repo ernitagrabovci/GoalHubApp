@@ -110,6 +110,7 @@ export default function TrainerPlayedMatchScreen() {
   const router = useRouter();
 
   const params = useLocalSearchParams<{
+    id?: string;
     home?: string;
     away?: string;
     comp?: string;
@@ -142,6 +143,7 @@ export default function TrainerPlayedMatchScreen() {
 
   /* The same shape of params the fixtures table hands to the other pages. */
   const fixture = {
+    ...(params.id ? { id: params.id } : {}),
     home,
     away,
     day: date.split('/')[0] ?? '',
@@ -192,7 +194,10 @@ export default function TrainerPlayedMatchScreen() {
             <View style={styles.actions}>
               <Pressable
                 onPress={() =>
-                  router.push({ pathname: '/fut-rezultatin', params: { home, away } })
+                  router.push({
+                    pathname: '/fut-rezultatin',
+                    params: { ...(params.id ? { id: params.id } : {}), home, away },
+                  })
                 }
                 accessibilityRole="button"
                 accessibilityLabel="Edito rezultatin"

@@ -1,12 +1,17 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
+import { ApiError } from '@/lib/api/errors';
+import { playerStatistics } from '@/lib/api/players';
+import type { PlayerStatRow, PlayerStatisticsResponse } from '@/lib/api/types';
 import { I, scaled } from '@/lib/responsive';
+import { useSession } from '@/lib/session';
 
 /**
  * Statistikat e lojtarëve — opened from the "Statistikat" card on the players
@@ -35,11 +40,12 @@ const C = {
 
 type StatRect = { label: string; value: string; hint: string; tone?: string };
 
-const STATS: StatRect[] = [
-  { label: 'Lojtarë gjithsej', value: '85', hint: 'me statistika' },
-  { label: 'Gola total', value: '177', hint: 'sezoni aktual', tone: C.green },
-  { label: 'Asiste total', value: '176', hint: 'sezoni aktual', tone: C.blue },
-  { label: 'Minuta total', value: '35,049', hint: 'luajtura', tone: C.orange },
+/** Labels/hints/tones are static; only the value comes from the API totals. */
+const STAT_TEMPLATES: Omit<StatRect, 'value'>[] = [
+  { label: 'Lojtarë gjithsej', hint: 'me statistika' },
+  { label: 'Gola total', hint: 'sezoni aktual', tone: C.green },
+  { label: 'Asiste total', hint: 'sezoni aktual', tone: C.blue },
+  { label: 'Minuta total', hint: 'luajtura', tone: C.orange },
 ];
 
 type Col = { key: string; label: string; width: number; color?: string; align?: 'left' | 'center' };
@@ -55,11 +61,62 @@ const COLS: Col[] = [
   { key: 'kk', label: 'KK', width: 28, color: C.red },
 ];
 
-const ROWS = 10;
 const PAGES = [1, 2, 3, 4];
+
+/** A numeric cell, coerced from a possibly-string API value; null renders "—". */
+function cell(value: number | string | null | undefined): string {
+  if (value === null || value === undefined || value === '') return '—';
+  return String(Number(value));
+}
+
+/** The table body's values, in the same order as `COLS`. */
+function rowValues(r: PlayerStatRow): string[] {
+  return [
+    r.name ?? '—',
+    r.team ?? '—',
+    cell(r.matches),
+    cell(r.minutes),
+    cell(r.goals),
+    cell(r.assists),
+    cell(r.yellow_cards),
+    cell(r.red_cards),
+  ];
+}
 
 export default function PlayerStatisticsScreen() {
   const router = useRouter();
+  const { token, signOut } = useSession();
+
+  const [data, setData] = useState<PlayerStatisticsResponse | null>(null);
+
+  useEffect(() => {
+    if (!token) return;
+    const controller = new AbortController();
+    playerStatistics(token, {}, controller.signal)
+      .then((res) => {
+        if (controller.signal.aborted) return;
+        setData(res);
+      })
+      .catch((e) => {
+        if (controller.signal.aborted) return;
+        if (e instanceof ApiError && e.status === 401) {
+          signOut();
+          router.replace('/login');
+        }
+      });
+    return () => controller.abort();
+  }, [token, router, signOut]);
+
+  const totals = data?.totals;
+  const stats: StatRect[] = [
+    { ...STAT_TEMPLATES[0], value: totals ? String(totals.players) : '—' },
+    { ...STAT_TEMPLATES[1], value: totals ? String(totals.goals) : '—' },
+    { ...STAT_TEMPLATES[2], value: totals ? String(totals.assists) : '—' },
+    {
+      ...STAT_TEMPLATES[3],
+      value: totals ? totals.minutes.toLocaleString('en-US') : '—',
+    },
+  ];
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
@@ -103,7 +160,7 @@ export default function PlayerStatisticsScreen() {
             bounces={false}
             contentContainerStyle={styles.rectRow}
           >
-            {STATS.map((s) => (
+            {stats.map((s) => (
               <View key={s.label} style={styles.rect}>
                 <Text style={styles.rectLabel} numberOfLines={2}>
                   {s.label}
@@ -157,13 +214,26 @@ export default function PlayerStatisticsScreen() {
                   ))}
                 </View>
 
-                {Array.from({ length: ROWS }).map((_, i) => (
-                  <View key={i} style={[styles.tr, styles.trBorder]}>
-                    {COLS.map((c) => (
-                      <View key={c.key} style={{ width: c.width }} />
-                    ))}
-                  </View>
-                ))}
+                {(data?.data ?? []).map((r) => {
+                  const values = rowValues(r);
+                  return (
+                    <View key={r.player_id} style={[styles.tr, styles.trBorder]}>
+                      {COLS.map((c, i) => (
+                        <Text
+                          key={c.key}
+                          style={[
+                            styles.tdCell,
+                            c.align ? { textAlign: c.align } : null,
+                            { width: c.width },
+                          ]}
+                          numberOfLines={1}
+                        >
+                          {values[i]}
+                        </Text>
+                      ))}
+                    </View>
+                  );
+                })}
               </View>
             </View>
 
@@ -388,6 +458,15 @@ const styles = StyleSheet.create(
       fontSize: 10.5,
       lineHeight: 13,
       color: C.gray,
+      textAlign: 'center',
+    },
+
+    /* Body cell — same sizing as the header, normal weight and darker ink. */
+    tdCell: {
+      fontFamily: Fonts.body,
+      fontSize: 10.5,
+      lineHeight: 13,
+      color: C.text,
       textAlign: 'center',
     },
 

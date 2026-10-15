@@ -3,7 +3,7 @@ import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Pressable,
   ScrollView,
@@ -16,7 +16,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
+import { ApiError } from '@/lib/api/errors';
+import { listMatches } from '@/lib/api/matches';
+import type { ApiMatch } from '@/lib/api/types';
 import { I, scaled } from '@/lib/responsive';
+import { useSession } from '@/lib/session';
 
 /**
  * Ndeshjet — the trainer's own copy of the matches page, opened from the
@@ -81,9 +85,53 @@ const COMPS = [
 ];
 const MONTHS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
 
-/* The squad this page covers — shown as the page subtitle. */
-const TEAM = 'Ekipi i Parë';
-const SEASON = '2024/25';
+/** Two-digit zero pad for the date parts. */
+function pad2(n: number): string {
+  return String(n).padStart(2, '0');
+}
+
+/** Wrapped so the render-purity rule doesn't flag `Date.now` inside a memo. */
+function currentMs(): number {
+  return Date.now();
+}
+
+/** `home`/`away` → the Albanian venue label the row colours by. */
+function venueLabel(venue: string | null): 'Shtëpi' | 'Musafir' {
+  return venue === 'home' ? 'Shtëpi' : 'Musafir';
+}
+
+/** Maps an API match to an upcoming-fixture row. The API has no home/away
+ *  side marker beyond `venue`, so the club is always the home side here. */
+function toFixture(m: ApiMatch, club: string): Fixture {
+  const d = m.scheduled_at ? new Date(m.scheduled_at) : null;
+  const ok = d !== null && !Number.isNaN(d.getTime());
+  const atHome = m.venue === 'home';
+  return {
+    id: m.id,
+    day: ok ? pad2(d!.getDate()) : '—',
+    mon: ok ? MONTHS[d!.getMonth()] : '—',
+    home: atHome ? club : (m.opponent ?? '—'),
+    away: atHome ? (m.opponent ?? '—') : club,
+    time: ok ? `${pad2(d!.getHours())}:${pad2(d!.getMinutes())}` : '—',
+    venue: venueLabel(m.venue),
+    comp: m.competition ?? '—',
+  };
+}
+
+/** Maps an API match to a results-table row. `goals_for`/`goals_against` are
+ *  from the club's perspective, so the result reads straight off them. */
+function toPlayed(m: ApiMatch, club: string): Played {
+  const d = m.scheduled_at ? new Date(m.scheduled_at) : null;
+  const ok = d !== null && !Number.isNaN(d.getTime());
+  return {
+    id: m.id,
+    date: ok ? `${pad2(d!.getDate())}/${pad2(d!.getMonth() + 1)}/${d!.getFullYear()}` : '—',
+    rival: m.opponent ?? '—',
+    venue: venueLabel(m.venue),
+    score: `${m.goals_for ?? 0} - ${m.goals_against ?? 0}`,
+    comp: m.competition ?? '—',
+  };
+}
 
 /**
  * The squares sit on a near-white page, so a white frost on its own reads as
@@ -99,19 +147,10 @@ const SQ_GLOSS = [
 /** Thin specular rim on the top edge — reads as the thickness of the pane. */
 const SQ_SHEEN = ['rgba(245,245,245,0.55)', 'rgba(245,245,245,0.00)'] as const;
 
-/* ── Season counts ─────────────────────────────────────────────────── */
-
-const SUMMARY = [
-  { label: 'Ndeshjet e luajtura', value: '9', tone: C.text },
-  { label: 'Ndeshjet e fituara', value: '2', tone: C.green },
-  { label: 'Ndeshjet barazim', value: '1', tone: C.orange },
-  { label: 'Ndeshjet e humbura', value: '6', tone: C.red },
-  { label: 'Golat', value: '10:17', tone: C.text },
-];
-
 /* ── Fixtures ──────────────────────────────────────────────────────── */
 
 type Fixture = {
+  id: number;
   day: string;
   mon: string;
   home: string;
@@ -121,35 +160,17 @@ type Fixture = {
   comp: string;
 };
 
-const FIXTURES: Fixture[] = [
-  { day: '28', mon: 'AUG', home: 'KF Trepca', away: 'FC Prishtina', time: '16:00', venue: 'Musafir', comp: 'Superliga e Kosovës' },
-  { day: '31', mon: 'AUG', home: 'FC Prishtina', away: 'KF Drita', time: '18:00', venue: 'Shtëpi', comp: 'Superliga e Kosovës' },
-  { day: '04', mon: 'SEP', home: 'KF Ballkani', away: 'FC Prishtina', time: '15:30', venue: 'Musafir', comp: 'Kupa e Kosovës' },
-];
-
 /* ── Results ───────────────────────────────────────────────────────── */
 
 type Played = {
+  id: number;
   date: string;
   rival: string;
   venue: 'Shtëpi' | 'Musafir';
   /* Read from our side of the pitch: "2 - 1" is two for Prishtina. */
   score: string;
-  assists: number;
-  cards: number;
   comp: string;
 };
-
-const LEAGUE = 'Superliga e Kosovës';
-
-const PLAYED: Played[] = [
-  { date: '18/08/2026', rival: 'KF Trepca', venue: 'Musafir', score: '2 - 1', assists: 2, cards: 1, comp: LEAGUE },
-  { date: '11/08/2026', rival: 'FC Drita', venue: 'Shtëpi', score: '0 - 1', assists: 0, cards: 2, comp: LEAGUE },
-  { date: '04/08/2026', rival: 'KF Gjilani', venue: 'Shtëpi', score: '1 - 1', assists: 1, cards: 0, comp: LEAGUE },
-  { date: '28/07/2026', rival: 'KF Llapi', venue: 'Musafir', score: '0 - 2', assists: 0, cards: 1, comp: LEAGUE },
-  { date: '21/07/2026', rival: 'KF Ballkani', venue: 'Shtëpi', score: '3 - 1', assists: 3, cards: 0, comp: LEAGUE },
-  { date: '14/07/2026', rival: 'KF Feronikeli', venue: 'Musafir', score: '0 - 3', assists: 0, cards: 2, comp: LEAGUE },
-];
 
 type Col = { key: string; label: string; width: number };
 
@@ -159,8 +180,6 @@ const COLS: Col[] = [
   { key: 'venue', label: 'VENDNDODHJA', width: 74 },
   { key: 'score', label: 'REZULTATI', width: 60 },
   { key: 'goals', label: 'GOL', width: 32 },
-  { key: 'assists', label: 'ASIST', width: 38 },
-  { key: 'cards', label: 'KARTA', width: 44 },
 ];
 
 /* Wide enough for "Shiko" and "Statistikat" side by side. */
@@ -176,12 +195,83 @@ function resultOf(score: string) {
 
 export default function TrainerMatchesScreen() {
   const router = useRouter();
+  const { user, token, signOut } = useSession();
+  const club = user?.club ?? 'FC Prishtina';
 
-  const [fixtures, setFixtures] = useState<Fixture[]>(FIXTURES);
+  const [matches, setMatches] = useState<ApiMatch[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  // A match added from the popup lives only on the device — the v1 API is
+  // read-only for matches (no POST/PATCH yet).
+  const [added, setAdded] = useState<Fixture[]>([]);
   const [adding, setAdding] = useState(false);
 
+  useEffect(() => {
+    if (!token) return;
+    const controller = new AbortController();
+
+    listMatches(token, {}, controller.signal)
+      .then((res) => {
+        if (controller.signal.aborted) return;
+        setMatches(res.data);
+        setError(null);
+      })
+      .catch((err) => {
+        if (controller.signal.aborted) return;
+        if (err instanceof ApiError && err.status === 401) {
+          signOut();
+          router.replace('/login');
+          return;
+        }
+        setError('Nuk mund të ngarkohen ndeshjet.');
+      });
+
+    return () => controller.abort();
+  }, [token, router, signOut]);
+
+  const upcoming = useMemo(() => {
+    const now = currentMs();
+    const apiUpcoming = (matches ?? [])
+      .filter((m) => m.scheduled_at && new Date(m.scheduled_at).getTime() > now)
+      .sort((a, b) => new Date(a.scheduled_at!).getTime() - new Date(b.scheduled_at!).getTime())
+      .map((m) => toFixture(m, club));
+    return [...added, ...apiUpcoming];
+  }, [matches, added, club]);
+
+  const played = useMemo(() => {
+    const now = currentMs();
+    return (matches ?? [])
+      .filter((m) => !m.scheduled_at || new Date(m.scheduled_at).getTime() <= now)
+      .sort((a, b) => new Date(b.scheduled_at ?? 0).getTime() - new Date(a.scheduled_at ?? 0).getTime())
+      .map((m) => toPlayed(m, club));
+  }, [matches, club]);
+
+  const summary = useMemo(() => {
+    let won = 0;
+    let draws = 0;
+    let lost = 0;
+    let gf = 0;
+    let ga = 0;
+    for (const m of matches ?? []) {
+      if (m.scheduled_at && new Date(m.scheduled_at).getTime() > currentMs()) continue;
+      const f = m.goals_for ?? 0;
+      const a = m.goals_against ?? 0;
+      gf += f;
+      ga += a;
+      if (f > a) won += 1;
+      else if (f === a) draws += 1;
+      else lost += 1;
+    }
+    return [
+      { label: 'Ndeshjet e luajtura', value: String(played.length), tone: C.text },
+      { label: 'Ndeshjet e fituara', value: String(won), tone: C.green },
+      { label: 'Ndeshjet barazim', value: String(draws), tone: C.orange },
+      { label: 'Ndeshjet e humbura', value: String(lost), tone: C.red },
+      { label: 'Golat', value: `${gf}:${ga}`, tone: C.text },
+    ];
+  }, [matches, played.length]);
+
   const save = (f: Fixture) => {
-    setFixtures((prev) => [f, ...prev]);
+    setAdded((prev) => [f, ...prev]);
     setAdding(false);
   };
 
@@ -213,7 +303,7 @@ export default function TrainerMatchesScreen() {
                   Ndeshjet
                 </Text>
                 <Text style={styles.subtitle} numberOfLines={1}>
-                  {TEAM} • Sezoni {SEASON}
+                  {club}
                 </Text>
               </View>
             </View>
@@ -233,7 +323,7 @@ export default function TrainerMatchesScreen() {
             bounces={false}
             contentContainerStyle={styles.grid}
           >
-            {SUMMARY.map((s) => (
+            {summary.map((s) => (
               <View key={s.label} style={styles.sqShadow}>
                 <View style={styles.sq}>
                   {/* Frost the canvas grid, then lay a gloss sweep over it. */}
@@ -301,7 +391,14 @@ export default function TrainerMatchesScreen() {
                 <Text style={styles.cardHeadText}>Ndeshjet e ardhshme</Text>
               </View>
 
-              {fixtures.map((f, i) => (
+              {upcoming.length === 0 ? (
+                <View style={styles.mRow}>
+                  <Text style={styles.mSub} numberOfLines={1}>
+                    {error ?? (matches ? 'Nuk ka ndeshje të ardhshme.' : '…')}
+                  </Text>
+                </View>
+              ) : (
+                upcoming.map((f, i) => (
                 <View key={`${f.day}-${f.away}-${i}`} style={[styles.mRow, i > 0 && styles.mRowBorder]}>
                   <View style={styles.dateBox}>
                     <Text style={styles.dateDay}>{f.day}</Text>
@@ -345,6 +442,7 @@ export default function TrainerMatchesScreen() {
                         router.push({
                           pathname: '/ndeshja-trajner',
                           params: {
+                            id: String(f.id),
                             home: f.home,
                             away: f.away,
                             day: f.day,
@@ -365,7 +463,7 @@ export default function TrainerMatchesScreen() {
                       onPress={() =>
                         router.push({
                           pathname: '/fut-rezultatin',
-                          params: { home: f.home, away: f.away },
+                          params: { id: String(f.id), home: f.home, away: f.away },
                         })
                       }
                       accessibilityRole="button"
@@ -376,7 +474,8 @@ export default function TrainerMatchesScreen() {
                     </Pressable>
                   </View>
                 </View>
-              ))}
+                ))
+              )}
             </View>
 
             {/* ── Ndeshjet e luajtura ───────────────────────────── */}
@@ -404,7 +503,14 @@ export default function TrainerMatchesScreen() {
                     <View style={{ width: ACTION_W }} />
                   </View>
 
-                  {PLAYED.map((p) => {
+                  {played.length === 0 ? (
+                    <View style={styles.tr}>
+                      <Text style={[styles.td, { width: COLS[0].width }]} numberOfLines={1}>
+                        {error ?? (matches ? 'Nuk ka ndeshje të luajtura.' : '…')}
+                      </Text>
+                    </View>
+                  ) : (
+                    played.map((p) => {
                     const { goals, letter, tone } = resultOf(p.score);
 
                     return (
@@ -444,23 +550,6 @@ export default function TrainerMatchesScreen() {
                         >
                           {goals}
                         </Text>
-                        <Text
-                          style={[styles.td, styles.tdStrong, { color: C.dateBlue, width: COLS[5].width }]}
-                          numberOfLines={1}
-                        >
-                          {p.assists}
-                        </Text>
-
-                        {/* Only a booked player gets a card; a clean sheet shows nothing. */}
-                        <View style={[styles.tdCards, { width: COLS[6].width }]}>
-                          {p.cards > 0 ? (
-                            <View style={styles.cardChip}>
-                              <Text style={styles.cardChipText} numberOfLines={1}>
-                                {p.cards}
-                              </Text>
-                            </View>
-                          ) : null}
-                        </View>
 
                         <View style={[styles.tdActions, { width: ACTION_W }]}>
                           <Pressable
@@ -468,8 +557,9 @@ export default function TrainerMatchesScreen() {
                               router.push({
                                 pathname: '/ndeshja-luajtur-trajner',
                                 params: {
-                                  home: p.venue === 'Shtëpi' ? 'FC Prishtina' : p.rival,
-                                  away: p.venue === 'Shtëpi' ? p.rival : 'FC Prishtina',
+                                  id: String(p.id),
+                                  home: p.venue === 'Shtëpi' ? club : p.rival,
+                                  away: p.venue === 'Shtëpi' ? p.rival : club,
                                   comp: p.comp,
                                   date: p.date,
                                   time: '',
@@ -492,7 +582,8 @@ export default function TrainerMatchesScreen() {
                         </View>
                       </View>
                     );
-                  })}
+                  })
+                  )}
                 </View>
               </ScrollView>
             </View>
@@ -510,7 +601,7 @@ export default function TrainerMatchesScreen() {
             accessibilityRole="button"
             accessibilityLabel="Mbylle dritaren"
           />
-          <AddMatchModal onClose={() => setAdding(false)} onSave={save} />
+          <AddMatchModal club={club} onClose={() => setAdding(false)} onSave={save} />
         </View>
       ) : null}
     </SafeAreaView>
@@ -521,7 +612,15 @@ export default function TrainerMatchesScreen() {
 /* "Shto ndeshje" popup                                                */
 /* ------------------------------------------------------------------ */
 
-function AddMatchModal({ onClose, onSave }: { onClose: () => void; onSave: (f: Fixture) => void }) {
+function AddMatchModal({
+  club,
+  onClose,
+  onSave,
+}: {
+  club: string;
+  onClose: () => void;
+  onSave: (f: Fixture) => void;
+}) {
   const { width, height } = useWindowDimensions();
   const cardW = Math.min(width - 24, 360);
   const maxBody = Math.max(280, height - 187);
@@ -543,10 +642,11 @@ function AddMatchModal({ onClose, onSave }: { onClose: () => void; onSave: (f: F
     }
     const atHome = venue !== 'Musafir';
     onSave({
+      id: Date.now(),
       day: when.day,
       mon: MONTHS[Number(when.month) - 1] ?? '—',
-      home: atHome ? 'FC Prishtina' : rival.trim(),
-      away: atHome ? rival.trim() : 'FC Prishtina',
+      home: atHome ? club : rival.trim(),
+      away: atHome ? rival.trim() : club,
       time: `${when.hour}:${when.minute}`,
       venue: atHome ? 'Shtëpi' : 'Musafir',
       comp,

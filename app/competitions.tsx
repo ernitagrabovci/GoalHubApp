@@ -1,7 +1,7 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Pressable,
   ScrollView,
@@ -13,7 +13,16 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
+import {
+  createCompetition,
+  deleteCompetition,
+  listCompetitions,
+  toggleCompetition,
+} from '@/lib/api/competitions';
+import { ApiError } from '@/lib/api/errors';
+import type { ApiCompetition } from '@/lib/api/types';
 import { I, scaled } from '@/lib/responsive';
+import { useSession } from '@/lib/session';
 
 /**
  * Kompeticionet — page opened from the club profile's "Kompeticionet" card.
@@ -23,6 +32,10 @@ import { I, scaled } from '@/lib/responsive';
  * header reads "Rrjetet sociale". Rows carry colored text badges
  * (Kupë / Ligë / Miqësore), the gray name in the middle, a red-outlined
  * "Çaktivizo" and a solid-red "Fshi".
+ *
+ * The list comes from `GET /competitions`; the add form and the row buttons
+ * write through `POST /competitions`, `POST /competitions/{id}/toggle` and
+ * `DELETE /competitions/{id}`, then reload the list.
  */
 
 const C = {
@@ -64,40 +77,143 @@ type CompRow = {
   active: boolean;
 };
 
-const INITIAL: CompRow[] = [
-  { id: 1, name: 'Kupa e Kosovës', type: COMP_TYPES[0], active: true },
-  { id: 2, name: 'Liga e Dytë', type: COMP_TYPES[1], active: true },
-  { id: 3, name: 'Ndeshje Miqësore', type: COMP_TYPES[2], active: true },
-  { id: 4, name: 'Superliga', type: COMP_TYPES[1], active: true },
-];
+/** Backend competition type → the badge shown on the row. */
+const TYPE_BY_API: Record<string, CompType> = {
+  cup: COMP_TYPES[0],
+  league: COMP_TYPES[1],
+  friendly: COMP_TYPES[2],
+};
 
-let nextId = 100;
+/** An unrecognised backend type falls back to the "Ligë" badge. */
+function toCompType(type: string): CompType {
+  return TYPE_BY_API[type.toLowerCase()] ?? COMP_TYPES[1];
+}
+
+/** The form's badge key → the value the API's `type` field expects. */
+const API_TYPE: Record<string, 'league' | 'cup' | 'friendly'> = {
+  kupe: 'cup',
+  lige: 'league',
+  mikesore: 'friendly',
+};
+
+/** A failed write, in the label the inline error shows. */
+function errorText(error: unknown): string {
+  if (error instanceof ApiError) {
+    if (error.status === 0) return 'Nuk mund të lidhemi me serverin. Kontrollo lidhjen.';
+    if (error.status === 422) return 'Të dhënat nuk janë të vlefshme.';
+    return 'Diçka shkoi keq. Provo përsëri.';
+  }
+  return 'Diçka shkoi keq. Provo përsëri.';
+}
+
+/** Maps an API competition onto the page's row shape. */
+function toRow(c: ApiCompetition): CompRow {
+  return {
+    id: c.id,
+    name: c.name,
+    type: toCompType(c.type),
+    active: c.is_active,
+  };
+}
 
 export default function CompetitionsScreen() {
   const router = useRouter();
+  const { token, signOut } = useSession();
 
-  const [list, setList] = useState<CompRow[]>(INITIAL);
+  const [list, setList] = useState<CompRow[]>([]);
   const [name, setName] = useState('');
   const [typeKey, setTypeKey] = useState<string | null>(null);
   const [typeOpen, setTypeOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
+
+  useEffect(() => {
+    if (!token) return;
+    const controller = new AbortController();
+    listCompetitions(token, controller.signal)
+      .then((res) => {
+        if (controller.signal.aborted) return;
+        setList(res.data.map(toRow));
+      })
+      .catch((e) => {
+        if (controller.signal.aborted) return;
+        if (e instanceof ApiError && e.status === 401) {
+          signOut();
+          router.replace('/login');
+        }
+      });
+    return () => controller.abort();
+  }, [token, router, signOut, reloadKey]);
+
+  /** A write finished — clear any error and re-run the list fetch. */
+  const refresh = () => {
+    setError(null);
+    setReloadKey((k) => k + 1);
+  };
+
+  /** Every write shares the same 401 sign-out path. */
+  const onWriteError = (err: unknown) => {
+    if (err instanceof ApiError && err.status === 401) {
+      signOut();
+      router.replace('/login');
+      return;
+    }
+    setBusy(false);
+    setError(errorText(err));
+  };
 
   const canAdd = name.trim().length > 0 && typeKey != null;
 
   const addComp = () => {
-    if (!canAdd) return;
-    const type = COMP_TYPES.find((t) => t.key === typeKey)!;
-    setList((prev) => [
-      ...prev,
-      { id: nextId++, name: name.trim(), type, active: true },
-    ]);
-    setName('');
-    setTypeKey(null);
+    if (!token || busy) return;
+    const trimmed = name.trim();
+    if (!trimmed) {
+      setError('Shkruaj emrin e kompeticionit.');
+      return;
+    }
+    const apiType = typeKey ? API_TYPE[typeKey] : undefined;
+    if (!apiType) {
+      setError('Zgjidh llojin e kompeticionit.');
+      return;
+    }
+
+    setBusy(true);
+    setError(null);
+    createCompetition(token, { name: trimmed, type: apiType })
+      .then(() => {
+        setName('');
+        setTypeKey(null);
+        setTypeOpen(false);
+        setBusy(false);
+        refresh();
+      })
+      .catch(onWriteError);
   };
 
-  const removeComp = (id: number) => setList((prev) => prev.filter((r) => r.id !== id));
+  const removeComp = (id: number) => {
+    if (!token || busy) return;
+    setBusy(true);
+    setError(null);
+    deleteCompetition(token, id)
+      .then(() => {
+        setBusy(false);
+        refresh();
+      })
+      .catch(onWriteError);
+  };
 
-  const toggleComp = (id: number) =>
-    setList((prev) => prev.map((r) => (r.id === id ? { ...r, active: !r.active } : r)));
+  const toggleComp = (id: number) => {
+    if (!token || busy) return;
+    setBusy(true);
+    setError(null);
+    toggleCompetition(token, id)
+      .then(() => {
+        setBusy(false);
+        refresh();
+      })
+      .catch(onWriteError);
+  };
 
   const selectedType = COMP_TYPES.find((t) => t.key === typeKey);
 
@@ -205,6 +321,7 @@ export default function CompetitionsScreen() {
 
                 <Pressable
                   onPress={addComp}
+                  disabled={busy}
                   accessibilityRole="button"
                   style={({ pressed }) => [
                     styles.addBtn,
@@ -213,6 +330,12 @@ export default function CompetitionsScreen() {
                 >
                   <Text style={styles.addBtnText}>+ Shto</Text>
                 </Pressable>
+
+                {error ? (
+                  <Text style={styles.errorText} numberOfLines={2}>
+                    {error}
+                  </Text>
+                ) : null}
               </View>
             </View>
 
@@ -244,6 +367,7 @@ export default function CompetitionsScreen() {
                     <View style={styles.rowActions}>
                       <Pressable
                         onPress={() => toggleComp(row.id)}
+                        disabled={busy}
                         hitSlop={6}
                         accessibilityRole="button"
                         style={({ pressed }) => [
@@ -257,6 +381,7 @@ export default function CompetitionsScreen() {
                       </Pressable>
                       <Pressable
                         onPress={() => removeComp(row.id)}
+                        disabled={busy}
                         hitSlop={6}
                         accessibilityRole="button"
                         style={({ pressed }) => [
@@ -601,6 +726,14 @@ const styles = StyleSheet.create(
       color: C.gray,
       textAlign: 'center',
       paddingVertical: 18,
+    },
+
+    errorText: {
+      marginTop: 10,
+      fontFamily: Fonts.body,
+      fontSize: 11.5,
+      lineHeight: 15,
+      color: C.red,
     },
 
     goPressed: {

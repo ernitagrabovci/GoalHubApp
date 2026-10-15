@@ -1,5 +1,5 @@
 import { request } from '@/lib/api/client';
-import type { ApiTraining, Paginated } from '@/lib/api/types';
+import type { ApiTraining, MutationResponse, Paginated } from '@/lib/api/types';
 
 export type TrainingListParams = {
   page?: number;
@@ -39,4 +39,31 @@ type TrainingResponse = { data: ApiTraining };
 
 export function getTraining(token: string, id: number, signal?: AbortSignal) {
   return request<TrainingResponse>(`/trainings/${id}`, { token, signal });
+}
+
+/* ─────────────────────────────── Writes ─────────────────────────────── */
+
+/** One player's attendance line: `present`, `absent` or `unconfirmed`. */
+export type AttendanceEntry = {
+  status: 'present' | 'absent' | 'unconfirmed';
+  reason?: string | null;
+};
+
+/**
+ * Save attendance for a training session. `finalize` (default) also marks the
+ * session as graded; pass `false` to update an already-finalized sheet.
+ */
+export function saveAttendance(
+  token: string,
+  trainingId: number,
+  attendance: Record<number, AttendanceEntry>,
+  finalize = true,
+  signal?: AbortSignal,
+) {
+  return request<MutationResponse<ApiTraining>>(`/trainings/${trainingId}/attendance`, {
+    method: finalize ? 'POST' : 'PUT',
+    body: { attendance },
+    token,
+    signal,
+  });
 }

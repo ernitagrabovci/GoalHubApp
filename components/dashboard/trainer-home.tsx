@@ -1,6 +1,7 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useEffect, useState } from 'react';
 import {
   Image,
   Pressable,
@@ -12,7 +13,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
+import { ApiError } from '@/lib/api/errors';
+import { playerStats } from '@/lib/api/players';
+import type { PlayerStats } from '@/lib/api/types';
 import { I, scaled } from '@/lib/responsive';
+import { useSession } from '@/lib/session';
 
 /**
  * GoalHub Trainer Home Dashboard
@@ -77,6 +82,29 @@ const IMG = {
 
 export function TrainerHome() {
   const router = useRouter();
+  const { user, token, signOut } = useSession();
+
+  const [stats, setStats] = useState<PlayerStats | null>(null);
+
+  useEffect(() => {
+    if (!token) return;
+    const controller = new AbortController();
+
+    playerStats(token, controller.signal)
+      .then((res) => {
+        if (controller.signal.aborted) return;
+        setStats(res);
+      })
+      .catch((err) => {
+        if (controller.signal.aborted) return;
+        if (err instanceof ApiError && err.status === 401) {
+          signOut();
+          router.replace('/login');
+        }
+      });
+
+    return () => controller.abort();
+  }, [token, router, signOut]);
 
   const open = (route: string) => {
     router.push(route as never);
@@ -99,6 +127,7 @@ export function TrainerHome() {
 
           <View style={styles.padded}>
             <HeaderBlock
+              clubName={user?.club ?? '—'}
               onBell={() => open('/njoftimet-trajner')}
               onSettings={() => open('/settings')}
             />
@@ -109,7 +138,7 @@ export function TrainerHome() {
               </Text>
 
               <Text style={styles.welcomeSub}>
-                Mirë se vini, Rexhep Hyseni
+                Mirë se vini, {user?.name ?? '—'}
               </Text>
             </View>
           </View>
@@ -128,7 +157,7 @@ export function TrainerHome() {
               <StatCard
                 labelTop="Lojtarë"
                 labelBottom="Aktivë"
-                value="25"
+                value={stats ? String(stats.active) : '—'}
                 img={IMG.statPlayer}
                 imgStyle={styles.statImgPlayer}
                 imgCover
@@ -137,7 +166,7 @@ export function TrainerHome() {
               <StatCard
                 labelTop="Të"
                 labelBottom="Lënduar"
-                value="1"
+                value={stats ? String(stats.injured) : '—'}
                 img={IMG.doctor}
                 imgStyle={styles.statImgDoctor}
                 imgCover
@@ -146,7 +175,7 @@ export function TrainerHome() {
               <StatCard
                 labelTop="Shërvitje"
                 labelBottom="(muaj)"
-                value="0"
+                value="—"
                 img={IMG.stervitje}
                 imgStyle={styles.statImgStervitje}
                 imgCover
@@ -155,7 +184,7 @@ export function TrainerHome() {
               <StatCard
                 labelTop="Prani"
                 labelBottom="Mësimet"
-                value="0%"
+                value="—"
               />
             </ScrollView>
           </View>
@@ -316,9 +345,11 @@ export function TrainerHome() {
    ========================================================= */
 
 function HeaderBlock({
+  clubName,
   onBell,
   onSettings,
 }: {
+  clubName: string;
   onBell: () => void;
   onSettings: () => void;
 }) {
@@ -342,7 +373,7 @@ function HeaderBlock({
 
         <View style={styles.clubRow}>
           <Text style={styles.clubName}>
-            FC Prishtina
+            {clubName}
           </Text>
 
           <MaterialCommunityIcons

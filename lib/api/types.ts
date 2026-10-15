@@ -167,6 +167,28 @@ export type TeamStats = {
   season: string | null;
 };
 
+/** One player's call-up, present only on `GET /matches/{match}`. */
+export type ApiMatchLineupEntry = {
+  player_id: number;
+  player_name: string | null;
+  /** `starter`, `substitute` or `out`. */
+  type: string;
+  position: string | null;
+  order: number | null;
+};
+
+/** One player's line in the final result, on `GET /matches/{match}`. */
+export type ApiMatchPlayerStat = {
+  player_id: number;
+  player_name: string | null;
+  goals: number | null;
+  assists: number | null;
+  minutes_played: number | null;
+  yellow_cards: number | null;
+  red_cards: number | null;
+  rating: number | null;
+};
+
 /** A match, from `GET /matches` (paginated) and `GET /matches/{match}`. */
 export type ApiMatch = {
   id: number;
@@ -180,6 +202,10 @@ export type ApiMatch = {
   status: string | null;
   notes: string | null;
   team: ApiTeamRef | null;
+  /** Present only on the show endpoint (`whenLoaded`). */
+  lineup?: ApiMatchLineupEntry[];
+  /** Present only on the show endpoint (`whenLoaded`). */
+  player_stats?: ApiMatchPlayerStat[];
 };
 
 /** An injury record, from `GET /injuries` (paginated) and `GET /injuries/{injury}`. */
@@ -481,4 +507,81 @@ export type PlayerPeriods = {
   player: { id: number; name: string | null };
   unpaid: UnpaidPeriod[];
   future: UnpaidPeriod[];
+};
+
+/** One row of `GET /players/statistics` — season totals per player. */
+export type PlayerStatRow = {
+  player_id: number;
+  name: string | null;
+  team_id: number | null;
+  team: string | null;
+  jersey_number: number | string | null;
+  position: string | null;
+  matches: number | string;
+  minutes: number | string;
+  goals: number | string;
+  assists: number | string;
+  yellow_cards: number | string;
+  red_cards: number | string;
+  rating: number | string | null;
+};
+
+/** `GET /players/statistics` — the rows plus club-wide totals. */
+export type PlayerStatisticsResponse = {
+  data: PlayerStatRow[];
+  totals: { players: number; goals: number; assists: number; minutes: number };
+};
+
+/** One row of `GET /ratings` — a player's averaged coach ratings. */
+export type PlayerRatingRow = {
+  player_id: number;
+  name: string | null;
+  team_id: number | null;
+  team: string | null;
+  jersey_number: number | string | null;
+  position: string | null;
+  technique: number | string | null;
+  physical: number | string | null;
+  tactics: number | string | null;
+  consistency: number | string | null;
+  teamwork: number | string | null;
+  average: number | string | null;
+  ratings_count: number | string;
+  last_rated_at: string | null;
+};
+
+/** A competition, from `GET /competitions`. */
+export type ApiCompetition = {
+  id: number;
+  name: string;
+  type: 'league' | 'cup' | 'friendly' | string;
+  is_active: boolean;
+  created_at: string | null;
+};
+
+/** A playing position option, from `GET /positions`. */
+export type ApiPosition = {
+  id: number;
+  code: string;
+  name: string;
+  color: string | null;
+};
+
+/** Envelope for a single-resource mutation — `{ data, message }`. */
+export type MutationResponse<T> = { data: T; message: string };
+
+/** A club member, from `GET /users`. */
+export type ApiMember = {
+  id: number;
+  name: string;
+  email: string | null;
+  avatar: string | null;
+  role: string;
+  role_label: string | null;
+  is_active: boolean;
+  team: { id: number; name: string } | null;
+  jersey_number: number | string | null;
+  position: string | null;
+  last_login_at: string | null;
+  created_at: string | null;
 };

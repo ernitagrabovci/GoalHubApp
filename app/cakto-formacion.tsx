@@ -1,13 +1,17 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
+import { ApiError } from '@/lib/api/errors';
+import { getMatch, saveMatchLineup, type LineupEntry } from '@/lib/api/matches';
+import { listPlayers } from '@/lib/api/players';
 import { I, scaled } from '@/lib/responsive';
+import { useSession } from '@/lib/session';
 
 /**
  * Cakto formacion — opened from the button of the same name on the trainer's
@@ -50,6 +54,37 @@ const POS_TONE: Record<string, string> = {
 
 const POSITIONS = ['Portier', 'Mbrojtës', 'Mesfushor', 'Sulmues'];
 
+/* The API stores a position code (`config/positions.php`); the picker shows the
+   four broad Albanian labels, so each code folds into one of them. */
+const CODE_TO_POS: Record<string, string> = {
+  PO: 'Portier',
+  BDJ: 'Mbrojtës',
+  QBM: 'Mbrojtës',
+  BSI: 'Mbrojtës',
+  MMB: 'Mesfushor',
+  MQ: 'Mesfushor',
+  MO: 'Mesfushor',
+  KDJ: 'Sulmues',
+  KSI: 'Sulmues',
+  SU: 'Sulmues',
+  SS: 'Sulmues',
+};
+
+/* The label the picker shows → the code the lineup endpoint stores. */
+const POS_TO_CODE: Record<string, string> = {
+  Portier: 'PO',
+  Mbrojtës: 'QBM',
+  Mesfushor: 'MQ',
+  Sulmues: 'SU',
+};
+
+/** A position code (or an already-labelled value) → a picker label. */
+function posLabel(code: string | null): string {
+  if (!code) return 'Mesfushor';
+  if (POSITIONS.includes(code)) return code;
+  return CODE_TO_POS[code] ?? 'Mesfushor';
+}
+
 const ROLES = ['Jashtë', 'Startues', 'Rezervë'];
 
 const STARTER_CAP = 11;
@@ -58,9 +93,12 @@ const MONTHS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', '
 
 const SEASON_YEAR = '2026';
 
-type Player = { nr: string; name: string; pos: string };
+type SquadMember = { nr: string; name: string; pos: string };
 
-const SQUAD: Player[] = [
+/* A squad row the screen renders, plus the backend player id when it has one. */
+type Player = { key: string; id: number | null; nr: string; name: string; pos: string };
+
+const SQUAD: SquadMember[] = [
   { nr: '1', name: 'Luan Kryeziu', pos: 'Portier' },
   { nr: '2', name: 'Bekim Rexhepi', pos: 'Portier' },
   { nr: '3', name: 'Ilir Bytyqi', pos: 'Portier' },
@@ -88,6 +126,15 @@ const SQUAD: Player[] = [
   { nr: '25', name: 'Erion Zeka', pos: 'Sulmues' },
 ];
 
+/* The id-less fallback squad, shown until a real team loads. */
+const STATIC_SQUAD: Player[] = SQUAD.map((p) => ({
+  key: p.nr,
+  id: null,
+  nr: p.nr,
+  name: p.name,
+  pos: p.pos,
+}));
+
 const INSTRUCTIONS = [
   'Zgjedh Startues për 11 lojtarët kryesorë',
   'Zgjedh Rezervë për lojtarët e bankës',
@@ -105,14 +152,20 @@ function monthName(mon: string): string {
 
 export default function SetFormationScreen() {
   const router = useRouter();
+  const { token, signOut } = useSession();
 
   const params = useLocalSearchParams<{
+    id?: string;
+    matchId?: string;
     home?: string;
     away?: string;
     day?: string;
     mon?: string;
     time?: string;
   }>();
+
+  const matchId = params.id ? Number(params.id) : params.matchId ? Number(params.matchId) : null;
+  const hasId = matchId !== null && !Number.isNaN(matchId);
 
   const home = params.home ?? '';
   const away = params.away ?? '';
@@ -122,20 +175,79 @@ export default function SetFormationScreen() {
   const day = `${params.day ?? ''} ${monthName(params.mon ?? '')} ${SEASON_YEAR}`.trim();
   const time = params.time ?? '';
 
+  const [squad, setSquad] = useState<Player[]>(STATIC_SQUAD);
   /* Every player starts outside the squad; the trainer calls them up. */
   const [roles, setRoles] = useState<Record<string, string>>(() =>
-    Object.fromEntries(SQUAD.map((p) => [p.nr, CLOSED])),
+    Object.fromEntries(STATIC_SQUAD.map((p) => [p.key, CLOSED])),
   );
   const [positions, setPositions] = useState<Record<string, string>>(() =>
-    Object.fromEntries(SQUAD.map((p) => [p.nr, p.pos])),
+    Object.fromEntries(STATIC_SQUAD.map((p) => [p.key, p.pos])),
   );
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   /* Only one dropdown is ever unrolled, and it floats over the rows below. */
   const [openKey, setOpenKey] = useState<string | null>(null);
 
-  const roster = SQUAD.map((p) => ({
+  /* Load the match, then the squad of the team it belongs to, seeding each
+     player's call-up and position from any lineup already saved. */
+  useEffect(() => {
+    if (!token || !hasId) return;
+    const controller = new AbortController();
+
+    (async () => {
+      try {
+        const matchRes = await getMatch(token, matchId as number, controller.signal);
+        if (controller.signal.aborted) return;
+
+        const teamId = matchRes.data.team?.id ?? null;
+        const existing = matchRes.data.lineup ?? [];
+        const playersRes = await listPlayers(
+          token,
+          teamId ? { team_id: teamId } : {},
+          controller.signal,
+        );
+        if (controller.signal.aborted) return;
+
+        const byId = new Map(existing.map((l) => [l.player_id, l]));
+        const apiSquad: Player[] = playersRes.data.map((p) => ({
+          key: String(p.id),
+          id: p.id,
+          nr: p.jersey_number != null ? String(p.jersey_number) : '',
+          name: p.name ?? '—',
+          pos: posLabel(byId.get(p.id)?.position ?? p.position),
+        }));
+
+        setSquad(apiSquad);
+        setRoles(
+          Object.fromEntries(
+            apiSquad.map((p) => {
+              const type = byId.get(p.id as number)?.type;
+              const role =
+                type === 'starter' ? 'Startues' : type === 'substitute' ? 'Rezervë' : CLOSED;
+              return [p.key, role];
+            }),
+          ),
+        );
+        setPositions(Object.fromEntries(apiSquad.map((p) => [p.key, p.pos])));
+        setError(null);
+      } catch (err) {
+        if (controller.signal.aborted) return;
+        if (err instanceof ApiError && err.status === 401) {
+          signOut();
+          router.replace('/login');
+          return;
+        }
+        setError('Nuk mund të ngarkohet formacioni.');
+      }
+    })();
+
+    return () => controller.abort();
+  }, [token, matchId, hasId, router, signOut]);
+
+  const roster = squad.map((p) => ({
     ...p,
-    pos: positions[p.nr] ?? p.pos,
-    role: roles[p.nr] ?? CLOSED,
+    pos: positions[p.key] ?? p.pos,
+    role: roles[p.key] ?? CLOSED,
   }));
 
   const starters = roster.filter((p) => p.role === 'Startues').length;
@@ -146,6 +258,53 @@ export default function SetFormationScreen() {
     { label: 'Rezervat', value: `${reserves}` },
     { label: 'Jashtë', value: `${roster.length - starters - reserves}` },
   ];
+
+  const publish = () => {
+    if (saving) return;
+    /* No match id: nothing to publish to, close as before. */
+    if (!hasId || !token) {
+      router.back();
+      return;
+    }
+    if (starters > STARTER_CAP) {
+      setError('Maksimumi 11 startues.');
+      return;
+    }
+
+    const lineup: Record<number, LineupEntry> = {};
+    for (const p of squad) {
+      if (p.id == null) continue;
+      const role = roles[p.key] ?? CLOSED;
+      const type: LineupEntry['type'] =
+        role === 'Startues' ? 'starter' : role === 'Rezervë' ? 'substitute' : 'out';
+      const label = positions[p.key] ?? p.pos;
+      lineup[p.id] = {
+        type,
+        position: type === 'out' ? null : (POS_TO_CODE[label] ?? label),
+      };
+    }
+
+    setSaving(true);
+    setError(null);
+
+    saveMatchLineup(token, matchId as number, lineup)
+      .then(() => router.back())
+      .catch((err) => {
+        if (err instanceof ApiError && err.status === 401) {
+          signOut();
+          router.replace('/login');
+          return;
+        }
+        setSaving(false);
+        if (err instanceof ApiError && err.status === 0) {
+          setError('Nuk mund të lidhemi me serverin. Kontrollo lidhjen.');
+        } else if (err instanceof ApiError && err.status === 422) {
+          setError('Të dhënat nuk janë të vlefshme.');
+        } else {
+          setError('Nuk mund të ruhet formacioni.');
+        }
+      });
+  };
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
@@ -212,14 +371,26 @@ export default function SetFormationScreen() {
                   ))}
 
                   <Pressable
+                    onPress={publish}
+                    disabled={saving}
                     accessibilityRole="button"
                     accessibilityLabel="Publiko formacionin"
-                    style={({ pressed }) => [styles.publishBtn, pressed && styles.pressed]}
+                    style={({ pressed }) => [
+                      styles.publishBtn,
+                      saving && styles.publishBtnOff,
+                      pressed && styles.pressed,
+                    ]}
                   >
                     <Text style={styles.publishText} numberOfLines={1}>
                       Publiko formacionin
                     </Text>
                   </Pressable>
+
+                  {error ? (
+                    <Text style={styles.errorText} numberOfLines={3}>
+                      {error}
+                    </Text>
+                  ) : null}
                 </View>
               </View>
 
@@ -253,11 +424,11 @@ export default function SetFormationScreen() {
 
               <View style={styles.rosterBody}>
                 {roster.map((p, i) => {
-                  const roleKey = `${p.nr}:role`;
-                  const posKey = `${p.nr}:pos`;
+                  const roleKey = `${p.key}:role`;
+                  const posKey = `${p.key}:pos`;
                   return (
                     <View
-                      key={p.nr}
+                      key={p.key}
                       style={[
                         styles.tr,
                         i > 0 && styles.trBorder,
@@ -293,7 +464,7 @@ export default function SetFormationScreen() {
                             starters >= STARTER_CAP &&
                             p.role !== 'Startues'
                           }
-                          onChange={(v) => setRoles((prev) => ({ ...prev, [p.nr]: v }))}
+                          onChange={(v) => setRoles((prev) => ({ ...prev, [p.key]: v }))}
                         />
                         <Pick
                           value={p.pos}
@@ -301,7 +472,7 @@ export default function SetFormationScreen() {
                           width={90}
                           open={openKey === posKey}
                           setOpen={(v) => setOpenKey(v ? posKey : null)}
-                          onChange={(v) => setPositions((prev) => ({ ...prev, [p.nr]: v }))}
+                          onChange={(v) => setPositions((prev) => ({ ...prev, [p.key]: v }))}
                         />
                       </View>
                     </View>
@@ -546,6 +717,19 @@ const styles = StyleSheet.create(
       fontSize: 10,
       lineHeight: 13,
       color: C.text,
+    },
+
+    publishBtnOff: {
+      opacity: 0.5,
+    },
+
+    errorText: {
+      marginTop: 8,
+      textAlign: 'center',
+      fontFamily: Fonts.body,
+      fontSize: 9.5,
+      lineHeight: 13,
+      color: C.red,
     },
 
     guideBody: {
