@@ -6,10 +6,12 @@ import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
+import { FilterSelect, type FilterOption } from '@/components/filters/filter-select';
 import { Fonts } from '@/constants/theme';
 import { ApiError } from '@/lib/api/errors';
 import { listRatings } from '@/lib/api/ratings';
-import type { PlayerRatingRow } from '@/lib/api/types';
+import { listTeams } from '@/lib/api/teams';
+import type { ApiTeam, PlayerRatingRow } from '@/lib/api/types';
 import { I, scaled } from '@/lib/responsive';
 import { useSession } from '@/lib/session';
 
@@ -76,11 +78,17 @@ export default function CoachRatingsScreen() {
   const router = useRouter();
   const { token, signOut } = useSession();
   const [rows, setRows] = useState<PlayerRatingRow[]>([]);
+  const [teams, setTeams] = useState<ApiTeam[]>([]);
+  const [teamFilter, setTeamFilter] = useState('');
 
   useEffect(() => {
     if (!token) return;
     const controller = new AbortController();
-    listRatings(token, {}, controller.signal)
+    listRatings(
+      token,
+      { team_id: teamFilter ? Number(teamFilter) : undefined },
+      controller.signal,
+    )
       .then((res) => {
         if (controller.signal.aborted) return;
         setRows(res.data);
@@ -93,7 +101,31 @@ export default function CoachRatingsScreen() {
         }
       });
     return () => controller.abort();
+  }, [token, router, signOut, teamFilter]);
+
+  /* The teams fill the filter's options. */
+  useEffect(() => {
+    if (!token) return;
+    const controller = new AbortController();
+    listTeams(token, controller.signal)
+      .then((res) => {
+        if (controller.signal.aborted) return;
+        setTeams(res.data);
+      })
+      .catch((e) => {
+        if (controller.signal.aborted) return;
+        if (e instanceof ApiError && e.status === 401) {
+          signOut();
+          router.replace('/login');
+        }
+      });
+    return () => controller.abort();
   }, [token, router, signOut]);
+
+  const teamOptions: FilterOption[] = [
+    { label: 'Të gjitha ekipet', value: '' },
+    ...teams.map((t) => ({ label: t.name, value: String(t.id) })),
+  ];
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
@@ -132,14 +164,14 @@ export default function CoachRatingsScreen() {
         >
           <View style={styles.colPad}>
             {/* ── Team filter ───────────────────────────────────── */}
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Filtro sipas ekipit"
-              style={({ pressed }) => [styles.teamBtn, pressed && styles.pressed]}
-            >
-              <Text style={styles.teamBtnText}>Të gjitha ekipet</Text>
-              <MaterialCommunityIcons name="chevron-down" size={I(15)} color={C.text} />
-            </Pressable>
+            <FilterSelect
+              label="Filtro sipas ekipit"
+              options={teamOptions}
+              value={teamFilter}
+              onChange={setTeamFilter}
+              boxStyle={styles.teamBtn}
+              textStyle={styles.teamBtnText}
+            />
 
             {/* ── Rating cards ──────────────────────────────────── */}
             <View style={styles.grid}>

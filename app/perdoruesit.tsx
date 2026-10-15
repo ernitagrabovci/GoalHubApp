@@ -8,6 +8,7 @@ import { Image, Pressable, ScrollView, StyleSheet, TextInput, useWindowDimension
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
+import { FilterSelect, type FilterOption } from '@/components/filters/filter-select';
 import { Fonts } from '@/constants/theme';
 import { ApiError } from '@/lib/api/errors';
 import { listTeams } from '@/lib/api/teams';
@@ -119,8 +120,6 @@ const SQUARE_ROWS: Square[][] = [
 ];
 
 /* ── Users ─────────────────────────────────────────────────────────── */
-
-const FILTERS = ['Të gjitha rolet', 'Të gjitha ekipet', 'Të gjitha statuset'];
 
 type User = {
   name: string;
@@ -833,6 +832,14 @@ export default function UsersListScreen() {
   const [page, setPage] = useState(1);
   const [reload, setReload] = useState(0);
 
+  /* The three dropdowns and the search box drive the server-side query. */
+  const [roleFilter, setRoleFilter] = useState('');
+  const [teamFilter, setTeamFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  /** What the user is typing; `search` is what was submitted. */
+  const [searchInput, setSearchInput] = useState('');
+  const [search, setSearch] = useState('');
+
   /* Role swap controls. */
   const [openPicker, setOpenPicker] = useState<'user' | 'role' | null>(null);
   const [roleUserId, setRoleUserId] = useState<number | null>(null);
@@ -851,7 +858,17 @@ export default function UsersListScreen() {
   useEffect(() => {
     if (!token) return;
     const controller = new AbortController();
-    listUsers(token, { page }, controller.signal)
+    listUsers(
+      token,
+      {
+        page,
+        search: search || undefined,
+        role: roleFilter || undefined,
+        status: statusFilter || undefined,
+        team_id: teamFilter ? Number(teamFilter) : undefined,
+      },
+      controller.signal,
+    )
       .then((res) => {
         if (controller.signal.aborted) return;
         setRows(res.data);
@@ -865,7 +882,7 @@ export default function UsersListScreen() {
         }
       });
     return () => controller.abort();
-  }, [token, page, reload, router, signOut]);
+  }, [token, page, reload, router, signOut, search, roleFilter, statusFilter, teamFilter]);
 
   /* The edit popup's team picker reads from the club's real teams. */
   useEffect(() => {
@@ -933,6 +950,29 @@ export default function UsersListScreen() {
   const lastPage = meta?.last_page ?? 1;
   const pages = pageWindow(current, lastPage);
 
+  /* Filter options — the first entry of each is the neutral "all" choice. */
+  const roleOptions: FilterOption[] = [
+    { label: 'Të gjitha rolet', value: '' },
+    ...ROLES.map((r) => ({ label: r, value: ROLE_SLUG_BY_LABEL[r] })),
+  ];
+
+  const teamOptions: FilterOption[] = [
+    { label: 'Të gjitha ekipet', value: '' },
+    ...teams.map((t) => ({ label: t.name, value: String(t.id) })),
+  ];
+
+  const statusOptions: FilterOption[] = [
+    { label: 'Të gjitha statuset', value: '' },
+    { label: 'Aktiv', value: 'active' },
+    { label: 'Joaktiv', value: 'inactive' },
+  ];
+
+  /* A new filter resets to the first page; the pager tracks the filtered set. */
+  const submitSearch = () => {
+    setSearch(searchInput.trim());
+    setPage(1);
+  };
+
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
       <StatusBar style="dark" />
@@ -995,30 +1035,55 @@ export default function UsersListScreen() {
 
             {/* ── Filters ───────────────────────────────────────── */}
             <View style={styles.filterRow}>
-              {FILTERS.map((f) => (
-                <Pressable
-                  key={f}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Filtro: ${f}`}
-                  style={({ pressed }) => [styles.filterBox, pressed && styles.pressed]}
-                >
-                  <Text style={styles.filterText} numberOfLines={1}>
-                    {f}
-                  </Text>
-                  <MaterialCommunityIcons name="chevron-down" size={I(13)} color={C.text} />
-                </Pressable>
-              ))}
+              <FilterSelect
+                label="Filtro sipas rolit"
+                options={roleOptions}
+                value={roleFilter}
+                onChange={(v) => {
+                  setRoleFilter(v);
+                  setPage(1);
+                }}
+                boxStyle={styles.filterBox}
+                textStyle={styles.filterText}
+              />
+              <FilterSelect
+                label="Filtro sipas ekipit"
+                options={teamOptions}
+                value={teamFilter}
+                onChange={(v) => {
+                  setTeamFilter(v);
+                  setPage(1);
+                }}
+                boxStyle={styles.filterBox}
+                textStyle={styles.filterText}
+              />
+              <FilterSelect
+                label="Filtro sipas statusit"
+                options={statusOptions}
+                value={statusFilter}
+                onChange={(v) => {
+                  setStatusFilter(v);
+                  setPage(1);
+                }}
+                boxStyle={styles.filterBox}
+                textStyle={styles.filterText}
+              />
             </View>
 
             {/* ── Search ────────────────────────────────────────── */}
             <View style={styles.searchRow}>
               <TextInput
                 style={styles.searchInput}
+                value={searchInput}
+                onChangeText={setSearchInput}
+                onSubmitEditing={submitSearch}
+                returnKeyType="search"
                 placeholder="Kërko me emër lojtarin..."
                 placeholderTextColor={C.gray}
                 accessibilityLabel="Kërko përdorues"
               />
               <Pressable
+                onPress={submitSearch}
                 accessibilityRole="button"
                 accessibilityLabel="Kërko"
                 style={({ pressed }) => [styles.searchBtn, pressed && styles.pressed]}

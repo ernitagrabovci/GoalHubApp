@@ -6,6 +6,7 @@ import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
+import { FilterSelect, type FilterOption } from '@/components/filters/filter-select';
 import { TrainingDraft, TrainingFormModal, formatDate } from '@/components/trainings/training-form';
 import { Fonts } from '@/constants/theme';
 import { ApiError } from '@/lib/api/errors';
@@ -46,7 +47,20 @@ const C = {
 
 /* ── Training list ─────────────────────────────────────────────────── */
 
-const FILTERS = ['Të gjitha llojet', 'Të gjitha statuset'];
+/* The API's `type`/`status` codes, under the labels the rows already use. */
+const TYPE_OPTIONS: FilterOption[] = [
+  { label: 'Të gjitha llojet', value: '' },
+  { label: 'Rregullt', value: 'regular' },
+  { label: 'Taktike', value: 'tactical' },
+  { label: 'Fizike', value: 'physical' },
+  { label: 'Rikuperim', value: 'recovery' },
+];
+
+const STATUS_OPTIONS: FilterOption[] = [
+  { label: 'Të gjitha statuset', value: '' },
+  { label: 'Prezenca u regjistrua', value: 'finalized' },
+  { label: 'Pret regjistrim', value: 'pending' },
+];
 
 /* The squad these sessions belong to — shown as the page subtitle. */
 const TEAM = 'Ekipi i Parë';
@@ -82,12 +96,18 @@ export default function TrainingListScreen() {
 
   const [trainings, setTrainings] = useState<TrainingRow[]>([]);
   const [adding, setAdding] = useState(false);
+  const [typeFilter, setTypeFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
 
   useEffect(() => {
     if (!token) return;
     const controller = new AbortController();
 
-    listTrainings(token, {}, controller.signal)
+    listTrainings(
+      token,
+      { type: typeFilter || undefined, status: statusFilter || undefined },
+      controller.signal,
+    )
       .then((res) => {
         if (controller.signal.aborted) return;
         setTrainings(res.data.map(toTrainingRow));
@@ -101,7 +121,7 @@ export default function TrainingListScreen() {
       });
 
     return () => controller.abort();
-  }, [token, router, signOut]);
+  }, [token, router, signOut, typeFilter, statusFilter]);
 
   /* A brand new session starts unregistered, with nobody marked yet. */
   const add = (d: TrainingDraft) => {
@@ -176,19 +196,22 @@ export default function TrainingListScreen() {
 
             {/* ── Filters ──────────────────────────────────────────── */}
             <View style={styles.filterRow}>
-              {FILTERS.map((f) => (
-                <Pressable
-                  key={f}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Filtro: ${f}`}
-                  style={({ pressed }) => [styles.filterBox, pressed && styles.pressed]}
-                >
-                  <Text style={styles.filterText} numberOfLines={1}>
-                    {f}
-                  </Text>
-                  <MaterialCommunityIcons name="chevron-down" size={I(13)} color={C.text} />
-                </Pressable>
-              ))}
+              <FilterSelect
+                label="Filtro sipas llojit"
+                options={TYPE_OPTIONS}
+                value={typeFilter}
+                onChange={setTypeFilter}
+                boxStyle={styles.filterBox}
+                textStyle={styles.filterText}
+              />
+              <FilterSelect
+                label="Filtro sipas statusit"
+                options={STATUS_OPTIONS}
+                value={statusFilter}
+                onChange={setStatusFilter}
+                boxStyle={styles.filterBox}
+                textStyle={styles.filterText}
+              />
             </View>
 
             {/* ── Training table ───────────────────────────────────── */}

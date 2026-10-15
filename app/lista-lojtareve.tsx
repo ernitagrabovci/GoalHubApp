@@ -8,11 +8,13 @@ import { Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
+import { FilterSelect, type FilterOption } from '@/components/filters/filter-select';
 import { Fonts } from '@/constants/theme';
 import { ApiError } from '@/lib/api/errors';
 import { listPlayers } from '@/lib/api/players';
-import type { ApiPlayer } from '@/lib/api/types';
-import { positionLabel } from '@/lib/player-position';
+import { listTeams } from '@/lib/api/teams';
+import type { ApiPlayer, ApiTeam } from '@/lib/api/types';
+import { POSITIONS, positionLabel } from '@/lib/player-position';
 import { I, scaled } from '@/lib/responsive';
 import { useSession } from '@/lib/session';
 
@@ -78,7 +80,10 @@ const SUMMARY: Square[] = [
   { label: 'Lojtarët e pezulluar', value: '1' },
 ];
 
-const FILTERS = ['Të gjitha ekipet', 'Të gjitha pozicionet'];
+const POSITION_OPTIONS: FilterOption[] = [
+  { label: 'Të gjitha pozicionet', value: '' },
+  ...POSITIONS.map((p) => ({ label: p.label, value: p.code })),
+];
 
 /* The squad on show — also the team handed to the single-player page. */
 const TEAM = 'Ekipi i Parë';
@@ -181,11 +186,21 @@ export default function PlayerListScreen() {
   const router = useRouter();
   const { token, signOut } = useSession();
   const [rows, setRows] = useState<Player[]>([]);
+  const [teams, setTeams] = useState<ApiTeam[]>([]);
+  const [teamFilter, setTeamFilter] = useState('');
+  const [positionFilter, setPositionFilter] = useState('');
 
   useEffect(() => {
     if (!token) return;
     const controller = new AbortController();
-    listPlayers(token, {}, controller.signal)
+    listPlayers(
+      token,
+      {
+        team_id: teamFilter ? Number(teamFilter) : undefined,
+        position: positionFilter || undefined,
+      },
+      controller.signal,
+    )
       .then((res) => {
         if (controller.signal.aborted) return;
         setRows(res.data.map(toRow));
@@ -198,7 +213,31 @@ export default function PlayerListScreen() {
         }
       });
     return () => controller.abort();
+  }, [token, router, signOut, teamFilter, positionFilter]);
+
+  /* The teams fill the first filter's options. */
+  useEffect(() => {
+    if (!token) return;
+    const controller = new AbortController();
+    listTeams(token, controller.signal)
+      .then((res) => {
+        if (controller.signal.aborted) return;
+        setTeams(res.data);
+      })
+      .catch((e) => {
+        if (controller.signal.aborted) return;
+        if (e instanceof ApiError && e.status === 401) {
+          signOut();
+          router.replace('/login');
+        }
+      });
+    return () => controller.abort();
   }, [token, router, signOut]);
+
+  const teamOptions: FilterOption[] = [
+    { label: 'Të gjitha ekipet', value: '' },
+    ...teams.map((t) => ({ label: t.name, value: String(t.id) })),
+  ];
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
@@ -255,19 +294,22 @@ export default function PlayerListScreen() {
           <View style={styles.colPad}>
             {/* ── Filters ───────────────────────────────────────── */}
             <View style={styles.filterRow}>
-              {FILTERS.map((f) => (
-                <Pressable
-                  key={f}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Filtro: ${f}`}
-                  style={({ pressed }) => [styles.filterBox, pressed && styles.pressed]}
-                >
-                  <Text style={styles.filterText} numberOfLines={1}>
-                    {f}
-                  </Text>
-                  <MaterialCommunityIcons name="chevron-down" size={I(13)} color={C.text} />
-                </Pressable>
-              ))}
+              <FilterSelect
+                label="Filtro sipas ekipit"
+                options={teamOptions}
+                value={teamFilter}
+                onChange={setTeamFilter}
+                boxStyle={styles.filterBox}
+                textStyle={styles.filterText}
+              />
+              <FilterSelect
+                label="Filtro sipas pozicionit"
+                options={POSITION_OPTIONS}
+                value={positionFilter}
+                onChange={setPositionFilter}
+                boxStyle={styles.filterBox}
+                textStyle={styles.filterText}
+              />
             </View>
 
             {/* ── Squad table ───────────────────────────────────── */}
