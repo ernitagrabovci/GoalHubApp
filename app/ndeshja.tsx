@@ -2,14 +2,16 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
+import { EditMatchModal } from '@/components/matches/match-modals';
 import { Fonts } from '@/constants/theme';
 import { ApiError } from '@/lib/api/errors';
-import { getMatch } from '@/lib/api/matches';
-import type { ApiMatch } from '@/lib/api/types';
+import { deleteMatch, getMatch } from '@/lib/api/matches';
+import { listTeams } from '@/lib/api/teams';
+import type { ApiMatch, ApiTeam } from '@/lib/api/types';
 import { I, scaled } from '@/lib/responsive';
 import { useSession } from '@/lib/session';
 
@@ -69,7 +71,7 @@ function matchDateLine(iso: string | null | undefined): string {
 
 export default function MatchViewScreen() {
   const router = useRouter();
-  const { token, signOut } = useSession();
+  const { user, token, signOut } = useSession();
 
   const params = useLocalSearchParams<{
     id?: string;
@@ -84,6 +86,15 @@ export default function MatchViewScreen() {
 
   const matchId = params.id ? Number(params.id) : null;
   const [match, setMatch] = useState<ApiMatch | null>(null);
+  const [teams, setTeams] = useState<ApiTeam[]>([]);
+  const [editing, setEditing] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [reload, setReload] = useState(0);
+
+  const onExpired = () => {
+    signOut();
+    router.replace('/login');
+  };
 
   useEffect(() => {
     if (!token || !matchId || Number.isNaN(matchId)) return;
@@ -103,7 +114,28 @@ export default function MatchViewScreen() {
       });
 
     return () => controller.abort();
-  }, [token, matchId, router, signOut]);
+  }, [token, matchId, router, signOut, reload]);
+
+  /* The teams feed the edit popup's "Ekipi" picker. */
+  useEffect(() => {
+    if (!token) return;
+    const controller = new AbortController();
+
+    listTeams(token, controller.signal)
+      .then((res) => {
+        if (controller.signal.aborted) return;
+        setTeams(res.data);
+      })
+      .catch((e) => {
+        if (controller.signal.aborted) return;
+        if (e instanceof ApiError && e.status === 401) {
+          signOut();
+          router.replace('/login');
+        }
+      });
+
+    return () => controller.abort();
+  }, [token, router, signOut]);
 
   const comp = match?.competition ?? params.comp ?? '';
   const home = match?.team?.name ?? params.home ?? '';
@@ -118,6 +150,45 @@ export default function MatchViewScreen() {
       ? matchDateLine(match.scheduled_at)
       : `${params.day ?? ''} ${monthName(params.mon ?? '')} ${SEASON_YEAR}, ${params.time ?? ''}`.trim(),
   ];
+
+  /* The match's statistics and starting eleven, once it has loaded. */
+  const statRows = (match?.player_stats ?? []).map((p) => ({
+    name: p.player_name ?? '—',
+    goals: p.goals ?? 0,
+    assists: p.assists ?? 0,
+  }));
+
+  const starters = (match?.lineup ?? [])
+    .filter((l) => l.type === 'starter')
+    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+    .map((l) => ({ name: l.player_name ?? '—', position: l.position ?? '' }));
+
+  const runDelete = () => {
+    if (!token || matchId == null || deleting) return;
+    setDeleting(true);
+    deleteMatch(token, matchId)
+      .then(() => router.back())
+      .catch((e) => {
+        setDeleting(false);
+        if (e instanceof ApiError && e.status === 401) {
+          onExpired();
+          return;
+        }
+        const text =
+          e instanceof ApiError && e.message
+            ? e.message
+            : 'Ndeshja nuk mund të fshihet.';
+        Alert.alert('Nuk mund të fshihet', text);
+      });
+  };
+
+  const confirmDelete = () => {
+    if (deleting) return;
+    Alert.alert('Fshi ndeshjen', 'A jeni i sigurt që dëshironi ta fshini këtë ndeshje?', [
+      { text: 'Anulo', style: 'cancel' },
+      { text: 'Fshi', style: 'destructive', onPress: runDelete },
+    ]);
+  };
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
@@ -160,16 +231,28 @@ export default function MatchViewScreen() {
             {/* ── Row actions ───────────────────────────────────── */}
             <View style={styles.actions}>
               <Pressable
+                onPress={() => setEditing(true)}
+                disabled={!match}
                 accessibilityRole="button"
                 accessibilityLabel="Edito ndeshjen"
-                style={({ pressed }) => [styles.editBtn, pressed && styles.pressed]}
+                style={({ pressed }) => [
+                  styles.editBtn,
+                  !match && styles.btnOff,
+                  pressed && styles.pressed,
+                ]}
               >
                 <Text style={styles.actionText}>Edito</Text>
               </Pressable>
               <Pressable
+                onPress={confirmDelete}
+                disabled={deleting || !match}
                 accessibilityRole="button"
                 accessibilityLabel="Fshi ndeshjen"
-                style={({ pressed }) => [styles.deleteBtn, pressed && styles.pressed]}
+                style={({ pressed }) => [
+                  styles.deleteBtn,
+                  (!match || deleting) && styles.btnOff,
+                  pressed && styles.pressed,
+                ]}
               >
                 <Text style={styles.actionText}>Fshi</Text>
               </Pressable>
@@ -210,11 +293,28 @@ export default function MatchViewScreen() {
                 </View>
                 <View style={styles.headLine} />
 
-                <View style={styles.notePad}>
-                  <Text style={styles.note}>
-                    Statistikat regjistrohen pas ndeshjes nga trajneri.
-                  </Text>
-                </View>
+                {statRows.length ? (
+                  <View style={[styles.statList, styles.fill]}>
+                    <View style={styles.statHead}>
+                      <Text style={styles.statHeadText}>Lojtari</Text>
+                      <Text style={styles.statHeadText}>Gola / Asiste</Text>
+                    </View>
+                    {statRows.map((p, i) => (
+                      <View key={`${p.name}-${i}`} style={styles.statLine}>
+                        <Text style={styles.statName} numberOfLines={1}>
+                          {p.name}
+                        </Text>
+                        <Text style={styles.statVal}>{`${p.goals} / ${p.assists}`}</Text>
+                      </View>
+                    ))}
+                  </View>
+                ) : (
+                  <View style={[styles.notePad, styles.fill]}>
+                    <Text style={styles.note}>
+                      Statistikat regjistrohen pas ndeshjes nga trajneri.
+                    </Text>
+                  </View>
+                )}
               </View>
             </View>
 
@@ -225,13 +325,42 @@ export default function MatchViewScreen() {
               </View>
               <View style={styles.headLine} />
 
-              <View style={styles.notePad}>
-                <Text style={styles.note}>Formacioni nuk është caktuar nga trajneri.</Text>
-              </View>
+              {starters.length ? (
+                <>
+                  <Text style={styles.sectionLabel}>{`Startuesit (${starters.length})`}</Text>
+                  <View style={styles.squadGrid}>
+                    {starters.map((s, i) => (
+                      <View key={`${s.name}-${i}`} style={styles.playerCard}>
+                        <Text style={styles.playerName}>{s.name}</Text>
+                        <Text style={styles.playerPosition}>{s.position}</Text>
+                      </View>
+                    ))}
+                  </View>
+                </>
+              ) : (
+                <View style={styles.notePad}>
+                  <Text style={styles.note}>Formacioni nuk është caktuar nga trajneri.</Text>
+                </View>
+              )}
             </View>
           </View>
         </ScrollView>
       </View>
+
+      {editing && match ? (
+        <EditMatchModal
+          match={match}
+          token={token ?? ''}
+          teams={teams}
+          clubName={user?.club ?? ''}
+          onClose={() => setEditing(false)}
+          onSaved={() => {
+            setEditing(false);
+            setReload((n) => n + 1);
+          }}
+          onExpired={onExpired}
+        />
+      ) : null}
     </SafeAreaView>
   );
 }
@@ -426,12 +555,115 @@ const styles = StyleSheet.create(
       paddingVertical: 18,
     },
 
+    /* The statistics card is stretched to its neighbour's height, so its body
+       takes the slack instead of leaving a pale strip along the bottom. */
+    fill: {
+      flex: 1,
+      justifyContent: 'center',
+    },
+
     note: {
       textAlign: 'center',
       fontFamily: Fonts.body,
       fontSize: 11,
       lineHeight: 15,
       color: C.gray,
+    },
+
+    btnOff: {
+      opacity: 0.5,
+    },
+
+    /* ── Player statistics (compact) ─────────────────────────── */
+    statList: {
+      paddingHorizontal: 8,
+      paddingBottom: 8,
+    },
+
+    statHead: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      paddingHorizontal: 4,
+      paddingTop: 8,
+      paddingBottom: 2,
+    },
+
+    statHeadText: {
+      fontFamily: Fonts.bodySemiBold,
+      fontSize: 9,
+      lineHeight: 12,
+      color: C.gray,
+    },
+
+    statLine: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: 6,
+      minHeight: 24,
+      paddingHorizontal: 4,
+    },
+
+    statName: {
+      flex: 1,
+      fontFamily: Fonts.body,
+      fontSize: 10.5,
+      lineHeight: 13,
+      color: C.text,
+    },
+
+    statVal: {
+      fontFamily: Fonts.bodyBold,
+      fontSize: 10.5,
+      lineHeight: 13,
+      color: C.text,
+    },
+
+    /* ── Formacioni ──────────────────────────────────────────── */
+    sectionLabel: {
+      fontFamily: Fonts.bodyBold,
+      fontSize: 12,
+      lineHeight: 16,
+      color: C.text,
+      paddingHorizontal: 10,
+      paddingTop: 10,
+    },
+
+    squadGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 6,
+      paddingHorizontal: 10,
+      paddingTop: 8,
+      paddingBottom: 12,
+    },
+
+    /* No fixed height — a two-line name grows the card, a short one shrinks it. */
+    playerCard: {
+      width: '31%',
+      minHeight: 40,
+      justifyContent: 'center',
+      paddingHorizontal: 7,
+      paddingVertical: 7,
+      backgroundColor: 'rgba(158,253,134,0.20)',
+      borderWidth: 1,
+      borderColor: '#000000',
+      borderRadius: 4,
+    },
+
+    playerName: {
+      fontFamily: Fonts.bodyBold,
+      fontSize: 11.5,
+      lineHeight: 14,
+      color: '#000000',
+    },
+
+    playerPosition: {
+      fontFamily: Fonts.body,
+      fontSize: 9,
+      lineHeight: 12,
+      marginTop: 1,
+      color: '#000000',
     },
 
     pressed: {

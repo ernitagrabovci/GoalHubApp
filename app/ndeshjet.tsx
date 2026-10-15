@@ -1,19 +1,12 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import { BlurView } from 'expo-blur';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useMemo, useState } from 'react';
-import {
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  TextInput,
-  useWindowDimensions,
-  View,
-} from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
+import { AddMatchModal, EditMatchModal } from '@/components/matches/match-modals';
 import { Fonts } from '@/constants/theme';
 import { ApiError } from '@/lib/api/errors';
 import { listMatches } from '@/lib/api/matches';
@@ -51,61 +44,7 @@ const C = {
   blueBtn: '#86BCFD',
 };
 
-/* Popup palette — same shell as the modals on the other admin pages. */
-const MO = {
-  border: '#159B63',
-  divider: '#55B88B',
-  title: '#080808',
-  text: '#111111',
-  sub: '#666666',
-  inputBorder: '#777777',
-  inputBg: '#FAFCFC',
-  ph: '#A8A8A8',
-  cancel: '#ED5050',
-  create: '#16A51D',
-  white: '#F5F5F5',
-  err: '#C90000',
-};
-
-/* Popup option sets */
-const TEAMS = ['Ekipi i Parë', 'U21', 'U19', 'U17', 'U15', 'U13'];
-const VENUES = ['Shtëpi', 'Musafir'];
-const COMPS = [
-  'Superliga e Kosovës',
-  'U21 Superliga e Kosovës',
-  'U19 Superliga e Kosovës',
-  'U17 Superliga e Kosovës',
-  'U15 Superliga e Kosovës',
-  'U13 Superliga e Kosovës',
-  'Kupa e Kosovës',
-];
 const MONTHS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
-const STATUS = ['E ardhshme', 'E luajtur', 'Anuluar'];
-const SEASON_YEAR = '2026';
-
-/** "U21 Superliga e Kosovës" belongs to U21; the senior league has no prefix. */
-function teamFromComp(comp: string): string {
-  const match = /^(U\d{2})\b/.exec(comp);
-  return match ? match[1] : TEAMS[0];
-}
-
-/** The fixture's date and kick-off on one line: "18/08/2026 16:00". */
-function dateTimeOf(f: Fixture): string {
-  const month = MONTHS.indexOf(f.mon.toUpperCase()) + 1;
-  const mm = month > 0 ? String(month).padStart(2, '0') : '';
-  return `${f.day}/${mm}/${SEASON_YEAR} ${f.time}`;
-}
-
-/** Reads "18/08/2026 16:00" back into the fixture's date parts. */
-function parseDateTime(value: string, src: Fixture) {
-  const [date, time] = value.trim().split(/\s+/);
-  const [day, mm] = (date ?? '').split('/');
-  const mon = MONTHS[Number(mm) - 1];
-  if (!day || !mon || !time) {
-    return { day: src.day, mon: src.mon, time: src.time };
-  }
-  return { day, mon, time };
-}
 
 type Fixture = {
   id?: number;
@@ -196,12 +135,10 @@ export default function MatchesScreen() {
   const [error, setError] = useState<string | null>(null);
   const [teamFilter, setTeamFilter] = useState<'all' | number>('all');
   const [filterOpen, setFilterOpen] = useState(false);
-  // Matches added/edited in the popups live only on the device — the v1 API is
-  // read-only for matches (no POST/PATCH yet).
-  const [added, setAdded] = useState<Fixture[]>([]);
-  const [overrides, setOverrides] = useState<Record<number, Fixture>>({});
   const [adding, setAdding] = useState(false);
-  const [editing, setEditing] = useState<Fixture | null>(null);
+  const [editing, setEditing] = useState<ApiMatch | null>(null);
+  /* Bumped after a successful write so the lists refetch from the server. */
+  const [reload, setReload] = useState(0);
 
   useEffect(() => {
     if (!token) return;
@@ -227,11 +164,11 @@ export default function MatchesScreen() {
 
       if (m.status === 'fulfilled') setMatches(m.value.data);
       if (t.status === 'fulfilled') setTeams(t.value.data);
-      if (failure) setError('Nuk mund të ngarkohen ndeshjet.');
+      setError(failure ? 'Nuk mund të ngarkohen ndeshjet.' : null);
     });
 
     return () => controller.abort();
-  }, [token, router, signOut]);
+  }, [token, router, signOut, reload]);
 
   const filtered = useMemo(() => {
     const all = matches ?? [];
@@ -240,12 +177,11 @@ export default function MatchesScreen() {
 
   const upcoming = useMemo(() => {
     const now = currentMs();
-    const apiUpcoming = filtered
+    return filtered
       .filter((m) => m.scheduled_at && new Date(m.scheduled_at).getTime() > now)
       .sort((a, b) => new Date(a.scheduled_at!).getTime() - new Date(b.scheduled_at!).getTime())
-      .map((m) => overrides[m.id] ?? toFixture(m, clubName));
-    return [...added, ...apiUpcoming];
-  }, [filtered, overrides, added, clubName]);
+      .map((m) => toFixture(m, clubName));
+  }, [filtered, clubName]);
 
   const played = useMemo(() => {
     const now = currentMs();
@@ -260,18 +196,16 @@ export default function MatchesScreen() {
       ? 'Të gjitha ekipet'
       : teams.find((t) => t.id === teamFilter)?.name ?? 'Të gjitha ekipet';
 
-  const save = (f: Fixture) => {
-    setAdded((prev) => [f, ...prev]);
-    setAdding(false);
+  /* A successful write closes the popup and refetches; a dead token bounces to
+     the login screen. */
+  const onSaved = (close: () => void) => () => {
+    close();
+    setReload((n) => n + 1);
   };
 
-  const saveEdit = (src: Fixture, next: Fixture) => {
-    if (src.id == null) {
-      setAdded((prev) => prev.map((f) => (f === src ? next : f)));
-    } else {
-      setOverrides((prev) => ({ ...prev, [src.id as number]: next }));
-    }
-    setEditing(null);
+  const onExpired = () => {
+    signOut();
+    router.replace('/login');
   };
 
   return (
@@ -450,7 +384,7 @@ export default function MatchesScreen() {
                         <Text style={styles.viewBtnText}>Shiko</Text>
                       </Pressable>
                       <Pressable
-                        onPress={() => setEditing(f)}
+                        onPress={() => setEditing(filtered.find((m) => m.id === f.id) ?? null)}
                         accessibilityRole="button"
                         accessibilityLabel="Edito ndeshjen"
                         style={({ pressed }) => [styles.editBtn, pressed && styles.pressed]}
@@ -630,407 +564,31 @@ export default function MatchesScreen() {
         </ScrollView>
       </View>
 
-      {/* Overlay on the SafeAreaView so the blur covers the whole screen */}
+      {/* The popups carry their own blur-and-dim overlay, so they sit directly
+          on the SafeAreaView and cover the whole screen. */}
       {adding ? (
-        <View style={styles.ovWrap}>
-          <BlurView style={styles.ovFill} intensity={45} tint="dark" />
-          <Pressable
-            style={[styles.ovFill, styles.ovDim]}
-            onPress={() => setAdding(false)}
-            accessibilityRole="button"
-            accessibilityLabel="Mbylle dritaren"
-          />
-          <AddMatchModal onClose={() => setAdding(false)} onSave={save} />
-        </View>
+        <AddMatchModal
+          token={token ?? ''}
+          teams={teams}
+          clubName={clubName}
+          onClose={() => setAdding(false)}
+          onSaved={onSaved(() => setAdding(false))}
+          onExpired={onExpired}
+        />
       ) : null}
 
       {editing ? (
-        <View style={styles.ovWrap}>
-          <BlurView style={styles.ovFill} intensity={45} tint="dark" />
-          <Pressable
-            style={[styles.ovFill, styles.ovDim]}
-            onPress={() => setEditing(null)}
-            accessibilityRole="button"
-            accessibilityLabel="Mbylle dritaren"
-          />
-          <EditMatchModal
-            fixture={editing}
-            onClose={() => setEditing(null)}
-            onSave={(next) => saveEdit(editing, next)}
-          />
-        </View>
+        <EditMatchModal
+          match={editing}
+          token={token ?? ''}
+          teams={teams}
+          clubName={clubName}
+          onClose={() => setEditing(null)}
+          onSaved={onSaved(() => setEditing(null))}
+          onExpired={onExpired}
+        />
       ) : null}
     </SafeAreaView>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/* "Shto ndeshje" popup                                                */
-/* ------------------------------------------------------------------ */
-
-function AddMatchModal({ onClose, onSave }: { onClose: () => void; onSave: (f: Fixture) => void }) {
-  const { width, height } = useWindowDimensions();
-  const cardW = Math.min(width - 24, 360);
-  const maxBody = Math.max(280, height - 187);
-
-  const [team, setTeam] = useState(TEAMS[0]);
-  const [venue, setVenue] = useState(VENUES[0]);
-  const [rival, setRival] = useState('');
-  const [comp, setComp] = useState(COMPS[0]);
-  const [day, setDay] = useState('');
-  const [month, setMonth] = useState('');
-  const [year, setYear] = useState('');
-  const [hour, setHour] = useState('');
-  const [minute, setMinute] = useState('');
-  const [note, setNote] = useState('');
-  const [err, setErr] = useState(false);
-
-  const submit = () => {
-    const complete =
-      team && venue && rival.trim() && comp && day && month && year && hour && minute;
-    if (!complete) {
-      setErr(true);
-      return;
-    }
-    const atHome = venue !== 'Musafir';
-    onSave({
-      day,
-      mon: MONTHS[Number(month) - 1] ?? '—',
-      home: atHome ? 'FC Prishtina' : rival.trim(),
-      away: atHome ? rival.trim() : 'FC Prishtina',
-      time: `${hour}:${minute}`,
-      venue: atHome ? 'Shtëpi' : 'Musafir',
-      comp,
-    });
-  };
-
-  const fixtureName = venue === 'Musafir' ? `${rival.trim()} - FC Prishtina` : `FC Prishtina - ${rival.trim()}`;
-
-  return (
-    <View style={[styles.nmCard, { width: cardW }]}>
-      <View style={styles.nmHeader}>
-        <Text style={styles.nmTitle}>Shto ndeshje</Text>
-      </View>
-      <View style={styles.nmDivider} />
-
-      <ScrollView
-        style={{ maxHeight: maxBody }}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-        contentContainerStyle={styles.nmContent}
-      >
-        {err ? <Text style={styles.nmErr}>Plotëso të gjitha fushat e kërkuara.</Text> : null}
-
-        <Text style={styles.nmLabel}>Ekipi:</Text>
-        <NMSelect value={team} options={TEAMS} onChange={setTeam} />
-
-        <View style={styles.nmRow}>
-          <View style={styles.nmCol}>
-            <Text style={styles.nmLabel}>Vendosja</Text>
-            <NMSelect value={venue} options={VENUES} onChange={setVenue} />
-          </View>
-          <View style={styles.nmCol}>
-            <Text style={styles.nmLabel}>Kundershtari</Text>
-            <TextInput
-              value={rival}
-              onChangeText={setRival}
-              allowFontScaling={false}
-              style={styles.nmInput}
-            />
-          </View>
-        </View>
-
-        <View style={styles.nmPreview}>
-          <Text style={styles.nmPreviewText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
-            {fixtureName}
-          </Text>
-        </View>
-
-        <Text style={[styles.nmLabel, styles.nmGap]}>Gara/Kompeticion</Text>
-        <NMSelect value={comp} options={COMPS} onChange={setComp} />
-
-        <Text style={[styles.nmLabel, styles.nmGap]}>Data & Ora:</Text>
-        <View style={styles.nmClockRow}>
-          <TextInput
-            value={day}
-            onChangeText={setDay}
-            placeholder="DD"
-            placeholderTextColor={MO.ph}
-            maxLength={2}
-            keyboardType="number-pad"
-            allowFontScaling={false}
-            style={styles.nmDateBox}
-          />
-          <Text style={styles.nmSep}>/</Text>
-          <TextInput
-            value={month}
-            onChangeText={setMonth}
-            placeholder="MM"
-            placeholderTextColor={MO.ph}
-            maxLength={2}
-            keyboardType="number-pad"
-            allowFontScaling={false}
-            style={styles.nmDateBox}
-          />
-          <Text style={styles.nmSep}>/</Text>
-          <TextInput
-            value={year}
-            onChangeText={setYear}
-            placeholder="YYYY"
-            placeholderTextColor={MO.ph}
-            maxLength={4}
-            keyboardType="number-pad"
-            allowFontScaling={false}
-            style={styles.nmYearBox}
-          />
-          <Text style={styles.nmDash}>----</Text>
-          <TextInput
-            value={hour}
-            onChangeText={setHour}
-            placeholder="HH"
-            placeholderTextColor={MO.ph}
-            maxLength={2}
-            keyboardType="number-pad"
-            allowFontScaling={false}
-            style={styles.nmTimeBox}
-          />
-          <Text style={styles.nmSep}>:</Text>
-          <TextInput
-            value={minute}
-            onChangeText={setMinute}
-            placeholder="MM"
-            placeholderTextColor={MO.ph}
-            maxLength={2}
-            keyboardType="number-pad"
-            allowFontScaling={false}
-            style={styles.nmTimeBox}
-          />
-        </View>
-
-        <Text style={[styles.nmLabel, styles.nmGap]}>Shenime :</Text>
-        <TextInput
-          value={note}
-          onChangeText={setNote}
-          multiline
-          allowFontScaling={false}
-          style={styles.nmTextarea}
-          textAlignVertical="top"
-        />
-
-        <View style={styles.nmActions}>
-          <Pressable
-            onPress={onClose}
-            accessibilityRole="button"
-            style={({ pressed }) => [styles.nmBtn, styles.nmBtnCancel, pressed && styles.pressed]}
-          >
-            <Text style={styles.nmBtnText}>Anulo</Text>
-          </Pressable>
-          <Pressable
-            onPress={submit}
-            accessibilityRole="button"
-            style={({ pressed }) => [styles.nmBtn, styles.nmBtnSave, pressed && styles.pressed]}
-          >
-            <Text style={styles.nmBtnText}>Ruaj</Text>
-          </Pressable>
-        </View>
-      </ScrollView>
-    </View>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/* "Edito ndeshje" popup                                               */
-/* ------------------------------------------------------------------ */
-
-function EditMatchModal({
-  fixture,
-  onClose,
-  onSave,
-}: {
-  fixture: Fixture;
-  onClose: () => void;
-  onSave: (f: Fixture) => void;
-}) {
-  const { width, height } = useWindowDimensions();
-  const cardW = Math.min(width - 24, 360);
-  const maxBody = Math.max(280, height - 187);
-
-  const atHome = fixture.home.includes('Prishtina');
-  const dateTime = dateTimeOf(fixture);
-
-  /* Every field opens filled with the fixture's current values. */
-  const [team, setTeam] = useState(() => teamFromComp(fixture.comp));
-  const [venue, setVenue] = useState(VENUES[atHome ? 0 : 1]);
-  const [rival, setRival] = useState(atHome ? fixture.away : fixture.home);
-  const [comp, setComp] = useState(fixture.comp);
-  const [when, setWhen] = useState(dateTime);
-  const [transport, setTransport] = useState(dateTime);
-  const [status, setStatus] = useState(STATUS[0]);
-  const [note, setNote] = useState('');
-  const [err, setErr] = useState(false);
-
-  const submit = () => {
-    if (!team || !venue || !rival.trim() || !comp) {
-      setErr(true);
-      return;
-    }
-    const home = venue !== 'Musafir';
-    onSave({
-      ...parseDateTime(when, fixture),
-      home: home ? 'FC Prishtina' : rival.trim(),
-      away: home ? rival.trim() : 'FC Prishtina',
-      venue: home ? 'Shtëpi' : 'Musafir',
-      comp,
-    });
-  };
-
-  const fixtureName =
-    venue === 'Musafir' ? `${rival.trim()} - FC Prishtina` : `FC Prishtina - ${rival.trim()}`;
-
-  return (
-    <View style={[styles.nmCard, { width: cardW }]}>
-      <View style={styles.nmHeader}>
-        <Text style={styles.nmTitle}>Edito ndeshje</Text>
-      </View>
-      <View style={styles.nmDivider} />
-
-      <ScrollView
-        style={{ maxHeight: maxBody }}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-        contentContainerStyle={styles.nmContent}
-      >
-        {err ? <Text style={styles.nmErr}>Plotëso të gjitha fushat e kërkuara.</Text> : null}
-
-        <Text style={styles.nmLabel}>Ekipi:</Text>
-        <NMSelect value={team} options={TEAMS} onChange={setTeam} />
-
-        <View style={styles.nmRow}>
-          <View style={styles.nmCol}>
-            <Text style={styles.nmLabel}>Vendosja</Text>
-            <NMSelect value={venue} options={VENUES} onChange={setVenue} />
-          </View>
-          <View style={styles.nmCol}>
-            <Text style={styles.nmLabel}>Kundershtari</Text>
-            <TextInput
-              value={rival}
-              onChangeText={setRival}
-              allowFontScaling={false}
-              style={styles.nmInput}
-            />
-          </View>
-        </View>
-
-        <View style={styles.nmPreview}>
-          <Text style={styles.nmPreviewText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
-            {fixtureName}
-          </Text>
-        </View>
-
-        <Text style={[styles.nmLabel, styles.nmGap]}>Gara/Kompeticion:</Text>
-        <NMSelect value={comp} options={COMPS} onChange={setComp} />
-
-        <View style={styles.nmRow}>
-          <View style={styles.nmCol}>
-            <Text style={styles.nmLabel}>Data & Ora:</Text>
-            <TextInput
-              value={when}
-              onChangeText={setWhen}
-              allowFontScaling={false}
-              style={styles.nmInput}
-            />
-          </View>
-          <View style={styles.nmCol}>
-            <Text style={styles.nmLabel}>Transporti (nisja)</Text>
-            <TextInput
-              value={transport}
-              onChangeText={setTransport}
-              allowFontScaling={false}
-              style={[styles.nmInput, styles.nmHintInput]}
-            />
-          </View>
-        </View>
-
-        <Text style={[styles.nmLabel, styles.nmGap]}>Statusi:</Text>
-        <NMSelect value={status} options={STATUS} onChange={setStatus} />
-
-        <Text style={[styles.nmLabel, styles.nmGap]}>Shenime :</Text>
-        <TextInput
-          value={note}
-          onChangeText={setNote}
-          multiline
-          allowFontScaling={false}
-          style={styles.nmTextarea}
-          textAlignVertical="top"
-        />
-
-        <View style={styles.nmActions}>
-          <Pressable
-            onPress={onClose}
-            accessibilityRole="button"
-            style={({ pressed }) => [styles.nmBtn, styles.nmBtnCancel, pressed && styles.pressed]}
-          >
-            <Text style={styles.nmBtnText}>Anulo</Text>
-          </Pressable>
-          <Pressable
-            onPress={submit}
-            accessibilityRole="button"
-            style={({ pressed }) => [styles.nmBtn, styles.nmBtnSave, pressed && styles.pressed]}
-          >
-            <Text style={styles.nmBtnText}>Ruaj</Text>
-          </Pressable>
-        </View>
-      </ScrollView>
-    </View>
-  );
-}
-
-/* Compact select with an in-flow options list */
-function NMSelect({
-  value,
-  options,
-  onChange,
-}: {
-  value: string;
-  options: string[];
-  onChange: (v: string) => void;
-}) {
-  const [open, setOpen] = useState(false);
-
-  return (
-    <View>
-      <Pressable
-        onPress={() => setOpen((v) => !v)}
-        accessibilityRole="button"
-        style={({ pressed }) => [styles.nmSel, pressed && styles.pressed]}
-      >
-        <Text style={styles.nmSelText} numberOfLines={1}>
-          {value}
-        </Text>
-        <MaterialCommunityIcons name="chevron-down" size={I(11)} color="#777777" />
-      </Pressable>
-      {open ? (
-        <View style={styles.nmOpts}>
-          {options.map((o) => {
-            const active = o === value;
-            return (
-              <Pressable
-                key={o}
-                onPress={() => {
-                  onChange(o);
-                  setOpen(false);
-                }}
-                style={[styles.nmOpt, active && styles.nmOptActive]}
-              >
-                <Text style={[styles.nmOptText, active && styles.nmOptTextActive]} numberOfLines={1}>
-                  {o}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-      ) : null}
-    </View>
   );
 }
 
@@ -1426,293 +984,6 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodySemiBold,
       fontSize: 14,
       color: '#F5F5F5',
-    },
-
-    /* ── Popup overlay ───────────────────────────────────────── */
-    ovWrap: {
-      position: 'absolute',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      zIndex: 20,
-    },
-
-    ovFill: {
-      position: 'absolute',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-    },
-
-    ovDim: {
-      backgroundColor: 'rgba(0,0,0,0.42)',
-    },
-
-    /* ── "Shto ndeshje" popup ────────────────────────────────── */
-    nmCard: {
-      marginTop: 100,
-      alignSelf: 'center',
-      backgroundColor: '#F5F5F5',
-      borderWidth: 1,
-      borderColor: MO.border,
-      borderRadius: 5,
-      overflow: 'hidden',
-      shadowColor: '#000000',
-      shadowOffset: { width: 0, height: 5 },
-      shadowOpacity: 0.15,
-      shadowRadius: 20,
-      elevation: 8,
-    },
-
-    nmHeader: {
-      height: 44,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-
-    nmTitle: {
-      fontFamily: Fonts.bodyBold,
-      fontSize: 20,
-      lineHeight: 24,
-      color: MO.title,
-    },
-
-    nmDivider: {
-      height: 1,
-      backgroundColor: MO.divider,
-    },
-
-    nmContent: {
-      paddingHorizontal: 15,
-      paddingTop: 9,
-      paddingBottom: 15,
-    },
-
-    nmErr: {
-      fontFamily: Fonts.body,
-      fontSize: 9,
-      color: MO.err,
-      marginBottom: 8,
-    },
-
-    nmLabel: {
-      fontFamily: Fonts.body,
-      fontSize: 9.5,
-      lineHeight: 12,
-      color: MO.sub,
-      marginBottom: 4,
-    },
-
-    nmGap: {
-      marginTop: 16,
-    },
-
-    nmInput: {
-      height: 31,
-      backgroundColor: MO.inputBg,
-      borderWidth: 1,
-      borderColor: MO.inputBorder,
-      borderRadius: 1,
-      paddingHorizontal: 8,
-      paddingVertical: 0,
-      fontSize: 11.5,
-      fontFamily: Fonts.body,
-      color: MO.text,
-    },
-
-    /* The transport field opens on the kick-off values, greyed as a suggestion. */
-    nmHintInput: {
-      color: C.hint,
-    },
-
-    nmRow: {
-      marginTop: 15,
-      flexDirection: 'row',
-      gap: 8,
-    },
-
-    nmCol: {
-      flex: 1,
-    },
-
-    nmSel: {
-      height: 31,
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      backgroundColor: MO.inputBg,
-      borderWidth: 1,
-      borderColor: MO.inputBorder,
-      borderRadius: 1,
-      paddingHorizontal: 8,
-    },
-
-    nmSelText: {
-      flex: 1,
-      fontFamily: Fonts.body,
-      fontSize: 11.5,
-      color: MO.text,
-      marginRight: 3,
-    },
-
-    nmOpts: {
-      marginTop: 2,
-      backgroundColor: '#F5F5F5',
-      borderWidth: 1,
-      borderColor: MO.inputBorder,
-      borderRadius: 1,
-      overflow: 'hidden',
-    },
-
-    nmOpt: {
-      height: 25,
-      justifyContent: 'center',
-      paddingHorizontal: 8,
-    },
-
-    nmOptActive: {
-      backgroundColor: 'rgba(22,165,29,0.10)',
-    },
-
-    nmOptText: {
-      fontFamily: Fonts.body,
-      fontSize: 10,
-      color: MO.text,
-    },
-
-    nmOptTextActive: {
-      fontFamily: Fonts.bodyBold,
-      color: MO.create,
-    },
-
-    /* Live preview of the fixture name. */
-    nmPreview: {
-      marginTop: 15,
-      height: 34,
-      justifyContent: 'center',
-      paddingHorizontal: 8,
-      borderWidth: 1,
-      borderColor: '#000000',
-      borderRadius: 3,
-      backgroundColor: 'rgba(26,157,0,0.2)',
-    },
-
-    nmPreviewText: {
-      textAlign: 'center',
-      fontFamily: Fonts.bodyBold,
-      fontSize: 12,
-      color: '#000000',
-    },
-
-    nmClockRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 4,
-    },
-
-    nmDateBox: {
-      width: 30,
-      height: 30,
-      backgroundColor: MO.inputBg,
-      borderWidth: 1,
-      borderColor: MO.inputBorder,
-      borderRadius: 4,
-      paddingHorizontal: 0,
-      paddingVertical: 0,
-      textAlign: 'center',
-      fontSize: 11,
-      fontFamily: Fonts.body,
-      color: MO.text,
-    },
-
-    nmYearBox: {
-      width: 50,
-      height: 30,
-      backgroundColor: MO.inputBg,
-      borderWidth: 1,
-      borderColor: MO.inputBorder,
-      borderRadius: 4,
-      paddingHorizontal: 0,
-      paddingVertical: 0,
-      textAlign: 'center',
-      fontSize: 11,
-      fontFamily: Fonts.body,
-      color: MO.text,
-    },
-
-    nmTimeBox: {
-      width: 30,
-      height: 30,
-      backgroundColor: MO.inputBg,
-      borderWidth: 1,
-      borderColor: MO.inputBorder,
-      borderRadius: 4,
-      paddingHorizontal: 0,
-      paddingVertical: 0,
-      textAlign: 'center',
-      fontSize: 11,
-      fontFamily: Fonts.body,
-      color: MO.text,
-    },
-
-    nmSep: {
-      fontFamily: Fonts.body,
-      fontSize: 11,
-      color: MO.sub,
-    },
-
-    /* Short separator that keeps the time next to the date. */
-    nmDash: {
-      width: 24,
-      textAlign: 'center',
-      fontFamily: Fonts.body,
-      fontSize: 11,
-      color: '#BBBBBB',
-    },
-
-    nmTextarea: {
-      height: 76,
-      backgroundColor: MO.inputBg,
-      borderWidth: 1,
-      borderColor: MO.inputBorder,
-      borderRadius: 1,
-      paddingHorizontal: 8,
-      paddingVertical: 7,
-      fontSize: 11.5,
-      fontFamily: Fonts.body,
-      color: MO.text,
-    },
-
-    nmActions: {
-      flexDirection: 'row',
-      justifyContent: 'flex-end',
-      gap: 9,
-      marginTop: 12,
-    },
-
-    nmBtn: {
-      height: 28,
-      alignItems: 'center',
-      justifyContent: 'center',
-      borderRadius: 2,
-    },
-
-    nmBtnCancel: {
-      width: 74,
-      backgroundColor: MO.cancel,
-    },
-
-    nmBtnSave: {
-      width: 74,
-      backgroundColor: MO.create,
-    },
-
-    nmBtnText: {
-      fontFamily: Fonts.bodyMedium,
-      fontSize: 10.5,
-      color: MO.white,
     },
 
     pressed: {
