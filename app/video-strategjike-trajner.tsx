@@ -1,12 +1,17 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
+import { ApiError } from '@/lib/api/errors';
+import { listLibrary } from '@/lib/api/library';
+import type { ApiTrainingMaterial } from '@/lib/api/types';
 import { I, scaled } from '@/lib/responsive';
+import { useSession } from '@/lib/session';
 
 /**
  * Video Strategjia — opened from the card of the same name on the trainer's
@@ -43,47 +48,62 @@ const TONES = {
 
 type Tone = keyof typeof TONES;
 
-type Video = {
-  id: string;
-  title: string;
-  level: string;
-  category: string;
-  tone: Tone;
+/* The library's `level`, mapped onto its label and the card's colour. */
+const LEVELS: Record<string, { label: string; tone: Tone }> = {
+  beginner: { label: 'Fillestar', tone: 'green' },
+  intermediate: { label: 'Mesëm', tone: 'blue' },
+  advanced: { label: 'Avancuar', tone: 'purple' },
 };
 
-const VIDEOS: Video[] = [
-  {
-    id: 'pasim',
-    title: 'Stërvitje pasim - Niveli fillestar',
-    level: 'Fillestar',
-    category: 'Teknika',
-    tone: 'green',
-  },
-  {
-    id: 'presing',
-    title: 'Presing i lartë - Niveli mesëm',
-    level: 'Mesëm',
-    category: 'Taktika',
-    tone: 'blue',
-  },
-  {
-    id: 'koordinim',
-    title: 'Koordinim me shkallë - Niveli fillestar',
-    level: 'Fillestar',
-    category: 'Fizike',
-    tone: 'green',
-  },
-  {
-    id: 'ndertim',
-    title: 'Ndërtimi i lojës - Niveli avancuar',
-    level: 'Avancuar',
-    category: 'Taktika',
-    tone: 'purple',
-  },
-];
+const levelInfo = (level: string | null) =>
+  (level ? LEVELS[level] : undefined) ?? { label: level ?? '—', tone: 'blue' as Tone };
+
+/** A short run of page numbers ending at `last`, capped for width. */
+function pageWindow(current: number, last: number, span = 4): number[] {
+  const start = Math.max(1, Math.min(current, last - span + 1));
+  const end = Math.min(last, start + span - 1);
+  return Array.from({ length: Math.max(0, end - start + 1) }, (_, i) => start + i);
+}
 
 export default function StrategicVideoScreen() {
   const router = useRouter();
+  const { token, signOut } = useSession();
+
+  const [videos, setVideos] = useState<ApiTrainingMaterial[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [lastPage, setLastPage] = useState(1);
+
+  useEffect(() => {
+    if (!token) return;
+    const controller = new AbortController();
+
+    listLibrary(token, { page }, controller.signal)
+      .then((res) => {
+        if (controller.signal.aborted) return;
+        setVideos(res.data);
+        setLastPage(res.meta.last_page);
+        setError(null);
+      })
+      .catch((err) => {
+        if (controller.signal.aborted) return;
+        if (err instanceof ApiError && err.status === 401) {
+          signOut();
+          router.replace('/login');
+          return;
+        }
+        setError(
+          err instanceof ApiError && err.status === 0
+            ? 'Nuk mund të lidhemi me serverin. Kontrollo lidhjen.'
+            : 'Nuk mund të ngarkohen videot.',
+        );
+      });
+
+    return () => controller.abort();
+  }, [token, router, signOut, page]);
+
+  const rows = videos ?? [];
+  const current = Math.min(page, Math.max(1, lastPage));
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
@@ -136,17 +156,33 @@ export default function StrategicVideoScreen() {
             <View style={styles.trayWrap}>
               {/* A thin see-through tray, ruled in green. */}
               <View style={styles.tray}>
-                {VIDEOS.map((v) => {
-                  const tone = TONES[v.tone];
+                {rows.map((v) => {
+                  const { label, tone } = levelInfo(v.level);
+                  const skin = TONES[tone];
                   return (
                     <Pressable
                       key={v.id}
-                      onPress={() => router.push('/detajet-video-trajner' as never)}
+                      onPress={() =>
+                        router.push({
+                          pathname: '/detajet-video-trajner',
+                          params: {
+                            id: String(v.id),
+                            title: v.title,
+                            level: v.level ?? '',
+                            category: v.category ?? '',
+                            type: v.file_type ?? '',
+                            trainer: v.trainer?.name ?? '',
+                            shared: v.is_shared ? '1' : '0',
+                            description: v.description ?? '',
+                            date: v.created_at ?? '',
+                          },
+                        })
+                      }
                       accessibilityRole="button"
                       accessibilityLabel={v.title}
                       style={({ pressed }) => [
                         styles.card,
-                        { backgroundColor: tone.bg, borderColor: tone.solid },
+                        { backgroundColor: skin.bg, borderColor: skin.solid },
                         pressed && styles.pressed,
                       ]}
                     >
@@ -165,17 +201,23 @@ export default function StrategicVideoScreen() {
                       </Text>
 
                       <View style={styles.meta}>
-                        <Text style={[styles.metaLevel, { color: tone.solid }]} numberOfLines={1}>
-                          {v.level}
+                        <Text style={[styles.metaLevel, { color: skin.solid }]} numberOfLines={1}>
+                          {label}
                         </Text>
                         <Text style={styles.metaDot}> • </Text>
                         <Text style={styles.metaCategory} numberOfLines={1}>
-                          {v.category}
+                          {v.category ?? '—'}
                         </Text>
                       </View>
                     </Pressable>
                   );
                 })}
+
+                {rows.length === 0 ? (
+                  <Text style={styles.empty} numberOfLines={2}>
+                    {error ?? (videos ? 'Nuk ka video.' : '…')}
+                  </Text>
+                ) : null}
               </View>
 
               {/* The tray's tab label, riding on its top rim. */}
@@ -185,6 +227,56 @@ export default function StrategicVideoScreen() {
                 </View>
               </View>
             </View>
+
+            {/* ── Pager ─────────────────────────────────────────── */}
+            {lastPage > 1 ? (
+              <View style={styles.pager}>
+                <Pressable
+                  onPress={() => setPage(current - 1)}
+                  disabled={current <= 1}
+                  accessibilityRole="button"
+                  accessibilityLabel="Faqja e mëparshme"
+                  hitSlop={8}
+                  style={({ pressed }) => [
+                    styles.pagerArrow,
+                    current <= 1 && styles.pagerDisabled,
+                    pressed && styles.pressed,
+                  ]}
+                >
+                  <MaterialCommunityIcons name="chevron-left" size={I(22)} color={C.text} />
+                </Pressable>
+
+                {pageWindow(current, lastPage).map((p) => (
+                  <Pressable
+                    key={p}
+                    onPress={() => setPage(p)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Faqja ${p}`}
+                    style={({ pressed }) => [
+                      p === current ? styles.pageSqActive : styles.pageSq,
+                      pressed && styles.pressed,
+                    ]}
+                  >
+                    <Text style={styles.pageSqText}>{p}</Text>
+                  </Pressable>
+                ))}
+
+                <Pressable
+                  onPress={() => setPage(current + 1)}
+                  disabled={current >= lastPage}
+                  accessibilityRole="button"
+                  accessibilityLabel="Faqja tjetër"
+                  hitSlop={8}
+                  style={({ pressed }) => [
+                    styles.pagerArrow,
+                    current >= lastPage && styles.pagerDisabled,
+                    pressed && styles.pressed,
+                  ]}
+                >
+                  <MaterialCommunityIcons name="chevron-right" size={I(22)} color={C.text} />
+                </Pressable>
+              </View>
+            ) : null}
           </View>
         </ScrollView>
       </View>
@@ -348,6 +440,17 @@ const styles = StyleSheet.create(
       color: C.gray,
     },
 
+    /* The load error / empty-list line, spanning the tray. */
+    empty: {
+      flex: 1,
+      paddingVertical: 12,
+      fontFamily: Fonts.body,
+      fontSize: 11,
+      lineHeight: 15,
+      color: C.gray,
+      textAlign: 'center',
+    },
+
     /* ── Tray tab ────────────────────────────────────────────── */
     pillWrap: {
       position: 'absolute',
@@ -375,6 +478,48 @@ const styles = StyleSheet.create(
       fontSize: 13,
       lineHeight: 16,
       color: C.text,
+    },
+
+    /* ── Pager ───────────────────────────────────────────────── */
+    pager: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'flex-end',
+      gap: 6,
+      marginTop: 12,
+    },
+
+    pagerArrow: {
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+
+    pagerDisabled: {
+      opacity: 0.3,
+    },
+
+    pageSq: {
+      width: 34,
+      height: 34,
+      borderRadius: 5,
+      backgroundColor: '#86BCFD',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+
+    pageSqActive: {
+      width: 34,
+      height: 34,
+      borderRadius: 5,
+      backgroundColor: '#4E90D8',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+
+    pageSqText: {
+      fontFamily: Fonts.bodySemiBold,
+      fontSize: 14,
+      color: '#F5F5F5',
     },
 
     pressed: {

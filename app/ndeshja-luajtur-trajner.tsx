@@ -1,19 +1,18 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useState } from 'react';
-import {
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  TextInput,
-  View,
-} from 'react-native';
+import { useEffect, useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
+import { ApiError } from '@/lib/api/errors';
+import { getMatch } from '@/lib/api/matches';
+import type { ApiMatch } from '@/lib/api/types';
+import { positionLabel } from '@/lib/player-position';
 import { I, scaled } from '@/lib/responsive';
+import { useSession } from '@/lib/session';
 
 /**
  * A played match, the trainer's own view — opened from "Shiko" on the results
@@ -67,47 +66,21 @@ type StatRow = {
   nota: string;
 };
 
-/* The same eleven and the same line the "Fut rezultatin" page holds. */
-const STATS: StatRow[] = [
-  { name: 'Driton Demiri', goals: '0', assists: '0', minutes: '90', yellow: '0', red: '0', nota: '7.5' },
-  { name: 'Enver Mustafa', goals: '0', assists: '1', minutes: '90', yellow: '1', red: '0', nota: '6.8' },
-  { name: 'Ardit Lapashtica', goals: '1', assists: '0', minutes: '90', yellow: '0', red: '0', nota: '7.9' },
-  { name: 'Narti Cerkini', goals: '0', assists: '0', minutes: '90', yellow: '0', red: '0', nota: '6.5' },
-  { name: 'Blerim Krasniqi', goals: '0', assists: '2', minutes: '78', yellow: '0', red: '0', nota: '7.2' },
-  { name: 'Endrit Gashi', goals: '0', assists: '0', minutes: '90', yellow: '1', red: '0', nota: '6.9' },
-  { name: 'Leart Berisha', goals: '1', assists: '0', minutes: '90', yellow: '0', red: '0', nota: '8.1' },
-  { name: 'Riad Hoxha', goals: '0', assists: '1', minutes: '64', yellow: '0', red: '0', nota: '6.4' },
-  { name: 'Arbnor Zeka', goals: '0', assists: '0', minutes: '90', yellow: '0', red: '1', nota: '5.8' },
-  { name: 'Dion Nimani', goals: '0', assists: '0', minutes: '26', yellow: '0', red: '0', nota: '6.2' },
-  { name: 'Yll Demaku', goals: '0', assists: '0', minutes: '12', yellow: '0', red: '0', nota: '6.0' },
-];
+const pad2 = (n: number) => String(n).padStart(2, '0');
 
-type Starter = { name: string; position: string };
-
-const STARTERS: Starter[] = [
-  { name: 'Driton Demiri', position: 'Portjer' },
-  { name: 'Enver Mustafa', position: 'Mbrojtës' },
-  { name: 'Ardit Lapashtica', position: 'Mbrojtës' },
-  { name: 'Narti Cerkini', position: 'Mbrojtës' },
-  { name: 'Blerim Krasniqi', position: 'Mbrojtës' },
-  { name: 'Endrit Gashi', position: 'Mesfushor' },
-  { name: 'Leart Berisha', position: 'Mesfushor' },
-  { name: 'Riad Hoxha', position: 'Mesfushor' },
-  { name: 'Arbnor Zeka', position: 'Sulmues' },
-  { name: 'Dion Nimani', position: 'Sulmues' },
-  { name: 'Yll Demaku', position: 'Sulmues' },
-];
-
-/** "18/08/2026" → "18 Aug 2026". */
-function formatDate(date: string): string {
-  const [day, month, year] = date.split('/');
-  const mon = MONTHS[Number(month) - 1];
-  if (!day || !mon || !year) return date;
-  return `${day} ${mon.charAt(0).toUpperCase()}${mon.slice(1).toLowerCase()} ${year}`;
+/** An ISO timestamp as "18 Aug 2026, 15:30"; null or unparseable renders a dash. */
+function whenLabel(iso: string | null): string {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '—';
+  const mon = MONTHS[d.getMonth()];
+  const month = mon.charAt(0).toUpperCase() + mon.slice(1).toLowerCase();
+  return `${pad2(d.getDate())} ${month} ${d.getFullYear()}, ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
 }
 
 export default function TrainerPlayedMatchScreen() {
   const router = useRouter();
+  const { token, signOut } = useSession();
 
   const params = useLocalSearchParams<{
     id?: string;
@@ -118,37 +91,80 @@ export default function TrainerPlayedMatchScreen() {
     time?: string;
   }>();
 
-  const home = params.home ?? '';
-  const away = params.away ?? '';
+  const id = params.id ? Number(params.id) : null;
+
+  const [match, setMatch] = useState<ApiMatch | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!token || !id) return;
+    const controller = new AbortController();
+
+    getMatch(token, id, controller.signal)
+      .then((res) => {
+        if (controller.signal.aborted) return;
+        setMatch(res.data);
+        setError(null);
+      })
+      .catch((err) => {
+        if (controller.signal.aborted) return;
+        if (err instanceof ApiError && err.status === 401) {
+          signOut();
+          router.replace('/login');
+          return;
+        }
+        setError(
+          err instanceof ApiError && err.status === 0
+            ? 'Nuk mund të lidhemi me serverin. Kontrollo lidhjen.'
+            : 'Nuk mund të ngarkohet ndeshja.',
+        );
+      });
+
+    return () => controller.abort();
+  }, [token, id, router, signOut]);
+
+  /* The fixture's side of the table, once the match is in hand. */
+  const teamName = match?.team?.name ?? '';
+  const opponent = match?.opponent ?? '';
+  const isHome = match?.venue === 'home';
+
+  const home = match ? (isHome ? teamName : opponent) : params.home ?? '';
+  const away = match ? (isHome ? opponent : teamName) : params.away ?? '';
   const title = away ? `${home} - ${away}` : home;
+  /* The rival is known only once the match is in hand; before that the params
+     cannot say which side is the club's. */
+  const rival = match ? opponent : '';
 
-  /* The side we are not: the fixture is always listed with Prishtina in it. */
-  const atHome = home.includes('Prishtina');
-  const rival = atHome ? away : home;
-
-  const date = params.date ?? '';
-  const time = params.time ?? '';
-
-  const [stats, setStats] = useState<StatRow[]>(STATS);
-
-  const setStat = (name: string, key: ColKey, value: string) =>
-    setStats((prev) => prev.map((r) => (r.name === name ? { ...r, [key]: value } : r)));
+  const sched = match?.scheduled_at ? new Date(match.scheduled_at) : null;
+  const validSched = sched && !Number.isNaN(sched.getTime()) ? sched : null;
 
   const values = [
-    rival,
-    params.comp ?? '',
-    `${formatDate(date)}, ${time}`,
-    atHome ? 'Shtëpi' : 'Musafir',
+    rival || '—',
+    match?.competition || params.comp || '—',
+    validSched ? whenLabel(match?.scheduled_at ?? null) : params.date ?? '—',
+    isHome ? 'Shtëpi' : 'Musafir',
   ];
+
+  const statRows: StatRow[] = (match?.player_stats ?? []).map((s) => ({
+    name: s.player_name ?? '—',
+    goals: String(s.goals ?? 0),
+    assists: String(s.assists ?? 0),
+    minutes: s.minutes_played == null ? '—' : String(s.minutes_played),
+    yellow: String(s.yellow_cards ?? 0),
+    red: String(s.red_cards ?? 0),
+    nota: s.rating == null ? '—' : Number(s.rating).toFixed(1),
+  }));
+
+  const starters = (match?.lineup ?? []).filter((l) => l.type === 'starter');
 
   /* The same shape of params the fixtures table hands to the other pages. */
   const fixture = {
     ...(params.id ? { id: params.id } : {}),
     home,
     away,
-    day: date.split('/')[0] ?? '',
-    mon: MONTHS[Number(date.split('/')[1]) - 1] ?? '',
-    time,
+    day: validSched ? pad2(validSched.getDate()) : params.date?.split('/')[0] ?? '',
+    mon: validSched ? MONTHS[validSched.getMonth()] : '',
+    time: validSched ? `${pad2(validSched.getHours())}:${pad2(validSched.getMinutes())}` : params.time ?? '',
   };
 
   return (
@@ -176,7 +192,7 @@ export default function TrainerPlayedMatchScreen() {
                   adjustsFontSizeToFit
                   minimumFontScale={0.7}
                 >
-                  {title}
+                  {title || '—'}
                 </Text>
               </View>
             </View>
@@ -259,7 +275,7 @@ export default function TrainerPlayedMatchScreen() {
                     ))}
                   </View>
 
-                  {stats.map((row, i) => (
+                  {statRows.map((row, i) => (
                     <View key={row.name} style={[styles.tr, i > 0 && styles.trBorder]}>
                       {COLS.map((c) =>
                         c.key === 'name' ? (
@@ -273,18 +289,25 @@ export default function TrainerPlayedMatchScreen() {
                             {row.name}
                           </Text>
                         ) : (
-                          <TextInput
+                          <Text
                             key={c.key}
-                            value={row[c.key]}
-                            onChangeText={(text) => setStat(row.name, c.key as ColKey, text)}
-                            keyboardType={c.key === 'nota' ? 'decimal-pad' : 'number-pad'}
-                            allowFontScaling={false}
-                            style={[styles.tdInput, { width: c.width }]}
-                          />
+                            style={[styles.td, { width: c.width }]}
+                            numberOfLines={1}
+                          >
+                            {row[c.key]}
+                          </Text>
                         ),
                       )}
                     </View>
                   ))}
+
+                  {statRows.length === 0 ? (
+                    <View style={styles.tr}>
+                      <Text style={styles.empty} numberOfLines={2}>
+                        {error ?? (match ? 'Nuk ka statistika.' : '…')}
+                      </Text>
+                    </View>
+                  ) : null}
                 </View>
               </ScrollView>
             </View>
@@ -308,15 +331,23 @@ export default function TrainerPlayedMatchScreen() {
               </View>
               <View style={styles.headLine} />
 
-              <Text style={styles.sectionLabel}>Startuesit (11)</Text>
+              <Text style={styles.sectionLabel}>{`Startuesit (${starters.length})`}</Text>
 
               <View style={styles.squadGrid}>
-                {STARTERS.map((s) => (
-                  <View key={s.name} style={styles.playerCard}>
-                    <Text style={styles.playerName}>{s.name}</Text>
-                    <Text style={styles.playerPosition}>{s.position}</Text>
+                {starters.map((s) => (
+                  <View key={s.player_id} style={styles.playerCard}>
+                    <Text style={styles.playerName} numberOfLines={2}>
+                      {s.player_name ?? '—'}
+                    </Text>
+                    <Text style={styles.playerPosition}>{positionLabel(s.position)}</Text>
                   </View>
                 ))}
+
+                {starters.length === 0 ? (
+                  <Text style={styles.empty} numberOfLines={2}>
+                    {error ?? (match ? 'Nuk ka formacion.' : '…')}
+                  </Text>
+                ) : null}
               </View>
             </View>
           </View>
@@ -516,20 +547,22 @@ const styles = StyleSheet.create(
       color: C.text,
     },
 
-    /* A bare box per figure, ruled in grey so the rows read lighter than the
-       headings above them. */
-    tdInput: {
-      height: 26,
-      paddingHorizontal: 0,
-      paddingVertical: 0,
+    td: {
       textAlign: 'center',
       fontFamily: Fonts.body,
       fontSize: 11,
+      lineHeight: 14,
       color: C.text,
-      backgroundColor: 'transparent',
-      borderWidth: 1,
-      borderColor: C.gray,
-      borderRadius: 3,
+    },
+
+    /* The load error / empty-list line, spanning the table. */
+    empty: {
+      flex: 1,
+      paddingVertical: 10,
+      fontFamily: Fonts.body,
+      fontSize: 11,
+      lineHeight: 15,
+      color: C.hint,
     },
 
     /* ── Formacioni ──────────────────────────────────────────── */

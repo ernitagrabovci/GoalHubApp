@@ -197,7 +197,22 @@ export default function SessionPlansScreen() {
                       {/* Transparent, riding on the row itself. */}
                       <View style={[styles.actions, { width: ACTION_W }]}>
                         <Pressable
-                          onPress={() => router.push('/detajet-video-trajner' as never)}
+                          onPress={() =>
+                            router.push({
+                              pathname: '/detajet-video-trajner',
+                              params: {
+                                id: String(p.id),
+                                title: p.title,
+                                level: p.level ?? '',
+                                category: p.category ?? '',
+                                type: p.file_type ?? '',
+                                trainer: p.trainer?.name ?? '',
+                                shared: p.is_shared ? '1' : '0',
+                                description: p.description ?? '',
+                                date: p.created_at ?? '',
+                              },
+                            })
+                          }
                           accessibilityRole="button"
                           accessibilityLabel={`Shiko ${p.title}`}
                           style={({ pressed }) => [styles.actView, pressed && styles.pressed]}

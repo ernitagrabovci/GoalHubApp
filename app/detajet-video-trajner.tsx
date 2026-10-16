@@ -1,5 +1,5 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -11,7 +11,10 @@ import { I, scaled } from '@/lib/responsive';
 /**
  * One clip, opened from the play mark on a Video Strategjia card. The
  * description up top, then the clip's facts beside the level it is filed
- * under — that level restated on its own, big, in a green card.
+ * under — that level restated on its own, big, in its own colour.
+ *
+ * The clip's facts ride in on the route params; the library has no per-item
+ * endpoint, so the list hands everything this page needs.
  */
 
 const C = {
@@ -31,33 +34,73 @@ const C = {
   green: '#159447',
 };
 
-/** The level this clip is filed under. */
-const LEVEL = 'Fillestar';
+/* The library's `level`, mapped onto its label. */
+const LEVEL_LABEL: Record<string, string> = {
+  beginner: 'Fillestar',
+  intermediate: 'Mesëm',
+  advanced: 'Avancuar',
+};
+
+/* The library's `file_type`, under the Lloji label. */
+const TYPE_LABEL: Record<string, string> = { mp4: 'Video', gif: 'Video', pdf: 'PDF' };
 
 /**
  * Each level owns a colour: the rim at full strength, the wash at 20%. The
- * level card reads its tone from here, so moving a clip between levels only
- * means changing LEVEL.
+ * level card reads its tone from here, keyed by the stored level code.
  */
 const LEVEL_TONES: Record<string, { rim: string; wash: string }> = {
-  Fillestar: { rim: '#159447', wash: 'rgba(21,148,71,0.20)' },
-  Mesëm: { rim: '#2F80ED', wash: 'rgba(47,128,237,0.20)' },
-  Avancuar: { rim: '#B09AF9', wash: 'rgba(176,154,249,0.20)' },
+  beginner: { rim: '#159447', wash: 'rgba(21,148,71,0.20)' },
+  intermediate: { rim: '#2F80ED', wash: 'rgba(47,128,237,0.20)' },
+  advanced: { rim: '#B09AF9', wash: 'rgba(176,154,249,0.20)' },
 };
 
-const TONE = LEVEL_TONES[LEVEL];
+const FALLBACK_TONE = { rim: '#2F80ED', wash: 'rgba(47,128,237,0.20)' };
 
-/** The clip's facts, in the order they are stacked in the Detajet card. */
-const DETAILS: { label: string; value: string; green?: boolean }[] = [
-  { label: 'Niveli', value: LEVEL },
-  { label: 'Kategoria', value: 'Teknika' },
-  { label: 'Lloji', value: 'MP4' },
-  { label: 'Trajneri', value: 'Rexhep Hyseni' },
-  { label: 'Shpërndarë', value: 'PO', green: true },
-];
+const pad2 = (n: number) => String(n).padStart(2, '0');
+
+/** An ISO timestamp as "12/08/2026"; null or unparseable renders as a dash. */
+function dmy(iso: string | null): string {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '—';
+  return `${pad2(d.getDate())}/${pad2(d.getMonth() + 1)}/${d.getFullYear()}`;
+}
 
 export default function VideoDetailScreen() {
   const router = useRouter();
+
+  const params = useLocalSearchParams<{
+    id?: string;
+    title?: string;
+    level?: string;
+    category?: string;
+    type?: string;
+    trainer?: string;
+    shared?: string;
+    description?: string;
+    date?: string;
+  }>();
+
+  const title = params.title ?? '—';
+  const level = params.level ?? '';
+  const levelLabel = level ? LEVEL_LABEL[level] ?? level : '—';
+  const category = params.category || '—';
+  const type = params.type ? TYPE_LABEL[params.type] ?? params.type.toUpperCase() : '—';
+  const trainer = params.trainer || '—';
+  const shared = params.shared === '1';
+  const description = params.description || '—';
+  const date = dmy(params.date ?? null);
+
+  const tone = LEVEL_TONES[level] ?? FALLBACK_TONE;
+
+  /** The clip's facts, in the order they are stacked in the Detajet card. */
+  const details: { label: string; value: string; green?: boolean }[] = [
+    { label: 'Niveli', value: levelLabel },
+    { label: 'Kategoria', value: category },
+    { label: 'Lloji', value: type },
+    { label: 'Trajneri', value: trainer },
+    { label: 'Shpërndarë', value: shared ? 'PO' : 'JO', green: shared },
+  ];
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
@@ -80,12 +123,12 @@ export default function VideoDetailScreen() {
               <View style={styles.headerText}>
                 <View style={styles.titleRow}>
                   <MaterialCommunityIcons name="play" size={I(20)} color={C.text} />
-                  <Text style={styles.title} numberOfLines={1}>
-                    Dribling 1v1 - ushtrime
+                  <Text style={styles.title} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
+                    {title}
                   </Text>
                 </View>
                 <Text style={styles.subtitle} numberOfLines={1}>
-                  {`${LEVEL} • Teknika • 12/08/2026`}
+                  {`${levelLabel} • ${category} • ${date}`}
                 </Text>
               </View>
             </View>
@@ -108,7 +151,7 @@ export default function VideoDetailScreen() {
               <View style={styles.headLine} />
 
               <View style={styles.body}>
-                <Text style={styles.desc}>material i ndarë për ekipin</Text>
+                <Text style={styles.desc}>{description}</Text>
               </View>
             </View>
 
@@ -123,7 +166,7 @@ export default function VideoDetailScreen() {
                 <View style={styles.headLine} />
 
                 <View style={[styles.body, styles.detailBody]}>
-                  {DETAILS.map((d) => (
+                  {details.map((d) => (
                     <DetailRow key={d.label} label={d.label} value={d.value} green={d.green} />
                   ))}
                 </View>
@@ -133,11 +176,11 @@ export default function VideoDetailScreen() {
               <View
                 style={[
                   styles.levelCard,
-                  { backgroundColor: TONE.wash, borderColor: TONE.rim },
+                  { backgroundColor: tone.wash, borderColor: tone.rim },
                 ]}
               >
-                <Text style={styles.levelValue} numberOfLines={1}>
-                  {LEVEL}
+                <Text style={styles.levelValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
+                  {levelLabel}
                 </Text>
                 <Text style={styles.levelLabel}>Niveli i materialit</Text>
               </View>
