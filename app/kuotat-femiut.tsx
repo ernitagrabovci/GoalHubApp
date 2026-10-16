@@ -1,12 +1,18 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
+import { ApiError } from '@/lib/api/errors';
+import { listChildFees } from '@/lib/api/children';
+import type { ApiFee } from '@/lib/api/types';
+import { STATUS_TONE, dmy, monthLabel, statusLabel, usd } from '@/lib/finance';
 import { I, scaled } from '@/lib/responsive';
+import { useSession } from '@/lib/session';
 
 /**
  * Kuotat — the child's club fees, opened from the "Kuotat" card on the
@@ -30,36 +36,38 @@ const C = {
   rowLine: 'rgba(100,140,190,0.22)',
   headLine: 'rgba(30,40,35,0.10)',
 
-  green: '#159447',
-  red: '#E03131',
-  orange: '#E4A000',
-};
-
-/* One colour per payment status. */
-const TONE: Record<string, string> = {
-  Paguar: C.green,
-  Papaguar: C.orange,
-  Skaduar: C.red,
+  /* The pager's squares. */
+  blue: '#86BCFD',
 };
 
 type Quota = {
+  id: number;
   period: string;
   amount: string;
   due: string;
   status: string;
-  /* Empty where nothing has been paid yet. */
+  /* A dash where nothing has been paid yet. */
   paid: string;
 };
 
-const QUOTAS: Quota[] = [
-  { period: 'Shtator 2026', amount: '$40.00', due: '10/09/2026', status: 'Paguar', paid: '05/09/2026' },
-  { period: 'Tetor 2026', amount: '$40.00', due: '10/10/2026', status: 'Paguar', paid: '08/10/2026' },
-  { period: 'Nëntor 2026', amount: '$40.00', due: '10/11/2026', status: 'Paguar', paid: '06/11/2026' },
-  { period: 'Dhjetor 2026', amount: '$40.00', due: '10/12/2026', status: 'Paguar', paid: '09/12/2026' },
-  { period: 'Janar 2027', amount: '$40.00', due: '10/01/2027', status: 'Paguar', paid: '07/01/2027' },
-  { period: 'Shkurt 2027', amount: '$90.00', due: '10/02/2027', status: 'Papaguar', paid: '—' },
-  { period: 'Mars 2027', amount: '$90.00', due: '10/03/2027', status: 'Skaduar', paid: '—' },
-];
+/** One API fee, laid onto the invoice row. */
+function toQuota(f: ApiFee): Quota {
+  return {
+    id: f.id,
+    period: monthLabel(f.month),
+    amount: usd(f.final_amount),
+    due: dmy(f.due_date),
+    status: statusLabel(f.status),
+    paid: dmy(f.paid_at),
+  };
+}
+
+/** A short run of page numbers ending at `last`, capped for width. */
+function pageWindow(current: number, last: number, span = 4): number[] {
+  const start = Math.max(1, Math.min(current, last - span + 1));
+  const end = Math.min(last, start + span - 1);
+  return Array.from({ length: Math.max(0, end - start + 1) }, (_, i) => start + i);
+}
 
 const COLS: { key: keyof Quota; label: string; width: number; strong?: boolean }[] = [
   { key: 'period', label: 'Periudha', width: 100, strong: true },
@@ -71,9 +79,47 @@ const COLS: { key: keyof Quota; label: string; width: number; strong?: boolean }
 
 export default function ChildFeesScreen() {
   const router = useRouter();
+  const { token, signOut } = useSession();
 
-  const params = useLocalSearchParams<{ name?: string }>();
-  const name = params.name ?? 'Agon Gashi';
+  const params = useLocalSearchParams<{ id?: string; name?: string }>();
+  const childId = params.id ? Number(params.id) : null;
+  const name = params.name ?? 'Fëmija';
+
+  const [fees, setFees] = useState<Quota[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [lastPage, setLastPage] = useState(1);
+
+  useEffect(() => {
+    if (!token || !childId) return;
+    const controller = new AbortController();
+
+    listChildFees(token, childId, { page }, controller.signal)
+      .then((res) => {
+        if (controller.signal.aborted) return;
+        setFees(res.data.map(toQuota));
+        setLastPage(res.meta.last_page);
+        setError(null);
+      })
+      .catch((err) => {
+        if (controller.signal.aborted) return;
+        if (err instanceof ApiError && err.status === 401) {
+          signOut();
+          router.replace('/login');
+          return;
+        }
+        setError(
+          err instanceof ApiError && err.status === 0
+            ? 'Nuk mund të lidhemi me serverin. Kontrollo lidhjen.'
+            : 'Nuk mund të ngarkohen kuotat.',
+        );
+      });
+
+    return () => controller.abort();
+  }, [token, childId, router, signOut, page]);
+
+  const rows = fees ?? [];
+  const current = Math.min(page, Math.max(1, lastPage));
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
@@ -135,15 +181,15 @@ export default function ChildFeesScreen() {
                     ))}
                   </View>
 
-                  {QUOTAS.map((q) => (
-                    <View key={q.period} style={[styles.tr, styles.trBorder]}>
+                  {rows.map((q) => (
+                    <View key={q.id} style={[styles.tr, styles.trBorder]}>
                       {COLS.map((c) => (
                         <Text
                           key={c.key}
                           style={[
                             styles.td,
                             c.strong && styles.tdStrong,
-                            c.key === 'status' && { color: TONE[q.status] ?? C.text },
+                            c.key === 'status' && { color: STATUS_TONE[q.status] ?? C.text },
                             { width: c.width },
                           ]}
                           numberOfLines={1}
@@ -155,9 +201,67 @@ export default function ChildFeesScreen() {
                       ))}
                     </View>
                   ))}
+
+                  {rows.length === 0 ? (
+                    <View style={styles.tr}>
+                      <Text style={styles.empty} numberOfLines={2}>
+                        {error ?? (fees ? 'Nuk ka kuota.' : '…')}
+                      </Text>
+                    </View>
+                  ) : null}
                 </View>
               </ScrollView>
             </View>
+
+            {/* ── Pager ─────────────────────────────────────────── */}
+            {lastPage > 1 ? (
+              <View style={styles.pager}>
+                <Pressable
+                  onPress={() => setPage(current - 1)}
+                  disabled={current <= 1}
+                  accessibilityRole="button"
+                  accessibilityLabel="Faqja e mëparshme"
+                  hitSlop={8}
+                  style={({ pressed }) => [
+                    styles.pagerArrow,
+                    current <= 1 && styles.pagerDisabled,
+                    pressed && styles.pressed,
+                  ]}
+                >
+                  <MaterialCommunityIcons name="chevron-left" size={I(22)} color={C.text} />
+                </Pressable>
+
+                {pageWindow(current, lastPage).map((p) => (
+                  <Pressable
+                    key={p}
+                    onPress={() => setPage(p)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Faqja ${p}`}
+                    style={({ pressed }) => [
+                      p === current ? styles.pageSqActive : styles.pageSq,
+                      pressed && styles.pressed,
+                    ]}
+                  >
+                    <Text style={styles.pageSqText}>{p}</Text>
+                  </Pressable>
+                ))}
+
+                <Pressable
+                  onPress={() => setPage(current + 1)}
+                  disabled={current >= lastPage}
+                  accessibilityRole="button"
+                  accessibilityLabel="Faqja tjetër"
+                  hitSlop={8}
+                  style={({ pressed }) => [
+                    styles.pagerArrow,
+                    current >= lastPage && styles.pagerDisabled,
+                    pressed && styles.pressed,
+                  ]}
+                >
+                  <MaterialCommunityIcons name="chevron-right" size={I(22)} color={C.text} />
+                </Pressable>
+              </View>
+            ) : null}
           </View>
         </ScrollView>
       </View>
@@ -289,6 +393,58 @@ const styles = StyleSheet.create(
     tdStrong: {
       fontFamily: Fonts.bodyBold,
       color: C.text,
+    },
+
+    /* The load error / empty-list line, spanning the row. */
+    empty: {
+      flex: 1,
+      fontFamily: Fonts.body,
+      fontSize: 9.5,
+      lineHeight: 13,
+      color: C.gray,
+      textAlign: 'left',
+    },
+
+    /* ── Pager ───────────────────────────────────────────────── */
+    pager: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'flex-end',
+      gap: 6,
+      marginTop: 12,
+    },
+
+    pagerArrow: {
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+
+    pagerDisabled: {
+      opacity: 0.3,
+    },
+
+    pageSq: {
+      width: 34,
+      height: 34,
+      borderRadius: 5,
+      backgroundColor: C.blue,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+
+    pageSqActive: {
+      width: 34,
+      height: 34,
+      borderRadius: 5,
+      backgroundColor: '#4E90D8',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+
+    pageSqText: {
+      fontFamily: Fonts.bodySemiBold,
+      fontSize: 14,
+      color: '#F5F5F5',
     },
 
     pressed: {

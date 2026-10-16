@@ -1,12 +1,17 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
+import { ApiError } from '@/lib/api/errors';
+import { listChildRatings } from '@/lib/api/children';
+import type { ApiChildRating } from '@/lib/api/types';
 import { I, scaled } from '@/lib/responsive';
+import { useSession } from '@/lib/session';
 
 /**
  * Vlerësimet — the child's ratings, opened from the "Vlerësimet" card on the
@@ -29,33 +34,58 @@ const C = {
   border: 'rgba(100,140,190,0.30)',
   rowLine: 'rgba(100,140,190,0.22)',
   headLine: 'rgba(30,40,35,0.10)',
+
+  /* The pager's squares. */
+  blue: '#86BCFD',
 };
 
-type Scores = {
+type Row = {
+  id: number;
   date: string;
-  taktike: number;
-  fizike: number;
-  teknike: number;
-  vazhdimi: number;
-  ekip: number;
+  taktike: string;
+  fizike: string;
+  teknike: string;
+  vazhdimi: string;
+  ekip: string;
+  mesatare: string;
 };
 
-const SESSIONS: Scores[] = [
-  { date: '12/08/2026', taktike: 8.0, fizike: 7.5, teknike: 8.2, vazhdimi: 7.8, ekip: 8.4 },
-  { date: '09/08/2026', taktike: 7.2, fizike: 6.8, teknike: 7.6, vazhdimi: 7.1, ekip: 7.9 },
-  { date: '07/08/2026', taktike: 8.4, fizike: 8.1, teknike: 8.6, vazhdimi: 8.2, ekip: 8.8 },
-  { date: '05/08/2026', taktike: 7.6, fizike: 7.2, teknike: 7.9, vazhdimi: 7.4, ekip: 8.0 },
-  { date: '01/08/2026', taktike: 6.9, fizike: 6.4, teknike: 7.2, vazhdimi: 6.8, ekip: 7.5 },
-  { date: '30/07/2026', taktike: 7.8, fizike: 7.6, teknike: 8.0, vazhdimi: 7.7, ekip: 8.2 },
-];
+const pad2 = (n: number) => String(n).padStart(2, '0');
 
-/* The row's own average, so the last column can never drift from the scores. */
-const ROWS = SESSIONS.map((s) => ({
-  ...s,
-  mesatare: (s.taktike + s.fizike + s.teknike + s.vazhdimi + s.ekip) / 5,
-}));
+/** `2026-08-12` → `12/08/2026`; an unusable date renders as a dash. */
+function dmy(iso: string | null | undefined): string {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '—';
+  return `${pad2(d.getDate())}/${pad2(d.getMonth() + 1)}/${d.getFullYear()}`;
+}
 
-type Row = (typeof ROWS)[number];
+/** Every score reads one decimal place, so the columns stay flush. */
+function score(value: number | string | null | undefined): string {
+  const n = Number(value);
+  return Number.isFinite(n) ? n.toFixed(1) : '—';
+}
+
+/** One API rating, laid onto the row. */
+function toRow(r: ApiChildRating): Row {
+  return {
+    id: r.id,
+    date: dmy(r.rated_at),
+    taktike: score(r.tactics),
+    fizike: score(r.physical),
+    teknike: score(r.technique),
+    vazhdimi: score(r.consistency),
+    ekip: score(r.teamwork),
+    mesatare: score(r.average),
+  };
+}
+
+/** A short run of page numbers ending at `last`, capped for width. */
+function pageWindow(current: number, last: number, span = 4): number[] {
+  const start = Math.max(1, Math.min(current, last - span + 1));
+  const end = Math.min(last, start + span - 1);
+  return Array.from({ length: Math.max(0, end - start + 1) }, (_, i) => start + i);
+}
 
 const COLS: { key: keyof Row; label: string; width: number; strong?: boolean }[] = [
   { key: 'date', label: 'Data', width: 80, strong: true },
@@ -67,15 +97,49 @@ const COLS: { key: keyof Row; label: string; width: number; strong?: boolean }[]
   { key: 'mesatare', label: 'Mesatare', width: 68, strong: true },
 ];
 
-/* Every score reads one decimal place, so the columns stay flush. */
-const cell = (value: string | number) =>
-  typeof value === 'number' ? value.toFixed(1) : value;
-
 export default function ChildRatingsScreen() {
   const router = useRouter();
+  const { token, signOut } = useSession();
 
-  const params = useLocalSearchParams<{ name?: string }>();
-  const name = params.name ?? 'Agon Gashi';
+  const params = useLocalSearchParams<{ id?: string; name?: string }>();
+  const childId = params.id ? Number(params.id) : null;
+  const name = params.name ?? 'Fëmija';
+
+  const [ratings, setRatings] = useState<Row[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [lastPage, setLastPage] = useState(1);
+
+  useEffect(() => {
+    if (!token || !childId) return;
+    const controller = new AbortController();
+
+    listChildRatings(token, childId, { page }, controller.signal)
+      .then((res) => {
+        if (controller.signal.aborted) return;
+        setRatings(res.data.map(toRow));
+        setLastPage(res.meta.last_page);
+        setError(null);
+      })
+      .catch((err) => {
+        if (controller.signal.aborted) return;
+        if (err instanceof ApiError && err.status === 401) {
+          signOut();
+          router.replace('/login');
+          return;
+        }
+        setError(
+          err instanceof ApiError && err.status === 0
+            ? 'Nuk mund të lidhemi me serverin. Kontrollo lidhjen.'
+            : 'Nuk mund të ngarkohen vlerësimet.',
+        );
+      });
+
+    return () => controller.abort();
+  }, [token, childId, router, signOut, page]);
+
+  const rows = ratings ?? [];
+  const current = Math.min(page, Math.max(1, lastPage));
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
@@ -134,8 +198,8 @@ export default function ChildRatingsScreen() {
                     ))}
                   </View>
 
-                  {ROWS.map((row) => (
-                    <View key={row.date} style={[styles.tr, styles.trBorder]}>
+                  {rows.map((row) => (
+                    <View key={row.id} style={[styles.tr, styles.trBorder]}>
                       {COLS.map((c) => (
                         <Text
                           key={c.key}
@@ -146,14 +210,72 @@ export default function ChildRatingsScreen() {
                           ]}
                           numberOfLines={1}
                         >
-                          {cell(row[c.key])}
+                          {row[c.key]}
                         </Text>
                       ))}
                     </View>
                   ))}
+
+                  {rows.length === 0 ? (
+                    <View style={styles.tr}>
+                      <Text style={styles.empty} numberOfLines={2}>
+                        {error ?? (ratings ? 'Nuk ka vlerësime.' : '…')}
+                      </Text>
+                    </View>
+                  ) : null}
                 </View>
               </ScrollView>
             </View>
+
+            {/* ── Pager ─────────────────────────────────────────── */}
+            {lastPage > 1 ? (
+              <View style={styles.pager}>
+                <Pressable
+                  onPress={() => setPage(current - 1)}
+                  disabled={current <= 1}
+                  accessibilityRole="button"
+                  accessibilityLabel="Faqja e mëparshme"
+                  hitSlop={8}
+                  style={({ pressed }) => [
+                    styles.pagerArrow,
+                    current <= 1 && styles.pagerDisabled,
+                    pressed && styles.pressed,
+                  ]}
+                >
+                  <MaterialCommunityIcons name="chevron-left" size={I(22)} color={C.text} />
+                </Pressable>
+
+                {pageWindow(current, lastPage).map((p) => (
+                  <Pressable
+                    key={p}
+                    onPress={() => setPage(p)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Faqja ${p}`}
+                    style={({ pressed }) => [
+                      p === current ? styles.pageSqActive : styles.pageSq,
+                      pressed && styles.pressed,
+                    ]}
+                  >
+                    <Text style={styles.pageSqText}>{p}</Text>
+                  </Pressable>
+                ))}
+
+                <Pressable
+                  onPress={() => setPage(current + 1)}
+                  disabled={current >= lastPage}
+                  accessibilityRole="button"
+                  accessibilityLabel="Faqja tjetër"
+                  hitSlop={8}
+                  style={({ pressed }) => [
+                    styles.pagerArrow,
+                    current >= lastPage && styles.pagerDisabled,
+                    pressed && styles.pressed,
+                  ]}
+                >
+                  <MaterialCommunityIcons name="chevron-right" size={I(22)} color={C.text} />
+                </Pressable>
+              </View>
+            ) : null}
           </View>
         </ScrollView>
       </View>
@@ -277,6 +399,58 @@ const styles = StyleSheet.create(
     tdStrong: {
       fontFamily: Fonts.bodyBold,
       color: C.text,
+    },
+
+    /* The load error / empty-list line, spanning the row. */
+    empty: {
+      flex: 1,
+      fontFamily: Fonts.body,
+      fontSize: 9.5,
+      lineHeight: 13,
+      color: C.gray,
+      textAlign: 'left',
+    },
+
+    /* ── Pager ───────────────────────────────────────────────── */
+    pager: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'flex-end',
+      gap: 6,
+      marginTop: 12,
+    },
+
+    pagerArrow: {
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+
+    pagerDisabled: {
+      opacity: 0.3,
+    },
+
+    pageSq: {
+      width: 34,
+      height: 34,
+      borderRadius: 5,
+      backgroundColor: C.blue,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+
+    pageSqActive: {
+      width: 34,
+      height: 34,
+      borderRadius: 5,
+      backgroundColor: '#4E90D8',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+
+    pageSqText: {
+      fontFamily: Fonts.bodySemiBold,
+      fontSize: 14,
+      color: '#F5F5F5',
     },
 
     pressed: {

@@ -591,6 +591,98 @@ export type ApiPosition = {
 /** Envelope for a single-resource mutation — `{ data, message }`. */
 export type MutationResponse<T> = { data: T; message: string };
 
+/* ─────────────────────────────  Parent / children  ───────────────────────────── */
+
+/** One coach rating, from the child's ratings list and the dashboard `last_rating`. */
+export type ApiChildRating = {
+  id: number;
+  technique: number | string | null;
+  physical: number | string | null;
+  tactics: number | string | null;
+  consistency: number | string | null;
+  teamwork: number | string | null;
+  /** A stored-as generated column; `7.40` on MySQL, an int under SQLite. */
+  average: number | string | null;
+  comment: string | null;
+  rated_at: string | null;
+  /** `training`, `match` or `general`. */
+  context_type: string | null;
+  context_id: number | null;
+  /** Only present on the ratings list (`whenLoaded`). */
+  trainer?: { id: number; name: string } | null;
+  created_at: string | null;
+};
+
+/** The soonest upcoming session for a child's team, on the dashboard row. */
+export type ApiChildNextTraining = {
+  id: number;
+  type: string | null;
+  field: string | null;
+  scheduled_at: string | null;
+  trainer: { id: number; name: string } | null;
+};
+
+/** One row of the parent dashboard, from `GET /my/children`. */
+export type ApiChild = {
+  id: number;
+  name: string | null;
+  jersey_number: number | string | null;
+  position: string | null;
+  team: ApiTeamRef | null;
+  /** `active`, `injured`, `rehabilitation` or `suspended`. */
+  health_status: string;
+  /** Attendance rate as a whole percent. */
+  attendance_rate: number;
+  open_fees_count: number;
+  overdue_fees_count: number;
+  active_injuries_count: number;
+  last_rating: ApiChildRating | null;
+  next_training: ApiChildNextTraining | null;
+};
+
+/** `GET /my/children` — the children plus the family totals. */
+export type ChildrenResponse = {
+  data: ApiChild[];
+  totals: { children: number; open_fees: number; overdue_fees: number; active_injuries: number };
+};
+
+/** The `summary` block on `GET /my/children/{id}`. */
+export type ApiChildSummary = {
+  attendance: { total: number; present: number; absent: number; rate: number };
+  match_stats: {
+    matches: number;
+    goals: number;
+    assists: number;
+    minutes: number;
+    yellow_cards: number;
+    red_cards: number;
+  };
+  last_rating: ApiChildRating | null;
+  fees: { paid: number; unpaid: number; overdue: number; total_paid: number };
+  active_injuries: number;
+};
+
+/** `GET /my/children/{id}` — the child's player record plus the summary block. */
+export type ChildResponse = { data: ApiPlayer; summary: ApiChildSummary };
+
+/** One attendance line, from `GET /my/children/{id}/attendance`. */
+export type ApiChildAttendance = {
+  id: number;
+  training_id: number;
+  /** `present`, `absent` or `unconfirmed`. */
+  status: string;
+  reason: string | null;
+  confirmed_at: string | null;
+  created_at: string | null;
+  training: {
+    id: number;
+    type: string | null;
+    field: string | null;
+    scheduled_at: string | null;
+    trainer: { id: number; name: string } | null;
+  } | null;
+};
+
 /** A club member, from `GET /users`. */
 export type ApiMember = {
   id: number;

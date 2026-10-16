@@ -1,20 +1,30 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useEffect, useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
+import { ApiError } from '@/lib/api/errors';
+import { getChild, listChildInjuries } from '@/lib/api/children';
+import type { ApiChildSummary, ApiInjury, ApiPlayer } from '@/lib/api/types';
+import { usd } from '@/lib/finance';
+import { injuryStatusLabel } from '@/lib/injury-status';
+import { positionLabel } from '@/lib/player-position';
+import { statusLabel } from '@/lib/player-status';
 import { I, scaled } from '@/lib/responsive';
+import { useSession } from '@/lib/session';
 
 /**
  * Profili i fëmiut — opened from the "Profili" card on the child's page.
  *
  * The same screen the player sees for themselves (`profili-lojtarit`), shown
- * to a parent instead: identity + season numbers, finances, latest ratings,
- * attendance, personal details and the injury history. Keep the two files in
- * step when either side changes.
+ * to a parent instead: identity + season numbers, finances, latest rating,
+ * attendance, personal details and the injury history. The numbers come from
+ * the child endpoint's `summary` block; keep the two files in step when either
+ * side changes.
  */
 
 const C = {
@@ -48,51 +58,152 @@ const IMG = {
   star: require('@/assets/dashboard/star.png'),
 };
 
-/* Season totals shown in the identity card. */
-const STATS = [
-  { label: 'Ndeshjet', value: '1', tone: C.text },
-  { label: 'Golat', value: '0', tone: C.green },
-  { label: 'Asiste', value: '0', tone: C.blue },
+const MONTHS = [
+  'janar',
+  'shkurt',
+  'mars',
+  'prill',
+  'maj',
+  'qershor',
+  'korrik',
+  'gusht',
+  'shtator',
+  'tetor',
+  'nëntor',
+  'dhjetor',
 ];
 
-const STATS2 = [
-  { label: 'K.verdha', value: '0', tone: C.orange },
-  { label: 'K.kuq', value: '0', tone: C.red },
-  { label: 'Minuta', value: '0', tone: C.text },
-];
+/** `2026-08-25` → `25 gusht 2026`; empty/unparseable dates render as a dash. */
+function formatDate(iso: string | null | undefined): string {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '—';
+  return `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+}
 
-/* Financial squares, two per row. Two share the "e papaguar" label, so each
-   needs its own key. */
-const MONEY = [
-  { key: 'papaguar-0', label: 'e papaguar', value: '0', tone: C.green },
-  { key: 'papaguar-1', label: 'e papaguar', value: '1', tone: C.redDark },
-  { key: 'vonese', label: 'me vonesë', value: '0', tone: C.orange },
-  { key: 'kritike', label: 'kritike', value: '0', tone: C.redSoft },
-];
+/** The rating's average to one decimal, or a dash when absent. */
+function average(value: number | string | null | undefined): string {
+  const n = Number(value);
+  return Number.isFinite(n) ? n.toFixed(1) : '—';
+}
 
-const ATTENDANCE = [
-  { label: 'prezent', value: '0', dot: C.green },
-  { label: 'mungesë', value: '0', dot: C.red },
-  { label: 'pa status', value: '0', dot: C.hintSoft },
-];
+/** `health_status` → the identity pill's tone; anything unknown stays green. */
+const STATUS_TONE: Record<string, string> = {
+  active: C.green,
+  injured: C.red,
+  rehabilitation: C.orange,
+  suspended: C.redDark,
+};
 
-const DETAILS = [
-  { label: 'Mosha', value: '21 vjeç' },
-  { label: 'Kombësia', value: 'Kosovar' },
-  { label: 'Email', value: 'narti@gmail.com' },
-  { label: 'Licensa FFK', value: '111' },
-  { label: 'Kontrata nga', value: '25 gusht 2026' },
-  { label: 'Kontrata deri', value: '26 gusht 2027' },
-];
+/** An injury `status` → the history pill's tone; anything unknown stays green. */
+const INJURY_TONE: Record<string, string> = {
+  injured: C.red,
+  rehabilitation: C.orange,
+  recovered: C.green,
+};
 
 export default function ChildProfileScreen() {
   const router = useRouter();
+  const { token, signOut } = useSession();
 
-  const params = useLocalSearchParams<{ name?: string; team?: string; nr?: string; pos?: string }>();
-  const name = params.name ?? 'Agon Gashi';
-  const team = params.team ?? 'Ekipi i Parë';
-  const nr = params.nr ?? '9';
-  const pos = params.pos ?? 'Sulmues';
+  const params = useLocalSearchParams<{ id?: string; name?: string; team?: string; nr?: string; pos?: string }>();
+  const childId = params.id ? Number(params.id) : null;
+
+  const [player, setPlayer] = useState<ApiPlayer | null>(null);
+  const [summary, setSummary] = useState<ApiChildSummary | null>(null);
+  const [injuries, setInjuries] = useState<ApiInjury[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!token || !childId) return;
+    const controller = new AbortController();
+
+    Promise.all([
+      getChild(token, childId, controller.signal),
+      listChildInjuries(token, childId, {}, controller.signal),
+    ])
+      .then(([child, injuryPage]) => {
+        if (controller.signal.aborted) return;
+        setPlayer(child.data);
+        setSummary(child.summary);
+        setInjuries(injuryPage.data);
+        setError(null);
+      })
+      .catch((err) => {
+        if (controller.signal.aborted) return;
+        if (err instanceof ApiError && err.status === 401) {
+          signOut();
+          router.replace('/login');
+          return;
+        }
+        setError(
+          err instanceof ApiError && err.status === 0
+            ? 'Nuk mund të lidhemi me serverin. Kontrollo lidhjen.'
+            : 'Nuk mund të ngarkohet profili.',
+        );
+      });
+
+    return () => controller.abort();
+  }, [token, childId, router, signOut]);
+
+  const name = player?.name ?? params.name ?? 'Fëmija';
+  const team = player?.team?.name ?? params.team ?? 'Ekipi i Parë';
+  const nr = player?.jersey_number != null ? String(player.jersey_number) : params.nr ?? '';
+  const pos = player?.position ? positionLabel(player.position) : params.pos ?? 'Sulmues';
+
+  // Season totals shown in the identity card.
+  const stats = [
+    { label: 'Ndeshjet', value: summary ? String(summary.match_stats.matches) : '—', tone: C.text },
+    { label: 'Golat', value: summary ? String(summary.match_stats.goals) : '—', tone: C.green },
+    { label: 'Asiste', value: summary ? String(summary.match_stats.assists) : '—', tone: C.blue },
+  ];
+
+  const stats2 = [
+    { label: 'K.verdha', value: summary ? String(summary.match_stats.yellow_cards) : '—', tone: C.orange },
+    { label: 'K.kuq', value: summary ? String(summary.match_stats.red_cards) : '—', tone: C.red },
+    { label: 'Minuta', value: summary ? String(summary.match_stats.minutes) : '—', tone: C.text },
+  ];
+
+  // Financial squares, two per row. Each carries its own key.
+  const totalFees = summary
+    ? summary.fees.paid + summary.fees.unpaid + summary.fees.overdue
+    : null;
+  const money = [
+    { key: 'paguar', label: 'paguar', value: summary ? String(summary.fees.paid) : '—', tone: C.green },
+    { key: 'papaguar', label: 'e papaguar', value: summary ? String(summary.fees.unpaid) : '—', tone: C.redDark },
+    { key: 'vonese', label: 'me vonesë', value: summary ? String(summary.fees.overdue) : '—', tone: C.orange },
+    { key: 'gjithsej', label: 'gjithsej', value: totalFees != null ? String(totalFees) : '—', tone: C.text },
+  ];
+
+  // Attendance breakdown; the third bar is whatever is neither present nor
+  // absent (unconfirmed), clamped so it can never go negative.
+  const attendance = summary
+    ? [
+        { label: 'prezent', value: String(summary.attendance.present), dot: C.green },
+        { label: 'mungesë', value: String(summary.attendance.absent), dot: C.red },
+        {
+          label: 'pa status',
+          value: String(Math.max(0, summary.attendance.total - summary.attendance.present - summary.attendance.absent)),
+          dot: C.hintSoft,
+        },
+      ]
+    : [
+        { label: 'prezent', value: '—', dot: C.green },
+        { label: 'mungesë', value: '—', dot: C.red },
+        { label: 'pa status', value: '—', dot: C.hintSoft },
+      ];
+
+  const details = [
+    { label: 'Mosha', value: player ? (player.age != null ? `${player.age} vjeç` : '—') : '—' },
+    { label: 'Kombësia', value: 'Kosovar' },
+    { label: 'Email', value: player ? player.email ?? '—' : '—' },
+    { label: 'Licensa FFK', value: '111' },
+    { label: 'Kontrata nga', value: player ? formatDate(player.contract_start) : '—' },
+    { label: 'Kontrata deri', value: player ? formatDate(player.contract_end) : '—' },
+  ];
+
+  const rating = summary?.last_rating ?? null;
+  const injuryList = injuries ?? [];
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
@@ -127,13 +238,27 @@ export default function ChildProfileScreen() {
           contentContainerStyle={styles.scroll}
         >
           <View style={styles.colPad}>
+            {error ? (
+              <Text style={styles.loadError} numberOfLines={2}>
+                {error}
+              </Text>
+            ) : null}
+
             {/* ── Identity + finances ───────────────────────────── */}
             <View style={styles.duo}>
               {/* Identity card */}
               <View style={[styles.duoCard, styles.card]}>
                 <View style={styles.identityTop}>
                   <View style={styles.profileBox}>
-                    <MaterialCommunityIcons name="account" size={I(34)} color="#000000" />
+                    {player?.avatar ? (
+                      <Image
+                        source={{ uri: player.avatar }}
+                        style={styles.profileImg}
+                        resizeMode="cover"
+                      />
+                    ) : (
+                      <MaterialCommunityIcons name="account" size={I(34)} color="#000000" />
+                    )}
                   </View>
                   <View style={styles.identityText}>
                     <Text style={styles.playerName} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
@@ -145,8 +270,19 @@ export default function ChildProfileScreen() {
                     <Text style={styles.playerTeam} numberOfLines={1}>
                       {team}
                     </Text>
-                    <View style={styles.activePill}>
-                      <Text style={styles.activePillText}>Aktiv</Text>
+                    <View
+                      style={[
+                        styles.activePill,
+                        {
+                          backgroundColor: player
+                            ? STATUS_TONE[player.health_status] ?? C.green
+                            : C.green,
+                        },
+                      ]}
+                    >
+                      <Text style={styles.activePillText}>
+                        {player ? statusLabel(player.health_status) : 'Aktiv'}
+                      </Text>
                     </View>
                   </View>
                 </View>
@@ -155,7 +291,7 @@ export default function ChildProfileScreen() {
 
                 <View style={styles.body}>
                   <View style={styles.statRow}>
-                    {STATS.map((s) => (
+                    {stats.map((s) => (
                       <View key={s.label} style={styles.statCol}>
                         <Text style={[styles.statValue, { color: s.tone }]}>{s.value}</Text>
                         <Text style={styles.statLabel} numberOfLines={1}>
@@ -166,7 +302,7 @@ export default function ChildProfileScreen() {
                   </View>
 
                   <View style={[styles.statRow, styles.statRowLast]}>
-                    {STATS2.map((s) => (
+                    {stats2.map((s) => (
                       <View key={s.label} style={styles.statCol}>
                         <Text style={[styles.statValue, { color: s.tone }]}>{s.value}</Text>
                         <Text style={styles.statLabel} numberOfLines={1}>
@@ -187,7 +323,7 @@ export default function ChildProfileScreen() {
 
                 <View style={styles.body}>
                   <View style={styles.moneyRow}>
-                    {MONEY.slice(0, 2).map((m) => (
+                    {money.slice(0, 2).map((m) => (
                       <View key={m.key} style={styles.moneySq}>
                         <Text style={[styles.moneyValue, { color: m.tone }]}>{m.value}</Text>
                         <Text style={styles.moneyLabel} numberOfLines={1}>
@@ -198,7 +334,7 @@ export default function ChildProfileScreen() {
                   </View>
 
                   <View style={styles.moneyRow}>
-                    {MONEY.slice(2).map((m) => (
+                    {money.slice(2).map((m) => (
                       <View key={m.key} style={styles.moneySq}>
                         <Text style={[styles.moneyValue, { color: m.tone }]}>{m.value}</Text>
                         <Text style={styles.moneyLabel} numberOfLines={1}>
@@ -210,25 +346,40 @@ export default function ChildProfileScreen() {
 
                   <View style={styles.totalBox}>
                     <Text style={styles.totalLabel}>Totali i paguar</Text>
-                    <Text style={styles.totalValue}>$0.00</Text>
+                    <Text style={styles.totalValue}>
+                      {summary ? usd(summary.fees.total_paid) : '$0'}
+                    </Text>
                   </View>
                 </View>
               </View>
             </View>
 
-            {/* ── Vlerësimet e fundit ───────────────────────────── */}
+            {/* ── Vlerësimi i fundit ────────────────────────────── */}
             <View style={[styles.wideCard, styles.card]}>
               <View style={styles.cardHead}>
-                <Text style={styles.cardHeadText}>Vlerësimet e fundit</Text>
+                <Text style={styles.cardHeadText}>Vlerësimi i fundit</Text>
               </View>
               <View style={[styles.bodyFlat, styles.empty]}>
-                <View style={styles.starWrap}>
-                  {/* Same artwork scaled up and tinted black, sitting behind the
-                      star — gives a uniform outline that keeps the sharp tips. */}
-                  <Image source={IMG.star} style={styles.starOutline} tintColor="#000000" />
-                  <Image source={IMG.star} style={styles.starImg} resizeMode="contain" />
-                </View>
-                <Text style={styles.emptyText}>Nuk ka vlerësime akoma.</Text>
+                {rating ? (
+                  <>
+                    <Text style={styles.ratingAvg}>{average(rating.average)}</Text>
+                    <Text style={styles.emptyText}>
+                      Mesatare • {formatDate(rating.rated_at)}
+                    </Text>
+                  </>
+                ) : (
+                  <>
+                    <View style={styles.starWrap}>
+                      {/* Same artwork scaled up and tinted black, sitting behind the
+                          star — gives a uniform outline that keeps the sharp tips. */}
+                      <Image source={IMG.star} style={styles.starOutline} tintColor="#000000" />
+                      <Image source={IMG.star} style={styles.starImg} resizeMode="contain" />
+                    </View>
+                    <Text style={styles.emptyText}>
+                      {error ? '—' : summary ? 'Nuk ka vlerësime akoma.' : '…'}
+                    </Text>
+                  </>
+                )}
               </View>
             </View>
 
@@ -238,12 +389,14 @@ export default function ChildProfileScreen() {
               <View style={[styles.duoCard, styles.card]}>
                 <View style={styles.prezencaTop}>
                   <Text style={styles.cardTitle}>Prezenca</Text>
-                  <Text style={styles.prezencaPct}>0%</Text>
+                  <Text style={styles.prezencaPct}>
+                    {summary ? `${summary.attendance.rate}%` : '0%'}
+                  </Text>
                 </View>
                 <View style={styles.grayRule} />
 
                 <View style={styles.body}>
-                  {ATTENDANCE.map((a) => (
+                  {attendance.map((a) => (
                     <View key={a.label} style={styles.attRow}>
                       <View style={styles.attLeft}>
                         <View style={[styles.dot, { backgroundColor: a.dot }]} />
@@ -257,17 +410,19 @@ export default function ChildProfileScreen() {
 
                   <View style={styles.totalRow}>
                     <Text style={styles.totalRowLabel}>total stërvitje</Text>
-                    <Text style={styles.totalRowValue}>16</Text>
+                    <Text style={styles.totalRowValue}>
+                      {summary ? String(summary.attendance.total) : '—'}
+                    </Text>
                   </View>
                 </View>
               </View>
 
               {/* Personal details card */}
               <View style={[styles.duoCard, styles.card]}>
-                {DETAILS.map((d, i) => (
+                {details.map((d, i) => (
                   <View
                     key={d.label}
-                    style={[styles.detRow, i < DETAILS.length - 1 && styles.detRowLine]}
+                    style={[styles.detRow, i < details.length - 1 && styles.detRowLine]}
                   >
                     <Text style={styles.detLabel} numberOfLines={1}>
                       {d.label}
@@ -286,19 +441,37 @@ export default function ChildProfileScreen() {
                 <Text style={styles.cardHeadText}>Historiku i lëndimeve</Text>
               </View>
 
-              <View style={[styles.bodyFlat, styles.injuryRow]}>
-                <View style={styles.injuryText}>
-                  <Text style={styles.injuryName} numberOfLines={1}>
-                    Gripi
-                  </Text>
-                  <Text style={styles.injurySub} numberOfLines={2}>
-                    Lënduar: 27 Aug 2026 - Kthimi i pritshëm: 01 Sep 2026
+              {injuryList.length > 0 ? (
+                injuryList.slice(0, 3).map((inj, i) => (
+                  <View
+                    key={inj.id}
+                    style={[styles.bodyFlat, styles.injuryRow, i > 0 && styles.injuryRowLine]}
+                  >
+                    <View style={styles.injuryText}>
+                      <Text style={styles.injuryName} numberOfLines={1}>
+                        {inj.injury_type}
+                      </Text>
+                      <Text style={styles.injurySub} numberOfLines={2}>
+                        {`Lënduar: ${formatDate(inj.injury_date)} - Kthimi i pritshëm: ${formatDate(inj.expected_return)}`}
+                      </Text>
+                    </View>
+                    <View
+                      style={[
+                        styles.healedPill,
+                        { backgroundColor: INJURY_TONE[inj.status] ?? C.green },
+                      ]}
+                    >
+                      <Text style={styles.healedPillText}>{injuryStatusLabel(inj.status)}</Text>
+                    </View>
+                  </View>
+                ))
+              ) : (
+                <View style={[styles.bodyFlat, styles.empty]}>
+                  <Text style={styles.emptyText}>
+                    {error ? '—' : injuries ? 'Nuk ka lëndime.' : '…'}
                   </Text>
                 </View>
-                <View style={styles.healedPill}>
-                  <Text style={styles.healedPillText}>i shëruar</Text>
-                </View>
-              </View>
+              )}
             </View>
           </View>
         </ScrollView>
@@ -361,6 +534,15 @@ const styles = StyleSheet.create(
 
     scroll: {
       paddingBottom: 24,
+    },
+
+    /* The load error, above the cards. */
+    loadError: {
+      marginTop: 10,
+      fontFamily: Fonts.body,
+      fontSize: 11.5,
+      lineHeight: 16,
+      color: C.redDark,
     },
 
     /* ── Parallel card rows ──────────────────────────────────── */
@@ -474,6 +656,12 @@ const styles = StyleSheet.create(
       borderColor: '#000000',
       alignItems: 'center',
       justifyContent: 'center',
+    },
+
+    profileImg: {
+      width: 62,
+      height: 62,
+      borderRadius: 7,
     },
 
     identityText: {
@@ -626,6 +814,15 @@ const styles = StyleSheet.create(
       height: 58,
     },
 
+    /* The latest rating's average, standing in for the star when one exists. */
+    ratingAvg: {
+      fontFamily: Fonts.bodyBold,
+      fontSize: 30,
+      lineHeight: 34,
+      letterSpacing: -0.5,
+      color: C.text,
+    },
+
     emptyText: {
       marginTop: 10,
       fontFamily: Fonts.body,
@@ -738,6 +935,11 @@ const styles = StyleSheet.create(
       gap: 8,
       paddingHorizontal: 12,
       paddingVertical: 12,
+    },
+
+    injuryRowLine: {
+      borderTopWidth: 1,
+      borderTopColor: C.hintSoft,
     },
 
     injuryText: {

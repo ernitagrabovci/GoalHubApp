@@ -52,15 +52,18 @@ export default function ChildScreen() {
   const router = useRouter();
 
   const params = useLocalSearchParams<{
+    id?: string;
     name?: string;
     team?: string;
     number?: string;
+    nr?: string;
     status?: string;
   }>();
 
+  const id = params.id ?? '';
   const name = params.name ?? 'Fëmija';
   const team = params.team ?? 'Ekipi i parë';
-  const number = params.number ?? '';
+  const number = params.nr ?? params.number ?? '';
   const status = params.status ?? 'Aktiv';
 
   return (
@@ -154,7 +157,7 @@ export default function ChildScreen() {
                       onPress={() =>
                         router.push({
                           pathname: route,
-                          params: { name, team, nr: number },
+                          params: { id, name, team, nr: number },
                         })
                       }
                       accessibilityRole="button"

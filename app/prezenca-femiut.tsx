@@ -1,12 +1,18 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
+import { ApiError } from '@/lib/api/errors';
+import { listChildAttendance } from '@/lib/api/children';
+import type { ApiChildAttendance } from '@/lib/api/types';
 import { I, scaled } from '@/lib/responsive';
+import { useSession } from '@/lib/session';
+import { attendanceLabel, typeName } from '@/lib/trainings';
 
 /**
  * Prezenca — the child's attendance, opened from the "Prezenca" card on the
@@ -31,37 +37,95 @@ const C = {
 
   green: '#159447',
   red: '#E03131',
+
+  /* The pager's squares. */
+  blue: '#86BCFD',
 };
 
 /* How a training can be marked, each reading in its own colour. */
 const TONE: Record<string, string> = {
   Prezent: C.green,
   Mungesë: C.red,
-  'Pa status': C.gray,
+  '—': C.gray,
 };
 
 type Session = {
+  id: number;
   type: string;
   date: string;
   status: string;
 };
 
-const SESSIONS: Session[] = [
-  { type: 'Trajnim Taktik', date: '12/08/2026', status: 'Prezent' },
-  { type: 'Kondicionim Fizik', date: '11/08/2026', status: 'Prezent' },
-  { type: 'Trajnim Teknik', date: '09/08/2026', status: 'Mungesë' },
-  { type: 'Ndeshje Kontrolli', date: '07/08/2026', status: 'Prezent' },
-  { type: 'Trajnim Taktik', date: '05/08/2026', status: 'Prezent' },
-  { type: 'Pushim Aktiv', date: '03/08/2026', status: 'Pa status' },
-  { type: 'Kondicionim Fizik', date: '01/08/2026', status: 'Prezent' },
-  { type: 'Trajnim Teknik', date: '30/07/2026', status: 'Prezent' },
-];
+const pad2 = (n: number) => String(n).padStart(2, '0');
+
+/** The training's day as `12/08/2026`; an unusable date renders as a dash. */
+function dmy(iso: string | null | undefined): string {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '—';
+  return `${pad2(d.getDate())}/${pad2(d.getMonth() + 1)}/${d.getFullYear()}`;
+}
+
+/** One API attendance line, laid onto the table row. */
+function toSession(a: ApiChildAttendance): Session {
+  return {
+    id: a.id,
+    type: typeName(a.training?.type),
+    date: dmy(a.training?.scheduled_at),
+    status: attendanceLabel(a.status),
+  };
+}
+
+/** A short run of page numbers ending at `last`, capped for width. */
+function pageWindow(current: number, last: number, span = 4): number[] {
+  const start = Math.max(1, Math.min(current, last - span + 1));
+  const end = Math.min(last, start + span - 1);
+  return Array.from({ length: Math.max(0, end - start + 1) }, (_, i) => start + i);
+}
 
 export default function ChildAttendanceScreen() {
   const router = useRouter();
+  const { token, signOut } = useSession();
 
-  const params = useLocalSearchParams<{ name?: string }>();
-  const name = params.name ?? 'Agon Gashi';
+  const params = useLocalSearchParams<{ id?: string; name?: string }>();
+  const childId = params.id ? Number(params.id) : null;
+  const name = params.name ?? 'Fëmija';
+
+  const [sessions, setSessions] = useState<Session[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [lastPage, setLastPage] = useState(1);
+
+  useEffect(() => {
+    if (!token || !childId) return;
+    const controller = new AbortController();
+
+    listChildAttendance(token, childId, { page }, controller.signal)
+      .then((res) => {
+        if (controller.signal.aborted) return;
+        setSessions(res.data.map(toSession));
+        setLastPage(res.meta.last_page);
+        setError(null);
+      })
+      .catch((err) => {
+        if (controller.signal.aborted) return;
+        if (err instanceof ApiError && err.status === 401) {
+          signOut();
+          router.replace('/login');
+          return;
+        }
+        setError(
+          err instanceof ApiError && err.status === 0
+            ? 'Nuk mund të lidhemi me serverin. Kontrollo lidhjen.'
+            : 'Nuk mund të ngarkohet prezenca.',
+        );
+      });
+
+    return () => controller.abort();
+  }, [token, childId, router, signOut, page]);
+
+  const rows = sessions ?? [];
+  const current = Math.min(page, Math.max(1, lastPage));
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
@@ -116,8 +180,8 @@ export default function ChildAttendanceScreen() {
                   </Text>
                 </View>
 
-                {SESSIONS.map((s) => (
-                  <View key={`${s.type}-${s.date}`} style={[styles.tr, styles.trBorder]}>
+                {rows.map((s) => (
+                  <View key={s.id} style={[styles.tr, styles.trBorder]}>
                     <Text
                       style={[styles.td, styles.colType, styles.tdStrong]}
                       numberOfLines={1}
@@ -142,8 +206,66 @@ export default function ChildAttendanceScreen() {
                     </Text>
                   </View>
                 ))}
+
+                {rows.length === 0 ? (
+                  <View style={styles.tr}>
+                    <Text style={styles.empty} numberOfLines={2}>
+                      {error ?? (sessions ? 'Nuk ka prezencë.' : '…')}
+                    </Text>
+                  </View>
+                ) : null}
               </View>
             </View>
+
+            {/* ── Pager ─────────────────────────────────────────── */}
+            {lastPage > 1 ? (
+              <View style={styles.pager}>
+                <Pressable
+                  onPress={() => setPage(current - 1)}
+                  disabled={current <= 1}
+                  accessibilityRole="button"
+                  accessibilityLabel="Faqja e mëparshme"
+                  hitSlop={8}
+                  style={({ pressed }) => [
+                    styles.pagerArrow,
+                    current <= 1 && styles.pagerDisabled,
+                    pressed && styles.pressed,
+                  ]}
+                >
+                  <MaterialCommunityIcons name="chevron-left" size={I(22)} color={C.text} />
+                </Pressable>
+
+                {pageWindow(current, lastPage).map((p) => (
+                  <Pressable
+                    key={p}
+                    onPress={() => setPage(p)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Faqja ${p}`}
+                    style={({ pressed }) => [
+                      p === current ? styles.pageSqActive : styles.pageSq,
+                      pressed && styles.pressed,
+                    ]}
+                  >
+                    <Text style={styles.pageSqText}>{p}</Text>
+                  </Pressable>
+                ))}
+
+                <Pressable
+                  onPress={() => setPage(current + 1)}
+                  disabled={current >= lastPage}
+                  accessibilityRole="button"
+                  accessibilityLabel="Faqja tjetër"
+                  hitSlop={8}
+                  style={({ pressed }) => [
+                    styles.pagerArrow,
+                    current >= lastPage && styles.pagerDisabled,
+                    pressed && styles.pressed,
+                  ]}
+                >
+                  <MaterialCommunityIcons name="chevron-right" size={I(22)} color={C.text} />
+                </Pressable>
+              </View>
+            ) : null}
           </View>
         </ScrollView>
       </View>
@@ -274,6 +396,58 @@ const styles = StyleSheet.create(
 
     colStatus: {
       flex: 1,
+    },
+
+    /* The load error / empty-list line, spanning the row. */
+    empty: {
+      flex: 1,
+      fontFamily: Fonts.body,
+      fontSize: 9.5,
+      lineHeight: 13,
+      color: C.gray,
+      textAlign: 'left',
+    },
+
+    /* ── Pager ───────────────────────────────────────────────── */
+    pager: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'flex-end',
+      gap: 6,
+      marginTop: 12,
+    },
+
+    pagerArrow: {
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+
+    pagerDisabled: {
+      opacity: 0.3,
+    },
+
+    pageSq: {
+      width: 34,
+      height: 34,
+      borderRadius: 5,
+      backgroundColor: C.blue,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+
+    pageSqActive: {
+      width: 34,
+      height: 34,
+      borderRadius: 5,
+      backgroundColor: '#4E90D8',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+
+    pageSqText: {
+      fontFamily: Fonts.bodySemiBold,
+      fontSize: 14,
+      color: '#F5F5F5',
     },
 
     pressed: {

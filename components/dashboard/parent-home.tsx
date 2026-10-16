@@ -1,6 +1,7 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useEffect, useState } from 'react';
 import {
   Image,
   Pressable,
@@ -12,8 +13,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
+import { listMyChildren } from '@/lib/api/children';
+import { ApiError } from '@/lib/api/errors';
+import type { ApiChild, ChildrenResponse } from '@/lib/api/types';
+import { statusLabel } from '@/lib/player-status';
 import { I, scaled } from '@/lib/responsive';
 import { useSession } from '@/lib/session';
+import { trainingDate, trainingTime, typeName } from '@/lib/trainings';
 
 /**
  * GoalHub Parent Home Dashboard (Prindi)
@@ -75,11 +81,68 @@ const IMG = {
 
 export function ParentHome() {
   const router = useRouter();
-  const { user } = useSession();
+  const { token, signOut, user } = useSession();
+
+  const [children, setChildren] = useState<ApiChild[] | null>(null);
+  const [totals, setTotals] = useState<ChildrenResponse['totals'] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!token) return;
+    const controller = new AbortController();
+
+    listMyChildren(token, controller.signal)
+      .then((res) => {
+        if (controller.signal.aborted) return;
+        setChildren(res.data);
+        setTotals(res.totals);
+        setError(null);
+      })
+      .catch((err) => {
+        if (controller.signal.aborted) return;
+        if (err instanceof ApiError && err.status === 401) {
+          signOut();
+          router.replace('/login');
+          return;
+        }
+        setError(
+          err instanceof ApiError && err.status === 0
+            ? 'Nuk mund të lidhemi me serverin. Kontrollo lidhjen.'
+            : 'Nuk mund të ngarkohen fëmijët.',
+        );
+      });
+
+    return () => controller.abort();
+  }, [token, router, signOut]);
 
   const open = (route: string) => {
     router.push(route as never);
   };
+
+  const list = children ?? [];
+
+  // The most recent rating across all the children, for the last stat card.
+  const lastRatingChild = list.reduce<ApiChild | null>((best, c) => {
+    if (!c.last_rating) return best;
+    if (!best?.last_rating) return c;
+    const a = new Date(c.last_rating.rated_at ?? 0).getTime();
+    const b = new Date(best.last_rating.rated_at ?? 0).getTime();
+    return a > b ? c : best;
+  }, null);
+  const lastRating =
+    lastRatingChild?.last_rating?.average != null
+      ? Number(lastRatingChild.last_rating.average).toFixed(1)
+      : '—';
+
+  // The soonest upcoming session across the children, for the "Tjetra" bar.
+  const nextChild = list.reduce<ApiChild | null>((best, c) => {
+    if (!c.next_training) return best;
+    if (!best?.next_training) return c;
+    const a = new Date(c.next_training.scheduled_at ?? 0).getTime();
+    const b = new Date(best.next_training.scheduled_at ?? 0).getTime();
+    return a < b ? c : best;
+  }, null);
+  const next = nextChild?.next_training ?? null;
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -127,7 +190,7 @@ export function ParentHome() {
               <StatCard
                 labelTop="Fëmijë të"
                 labelBottom="regjistruar"
-                value={String(CHILDREN.length)}
+                value={totals ? String(totals.children) : '…'}
                 img={IMG.statPlayer}
                 imgStyle={styles.statImgPlayer}
                 imgCover
@@ -136,7 +199,7 @@ export function ParentHome() {
               <StatCard
                 labelTop="Kuota të"
                 labelBottom="hapura"
-                value="2"
+                value={totals ? String(totals.open_fees) : '…'}
                 img={IMG.statCalc}
                 imgStyle={styles.statImgCalc}
               />
@@ -144,7 +207,7 @@ export function ParentHome() {
               <StatCard
                 labelTop="Lëndimet"
                 labelBottom="aktive"
-                value="0"
+                value={totals ? String(totals.active_injuries) : '…'}
                 img={IMG.ball}
                 imgStyle={styles.statImgBall}
               />
@@ -152,7 +215,7 @@ export function ParentHome() {
               <StatCard
                 labelTop="Vlerësimi"
                 labelBottom="i fundit"
-                value="6.9"
+                value={children ? lastRating : '…'}
               />
             </ScrollView>
           </View>
@@ -161,109 +224,142 @@ export function ParentHome() {
               NEXT TRAINING (full content width)
              ================================================= */}
 
-          <View style={styles.padded}>
-            <Pressable
-              onPress={() => open('/trainings')}
-              style={({ pressed }) => [
-                styles.eventBar,
-                pressed && styles.pressed,
-              ]}
-            >
-              <View style={styles.eventIcon}>
+          {next && nextChild ? (
+            <View style={styles.padded}>
+              <Pressable
+                onPress={() =>
+                  router.push({
+                    pathname: '/stervitjet-femiut',
+                    params: {
+                      id: String(nextChild.id),
+                      name: nextChild.name ?? '',
+                      team: nextChild.team?.name ?? '',
+                    },
+                  })
+                }
+                style={({ pressed }) => [
+                  styles.eventBar,
+                  pressed && styles.pressed,
+                ]}
+              >
+                <View style={styles.eventIcon}>
+                  <MaterialCommunityIcons
+                    name="calendar-month-outline"
+                    size={I(18)}
+                    color={C.green}
+                  />
+                </View>
+
+                <View style={styles.eventBody}>
+                  <Text style={styles.eventLabel}>
+                    Tjetra
+                  </Text>
+
+                  <Text
+                    style={styles.eventText}
+                    numberOfLines={1}
+                  >
+                    {`${trainingDate(next.scheduled_at)} • ${trainingTime(next.scheduled_at)} • ${typeName(next.type)}`}
+                  </Text>
+                </View>
+
                 <MaterialCommunityIcons
-                  name="calendar-month-outline"
-                  size={I(18)}
+                  name="chevron-right"
+                  size={I(21)}
                   color={C.green}
                 />
-              </View>
-
-              <View style={styles.eventBody}>
-                <Text style={styles.eventLabel}>
-                  Tjetra
-                </Text>
-
-                <Text
-                  style={styles.eventText}
-                  numberOfLines={1}
-                >
-                  29 GUSHT • 09:00 • Trajnim Taktik
-                </Text>
-              </View>
-
-              <MaterialCommunityIcons
-                name="chevron-right"
-                size={I(21)}
-                color={C.green}
-              />
-            </Pressable>
-          </View>
+              </Pressable>
+            </View>
+          ) : null}
 
           {/* =================================================
               CHILDREN — one long card per registered child
              ================================================= */}
 
           <View style={styles.padded}>
-            {CHILDREN.map((child) => (
-              <Pressable
-                key={child.id}
-                onPress={() =>
-                  router.push({
-                    pathname: '/femiu',
-                    params: {
-                      name: child.name,
-                      team: child.team,
-                      number: child.number,
-                      status: child.status,
-                    },
-                  })
-                }
-                style={({ pressed }) => [
-                  styles.childCard,
-                  pressed && styles.pressed,
-                ]}
-              >
-                {/* DECORATIVE GIANT NUMBER */}
-                <Text style={styles.childDeco}>
-                  {child.number}
-                </Text>
+            {error ? (
+              <Text style={styles.listNote} numberOfLines={2}>
+                {error}
+              </Text>
+            ) : null}
 
-                <View style={styles.childBody}>
-                  <Text style={styles.childEyebrow}>
-                    Prind
+            {list.map((child) => {
+              const nr = child.jersey_number != null ? String(child.jersey_number) : '';
+              const status = statusLabel(child.health_status);
+              const rating =
+                child.last_rating?.average != null
+                  ? Number(child.last_rating.average).toFixed(1)
+                  : '—';
+
+              return (
+                <Pressable
+                  key={child.id}
+                  onPress={() =>
+                    router.push({
+                      pathname: '/femiu',
+                      params: {
+                        id: String(child.id),
+                        name: child.name ?? '',
+                        team: child.team?.name ?? '',
+                        nr,
+                        status,
+                      },
+                    })
+                  }
+                  style={({ pressed }) => [
+                    styles.childCard,
+                    pressed && styles.pressed,
+                  ]}
+                >
+                  {/* DECORATIVE GIANT NUMBER */}
+                  <Text style={styles.childDeco}>
+                    {nr}
                   </Text>
 
-                  <Text style={styles.childName} numberOfLines={1}>
-                    {child.name}
-                  </Text>
+                  <View style={styles.childBody}>
+                    <Text style={styles.childEyebrow}>
+                      Prind
+                    </Text>
 
-                  <View style={styles.childChips}>
-                    <View style={styles.chipAktiv}>
-                      <Text style={styles.chipAktivText}>
-                        {child.status}
-                      </Text>
-                    </View>
+                    <Text style={styles.childName} numberOfLines={1}>
+                      {child.name ?? 'Fëmija'}
+                    </Text>
 
-                    <View style={styles.chipRating}>
-                      <MaterialCommunityIcons
-                        name="star"
-                        size={I(12)}
-                        color="#F5C04A"
-                      />
-                      <Text style={styles.chipRatingText}>
-                        {child.rating}
-                      </Text>
+                    <View style={styles.childChips}>
+                      <View style={styles.chipAktiv}>
+                        <Text style={styles.chipAktivText}>
+                          {status}
+                        </Text>
+                      </View>
+
+                      <View style={styles.chipRating}>
+                        <MaterialCommunityIcons
+                          name="star"
+                          size={I(12)}
+                          color="#F5C04A"
+                        />
+                        <Text style={styles.chipRatingText}>
+                          {rating}
+                        </Text>
+                      </View>
                     </View>
                   </View>
-                </View>
 
-                <MaterialCommunityIcons
-                  name="chevron-right"
-                  size={I(22)}
-                  color="rgba(245,245,245,0.85)"
-                  style={styles.childChevron}
-                />
-              </Pressable>
-            ))}
+                  <MaterialCommunityIcons
+                    name="chevron-right"
+                    size={I(22)}
+                    color="rgba(245,245,245,0.85)"
+                    style={styles.childChevron}
+                  />
+                </Pressable>
+              );
+            })}
+
+            {list.length === 0 && !error ? (
+              <Text style={styles.listNote} numberOfLines={2}>
+                {children ? 'Nuk ka fëmijë të regjistruar.' : '…'}
+              </Text>
+            ) : null}
           </View>
 
         </View>
@@ -915,42 +1011,13 @@ const styles = StyleSheet.create(scaled({
   childChevron: {
     zIndex: 2,
   },
+
+  /* The load error / empty-list line, above the child cards. */
+  listNote: {
+    marginTop: 24,
+    fontFamily: Fonts.body,
+    fontSize: 12,
+    lineHeight: 16,
+    color: C.muted,
+  },
 }));
-
-/* =========================================================
-   CHILDREN
-   ========================================================= */
-
-type Child = {
-  id: string;
-  name: string;
-  /* Shirt number, drawn huge behind the card's text. */
-  number: string;
-  rating: string;
-  team: string;
-  status: string;
-};
-
-/**
- * The parent's registered children — the home shows one long card each, so
- * the list length is what decides how many cards are on the page.
- */
-
-const CHILDREN: Child[] = [
-  {
-    id: 'agon',
-    name: 'Agon Gashi',
-    number: '9',
-    rating: '6.9',
-    team: 'Ekipi i parë',
-    status: 'Aktiv',
-  },
-  {
-    id: 'dion',
-    name: 'Dion Gashi',
-    number: '11',
-    rating: '7.4',
-    team: 'Ekipi i parë',
-    status: 'Aktiv',
-  },
-];
