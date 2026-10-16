@@ -1,7 +1,8 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import * as DocumentPicker from 'expo-document-picker';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Pressable,
   ScrollView,
@@ -12,8 +13,16 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
+import { MONTHS } from '@/components/trainings/training-form';
 import { Fonts } from '@/constants/theme';
+import { ApiError } from '@/lib/api/errors';
+import { createLibrary } from '@/lib/api/library';
+import { listTeams } from '@/lib/api/teams';
+import type { ApiTeam } from '@/lib/api/types';
+import { type PickedFile } from '@/lib/api/upload';
+import { CATEGORIES, LEVELS, levelCode } from '@/lib/library';
 import { I, scaled } from '@/lib/responsive';
+import { useSession } from '@/lib/session';
 
 /**
  * Shto material të ri — opened from "+ Shto material" on Libraria e
@@ -42,25 +51,108 @@ const C = {
   red: '#E03131',
 };
 
-const LEVELS = ['Fillestar', 'Mesëm', 'Avancuar'];
-const CATEGORIES = ['Teknika', 'Taktika', 'Fizike', 'Psikologjike'];
-const TEAMS = ['Ekipi i Parë', 'U17', 'U15', 'U13'];
+/* The select's resting option — material that is not shared with a team. */
+const NO_TEAM = 'Pa ndarje';
 
-/** Who is entering this material, and when. */
-const AUTHOR = 'Rexhep Hyseni';
-const DATE = '25/09/2026';
+/* The stamp's date line — today, in the same shape the training screens use. */
+const now = new Date();
+const TODAY = `${now.getDate()} ${MONTHS[now.getMonth()]} ${now.getFullYear()}`;
 
 export default function AddMaterialScreen() {
   const router = useRouter();
+  const { token, user, signOut } = useSession();
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [level, setLevel] = useState(LEVELS[0]);
   const [category, setCategory] = useState(CATEGORIES[0]);
-  const [team, setTeam] = useState(TEAMS[0]);
+  const [team, setTeam] = useState(NO_TEAM);
+
+  const [teams, setTeams] = useState<ApiTeam[]>([]);
+  const [file, setFile] = useState<PickedFile | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   /* Which picker is unrolled, or null when all three are shut. */
   const [open, setOpen] = useState<string | null>(null);
+
+  /* The club's teams, so the material can be shared with a real one. */
+  useEffect(() => {
+    if (!token) return;
+    const controller = new AbortController();
+
+    listTeams(token, controller.signal)
+      .then((res) => {
+        if (controller.signal.aborted) return;
+        setTeams(res.data);
+      })
+      .catch((e) => {
+        if (controller.signal.aborted) return;
+        if (e instanceof ApiError && e.status === 401) {
+          signOut();
+          router.replace('/login');
+        }
+      });
+
+    return () => controller.abort();
+  }, [token, router, signOut]);
+
+  const teamOptions = [NO_TEAM, ...teams.map((t) => t.name)];
+
+  /* Only mp4, gif and pdf are representable in the library's file_type. */
+  const pickFile = async () => {
+    const res = await DocumentPicker.getDocumentAsync({
+      type: ['video/mp4', 'image/gif', 'application/pdf'],
+      copyToCacheDirectory: true,
+      multiple: false,
+    });
+    if (res.canceled || !res.assets?.[0]) return;
+    const asset = res.assets[0];
+    setFile({ uri: asset.uri, name: asset.name, mimeType: asset.mimeType ?? null });
+  };
+
+  const save = () => {
+    if (!token || saving) return;
+
+    const trimmedTitle = title.trim();
+    if (!trimmedTitle) {
+      setError('Shkruaj titullin e materialit.');
+      return;
+    }
+
+    const sharedTeamId = teams.find((t) => t.name === team)?.id ?? null;
+
+    setSaving(true);
+    setError(null);
+
+    createLibrary(
+      token,
+      {
+        title: trimmedTitle,
+        level: levelCode(level),
+        category: category || null,
+        description: description.trim() || null,
+        shared_team_id: sharedTeamId,
+      },
+      file,
+    )
+      .then(() => router.back())
+      .catch((e) => {
+        setSaving(false);
+        if (e instanceof ApiError && e.status === 401) {
+          signOut();
+          router.replace('/login');
+          return;
+        }
+        if (e instanceof ApiError && e.status === 422 && e.fieldErrors) {
+          setError(Object.values(e.fieldErrors)[0]?.[0] ?? 'Të dhënat nuk janë të vlefshme.');
+        } else if (e instanceof ApiError && e.status === 0) {
+          setError('Nuk mund të lidhemi me serverin. Kontrollo lidhjen.');
+        } else {
+          setError('Materiali nuk mund të ruhet.');
+        }
+      });
+  };
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
@@ -176,7 +268,7 @@ export default function AddMaterialScreen() {
                 <Text style={styles.fieldLabel}>Shpërndaje te ekipi</Text>
                 <Select
                   value={team}
-                  options={TEAMS}
+                  options={teamOptions}
                   open={open === 'team'}
                   setOpen={(v) => setOpen(v ? 'team' : null)}
                   onChange={setTeam}
@@ -190,9 +282,9 @@ export default function AddMaterialScreen() {
                 <View style={styles.stamp}>
                   <Text style={styles.stampLabel}>Shtuar nga</Text>
                   <Text style={styles.stampName} numberOfLines={1}>
-                    {AUTHOR}
+                    {user?.name ?? '—'}
                   </Text>
-                  <Text style={styles.stampDate}>{DATE}</Text>
+                  <Text style={styles.stampDate}>{TODAY}</Text>
                 </View>
               </View>
             </View>
@@ -208,6 +300,7 @@ export default function AddMaterialScreen() {
 
               <View style={styles.body}>
                 <Pressable
+                  onPress={pickFile}
                   accessibilityRole="button"
                   accessibilityLabel="Ngarko skedarin"
                   style={({ pressed }) => [styles.upload, pressed && styles.pressed]}
@@ -215,12 +308,21 @@ export default function AddMaterialScreen() {
                   <View style={styles.uploadCircle}>
                     <MaterialCommunityIcons name="image-plus" size={I(30)} color="#F5F5F5" />
                   </View>
-                  <Text style={styles.uploadText}>Kliko për të ngarkuar</Text>
+                  <Text style={styles.uploadText} numberOfLines={1}>
+                    {file ? file.name ?? 'Skedari u zgjodh' : 'Kliko për të ngarkuar'}
+                  </Text>
+                  <Text style={styles.uploadHint}>MP4, GIF ose PDF</Text>
                 </Pressable>
               </View>
             </View>
 
             {/* ── Anulo / Ruaj ──────────────────────────────────── */}
+            {error ? (
+              <Text style={styles.errorText} numberOfLines={2}>
+                {error}
+              </Text>
+            ) : null}
+
             <View style={styles.actions}>
               <Pressable
                 onPress={() => router.back()}
@@ -233,12 +335,18 @@ export default function AddMaterialScreen() {
                 </Text>
               </Pressable>
               <Pressable
+                onPress={save}
+                disabled={saving}
                 accessibilityRole="button"
                 accessibilityLabel="Ruaj"
-                style={({ pressed }) => [styles.saveBtn, pressed && styles.pressed]}
+                style={({ pressed }) => [
+                  styles.saveBtn,
+                  saving && styles.saveBtnOff,
+                  pressed && styles.pressed,
+                ]}
               >
                 <Text style={styles.actionText} numberOfLines={1}>
-                  Ruaj
+                  {saving ? 'Duke ruajtur…' : 'Ruaj'}
                 </Text>
               </Pressable>
             </View>
@@ -611,6 +719,22 @@ const styles = StyleSheet.create(
       marginTop: 8,
     },
 
+    uploadHint: {
+      fontFamily: Fonts.body,
+      fontSize: 10.5,
+      color: C.gray,
+      marginTop: 2,
+    },
+
+    /* ── Error ───────────────────────────────────────────────── */
+    errorText: {
+      fontFamily: Fonts.body,
+      fontSize: 11.5,
+      lineHeight: 15,
+      color: C.red,
+      marginTop: 12,
+    },
+
     /* ── Anulo / Ruaj ────────────────────────────────────────── */
     actions: {
       flexDirection: 'row',
@@ -636,6 +760,10 @@ const styles = StyleSheet.create(
       justifyContent: 'center',
       backgroundColor: C.green,
       borderRadius: 4,
+    },
+
+    saveBtnOff: {
+      opacity: 0.6,
     },
 
     actionText: {

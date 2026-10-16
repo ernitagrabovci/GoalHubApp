@@ -1,7 +1,7 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Pressable,
   ScrollView,
@@ -12,8 +12,15 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
+import { MONTHS } from '@/components/trainings/training-form';
 import { Fonts } from '@/constants/theme';
+import { ApiError } from '@/lib/api/errors';
+import { updateLibrary } from '@/lib/api/library';
+import { listTeams } from '@/lib/api/teams';
+import type { ApiTeam } from '@/lib/api/types';
+import { CATEGORIES, LEVELS, levelCode } from '@/lib/library';
 import { I, scaled } from '@/lib/responsive';
+import { useSession } from '@/lib/session';
 
 /**
  * Edito materialin — opened from "Edito" on a row of Libraria e trajnimeve.
@@ -43,35 +50,110 @@ const C = {
   red: '#E03131',
 };
 
-const LEVELS = ['Fillestar', 'Mesëm', 'Avancuar'];
-const CATEGORIES = ['Teknika', 'Taktika', 'Fizike', 'Psikologjike'];
-const TEAMS = ['Ekipi i Parë', 'U17', 'U15', 'U13'];
+/* The select's resting option — material that is not shared with a team. */
+const NO_TEAM = 'Pa ndarje';
 
-/** Who is entering this material, and when. */
-const AUTHOR = 'Rexhep Hyseni';
-const DATE = '25/09/2026';
+/* The stamp's date line — today, in the same shape the training screens use. */
+const now = new Date();
+const TODAY = `${now.getDate()} ${MONTHS[now.getMonth()]} ${now.getFullYear()}`;
 
 export default function EditMaterialScreen() {
   const router = useRouter();
+  const { token, user, signOut } = useSession();
 
   const params = useLocalSearchParams<{
+    id?: string;
     name?: string;
     level?: string;
     category?: string;
+    description?: string;
+    sharedTeamId?: string;
   }>();
 
-  const name = params.name ?? 'Stërvitje pasimi';
+  const materialId = params.id ? Number(params.id) : null;
+
+  const name = params.name ?? 'Material';
   const rowLevel = params.level ?? LEVELS[0];
   const rowCategory = params.category ?? CATEGORIES[0];
+  const rowTeamId = params.sharedTeamId ? Number(params.sharedTeamId) : null;
 
   const [title, setTitle] = useState(name);
-  const [description, setDescription] = useState('');
+  const [description, setDescription] = useState(params.description ?? '');
   const [level, setLevel] = useState(rowLevel);
   const [category, setCategory] = useState(rowCategory);
-  const [team, setTeam] = useState(TEAMS[0]);
+  const [team, setTeam] = useState(NO_TEAM);
+
+  const [teams, setTeams] = useState<ApiTeam[]>([]);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   /* Which picker is unrolled, or null when all three are shut. */
   const [open, setOpen] = useState<string | null>(null);
+
+  /* The club's teams, so the material's sharing can be edited. */
+  useEffect(() => {
+    if (!token) return;
+    const controller = new AbortController();
+
+    listTeams(token, controller.signal)
+      .then((res) => {
+        if (controller.signal.aborted) return;
+        setTeams(res.data);
+        /* Seat the picker on the row's own team, once the list is in hand. */
+        const current = res.data.find((t) => t.id === rowTeamId);
+        if (current) setTeam(current.name);
+      })
+      .catch((e) => {
+        if (controller.signal.aborted) return;
+        if (e instanceof ApiError && e.status === 401) {
+          signOut();
+          router.replace('/login');
+        }
+      });
+
+    return () => controller.abort();
+  }, [token, router, signOut, rowTeamId]);
+
+  const teamOptions = [NO_TEAM, ...teams.map((t) => t.name)];
+
+  const save = () => {
+    if (!token || !materialId || saving) return;
+
+    const trimmedTitle = title.trim();
+    if (!trimmedTitle) {
+      setError('Shkruaj titullin e materialit.');
+      return;
+    }
+
+    const sharedTeamId = teams.find((t) => t.name === team)?.id ?? null;
+
+    setSaving(true);
+    setError(null);
+
+    updateLibrary(token, materialId, {
+      title: trimmedTitle,
+      level: levelCode(level),
+      category: category || null,
+      description: description.trim() || null,
+      shared_team_id: sharedTeamId,
+    })
+      .then(() => router.back())
+      .catch((e) => {
+        setSaving(false);
+        if (e instanceof ApiError && e.status === 401) {
+          signOut();
+          router.replace('/login');
+          return;
+        }
+        if (e instanceof ApiError && e.status === 422 && e.fieldErrors) {
+          setError(Object.values(e.fieldErrors)[0]?.[0] ?? 'Të dhënat nuk janë të vlefshme.');
+        } else if (e instanceof ApiError && e.status === 0) {
+          setError('Nuk mund të lidhemi me serverin. Kontrollo lidhjen.');
+        } else {
+          setError('Materiali nuk mund të ruhet.');
+        }
+      });
+  };
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
@@ -187,7 +269,7 @@ export default function EditMaterialScreen() {
                 <Text style={styles.fieldLabel}>Shpërndaje te ekipi</Text>
                 <Select
                   value={team}
-                  options={TEAMS}
+                  options={teamOptions}
                   open={open === 'team'}
                   setOpen={(v) => setOpen(v ? 'team' : null)}
                   onChange={setTeam}
@@ -202,14 +284,20 @@ export default function EditMaterialScreen() {
                 <View style={styles.stamp}>
                   <Text style={styles.stampLabel}>Shtuar nga</Text>
                   <Text style={styles.stampName} numberOfLines={1}>
-                    {AUTHOR}
+                    {user?.name ?? '—'}
                   </Text>
-                  <Text style={styles.stampDate}>{DATE}</Text>
+                  <Text style={styles.stampDate}>{TODAY}</Text>
                 </View>
               </View>
             </View>
 
             {/* ── Anulo / Ruaj ──────────────────────────────────── */}
+            {error ? (
+              <Text style={styles.errorText} numberOfLines={2}>
+                {error}
+              </Text>
+            ) : null}
+
             <View style={styles.actions}>
               <Pressable
                 onPress={() => router.back()}
@@ -222,12 +310,18 @@ export default function EditMaterialScreen() {
                 </Text>
               </Pressable>
               <Pressable
+                onPress={save}
+                disabled={saving}
                 accessibilityRole="button"
                 accessibilityLabel="Ruaj"
-                style={({ pressed }) => [styles.saveBtn, pressed && styles.pressed]}
+                style={({ pressed }) => [
+                  styles.saveBtn,
+                  saving && styles.saveBtnOff,
+                  pressed && styles.pressed,
+                ]}
               >
                 <Text style={styles.actionText} numberOfLines={1}>
-                  Ruaj
+                  {saving ? 'Duke ruajtur…' : 'Ruaj'}
                 </Text>
               </Pressable>
             </View>
@@ -572,6 +666,15 @@ const styles = StyleSheet.create(
       marginTop: 3,
     },
 
+    /* ── Error ───────────────────────────────────────────────── */
+    errorText: {
+      fontFamily: Fonts.body,
+      fontSize: 11.5,
+      lineHeight: 15,
+      color: C.red,
+      marginTop: 12,
+    },
+
     /* ── Anulo / Ruaj ────────────────────────────────────────── */
     actions: {
       flexDirection: 'row',
@@ -597,6 +700,10 @@ const styles = StyleSheet.create(
       justifyContent: 'center',
       backgroundColor: C.green,
       borderRadius: 4,
+    },
+
+    saveBtnOff: {
+      opacity: 0.6,
     },
 
     actionText: {

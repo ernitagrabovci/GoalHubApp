@@ -1,23 +1,23 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useCallback, useEffect, useState } from 'react';
+import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
 import {
   TrainingDraft,
   TrainingFormModal,
-  formatDate,
   parseWhen,
 } from '@/components/trainings/training-form';
 import { Fonts } from '@/constants/theme';
 import { ApiError } from '@/lib/api/errors';
-import { getTraining } from '@/lib/api/trainings';
+import { getTraining, updateTraining } from '@/lib/api/trainings';
 import { I, scaled } from '@/lib/responsive';
 import { useSession } from '@/lib/session';
 import {
+  draftToInput,
   durationLabel,
   toAttendanceRows,
   trainingDate,
@@ -97,13 +97,10 @@ export default function TrainingScreen() {
 
   const [editing, setEditing] = useState(false);
 
-  useEffect(() => {
-    if (!token || !trainingId || Number.isNaN(trainingId)) return;
-    const controller = new AbortController();
-
-    getTraining(token, trainingId, controller.signal)
-      .then((res) => {
-        if (controller.signal.aborted) return;
+  const load = useCallback(
+    (signal?: AbortSignal) =>
+      getTraining(token ?? '', trainingId as number, signal).then((res) => {
+        if (signal?.aborted) return;
         const t = res.data;
         setDate(trainingDate(t.scheduled_at));
         setTime(trainingTime(t.scheduled_at));
@@ -111,25 +108,47 @@ export default function TrainingScreen() {
         setType(typeName(t.type));
         setDuration(durationLabel(t.duration_minutes));
         setPlayers(toAttendanceRows(t));
+      }),
+    [token, trainingId],
+  );
+
+  useEffect(() => {
+    if (!token || !trainingId || Number.isNaN(trainingId)) return;
+    const controller = new AbortController();
+
+    load(controller.signal).catch((e) => {
+      if (controller.signal.aborted) return;
+      if (e instanceof ApiError && e.status === 401) {
+        signOut();
+        router.replace('/login');
+      }
+    });
+
+    return () => controller.abort();
+  }, [token, trainingId, router, signOut, load]);
+
+  /* The edit is saved server-side, then the session is re-read. */
+  const save = (d: TrainingDraft) => {
+    if (!token || !trainingId) return;
+    updateTraining(token, trainingId, draftToInput(d))
+      .then(() => {
+        setEditing(false);
+        load().catch(() => undefined);
       })
       .catch((e) => {
-        if (controller.signal.aborted) return;
+        setEditing(false);
         if (e instanceof ApiError && e.status === 401) {
           signOut();
           router.replace('/login');
+          return;
         }
+        Alert.alert(
+          'Veprimi dështoi',
+          e instanceof ApiError && e.status !== 0 && e.message
+            ? e.message
+            : 'Nuk mund të lidhemi me serverin. Kontrollo lidhjen.',
+        );
       });
-
-    return () => controller.abort();
-  }, [token, trainingId, router, signOut]);
-
-  const save = (d: TrainingDraft) => {
-    setType(d.type);
-    setDate(formatDate(d));
-    setTime(`${d.hour}:${d.minute}`);
-    setField(d.field);
-    setDuration(`${d.duration} min`);
-    setEditing(false);
   };
 
   return (
@@ -242,6 +261,19 @@ export default function TrainingScreen() {
                   Prezenca në stërvitje
                 </Text>
                 <Pressable
+                  onPress={() =>
+                    router.push({
+                      pathname: '/regjistro-prezencen',
+                      params: {
+                        id: trainingId != null ? String(trainingId) : '',
+                        date,
+                        time,
+                        field,
+                        type,
+                        duration,
+                      },
+                    })
+                  }
                   accessibilityRole="button"
                   accessibilityLabel="Edito prezencën"
                   style={({ pressed }) => [styles.editSmall, pressed && styles.pressed]}

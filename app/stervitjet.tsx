@@ -1,19 +1,19 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useCallback, useEffect, useState } from 'react';
+import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
 import { FilterSelect, type FilterOption } from '@/components/filters/filter-select';
-import { TrainingDraft, TrainingFormModal, formatDate } from '@/components/trainings/training-form';
+import { TrainingDraft, TrainingFormModal } from '@/components/trainings/training-form';
 import { Fonts } from '@/constants/theme';
 import { ApiError } from '@/lib/api/errors';
-import { listTrainings } from '@/lib/api/trainings';
+import { createTraining, deleteTraining, listTrainings } from '@/lib/api/trainings';
 import { I, scaled } from '@/lib/responsive';
 import { useSession } from '@/lib/session';
-import { SQUAD_SIZE, toTrainingRow, type TrainingRow } from '@/lib/trainings';
+import { draftToInput, toTrainingRow, type TrainingRow } from '@/lib/trainings';
 
 /**
  * Stërvitjet — the trainer's training list, opened from the "Stërvitjet" card
@@ -99,46 +99,82 @@ export default function TrainingListScreen() {
   const [typeFilter, setTypeFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
 
+  const load = useCallback(
+    (signal?: AbortSignal) =>
+      listTrainings(
+        token ?? '',
+        { type: typeFilter || undefined, status: statusFilter || undefined },
+        signal,
+      ).then((res) => {
+        if (signal?.aborted) return;
+        setTrainings(res.data.map(toTrainingRow));
+      }),
+    [token, typeFilter, statusFilter],
+  );
+
   useEffect(() => {
     if (!token) return;
     const controller = new AbortController();
 
-    listTrainings(
-      token,
-      { type: typeFilter || undefined, status: statusFilter || undefined },
-      controller.signal,
-    )
-      .then((res) => {
-        if (controller.signal.aborted) return;
-        setTrainings(res.data.map(toTrainingRow));
-      })
-      .catch((e) => {
-        if (controller.signal.aborted) return;
-        if (e instanceof ApiError && e.status === 401) {
-          signOut();
-          router.replace('/login');
-        }
-      });
+    load(controller.signal).catch((e) => {
+      if (controller.signal.aborted) return;
+      if (e instanceof ApiError && e.status === 401) {
+        signOut();
+        router.replace('/login');
+      }
+    });
 
     return () => controller.abort();
-  }, [token, router, signOut, typeFilter, statusFilter]);
+  }, [token, router, signOut, load]);
 
-  /* A brand new session starts unregistered, with nobody marked yet. */
+  /** Surfaces a failed write, sending an expired token back to login. */
+  const onWriteError = (e: unknown, fallback: string) => {
+    if (e instanceof ApiError && e.status === 401) {
+      signOut();
+      router.replace('/login');
+      return;
+    }
+    Alert.alert(
+      'Veprimi dështoi',
+      e instanceof ApiError && e.status !== 0 && e.message
+        ? e.message
+        : 'Nuk mund të lidhemi me serverin. Kontrollo lidhjen.',
+    );
+  };
+
+  /* The new session is created server-side, then the list is refetched. */
   const add = (d: TrainingDraft) => {
-    setTrainings((prev) => [
-      {
-        date: formatDate(d),
-        time: `${d.hour}:${d.minute}`,
-        type: d.type,
-        field: d.field,
-        duration: `${d.duration} min`,
-        presence: `0 /${SQUAD_SIZE}`,
-        status: 'Pret regjistrim',
-        team: prev[0]?.team,
-      },
-      ...prev,
-    ]);
-    setAdding(false);
+    if (!token) return;
+    createTraining(token, draftToInput(d))
+      .then(() => {
+        setAdding(false);
+        load().catch(() => undefined);
+      })
+      .catch((e) => {
+        setAdding(false);
+        onWriteError(e, 'Stërvitja nuk mund të krijohet.');
+      });
+  };
+
+  /* Deleting a session asks first — it takes its attendance sheet with it. */
+  const confirmDelete = (t: TrainingRow) => {
+    if (t.id == null || !token) return;
+    const id = t.id;
+    Alert.alert(
+      'Fshi stërvitjen',
+      `A jeni i sigurt që dëshironi ta fshini stërvitjen e ${t.date}?`,
+      [
+        { text: 'Anulo', style: 'cancel' },
+        {
+          text: 'Fshi',
+          style: 'destructive',
+          onPress: () =>
+            deleteTraining(token, id)
+              .then(() => load().catch(() => undefined))
+              .catch((e) => onWriteError(e, 'Stërvitja nuk mund të fshihet.')),
+        },
+      ],
+    );
   };
 
   return (
@@ -353,6 +389,7 @@ export default function TrainingListScreen() {
                               <Text style={styles.actFillText}>Regjistro</Text>
                             </Pressable>
                             <Pressable
+                              onPress={() => confirmDelete(t)}
                               accessibilityRole="button"
                               accessibilityLabel={`Fshi stërvitjen e ${t.date}`}
                               style={({ pressed }) => [

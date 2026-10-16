@@ -272,12 +272,71 @@ export type ApiTrainingMaterial = {
   /** `mp4`, `gif`, `pdf` or null. */
   file_type: string | null;
   is_shared: boolean;
+  /** The team the material is shared with, or null when it isn't shared. */
+  shared_team_id: number | null;
   trainer: { id: number; name: string } | null;
   created_at: string | null;
 };
 
 /** `GET /library` — the paginated shelf plus the distinct categories. */
 export type TrainingLibraryResponse = Paginated<ApiTrainingMaterial> & { categories: string[] };
+
+/** The writable fields of a library item — `POST`/`PATCH /library`. */
+export type LibraryInput = {
+  title: string;
+  /** `beginner`, `intermediate` or `advanced`. */
+  level: string;
+  category?: string | null;
+  description?: string | null;
+  /** When set, the material is shared with that team and its players notified. */
+  shared_team_id?: number | null;
+};
+
+/** The writable fields of a training session — `POST`/`PATCH /trainings`. */
+export type TrainingInput = {
+  /** `tactical`, `physical`, `recovery` or `regular`. */
+  type: string;
+  field?: string | null;
+  training_field_id?: number | null;
+  /** Required on create; omitted (frozen) when updating a finalized session. */
+  scheduled_at?: string | null;
+  duration_minutes: number;
+  notes?: string | null;
+};
+
+/** The writable fields of a season — `POST /club/seasons`. */
+export type SeasonInput = {
+  name: string;
+  start_date: string;
+  end_date: string;
+  competitions?: string[] | null;
+};
+
+/** A tactical drill, from `GET /drills` (paginated) and `GET /drills/{drill}`. */
+export type ApiDrill = {
+  id: number;
+  title: string;
+  description: string | null;
+  category: string | null;
+  duration_minutes: number | null;
+  repetitions: number | null;
+  thumbnail: string | null;
+  is_shared: boolean;
+  /** The board schema — present only on the detail endpoint. */
+  data?: string | null;
+  created_at: string | null;
+};
+
+/** The writable fields of a drill — `POST`/`PATCH /drills`. */
+export type DrillInput = {
+  title: string;
+  description?: string | null;
+  category?: string | null;
+  duration_minutes?: number | null;
+  repetitions?: number | null;
+  data?: string | null;
+  thumbnail?: string | null;
+};
 
 /** One player's line in `GET /reports/players`. */
 export type PlayerReportRow = {

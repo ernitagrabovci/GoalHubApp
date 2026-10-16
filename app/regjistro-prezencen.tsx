@@ -2,15 +2,28 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
+import { TrainingFormModal, parseWhen, type TrainingDraft } from '@/components/trainings/training-form';
 import { Fonts } from '@/constants/theme';
 import { ApiError } from '@/lib/api/errors';
-import { getTraining, saveAttendance } from '@/lib/api/trainings';
+import {
+  deleteTraining,
+  getTraining,
+  saveAttendance,
+  updateTraining,
+} from '@/lib/api/trainings';
 import { I, scaled } from '@/lib/responsive';
 import { useSession } from '@/lib/session';
+import {
+  draftToInput,
+  durationLabel,
+  trainingDate,
+  trainingTime,
+  typeName,
+} from '@/lib/trainings';
 
 /**
  * Regjistro prezencën — the trainer marks who turned up, opened from the
@@ -85,15 +98,17 @@ export default function RegisterAttendanceScreen() {
   const trainingId = params.id != null ? Number(params.id) : NaN;
   const validId = Number.isFinite(trainingId);
 
-  const date = params.date ?? '18 Aug 2026';
-  const time = params.time ?? '17:00';
-  const field = params.field ?? 'Salla e Brendshme';
-  const type = params.type ?? 'Taktike';
-  const duration = params.duration ?? '90 min';
+  /* The session's own facts, seeded from the list row and refreshed on load. */
+  const [date, setDate] = useState(params.date ?? '18 Aug 2026');
+  const [time, setTime] = useState(params.time ?? '17:00');
+  const [field, setField] = useState(params.field ?? 'Salla e Brendshme');
+  const [type, setType] = useState(params.type ?? 'Taktike');
+  const [duration, setDuration] = useState(params.duration ?? '90 min');
 
   const [roster, setRoster] = useState<Roster[]>([]);
   const [marks, setMarks] = useState<(Mark | null)[]>([]);
   const [saving, setSaving] = useState(false);
+  const [editing, setEditing] = useState(false);
   const [error, setError] = useState<string | null>(
     params.id != null && !Number.isFinite(trainingId) ? 'Mungon stërvitja.' : null,
   );
@@ -106,7 +121,15 @@ export default function RegisterAttendanceScreen() {
     getTraining(token, trainingId, controller.signal)
       .then((res) => {
         if (controller.signal.aborted) return;
-        const rows = res.data.attendances ?? [];
+        const t = res.data;
+
+        setDate(trainingDate(t.scheduled_at));
+        setTime(trainingTime(t.scheduled_at));
+        setField(t.field ?? '—');
+        setType(typeName(t.type));
+        setDuration(durationLabel(t.duration_minutes));
+
+        const rows = t.attendances ?? [];
         setRoster(
           rows.map((a) => ({
             playerId: a.player_id,
@@ -128,6 +151,63 @@ export default function RegisterAttendanceScreen() {
 
     return () => controller.abort();
   }, [token, trainingId, validId, signOut, router]);
+
+  /** Re-reads the session after a write. */
+  const reload = () =>
+    getTraining(token ?? '', trainingId)
+      .then((res) => {
+        const t = res.data;
+        setDate(trainingDate(t.scheduled_at));
+        setTime(trainingTime(t.scheduled_at));
+        setField(t.field ?? '—');
+        setType(typeName(t.type));
+        setDuration(durationLabel(t.duration_minutes));
+      })
+      .catch(() => undefined);
+
+  const onWriteError = (err: unknown, fallback: string) => {
+    if (err instanceof ApiError && err.status === 401) {
+      signOut();
+      router.replace('/login');
+      return;
+    }
+    Alert.alert(
+      'Veprimi dështoi',
+      err instanceof ApiError && err.status !== 0 && err.message
+        ? err.message
+        : 'Nuk mund të lidhemi me serverin. Kontrollo lidhjen.',
+    );
+  };
+
+  /* Save the edited session, then re-read it so the header matches. */
+  const saveEdit = (d: TrainingDraft) => {
+    if (!token || !validId) return;
+    updateTraining(token, trainingId, draftToInput(d))
+      .then(() => {
+        setEditing(false);
+        reload();
+      })
+      .catch((err) => {
+        setEditing(false);
+        onWriteError(err, 'Stërvitja nuk mund të përditësohet.');
+      });
+  };
+
+  /* Deleting the session takes its attendance sheet with it. */
+  const confirmDelete = () => {
+    if (!token || !validId) return;
+    Alert.alert('Fshi stërvitjen', `A jeni i sigurt që dëshironi ta fshini stërvitjen e ${date}?`, [
+      { text: 'Anulo', style: 'cancel' },
+      {
+        text: 'Fshi',
+        style: 'destructive',
+        onPress: () =>
+          deleteTraining(token, trainingId)
+            .then(() => router.back())
+            .catch((err) => onWriteError(err, 'Stërvitja nuk mund të fshihet.')),
+      },
+    ]);
+  };
 
   const present = marks.filter((m) => m === 'prezent').length;
   const absent = marks.filter((m) => m === 'mungon').length;
@@ -223,6 +303,7 @@ export default function RegisterAttendanceScreen() {
             {/* ── Edit / delete the session ────────────────────────── */}
             <View style={styles.actionsRow}>
               <Pressable
+                onPress={() => setEditing(true)}
                 accessibilityRole="button"
                 accessibilityLabel="Edito stërvitjen"
                 style={({ pressed }) => [styles.editBtn, pressed && styles.pressed]}
@@ -234,6 +315,7 @@ export default function RegisterAttendanceScreen() {
               </Pressable>
 
               <Pressable
+                onPress={confirmDelete}
                 accessibilityRole="button"
                 accessibilityLabel="Fshi stërvitjen"
                 style={({ pressed }) => [styles.delBtn, pressed && styles.pressed]}
@@ -459,6 +541,22 @@ export default function RegisterAttendanceScreen() {
           </View>
         </ScrollView>
       </View>
+
+      {/* Overlay on the SafeAreaView so the blur covers the whole screen */}
+      {editing ? (
+        <TrainingFormModal
+          title="Edito stërvitjen"
+          confirmLabel="Ruaj"
+          initial={{
+            type,
+            duration: duration.replace(/\D/g, ''),
+            field,
+            ...parseWhen(date, time),
+          }}
+          onClose={() => setEditing(false)}
+          onConfirm={saveEdit}
+        />
+      ) : null}
     </SafeAreaView>
   );
 }

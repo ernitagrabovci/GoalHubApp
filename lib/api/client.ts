@@ -27,16 +27,20 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
     else signal.addEventListener('abort', () => controller.abort(), { once: true });
   }
 
+  // FormData must go out untouched: fetch sets its own multipart boundary, and
+  // an explicit Content-Type would strip that boundary and break the upload.
+  const isFormData = typeof FormData !== 'undefined' && body instanceof FormData;
+
   let response: Response;
   try {
     response = await fetch(`${API_URL}${path}`, {
       method,
       headers: {
         Accept: 'application/json',
-        ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
+        ...(body !== undefined && !isFormData ? { 'Content-Type': 'application/json' } : {}),
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
-      body: body !== undefined ? JSON.stringify(body) : undefined,
+      body: isFormData ? body : body !== undefined ? JSON.stringify(body) : undefined,
       signal: controller.signal,
     });
   } catch (error) {

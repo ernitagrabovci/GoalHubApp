@@ -5,6 +5,7 @@ import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useState, type ReactNode } from 'react';
 import {
+  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -13,7 +14,10 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
+import { DeleteAccountModal } from '@/components/settings/delete-account-modal';
 import { Fonts } from '@/constants/theme';
+import { deactivateAccount } from '@/lib/api/account';
+import { ApiError } from '@/lib/api/errors';
 import { I, scaled } from '@/lib/responsive';
 import { useSession, type Role } from '@/lib/session';
 
@@ -167,10 +171,49 @@ function ActionRow({
 
 export default function SecuritySettingsScreen() {
   const router = useRouter();
-  const { user } = useSession();
+  const { token, user, signOut } = useSession();
 
-  const [twoFa, setTwoFa] = useState(false);
-  const score = twoFa ? 4 : 3;
+  const [dangerBusy, setDangerBusy] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+
+  /* 2FA has no backend, so it counts nothing yet — the score tops out at 3. */
+  const score: number = 3;
+
+  const alertError = (e: unknown) =>
+    Alert.alert(
+      'Veprimi dështoi',
+      e instanceof ApiError && e.status !== 0 && e.message
+        ? e.message
+        : 'Nuk mund të lidhemi me serverin. Kontrollo lidhjen.',
+    );
+
+  /* Deactivating is reversible: it flips the flag, then the session ends. */
+  const onDeactivate = () => {
+    if (!token || dangerBusy) return;
+    Alert.alert(
+      'Çaktivizo llogarinë',
+      'Llogaria do të çaktivizohet dhe do të dilni. Mund ta riaktivizoni më vonë.',
+      [
+        { text: 'Anulo', style: 'cancel' },
+        {
+          text: 'Çaktivizo',
+          style: 'destructive',
+          onPress: () => {
+            setDangerBusy(true);
+            deactivateAccount(token)
+              .then(() => {
+                signOut();
+                router.replace('/login');
+              })
+              .catch((e) => {
+                setDangerBusy(false);
+                alertError(e);
+              });
+          },
+        },
+      ],
+    );
+  };
 
   /* The API exposes no session metadata, so only role and email are real —
      the IP/client/last-login rows have no source yet. */
@@ -237,12 +280,11 @@ export default function SecuritySettingsScreen() {
                   title="Email i konfirmuar"
                   desc={user?.email ?? '—'}
                 />
+                {/* Display-only: 2FA has no backend anywhere in the API. */}
                 <StatusRow
-                  tone={twoFa ? C.ok : C.warn}
+                  tone={C.warn}
                   title="Hyrje e dyfishtë (2FA)"
-                  desc={twoFa ? 'E aktivizuar' : 'Jo e aktivizuar'}
-                  actionLabel={twoFa ? undefined : 'Aktivizo'}
-                  onAction={twoFa ? undefined : () => setTwoFa(true)}
+                  desc="Së shpejti"
                 />
                 <StatusRow
                   tone={C.ok}
@@ -278,8 +320,14 @@ export default function SecuritySettingsScreen() {
               />
 
               <Pressable
+                onPress={() => setConfirmingDelete(true)}
+                disabled={dangerBusy}
                 accessibilityRole="button"
-                style={({ pressed }) => [styles.wipeBtn, pressed && styles.pressed]}
+                style={({ pressed }) => [
+                  styles.wipeBtn,
+                  dangerBusy && styles.off,
+                  pressed && styles.pressed,
+                ]}
               >
                 <Text style={styles.wipeBtnText}>Fshi të gjitha të dhënat</Text>
               </Pressable>
@@ -327,16 +375,28 @@ export default function SecuritySettingsScreen() {
 
                 <View style={styles.dangerBtns}>
                   <Pressable
+                    onPress={onDeactivate}
+                    disabled={dangerBusy}
                     accessibilityRole="button"
-                    style={({ pressed }) => [styles.dangerGhost, pressed && styles.pressed]}
+                    style={({ pressed }) => [
+                      styles.dangerGhost,
+                      dangerBusy && styles.off,
+                      pressed && styles.pressed,
+                    ]}
                   >
                     <Text style={styles.dangerGhostText} numberOfLines={1}>
                       Çaktivizo llogarinë
                     </Text>
                   </Pressable>
                   <Pressable
+                    onPress={() => setConfirmingDelete(true)}
+                    disabled={dangerBusy}
                     accessibilityRole="button"
-                    style={({ pressed }) => [styles.dangerSolid, pressed && styles.pressed]}
+                    style={({ pressed }) => [
+                      styles.dangerSolid,
+                      dangerBusy && styles.off,
+                      pressed && styles.pressed,
+                    ]}
                   >
                     <Text style={styles.dangerSolidText} numberOfLines={1}>
                       Fshi të gjitha të dhënat
@@ -348,6 +408,17 @@ export default function SecuritySettingsScreen() {
           </View>
         </ScrollView>
       </View>
+
+      {confirmingDelete ? (
+        <DeleteAccountModal
+          token={token}
+          onClose={() => setConfirmingDelete(false)}
+          onDeleted={() => {
+            signOut();
+            router.replace('/login');
+          }}
+        />
+      ) : null}
     </SafeAreaView>
   );
 }
@@ -756,6 +827,11 @@ const styles = StyleSheet.create(
       fontSize: 11.5,
       lineHeight: 15,
       color: '#F5F5F5',
+    },
+
+    /* A dimmed danger action while a request is in flight. */
+    off: {
+      opacity: 0.6,
     },
 
     pressed: {

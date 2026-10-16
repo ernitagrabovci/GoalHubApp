@@ -1,5 +1,11 @@
 import { request } from '@/lib/api/client';
-import type { ApiTraining, MutationResponse, Paginated } from '@/lib/api/types';
+import type {
+  ApiTraining,
+  MessageResponse,
+  MutationResponse,
+  Paginated,
+  TrainingInput,
+} from '@/lib/api/types';
 
 export type TrainingListParams = {
   page?: number;
@@ -52,6 +58,35 @@ export function getTraining(token: string, id: number, signal?: AbortSignal) {
 }
 
 /* ─────────────────────────────── Writes ─────────────────────────────── */
+
+/** Schedule a new session for the trainer's own team. */
+export function createTraining(token: string, input: TrainingInput, signal?: AbortSignal) {
+  return request<MutationResponse<ApiTraining>>('/trainings', {
+    method: 'POST',
+    body: input,
+    token,
+    signal,
+  });
+}
+
+/** Edit a session — omit `scheduled_at` on a finalized one (it is frozen). */
+export function updateTraining(
+  token: string,
+  id: number,
+  input: TrainingInput,
+  signal?: AbortSignal,
+) {
+  return request<MutationResponse<ApiTraining>>(`/trainings/${id}`, {
+    method: 'PATCH',
+    body: input,
+    token,
+    signal,
+  });
+}
+
+export function deleteTraining(token: string, id: number, signal?: AbortSignal) {
+  return request<MessageResponse>(`/trainings/${id}`, { method: 'DELETE', token, signal });
+}
 
 /** One player's attendance line: `present`, `absent` or `unconfirmed`. */
 export type AttendanceEntry = {

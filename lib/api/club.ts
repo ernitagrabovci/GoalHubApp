@@ -1,5 +1,12 @@
 import { request } from '@/lib/api/client';
-import type { ApiClubProfile, ApiSeason, ApiTrainingField } from '@/lib/api/types';
+import type {
+  ApiClubProfile,
+  ApiSeason,
+  ApiTrainingField,
+  MessageResponse,
+  MutationResponse,
+  SeasonInput,
+} from '@/lib/api/types';
 
 /** Editable club fields accepted by `PATCH /club` (`name` is the only required one). */
 export type ClubUpdateInput = {
@@ -43,4 +50,28 @@ export function getSeasons(token: string, signal?: AbortSignal) {
 /** The club's training fields, by name — `GET /club/fields`. */
 export function getFields(token: string, signal?: AbortSignal) {
   return request<{ data: ApiTrainingField[] }>('/club/fields', { token, signal });
+}
+
+/** Create a season (inactive until activated) — `POST /club/seasons`. */
+export function createSeason(token: string, input: SeasonInput, signal?: AbortSignal) {
+  return request<MutationResponse<ApiSeason>>('/club/seasons', {
+    method: 'POST',
+    body: input,
+    token,
+    signal,
+  });
+}
+
+/** Make one season the club's active one, deactivating the rest. */
+export function activateSeason(token: string, id: number, signal?: AbortSignal) {
+  return request<MutationResponse<ApiSeason>>(`/club/seasons/${id}/activate`, {
+    method: 'PATCH',
+    token,
+    signal,
+  });
+}
+
+/** Delete a season — the active one is refused with a 422. */
+export function deleteSeason(token: string, id: number, signal?: AbortSignal) {
+  return request<MessageResponse>(`/club/seasons/${id}`, { method: 'DELETE', token, signal });
 }

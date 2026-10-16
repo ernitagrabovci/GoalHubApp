@@ -2,8 +2,9 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { BlurView } from 'expo-blur';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
+  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -13,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
+import { cancelSubscription } from '@/lib/api/account';
 import { getClub } from '@/lib/api/club';
 import { ApiError } from '@/lib/api/errors';
 import type { ApiClubProfile } from '@/lib/api/types';
@@ -110,26 +112,66 @@ export default function SubscriptionSettingsScreen() {
   const { token, signOut } = useSession();
 
   const [sub, setSub] = useState<ApiClubProfile['subscription'] | null>(null);
+  const [cancelling, setCancelling] = useState(false);
+
+  const load = useCallback(
+    (signal?: AbortSignal) =>
+      getClub(token ?? '', signal).then((res) => {
+        if (signal?.aborted) return;
+        setSub(res.data.subscription);
+      }),
+    [token],
+  );
 
   useEffect(() => {
     if (!token) return;
     const controller = new AbortController();
 
-    getClub(token, controller.signal)
-      .then((res) => {
-        if (controller.signal.aborted) return;
-        setSub(res.data.subscription);
-      })
-      .catch((e) => {
-        if (controller.signal.aborted) return;
-        if (e instanceof ApiError && e.status === 401) {
-          signOut();
-          router.replace('/login');
-        }
-      });
+    load(controller.signal).catch((e) => {
+      if (controller.signal.aborted) return;
+      if (e instanceof ApiError && e.status === 401) {
+        signOut();
+        router.replace('/login');
+      }
+    });
 
     return () => controller.abort();
-  }, [token, router, signOut]);
+  }, [token, router, signOut, load]);
+
+  /* Cancelling asks first, then the plan is re-read so the card reflects it. */
+  const confirmCancel = () => {
+    if (!token || cancelling) return;
+    Alert.alert(
+      'Anulo abonimin',
+      'A jeni i sigurt? Aksesi zgjat deri në fund të periudhës së paguar.',
+      [
+        { text: 'Jo', style: 'cancel' },
+        {
+          text: 'Anulo abonimin',
+          style: 'destructive',
+          onPress: () => {
+            setCancelling(true);
+            cancelSubscription(token)
+              .then(() => load())
+              .catch((e) => {
+                if (e instanceof ApiError && e.status === 401) {
+                  signOut();
+                  router.replace('/login');
+                  return;
+                }
+                Alert.alert(
+                  'Veprimi dështoi',
+                  e instanceof ApiError && e.status !== 0 && e.message
+                    ? e.message
+                    : 'Nuk mund të lidhemi me serverin. Kontrollo lidhjen.',
+                );
+              })
+              .finally(() => setCancelling(false));
+          },
+        },
+      ],
+    );
+  };
 
   const active = sub?.active ?? false;
   const planName = sub?.plan ?? '—';
@@ -216,10 +258,18 @@ export default function SubscriptionSettingsScreen() {
                 </Text>
 
                 <Pressable
+                  onPress={confirmCancel}
+                  disabled={!active || cancelling}
                   accessibilityRole="button"
-                  style={({ pressed }) => [styles.cancelBtn, pressed && styles.pressed]}
+                  style={({ pressed }) => [
+                    styles.cancelBtn,
+                    (!active || cancelling) && styles.cancelBtnOff,
+                    pressed && styles.pressed,
+                  ]}
                 >
-                  <Text style={styles.cancelBtnText}>Anulo abonimin</Text>
+                  <Text style={styles.cancelBtnText}>
+                    {cancelling ? 'Duke anuluar…' : 'Anulo abonimin'}
+                  </Text>
                 </Pressable>
               </View>
             </View>
@@ -476,6 +526,10 @@ const styles = StyleSheet.create(
       borderWidth: 1,
       borderColor: C.red,
       borderRadius: 4,
+    },
+
+    cancelBtnOff: {
+      opacity: 0.4,
     },
 
     cancelBtnText: {

@@ -2,8 +2,9 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { BlurView } from 'expo-blur';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
+  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -14,7 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
-import { getSeasons } from '@/lib/api/club';
+import { activateSeason, createSeason, deleteSeason, getSeasons } from '@/lib/api/club';
 import { ApiError } from '@/lib/api/errors';
 import type { ApiSeason } from '@/lib/api/types';
 import { I, scaled } from '@/lib/responsive';
@@ -89,26 +90,75 @@ export default function SeasonSettingsScreen() {
   const [tableH, setTableH] = useState(0);
   const [creating, setCreating] = useState(false);
   const [seasons, setSeasons] = useState<ApiSeason[]>([]);
+  const [busyId, setBusyId] = useState<number | null>(null);
+
+  const load = useCallback(
+    (signal?: AbortSignal) =>
+      getSeasons(token ?? '', signal).then((res) => {
+        if (signal?.aborted) return;
+        setSeasons(res.data);
+      }),
+    [token],
+  );
 
   useEffect(() => {
     if (!token) return;
     const controller = new AbortController();
 
-    getSeasons(token, controller.signal)
-      .then((res) => {
-        if (controller.signal.aborted) return;
-        setSeasons(res.data);
-      })
+    load(controller.signal).catch((e) => {
+      if (controller.signal.aborted) return;
+      if (e instanceof ApiError && e.status === 401) {
+        signOut();
+        router.replace('/login');
+      }
+    });
+
+    return () => controller.abort();
+  }, [token, router, signOut, load]);
+
+  /** Runs a season action, refetching the list when it succeeds. */
+  const runAction = (id: number, action: () => Promise<unknown>, fallback: string) => {
+    if (busyId !== null) return;
+    setBusyId(id);
+    action()
+      .then(() => load())
       .catch((e) => {
-        if (controller.signal.aborted) return;
         if (e instanceof ApiError && e.status === 401) {
           signOut();
           router.replace('/login');
+          return;
         }
-      });
+        Alert.alert(
+          'Veprimi dështoi',
+          e instanceof ApiError && e.status !== 0 && e.message
+            ? e.message
+            : 'Nuk mund të lidhemi me serverin. Kontrollo lidhjen.',
+        );
+      })
+      .finally(() => setBusyId(null));
+  };
 
-    return () => controller.abort();
-  }, [token, router, signOut]);
+  const onActivate = (season: ApiSeason) => {
+    if (season.id == null || season.is_active) return;
+    runAction(season.id, () => activateSeason(token ?? '', season.id as number), '');
+  };
+
+  const onDelete = (season: ApiSeason) => {
+    if (season.id == null || season.is_active) return;
+    Alert.alert(
+      'Fshi sezonin',
+      `A jeni i sigurt që dëshironi ta fshini sezonin "${season.name}"?`,
+      [
+        { text: 'Anulo', style: 'cancel' },
+        {
+          text: 'Fshi',
+          style: 'destructive',
+          onPress: () =>
+            runAction(season.id as number, () => deleteSeason(token ?? '', season.id as number), ''),
+        },
+      ],
+    );
+  };
 
   const active = seasons.find((s) => s.is_active) ?? null;
 
@@ -226,18 +276,26 @@ export default function SeasonSettingsScreen() {
                             {c.key === 'act' ? (
                               <View style={styles.actCell}>
                                 <Pressable
+                                  onPress={() => onActivate(s)}
+                                  disabled={s.is_active || busyId !== null}
                                   accessibilityRole="button"
+                                  accessibilityLabel={`Aktivizo sezonin ${s.name}`}
                                   style={({ pressed }) => [
                                     styles.actBtn,
+                                    (s.is_active || busyId !== null) && styles.actOff,
                                     pressed && styles.pressed,
                                   ]}
                                 >
                                   <Text style={styles.actBtnText}>Aktivizo</Text>
                                 </Pressable>
                                 <Pressable
+                                  onPress={() => onDelete(s)}
+                                  disabled={s.is_active || busyId !== null}
                                   accessibilityRole="button"
+                                  accessibilityLabel={`Fshi sezonin ${s.name}`}
                                   style={({ pressed }) => [
                                     styles.delBtn,
+                                    (s.is_active || busyId !== null) && styles.actOff,
                                     pressed && styles.pressed,
                                   ]}
                                 >
@@ -263,7 +321,16 @@ export default function SeasonSettingsScreen() {
       </View>
 
       {/* Overlay on the SafeAreaView so the blur covers the whole screen */}
-      {creating ? <NewSeasonModal onClose={() => setCreating(false)} /> : null}
+      {creating ? (
+        <NewSeasonModal
+          token={token}
+          onClose={() => setCreating(false)}
+          onCreated={() => {
+            setCreating(false);
+            load().catch(() => setCreating(false));
+          }}
+        />
+      ) : null}
     </SafeAreaView>
   );
 }
@@ -272,10 +339,60 @@ export default function SeasonSettingsScreen() {
 /* "Sezoni i ri" popup                                                 */
 /* ------------------------------------------------------------------ */
 
-function NewSeasonModal({ onClose }: { onClose: () => void }) {
+const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
+
+function NewSeasonModal({
+  token,
+  onClose,
+  onCreated,
+}: {
+  token: string | null;
+  onClose: () => void;
+  onCreated: () => void;
+}) {
   const [name, setName] = useState('');
   const [start, setStart] = useState('');
   const [end, setEnd] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const save = () => {
+    if (!token || saving) return;
+
+    const trimmedName = name.trim();
+    if (!trimmedName) {
+      setError('Shkruaj emrin e sezonit.');
+      return;
+    }
+    if (!ISO_DAY.test(start.trim()) || !ISO_DAY.test(end.trim())) {
+      setError('Datat duhet të jenë në formatin VVVV-MM-DD.');
+      return;
+    }
+    if (end.trim() <= start.trim()) {
+      setError('Data e mbarimit duhet të jetë pas datës së fillimit.');
+      return;
+    }
+
+    setSaving(true);
+    setError(null);
+
+    createSeason(token, {
+      name: trimmedName,
+      start_date: start.trim(),
+      end_date: end.trim(),
+    })
+      .then(() => onCreated())
+      .catch((e) => {
+        setSaving(false);
+        if (e instanceof ApiError && e.status === 422 && e.fieldErrors) {
+          setError(Object.values(e.fieldErrors)[0]?.[0] ?? 'Të dhënat nuk janë të vlefshme.');
+        } else if (e instanceof ApiError && e.status === 0) {
+          setError('Nuk mund të lidhemi me serverin. Kontrollo lidhjen.');
+        } else {
+          setError('Sezoni nuk mund të krijohet.');
+        }
+      });
+  };
 
   return (
     <View style={styles.ovWrap}>
@@ -301,6 +418,8 @@ function NewSeasonModal({ onClose }: { onClose: () => void }) {
               onChangeText={setName}
               autoCorrect={false}
               allowFontScaling={false}
+              placeholder="2025/2026"
+              placeholderTextColor={C.gray}
               style={styles.nsInput}
             />
           </View>
@@ -313,6 +432,8 @@ function NewSeasonModal({ onClose }: { onClose: () => void }) {
                 onChangeText={setStart}
                 autoCorrect={false}
                 allowFontScaling={false}
+                placeholder="VVVV-MM-DD"
+                placeholderTextColor={C.gray}
                 style={styles.nsInput}
               />
             </View>
@@ -323,26 +444,40 @@ function NewSeasonModal({ onClose }: { onClose: () => void }) {
                 onChangeText={setEnd}
                 autoCorrect={false}
                 allowFontScaling={false}
+                placeholder="VVVV-MM-DD"
+                placeholderTextColor={C.gray}
                 style={styles.nsInput}
               />
             </View>
           </View>
+
+          {error ? (
+            <Text style={styles.nsError} numberOfLines={3}>
+              {error}
+            </Text>
+          ) : null}
         </View>
 
         <View style={styles.nsActions}>
           <Pressable
             onPress={onClose}
+            disabled={saving}
             accessibilityRole="button"
             style={({ pressed }) => [styles.nsCancel, pressed && styles.pressed]}
           >
             <Text style={styles.nsBtnText}>Anulo</Text>
           </Pressable>
           <Pressable
-            onPress={onClose}
+            onPress={save}
+            disabled={saving}
             accessibilityRole="button"
-            style={({ pressed }) => [styles.nsSave, pressed && styles.pressed]}
+            style={({ pressed }) => [
+              styles.nsSave,
+              saving && styles.nsSaveOff,
+              pressed && styles.pressed,
+            ]}
           >
-            <Text style={styles.nsBtnText}>Krijo sezonin</Text>
+            <Text style={styles.nsBtnText}>{saving ? 'Duke krijuar…' : 'Krijo sezonin'}</Text>
           </Pressable>
         </View>
       </View>
@@ -593,6 +728,11 @@ const styles = StyleSheet.create(
       color: C.actGreen,
     },
 
+    /* A disabled row action — the active season, or one mid-request. */
+    actOff: {
+      opacity: 0.35,
+    },
+
     delBtn: {
       height: 24,
       paddingHorizontal: 9,
@@ -734,6 +874,17 @@ const styles = StyleSheet.create(
       justifyContent: 'center',
       backgroundColor: C.green,
       borderRadius: 4,
+    },
+
+    nsSaveOff: {
+      opacity: 0.6,
+    },
+
+    nsError: {
+      fontFamily: Fonts.body,
+      fontSize: 11.5,
+      lineHeight: 15,
+      color: C.red,
     },
 
     nsBtnText: {

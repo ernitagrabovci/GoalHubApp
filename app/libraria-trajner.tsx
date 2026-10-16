@@ -1,8 +1,9 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
+  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -14,8 +15,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
 import { ApiError } from '@/lib/api/errors';
-import { listLibrary } from '@/lib/api/library';
+import { deleteLibrary, listLibrary } from '@/lib/api/library';
 import type { ApiTrainingMaterial } from '@/lib/api/types';
+import { LEVEL_TO_API, levelLabel, typeLabel } from '@/lib/library';
 import { I, scaled } from '@/lib/responsive';
 import { useSession } from '@/lib/session';
 
@@ -51,22 +53,6 @@ const C = {
 /* The level chips under the add button. "Të gjitha" is the resting state. */
 const LEVELS = ['Të gjitha', 'Fillestar', 'Mesëm', 'Avancuar'];
 
-/* The chip labels, mapped onto the level codes the API stores. */
-const LEVEL_TO_API: Record<string, string> = {
-  Fillestar: 'beginner',
-  Mesëm: 'intermediate',
-  Avancuar: 'advanced',
-};
-
-const LEVEL_LABEL: Record<string, string> = {
-  beginner: 'Fillestar',
-  intermediate: 'Mesëm',
-  advanced: 'Avancuar',
-};
-
-/* The library's `file_type`, under the label the Lloji column shows. */
-const TYPE_LABEL: Record<string, string> = { mp4: 'Video', gif: 'Video', pdf: 'PDF' };
-
 /* The dropdown's resting option, ahead of the API's distinct categories. */
 const ALL_CATEGORIES = 'Të gjitha kategoritë';
 
@@ -87,10 +73,6 @@ const ACTION_W = 110;
 const MONTHS = ['Jan', 'Shk', 'Mar', 'Pri', 'Maj', 'Qer', 'Kor', 'Gus', 'Sht', 'Tet', 'Nën', 'Dhj'];
 
 const pad2 = (n: number) => String(n).padStart(2, '0');
-
-const levelLabel = (value: string | null) => (value ? LEVEL_LABEL[value] ?? value : '—');
-
-const typeLabel = (value: string | null) => (value ? TYPE_LABEL[value] ?? value.toUpperCase() : '—');
 
 /** A `created_at` timestamp as "12 Gus 2026"; null or unparseable renders "—". */
 function formatDate(iso: string | null): string {
@@ -131,39 +113,71 @@ export default function TrainerLibraryScreen() {
     return () => clearTimeout(timer);
   }, [searchInput]);
 
+  const load = useCallback(
+    (signal?: AbortSignal) =>
+      listLibrary(
+        token ?? '',
+        {
+          page,
+          level: LEVEL_TO_API[level],
+          category: category === ALL_CATEGORIES ? undefined : category,
+          search: search || undefined,
+        },
+        signal,
+      ).then((res) => {
+        if (signal?.aborted) return;
+        setMaterials(res.data);
+        setCategories(res.categories);
+        setLastPage(res.meta.last_page);
+      }),
+    [token, page, level, category, search],
+  );
+
   useEffect(() => {
     if (!token) return;
     const controller = new AbortController();
 
-    listLibrary(
-      token,
-      {
-        page,
-        level: LEVEL_TO_API[level],
-        category: category === ALL_CATEGORIES ? undefined : category,
-        search: search || undefined,
-      },
-      controller.signal,
-    )
-      .then((res) => {
-        if (controller.signal.aborted) return;
-        setMaterials(res.data);
-        setCategories(res.categories);
-        setLastPage(res.meta.last_page);
-      })
-      .catch((e) => {
-        if (controller.signal.aborted) return;
-        if (e instanceof ApiError && e.status === 401) {
-          signOut();
-          router.replace('/login');
-        }
-      });
+    load(controller.signal).catch((e) => {
+      if (controller.signal.aborted) return;
+      if (e instanceof ApiError && e.status === 401) {
+        signOut();
+        router.replace('/login');
+      }
+    });
 
     return () => controller.abort();
-  }, [token, router, signOut, level, category, search, page]);
+  }, [token, router, signOut, load]);
 
   const current = Math.min(page, Math.max(1, lastPage));
   const categoryOptions = [ALL_CATEGORIES, ...categories];
+
+  /* Deleting a material asks first, then reloads the current page. */
+  const confirmDelete = (m: ApiTrainingMaterial) => {
+    if (!token) return;
+    Alert.alert('Fshij materialin', `A jeni i sigurt që dëshironi ta fshini "${m.title}"?`, [
+      { text: 'Anulo', style: 'cancel' },
+      {
+        text: 'Fshij',
+        style: 'destructive',
+        onPress: () =>
+          deleteLibrary(token, m.id)
+            .then(() => load().catch(() => undefined))
+            .catch((e) => {
+              if (e instanceof ApiError && e.status === 401) {
+                signOut();
+                router.replace('/login');
+                return;
+              }
+              Alert.alert(
+                'Veprimi dështoi',
+                e instanceof ApiError && e.status !== 0 && e.message
+                  ? e.message
+                  : 'Nuk mund të lidhemi me serverin. Kontrollo lidhjen.',
+              );
+            }),
+      },
+    ]);
+  };
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
@@ -359,9 +373,13 @@ export default function TrainerLibraryScreen() {
                             router.push({
                               pathname: '/edito-material-trajner',
                               params: {
+                                id: String(m.id),
                                 name: m.title,
                                 level: levelLabel(m.level),
                                 category: m.category ?? '',
+                                description: m.description ?? '',
+                                sharedTeamId:
+                                  m.shared_team_id != null ? String(m.shared_team_id) : '',
                               },
                             } as never)
                           }
@@ -372,6 +390,7 @@ export default function TrainerLibraryScreen() {
                           <Text style={styles.actEditText}>Edito</Text>
                         </Pressable>
                         <Pressable
+                          onPress={() => confirmDelete(m)}
                           accessibilityRole="button"
                           accessibilityLabel={`Fshij ${m.title}`}
                           style={({ pressed }) => [styles.actDel, pressed && styles.pressed]}

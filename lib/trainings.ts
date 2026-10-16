@@ -1,5 +1,5 @@
-import { MONTHS } from '@/components/trainings/training-form';
-import type { ApiTraining } from '@/lib/api/types';
+import { MONTHS, type TrainingDraft } from '@/components/trainings/training-form';
+import type { ApiTraining, TrainingInput } from '@/lib/api/types';
 
 /**
  * The squad size a session's turnout is measured against. The trainings API
@@ -68,6 +68,23 @@ export function trainingTime(iso: string | null | undefined): string {
 export function typeName(type: string | null | undefined): string {
   if (!type) return '—';
   return TYPE_SQ[type] ?? type;
+}
+
+/** The Albanian label → API `type` code — the inverse of `typeName`. */
+export function typeCode(label: string | null | undefined): string {
+  const entry = Object.entries(TYPE_SQ).find(([, sq]) => sq === label);
+  return entry ? entry[0] : 'regular';
+}
+
+/** The form's draft → the API's training payload. */
+export function draftToInput(d: TrainingDraft): TrainingInput {
+  return {
+    type: typeCode(d.type),
+    field: d.field || null,
+    scheduled_at: `${d.year}-${d.month}-${d.day} ${d.hour}:${d.minute}:00`,
+    duration_minutes: Number(d.duration) || 90,
+    notes: d.note.trim() || null,
+  };
 }
 
 /** Minutes as the screens show them: `90 min`, or the placeholder when absent. */

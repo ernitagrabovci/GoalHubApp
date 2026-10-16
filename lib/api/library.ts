@@ -1,5 +1,12 @@
 import { request } from '@/lib/api/client';
-import type { TrainingLibraryResponse } from '@/lib/api/types';
+import type {
+  ApiTrainingMaterial,
+  LibraryInput,
+  MessageResponse,
+  MutationResponse,
+  TrainingLibraryResponse,
+} from '@/lib/api/types';
+import { buildUploadForm, type PickedFile } from '@/lib/api/upload';
 
 export type LibraryListParams = {
   page?: number;
@@ -33,4 +40,54 @@ export function listLibrary(
     search: params.search,
   });
   return request<TrainingLibraryResponse>(`/library${query}`, { token, signal });
+}
+
+/**
+ * Add a library item, optionally attaching a file. The request goes out as
+ * multipart when a file is present, JSON otherwise.
+ */
+export function createLibrary(
+  token: string,
+  input: LibraryInput,
+  file?: PickedFile | null,
+  signal?: AbortSignal,
+) {
+  const body = file
+    ? buildUploadForm(
+        {
+          title: input.title,
+          level: input.level,
+          category: input.category,
+          description: input.description,
+          shared_team_id: input.shared_team_id,
+        },
+        file,
+      )
+    : input;
+
+  return request<MutationResponse<ApiTrainingMaterial>>('/library', {
+    method: 'POST',
+    body,
+    token,
+    signal,
+  });
+}
+
+/** Edit a library item's metadata (the file itself is immutable). */
+export function updateLibrary(
+  token: string,
+  id: number,
+  input: LibraryInput,
+  signal?: AbortSignal,
+) {
+  return request<MutationResponse<ApiTrainingMaterial>>(`/library/${id}`, {
+    method: 'PATCH',
+    body: input,
+    token,
+    signal,
+  });
+}
+
+export function deleteLibrary(token: string, id: number, signal?: AbortSignal) {
+  return request<MessageResponse>(`/library/${id}`, { method: 'DELETE', token, signal });
 }

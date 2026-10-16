@@ -3,6 +3,7 @@ import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useState } from 'react';
 import {
+  Alert,
   Image,
   Pressable,
   ScrollView,
@@ -13,7 +14,9 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
+import { DeleteAccountModal } from '@/components/settings/delete-account-modal';
 import { Fonts } from '@/constants/theme';
+import { deactivateAccount } from '@/lib/api/account';
 import { ApiError } from '@/lib/api/errors';
 import { I, scaled } from '@/lib/responsive';
 import { useSession, type SessionUser } from '@/lib/session';
@@ -399,7 +402,7 @@ function AdminAccountBody({ user }: { user: SessionUser }) {
 
 function TrainerAccountBody({ user }: { user: SessionUser }) {
   const router = useRouter();
-  const { signOut, updateProfile, changePassword } = useSession();
+  const { token, signOut, updateProfile, changePassword } = useSession();
 
   const [newEmail, setNewEmail] = useState('');
   const [currPass, setCurrPass] = useState('');
@@ -407,6 +410,45 @@ function TrainerAccountBody({ user }: { user: SessionUser }) {
   const [confirmPass, setConfirmPass] = useState('');
   const [msg, setMsg] = useState<Msg | null>(null);
   const [saving, setSaving] = useState(false);
+
+  const [dangerBusy, setDangerBusy] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+
+  const alertError = (e: unknown) =>
+    Alert.alert(
+      'Veprimi dështoi',
+      e instanceof ApiError && e.status !== 0 && e.message
+        ? e.message
+        : 'Nuk mund të lidhemi me serverin. Kontrollo lidhjen.',
+    );
+
+  /* Deactivating is reversible: it flips the flag, then the session ends. */
+  const onDeactivate = () => {
+    if (!token || dangerBusy) return;
+    Alert.alert(
+      'Çaktivizo llogarinë',
+      'Llogaria do të çaktivizohet dhe do të dilni. Mund ta riaktivizoni më vonë.',
+      [
+        { text: 'Anulo', style: 'cancel' },
+        {
+          text: 'Çaktivizo',
+          style: 'destructive',
+          onPress: () => {
+            setDangerBusy(true);
+            deactivateAccount(token)
+              .then(() => {
+                signOut();
+                router.replace('/login');
+              })
+              .catch((e) => {
+                setDangerBusy(false);
+                alertError(e);
+              });
+          },
+        },
+      ],
+    );
+  };
 
   /* One save for both changes: email needs the current password anyway, and a
      new password needs it too — so one current-password field drives both. */
@@ -546,19 +588,42 @@ function TrainerAccountBody({ user }: { user: SessionUser }) {
 
         <View style={styles.dangerActions}>
           <Pressable
+            onPress={onDeactivate}
+            disabled={dangerBusy}
             accessibilityRole="button"
-            style={({ pressed }) => [styles.dangerGhost, pressed && styles.pressed]}
+            style={({ pressed }) => [
+              styles.dangerGhost,
+              dangerBusy && styles.btnOff,
+              pressed && styles.pressed,
+            ]}
           >
             <Text style={styles.dangerGhostText}>Çaktivizo llogarinë</Text>
           </Pressable>
           <Pressable
+            onPress={() => setConfirmingDelete(true)}
+            disabled={dangerBusy}
             accessibilityRole="button"
-            style={({ pressed }) => [styles.dangerFill, pressed && styles.pressed]}
+            style={({ pressed }) => [
+              styles.dangerFill,
+              dangerBusy && styles.btnOff,
+              pressed && styles.pressed,
+            ]}
           >
             <Text style={styles.dangerFillText}>Fshij të gjitha të dhënat</Text>
           </Pressable>
         </View>
       </View>
+
+      {confirmingDelete ? (
+        <DeleteAccountModal
+          token={token}
+          onClose={() => setConfirmingDelete(false)}
+          onDeleted={() => {
+            signOut();
+            router.replace('/login');
+          }}
+        />
+      ) : null}
     </>
   );
 }
