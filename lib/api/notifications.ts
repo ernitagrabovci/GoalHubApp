@@ -1,5 +1,12 @@
 import { request } from '@/lib/api/client';
-import type { ApiBadges, ApiNotification, MessageResponse, Paginated } from '@/lib/api/types';
+import type {
+  ApiBadges,
+  ApiNotification,
+  ApiNotificationPreferences,
+  MessageResponse,
+  NotificationPreferencesResponse,
+  Paginated,
+} from '@/lib/api/types';
 
 /** Newest first, 20 per page. */
 export function listNotifications(
@@ -18,4 +25,23 @@ export function markNotificationsRead(token: string, signal?: AbortSignal) {
 
 export function badges(token: string, signal?: AbortSignal) {
   return request<ApiBadges>('/badges', { token, signal });
+}
+
+/** The signed-in user's platform-notification switches. */
+export function getNotificationPreferences(token: string, signal?: AbortSignal) {
+  return request<NotificationPreferencesResponse>('/notifications/preferences', { token, signal });
+}
+
+/** Save the switches; the server answers with the full, merged set. */
+export function updateNotificationPreferences(
+  token: string,
+  preferences: ApiNotificationPreferences,
+  signal?: AbortSignal,
+) {
+  return request<NotificationPreferencesResponse>('/notifications/preferences', {
+    method: 'PATCH',
+    body: { preferences },
+    token,
+    signal,
+  });
 }

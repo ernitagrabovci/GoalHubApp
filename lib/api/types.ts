@@ -698,3 +698,23 @@ export type ApiMember = {
   last_login_at: string | null;
   created_at: string | null;
 };
+
+/* ───────────────────────  Notification preferences  ─────────────────────── */
+
+/**
+ * The signed-in user's platform-notification switches, from
+ * `GET /notifications/preferences`. Keys mirror the server's allowed set.
+ */
+export type ApiNotificationPreferences = {
+  injury_registered: boolean;
+  fee_overdue: boolean;
+  fee_critical: boolean;
+  attendance_confirm: boolean;
+  new_message: boolean;
+  match_upcoming: boolean;
+};
+
+/** Both preference endpoints answer with the full, merged switch set. */
+export type NotificationPreferencesResponse = {
+  preferences: ApiNotificationPreferences;
+};

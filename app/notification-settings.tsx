@@ -1,7 +1,7 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import {
   Pressable,
   ScrollView,
@@ -12,7 +12,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
+import { ApiError } from '@/lib/api/errors';
+import { getNotificationPreferences, updateNotificationPreferences } from '@/lib/api/notifications';
+import type { ApiNotificationPreferences } from '@/lib/api/types';
 import { I, scaled } from '@/lib/responsive';
+import { useSession } from '@/lib/session';
 
 /**
  * Cilësimet e njoftimeve — the fourth settings sub-page.
@@ -41,50 +45,53 @@ const C = {
   dotYellow: '#E5B600',
   dotGray: '#8B8F91',
   dotBlue: '#4D8FA8',
+
+  error: '#C0392B',
 };
 
-type Pref = { key: string; title: string; desc: string };
+type Pref = { key: keyof ApiNotificationPreferences; title: string; desc: string };
 
 const PLATFORM_PREFS: Pref[] = [
   {
-    key: 'injury',
+    key: 'injury_registered',
     title: 'Lëndim i regjistruar',
     desc: 'Njofton administratorin kur trajneri regjistron lëndim',
   },
   {
-    key: 'overdueFee',
+    key: 'fee_overdue',
     title: 'Kuotë e vonuar',
     desc: 'Njofton kur kuota e anëtarësisë kalon afatin',
   },
   {
-    key: 'criticalFee',
+    key: 'fee_critical',
     title: 'Kuotë kritike (>30 ditë)',
     desc: 'Njofton kur kuota kalon >30 ditë pa pagesë',
   },
   {
-    key: 'attendance',
+    key: 'attendance_confirm',
     title: 'Konfirmim prezence',
     desc: 'Njofton trajnerin kur lojtarët konfirmojnë prezencën',
   },
   {
-    key: 'newMessage',
+    key: 'new_message',
     title: 'Mesazh i ri',
     desc: 'Njofton kur arrin mesazh të ri',
   },
   {
-    key: 'upcomingMatch',
+    key: 'match_upcoming',
     title: 'Ndeshje e afërt (24h)',
     desc: 'Njofton klubin 24 orë para ndeshjes',
   },
 ];
 
-const INITIAL_PREFS: Record<string, boolean> = {
-  injury: true,
-  overdueFee: true,
-  criticalFee: true,
-  attendance: false,
-  newMessage: true,
-  upcomingMatch: true,
+/* Shown until the server answers, so the switches don't flash to "off". */
+const DEFAULT_PREFS: ApiNotificationPreferences = {
+  injury_registered: true,
+  fee_overdue: true,
+  fee_critical: true,
+  attendance_confirm: false,
+  new_message: true,
+  match_upcoming: true,
 };
 
 type EmailRow = { title: string; desc: string; active: boolean };
@@ -216,9 +223,72 @@ function AutomationRow({
 
 export default function NotificationSettingsScreen() {
   const router = useRouter();
+  const { token, signOut } = useSession();
 
-  const [prefs, setPrefs] = useState<Record<string, boolean>>(INITIAL_PREFS);
-  const toggle = (key: string) => setPrefs((p) => ({ ...p, [key]: !p[key] }));
+  const [prefs, setPrefs] = useState<ApiNotificationPreferences | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!token) return;
+    const controller = new AbortController();
+
+    getNotificationPreferences(token, controller.signal)
+      .then((res) => {
+        if (controller.signal.aborted) return;
+        setPrefs(res.preferences);
+        setError(null);
+      })
+      .catch((err) => {
+        if (controller.signal.aborted) return;
+        if (err instanceof ApiError && err.status === 401) {
+          signOut();
+          router.replace('/login');
+          return;
+        }
+        setError(
+          err instanceof ApiError && err.status === 0
+            ? 'Nuk mund të lidhemi me serverin. Kontrollo lidhjen.'
+            : 'Nuk mund të ngarkohen preferencat.',
+        );
+      });
+
+    return () => controller.abort();
+  }, [token, router, signOut]);
+
+  const shown = prefs ?? DEFAULT_PREFS;
+
+  const toggle = (key: keyof ApiNotificationPreferences) => {
+    setSaved(false);
+    setPrefs((p) => (p ? { ...p, [key]: !p[key] } : p));
+  };
+
+  const onSave = () => {
+    if (!token || !prefs || saving) return;
+    setSaving(true);
+    setSaved(false);
+    setError(null);
+
+    updateNotificationPreferences(token, prefs)
+      .then((res) => {
+        setPrefs(res.preferences);
+        setSaved(true);
+      })
+      .catch((err) => {
+        if (err instanceof ApiError && err.status === 401) {
+          signOut();
+          router.replace('/login');
+          return;
+        }
+        setError(
+          err instanceof ApiError && err.status === 0
+            ? 'Nuk mund të lidhemi me serverin. Kontrollo lidhjen.'
+            : 'Nuk mund të ruhen preferencat.',
+        );
+      })
+      .finally(() => setSaving(false));
+  };
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
@@ -260,7 +330,7 @@ export default function NotificationSettingsScreen() {
                     key={p.key}
                     title={p.title}
                     desc={p.desc}
-                    on={prefs[p.key]}
+                    on={shown[p.key]}
                     onToggle={() => toggle(p.key)}
                     last={i === PLATFORM_PREFS.length - 1}
                   />
@@ -269,11 +339,23 @@ export default function NotificationSettingsScreen() {
 
               <View style={styles.saveWrap}>
                 <Pressable
+                  onPress={onSave}
+                  disabled={!prefs || saving}
                   accessibilityRole="button"
-                  style={({ pressed }) => [styles.saveBtn, pressed && styles.pressed]}
+                  accessibilityLabel="Ruaj preferencat"
+                  style={({ pressed }) => [
+                    styles.saveBtn,
+                    (!prefs || saving) && styles.saveBtnDisabled,
+                    pressed && styles.pressed,
+                  ]}
                 >
-                  <Text style={styles.saveBtnText}>Ruaj preferencat</Text>
+                  <Text style={styles.saveBtnText}>
+                    {saving ? 'Duke ruajtur…' : 'Ruaj preferencat'}
+                  </Text>
                 </Pressable>
+
+                {saved ? <Text style={styles.saveNote}>Preferencat u ruajtën.</Text> : null}
+                {error ? <Text style={styles.saveError}>{error}</Text> : null}
               </View>
             </Card>
 
@@ -548,6 +630,26 @@ const styles = StyleSheet.create(
       justifyContent: 'center',
       backgroundColor: C.on,
       borderRadius: 3,
+    },
+
+    saveBtnDisabled: {
+      opacity: 0.6,
+    },
+
+    saveNote: {
+      marginTop: 8,
+      fontFamily: Fonts.body,
+      fontSize: 12,
+      lineHeight: 16,
+      color: C.on,
+    },
+
+    saveError: {
+      marginTop: 8,
+      fontFamily: Fonts.body,
+      fontSize: 12,
+      lineHeight: 16,
+      color: C.error,
     },
 
     saveBtnText: {
