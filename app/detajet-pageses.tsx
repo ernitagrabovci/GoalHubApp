@@ -1,4 +1,5 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import * as DocumentPicker from 'expo-document-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
@@ -16,6 +17,7 @@ import { Fonts } from '@/constants/theme';
 import { ApiError } from '@/lib/api/errors';
 import { getFee, listFees, registerPayment } from '@/lib/api/finance';
 import type { ApiFee } from '@/lib/api/types';
+import type { PickedFile } from '@/lib/api/upload';
 import { dmy, monthLabel, statusLabel, STATUS_TONE, usd } from '@/lib/finance';
 import { I, scaled } from '@/lib/responsive';
 import { useSession } from '@/lib/session';
@@ -112,8 +114,21 @@ export default function PaymentDetailScreen() {
   const [year, setYear] = useState('');
   const [method, setMethod] = useState(PAY_METHODS[0]);
   const [invoice, setInvoice] = useState('');
+  const [doc, setDoc] = useState<PickedFile | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  /* Only pdf/jpg/jpeg/png are accepted by the backend's `document` rule. */
+  const pickDoc = async () => {
+    const res = await DocumentPicker.getDocumentAsync({
+      type: ['application/pdf', 'image/jpeg', 'image/png'],
+      copyToCacheDirectory: true,
+      multiple: false,
+    });
+    if (res.canceled || !res.assets?.[0]) return;
+    const asset = res.assets[0];
+    setDoc({ uri: asset.uri, name: asset.name, mimeType: asset.mimeType ?? null });
+  };
 
   /* The viewed fee, and the player's other periods for the trailing list. */
   useEffect(() => {
@@ -173,13 +188,17 @@ export default function PaymentDetailScreen() {
     setSaving(true);
     setError(null);
 
-    registerPayment(token, {
-      player_id: playerId,
-      fee_ids: [feeId],
-      paid_at: paidAt,
-      payment_method: METHOD_VALUE[method] ?? 'cash',
-      invoice_number: invoice.trim() || undefined,
-    })
+    registerPayment(
+      token,
+      {
+        player_id: playerId,
+        fee_ids: [feeId],
+        paid_at: paidAt,
+        payment_method: METHOD_VALUE[method] ?? 'cash',
+        invoice_number: invoice.trim() || undefined,
+      },
+      doc
+    )
       .then(() => {
         setSaving(false);
         setDay('');
@@ -288,6 +307,14 @@ export default function PaymentDetailScreen() {
 
                 <View style={styles.pLine} />
                 <Pressable
+                  onPress={() =>
+                    playerId != null &&
+                    router.push({
+                      pathname: '/player-profile',
+                      params: { id: String(playerId), name, team },
+                    })
+                  }
+                  disabled={playerId == null}
                   accessibilityRole="button"
                   accessibilityLabel="Shiko profilin e plotë"
                   style={({ pressed }) => [styles.pLinkWrap, pressed && styles.pressed]}
@@ -414,6 +441,7 @@ export default function PaymentDetailScreen() {
                 {/* Same upload zone as the register-payment popup. */}
                 <View style={styles.fileZone}>
                   <Pressable
+                    onPress={pickDoc}
                     accessibilityRole="button"
                     accessibilityLabel="Ngarko dokumentin e pagesës"
                     style={({ pressed }) => [styles.fileBtn, pressed && styles.pressed]}
@@ -426,7 +454,9 @@ export default function PaymentDetailScreen() {
                       />
                     </View>
                   </Pressable>
-                  <Text style={styles.fileHint}>Choose file</Text>
+                  <Text style={styles.fileHint} numberOfLines={1}>
+                    {doc?.name ?? 'Choose file'}
+                  </Text>
                 </View>
 
                 {error ? <Text style={styles.formError}>{error}</Text> : null}
@@ -516,6 +546,14 @@ export default function PaymentDetailScreen() {
                 )}
 
                 <Pressable
+                  onPress={() =>
+                    playerId != null &&
+                    router.push({
+                      pathname: '/pagesa-lojtari',
+                      params: { playerId: String(playerId), name, team },
+                    })
+                  }
+                  disabled={playerId == null}
                   accessibilityRole="button"
                   accessibilityLabel="Shiko të gjitha"
                   style={({ pressed }) => [styles.allRow, pressed && styles.pressed]}

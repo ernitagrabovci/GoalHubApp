@@ -1,4 +1,5 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import * as DocumentPicker from 'expo-document-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useState } from 'react';
@@ -9,6 +10,7 @@ import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
 import { ApiError } from '@/lib/api/errors';
 import { registerPayment } from '@/lib/api/finance';
+import type { PickedFile } from '@/lib/api/upload';
 import { I, scaled } from '@/lib/responsive';
 import { useSession } from '@/lib/session';
 
@@ -92,8 +94,21 @@ export default function RegisterPaymentScreen() {
   const status = params.status ?? '—';
 
   const [method, setMethod] = useState(PAY_METHODS[0]);
+  const [doc, setDoc] = useState<PickedFile | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  /* Only pdf/jpg/jpeg/png are accepted by the backend's `document` rule. */
+  const pickDoc = async () => {
+    const res = await DocumentPicker.getDocumentAsync({
+      type: ['application/pdf', 'image/jpeg', 'image/png'],
+      copyToCacheDirectory: true,
+      multiple: false,
+    });
+    if (res.canceled || !res.assets?.[0]) return;
+    const asset = res.assets[0];
+    setDoc({ uri: asset.uri, name: asset.name, mimeType: asset.mimeType ?? null });
+  };
 
   const save = () => {
     if (!token || saving) return;
@@ -105,12 +120,16 @@ export default function RegisterPaymentScreen() {
     setSaving(true);
     setError(null);
 
-    registerPayment(token, {
-      player_id: playerId,
-      fee_ids: [feeId],
-      paid_at: today(),
-      payment_method: METHOD_VALUE[method] ?? 'cash',
-    })
+    registerPayment(
+      token,
+      {
+        player_id: playerId,
+        fee_ids: [feeId],
+        paid_at: today(),
+        payment_method: METHOD_VALUE[method] ?? 'cash',
+      },
+      doc
+    )
       .then(() => router.back())
       .catch((err) => {
         if (err instanceof ApiError && err.status === 401) {
@@ -247,6 +266,7 @@ export default function RegisterPaymentScreen() {
 
                 <View style={styles.fileRow}>
                   <Pressable
+                    onPress={pickDoc}
                     accessibilityRole="button"
                     accessibilityLabel="Ngarko dëshminë e pagesës"
                     style={({ pressed }) => [styles.fileCircle, pressed && styles.pressed]}
@@ -259,7 +279,7 @@ export default function RegisterPaymentScreen() {
                   </Pressable>
 
                   <Text style={styles.fileHint} numberOfLines={1}>
-                    Choose file
+                    {doc?.name ?? 'Choose file'}
                   </Text>
                 </View>
 

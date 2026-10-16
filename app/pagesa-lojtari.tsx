@@ -8,6 +8,7 @@ import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
+import { RegisterPaymentModal } from '@/components/finance/register-payment-modal';
 import { Fonts } from '@/constants/theme';
 import { ApiError } from '@/lib/api/errors';
 import { listFees } from '@/lib/api/finance';
@@ -84,6 +85,7 @@ export default function PlayerQuotaScreen() {
   const name = params.name ?? '—';
   const team = params.team ?? '—';
   const playerId = params.playerId ? Number(params.playerId) : null;
+  const canRegister = playerId != null && !Number.isNaN(playerId);
 
   /* Unfiltered first page drives the headline squares; the table pages itself. */
   const [summary, setSummary] = useState<ApiFee[] | null>(null);
@@ -91,6 +93,9 @@ export default function PlayerQuotaScreen() {
   const [filter, setFilter] = useState(0);
   const [page, setPage] = useState(1);
   const [error, setError] = useState<string | null>(null);
+  const [registering, setRegistering] = useState(false);
+  /** Bumped after a payment is registered, to refetch the summary and the table. */
+  const [version, setVersion] = useState(0);
 
   useEffect(() => {
     if (!token || !playerId || Number.isNaN(playerId)) return;
@@ -110,7 +115,7 @@ export default function PlayerQuotaScreen() {
       });
 
     return () => controller.abort();
-  }, [token, playerId, router, signOut]);
+  }, [token, playerId, version, router, signOut]);
 
   useEffect(() => {
     if (!token || !playerId || Number.isNaN(playerId)) return;
@@ -137,7 +142,7 @@ export default function PlayerQuotaScreen() {
       });
 
     return () => controller.abort();
-  }, [token, playerId, filter, page, router, signOut]);
+  }, [token, playerId, filter, page, version, router, signOut]);
 
   const picked = (status: FeeStatus) => (summary ?? []).filter((f) => f.status === status);
   const total = (rows: ApiFee[]) =>
@@ -290,9 +295,15 @@ export default function PlayerQuotaScreen() {
             {/* ── Register ──────────────────────────────────────── */}
             <View style={styles.actions}>
               <Pressable
+                onPress={() => setRegistering(true)}
+                disabled={!canRegister}
                 accessibilityRole="button"
                 accessibilityLabel="Regjistro pagesën"
-                style={({ pressed }) => [styles.controlBtn, pressed && styles.pressed]}
+                style={({ pressed }) => [
+                  styles.controlBtn,
+                  !canRegister && styles.controlBtnOff,
+                  pressed && styles.pressed,
+                ]}
               >
                 <View style={styles.plusCircle}>
                   <MaterialCommunityIcons name="plus" size={I(15)} color="#F5F5F5" />
@@ -477,6 +488,26 @@ export default function PlayerQuotaScreen() {
           </View>
         </ScrollView>
       </View>
+
+      {registering && canRegister ? (
+        <View style={styles.ovWrap}>
+          <BlurView style={styles.ovFill} intensity={45} tint="dark" />
+          <Pressable
+            style={[styles.ovFill, styles.ovDim]}
+            onPress={() => setRegistering(false)}
+            accessibilityRole="button"
+            accessibilityLabel="Mbylle dritaren"
+          />
+          <RegisterPaymentModal
+            fixedPlayer={{ id: playerId, label: name }}
+            onClose={() => setRegistering(false)}
+            onSaved={() => {
+              setRegistering(false);
+              setVersion((v) => v + 1);
+            }}
+          />
+        </View>
+      ) : null}
     </SafeAreaView>
   );
 }
@@ -820,6 +851,33 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodySemiBold,
       fontSize: 14,
       color: '#F5F5F5',
+    },
+
+    controlBtnOff: {
+      opacity: 0.5,
+    },
+
+    /* Overlay for the register-payment dialog. */
+    ovWrap: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      zIndex: 20,
+      alignItems: 'center',
+    },
+
+    ovFill: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+    },
+
+    ovDim: {
+      backgroundColor: 'rgba(0,0,0,0.42)',
     },
 
     pressed: {

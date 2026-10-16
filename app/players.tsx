@@ -505,11 +505,17 @@ export default function PlayersScreen() {
                         </Text>
                         <View style={[styles.rowActions, { width: ACTIONS_W }]}>
                           <Pressable
+                            onPress={() =>
+                              router.push({
+                                pathname: '/player-profile',
+                                params: { id: String(p.id), name: p.name ?? '', team, nr },
+                              })
+                            }
                             accessibilityRole="button"
-                            accessibilityLabel="Shto"
+                            accessibilityLabel={`Shiko ${p.name ?? 'lojtarin'}`}
                             style={({ pressed }) => [styles.rowBtn, pressed && styles.pressed]}
                           >
-                            <Text style={styles.rowBtnText}>Shto</Text>
+                            <Text style={styles.rowBtnText}>Shiko</Text>
                           </Pressable>
                           <Pressable
                             onPress={() =>

@@ -8,7 +8,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
 import { ApiError } from '@/lib/api/errors';
-import { getPlayer } from '@/lib/api/players';
+import { getPlayer, listPlayers } from '@/lib/api/players';
 import type { ApiPlayer } from '@/lib/api/types';
 import { positionLabel } from '@/lib/player-position';
 import { statusLabel } from '@/lib/player-status';
@@ -126,6 +126,10 @@ export default function PlayerProfileScreen() {
   const playerId = params.id ? Number(params.id) : null;
   const [player, setPlayer] = useState<ApiPlayer | null>(null);
 
+  /* The squad behind the header selector — picking one reloads the page. */
+  const [roster, setRoster] = useState<ApiPlayer[]>([]);
+  const [pickerOpen, setPickerOpen] = useState(false);
+
   useEffect(() => {
     if (!token || !playerId || Number.isNaN(playerId)) return;
     const controller = new AbortController();
@@ -145,6 +149,36 @@ export default function PlayerProfileScreen() {
 
     return () => controller.abort();
   }, [token, playerId, router, signOut]);
+
+  useEffect(() => {
+    if (!token) return;
+    const controller = new AbortController();
+
+    listPlayers(token, {}, controller.signal)
+      .then((res) => {
+        if (controller.signal.aborted) return;
+        setRoster(res.data);
+      })
+      .catch((e) => {
+        if (controller.signal.aborted) return;
+        if (e instanceof ApiError && e.status === 401) {
+          signOut();
+          router.replace('/login');
+        }
+      });
+
+    return () => controller.abort();
+  }, [token, router, signOut]);
+
+  const pickPlayer = (p: ApiPlayer) => {
+    setPickerOpen(false);
+    router.setParams({
+      id: String(p.id),
+      name: p.name ?? '',
+      team: p.team?.name ?? '',
+      nr: p.jersey_number != null ? String(p.jersey_number) : '',
+    });
+  };
 
   const name = player?.name ?? params.name ?? 'Narti Cerkini';
   const team = player?.team?.name ?? params.team ?? 'Ekipi i Parë';
@@ -200,16 +234,48 @@ export default function PlayerProfileScreen() {
         >
           <View style={styles.colPad}>
             {/* ── Player selector ───────────────────────────────── */}
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Zgjidh lojtarin"
-              style={({ pressed }) => [styles.playerBtn, pressed && styles.pressed]}
-            >
-              <Text style={styles.playerBtnText} numberOfLines={1}>
-                {name}
-              </Text>
-              <MaterialCommunityIcons name="chevron-down" size={I(15)} color="#000000" />
-            </Pressable>
+            <View style={styles.pickerWrap}>
+              <Pressable
+                onPress={() => setPickerOpen((v) => !v)}
+                accessibilityRole="button"
+                accessibilityLabel="Zgjidh lojtarin"
+                style={({ pressed }) => [styles.playerBtn, pressed && styles.pressed]}
+              >
+                <Text style={styles.playerBtnText} numberOfLines={1}>
+                  {name}
+                </Text>
+                <MaterialCommunityIcons name="chevron-down" size={I(15)} color="#000000" />
+              </Pressable>
+
+              {pickerOpen ? (
+                <ScrollView
+                  style={styles.playerMenu}
+                  nestedScrollEnabled
+                  keyboardShouldPersistTaps="handled"
+                >
+                  {roster.length === 0 ? (
+                    <Text style={styles.playerMenuEmpty}>Nuk ka lojtarë.</Text>
+                  ) : (
+                    roster.map((p) => (
+                      <Pressable
+                        key={p.id}
+                        onPress={() => pickPlayer(p)}
+                        accessibilityRole="button"
+                        accessibilityLabel={p.name ?? 'Lojtari'}
+                        style={({ pressed }) => [
+                          styles.playerMenuItem,
+                          pressed && styles.pressed,
+                        ]}
+                      >
+                        <Text style={styles.playerMenuItemText} numberOfLines={1}>
+                          {p.name ?? '—'}
+                        </Text>
+                      </Pressable>
+                    ))
+                  )}
+                </ScrollView>
+              ) : null}
+            </View>
 
             {/* ── Identity + finances ───────────────────────────── */}
             <View style={styles.duo}>
@@ -485,6 +551,42 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodyBold,
       fontSize: 12,
       color: '#000000',
+    },
+
+    /* Menu opens directly under the button, capped so a long squad scrolls. */
+    pickerWrap: {
+      zIndex: 5,
+    },
+
+    playerMenu: {
+      maxHeight: 220,
+      marginTop: 3,
+      backgroundColor: C.blue2,
+      borderWidth: 1,
+      borderColor: C.border,
+      borderRadius: 4,
+    },
+
+    playerMenuItem: {
+      minHeight: 34,
+      justifyContent: 'center',
+      paddingHorizontal: 12,
+      borderBottomWidth: 1,
+      borderBottomColor: C.line,
+    },
+
+    playerMenuItemText: {
+      fontFamily: Fonts.body,
+      fontSize: 12,
+      color: C.text,
+    },
+
+    playerMenuEmpty: {
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      fontFamily: Fonts.body,
+      fontSize: 12,
+      color: C.hint,
     },
 
     /* ── Parallel card rows ──────────────────────────────────── */

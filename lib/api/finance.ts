@@ -6,6 +6,7 @@ import type {
   Paginated,
   PlayerPeriods,
 } from '@/lib/api/types';
+import { buildUploadForm, type PickedFile } from '@/lib/api/upload';
 
 export type FeeListParams = {
   page?: number;
@@ -66,7 +67,38 @@ export type RegisterPaymentInput = {
   invoice_number?: string;
 };
 
-export function registerPayment(token: string, input: RegisterPaymentInput, signal?: AbortSignal) {
+/**
+ * Settles one or more fees / future periods. When a `document` is attached the
+ * request goes out as multipart (the backend accepts pdf/jpg/jpeg/png, ≤5 MB,
+ * under the `document` field); otherwise it stays a plain JSON POST.
+ */
+export function registerPayment(
+  token: string,
+  input: RegisterPaymentInput,
+  document?: PickedFile | null,
+  signal?: AbortSignal
+) {
+  if (document) {
+    const form = buildUploadForm(
+      {
+        player_id: input.player_id,
+        fee_ids: input.fee_ids,
+        new_periods: input.new_periods,
+        paid_at: input.paid_at,
+        payment_method: input.payment_method,
+        invoice_number: input.invoice_number,
+      },
+      document,
+      'document'
+    );
+    return request<{ message: string; count: number }>('/finance/payments', {
+      method: 'POST',
+      token,
+      body: form,
+      signal,
+    });
+  }
+
   return request<{ message: string; count: number }>('/finance/payments', {
     method: 'POST',
     token,
