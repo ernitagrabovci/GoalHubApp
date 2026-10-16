@@ -1,12 +1,18 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
+import { ApiError } from '@/lib/api/errors';
+import { listMyTrainings } from '@/lib/api/trainings';
+import type { ApiTraining } from '@/lib/api/types';
 import { I, scaled } from '@/lib/responsive';
+import { useSession } from '@/lib/session';
+import { attendanceLabel, durationLabel, trainingDate, trainingTime, typeName } from '@/lib/trainings';
 
 /**
  * Stërvitjet — opened from "Stërvitjet" on the player's dashboard. The squad's
@@ -26,6 +32,7 @@ const C = {
 
   /* blue2 = the table card's wash. */
   blue2: '#F6FBFF',
+  blueBtn: '#86BCFD',
 };
 
 type ColKey = 'type' | 'when' | 'where' | 'attendance';
@@ -41,74 +48,76 @@ const COLS: { key: ColKey; label: string; width: number }[] = [
 const ACTION_W = 56;
 
 type Session = {
+  id: number;
   type: string;
   when: string;
   where: string;
   attendance: string;
+  /** The raw status, carried to the detail page so it can name the state. */
+  status: string;
   duration: string;
 };
 
-const SESSIONS: Session[] = [
-  {
-    type: 'Trajnim Taktik',
-    when: '29 Aug 2026 • 09:00',
-    where: 'Fusha Kryesore',
-    attendance: 'Prezent',
-    duration: '90 min',
-  },
-  {
-    type: 'Kondicionim',
-    when: '27 Aug 2026 • 17:30',
-    where: 'Fusha 2',
-    attendance: 'Prezent',
-    duration: '75 min',
-  },
-  {
-    type: 'Teknikë',
-    when: '25 Aug 2026 • 09:00',
-    where: 'Fusha Kryesore',
-    attendance: 'Mungesë',
-    duration: '60 min',
-  },
-  {
-    type: 'Fizik',
-    when: '23 Aug 2026 • 18:00',
-    where: 'Palestra',
-    attendance: 'Prezent',
-    duration: '60 min',
-  },
-  {
-    type: 'Ndeshje miqësore',
-    when: '21 Aug 2026 • 16:00',
-    where: 'Fusha Kryesore',
-    attendance: 'Prezent',
-    duration: '90 min',
-  },
-  {
-    type: 'Taktikë',
-    when: '19 Aug 2026 • 09:00',
-    where: 'Fusha 2',
-    attendance: 'Prezent',
-    duration: '75 min',
-  },
-  {
-    type: 'Gjuajtje',
-    when: '17 Aug 2026 • 17:30',
-    where: 'Fusha Kryesore',
-    attendance: 'Mungesë',
-    duration: '60 min',
-  },
-  {
-    type: 'Rikuperim',
-    when: '15 Aug 2026 • 10:00',
-    where: 'Palestra',
-    attendance: 'Prezent',
-    duration: '45 min',
-  },
-];
+/** One API training, laid onto the schedule row. `my_attendance` is the
+ *  caller's own status, present only on this player-scoped list. */
+function toSession(t: ApiTraining): Session {
+  return {
+    id: t.id,
+    type: typeName(t.type),
+    when: `${trainingDate(t.scheduled_at)} • ${trainingTime(t.scheduled_at)}`,
+    where: t.field ?? '—',
+    attendance: attendanceLabel(t.my_attendance),
+    status: t.my_attendance ?? 'unconfirmed',
+    duration: durationLabel(t.duration_minutes),
+  };
+}
+
+/** A short run of page numbers ending at `last`, capped for width. */
+function pageWindow(current: number, last: number, span = 4): number[] {
+  const start = Math.max(1, Math.min(current, last - span + 1));
+  const end = Math.min(last, start + span - 1);
+  return Array.from({ length: Math.max(0, end - start + 1) }, (_, i) => start + i);
+}
 
 export default function PlayerTrainingsScreen() {
   const router = useRouter();
+  const { token, signOut } = useSession();
+
+  const [sessions, setSessions] = useState<Session[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [lastPage, setLastPage] = useState(1);
+
+  useEffect(() => {
+    if (!token) return;
+    const controller = new AbortController();
+
+    listMyTrainings(token, { page }, controller.signal)
+      .then((res) => {
+        if (controller.signal.aborted) return;
+        setSessions(res.data.map(toSession));
+        setLastPage(res.meta.last_page);
+        setError(null);
+      })
+      .catch((err) => {
+        if (controller.signal.aborted) return;
+        if (err instanceof ApiError && err.status === 401) {
+          signOut();
+          router.replace('/login');
+          return;
+        }
+        setError(
+          err instanceof ApiError && err.status === 0
+            ? 'Nuk mund të lidhemi me serverin. Kontrollo lidhjen.'
+            : 'Nuk mund të ngarkohen stërvitjet.',
+        );
+      });
+
+    return () => controller.abort();
+  }, [token, router, signOut, page]);
+
+  const rows = sessions ?? [];
+  const current = Math.min(page, Math.max(1, lastPage));
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
@@ -167,8 +176,8 @@ export default function PlayerTrainingsScreen() {
                     <View style={{ width: ACTION_W }} />
                   </View>
 
-                  {SESSIONS.map((s) => (
-                    <View key={`${s.type}-${s.when}`} style={[styles.tr, styles.trBorder]}>
+                  {rows.map((s) => (
+                    <View key={s.id} style={[styles.tr, styles.trBorder]}>
                       <Text
                         style={[styles.td, styles.tdType, { width: 124 }]}
                         numberOfLines={1}
@@ -200,6 +209,7 @@ export default function PlayerTrainingsScreen() {
                                 field: s.where,
                                 type: s.type,
                                 duration: s.duration,
+                                attendance: s.status,
                               },
                             });
                           }}
@@ -212,9 +222,67 @@ export default function PlayerTrainingsScreen() {
                       </View>
                     </View>
                   ))}
+
+                  {rows.length === 0 ? (
+                    <View style={styles.tr}>
+                      <Text style={styles.empty} numberOfLines={2}>
+                        {error ?? (sessions ? 'Nuk ka stërvitje.' : '…')}
+                      </Text>
+                    </View>
+                  ) : null}
                 </View>
               </ScrollView>
             </View>
+
+            {/* ── Pager ─────────────────────────────────────────── */}
+            {lastPage > 1 ? (
+              <View style={styles.pager}>
+                <Pressable
+                  onPress={() => setPage(current - 1)}
+                  disabled={current <= 1}
+                  accessibilityRole="button"
+                  accessibilityLabel="Faqja e mëparshme"
+                  hitSlop={8}
+                  style={({ pressed }) => [
+                    styles.pagerArrow,
+                    current <= 1 && styles.pagerDisabled,
+                    pressed && styles.pressed,
+                  ]}
+                >
+                  <MaterialCommunityIcons name="chevron-left" size={I(22)} color={C.text} />
+                </Pressable>
+
+                {pageWindow(current, lastPage).map((p) => (
+                  <Pressable
+                    key={p}
+                    onPress={() => setPage(p)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Faqja ${p}`}
+                    style={({ pressed }) => [
+                      p === current ? styles.pageSqActive : styles.pageSq,
+                      pressed && styles.pressed,
+                    ]}
+                  >
+                    <Text style={styles.pageSqText}>{p}</Text>
+                  </Pressable>
+                ))}
+
+                <Pressable
+                  onPress={() => setPage(current + 1)}
+                  disabled={current >= lastPage}
+                  accessibilityRole="button"
+                  accessibilityLabel="Faqja tjetër"
+                  hitSlop={8}
+                  style={({ pressed }) => [
+                    styles.pagerArrow,
+                    current >= lastPage && styles.pagerDisabled,
+                    pressed && styles.pressed,
+                  ]}
+                >
+                  <MaterialCommunityIcons name="chevron-right" size={I(22)} color={C.text} />
+                </Pressable>
+              </View>
+            ) : null}
           </View>
         </ScrollView>
       </View>
@@ -345,6 +413,15 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodySemiBold,
     },
 
+    /* The load error / empty-list line, spanning the row. */
+    empty: {
+      flex: 1,
+      fontFamily: Fonts.body,
+      fontSize: 11,
+      lineHeight: 15,
+      color: C.gray,
+    },
+
     /* Transparent, so the row reads through it. */
     actions: {
       flexDirection: 'row',
@@ -366,6 +443,48 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodySemiBold,
       fontSize: 10.5,
       color: C.text,
+    },
+
+    /* ── Pager ───────────────────────────────────────────────── */
+    pager: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'flex-end',
+      gap: 6,
+      marginTop: 12,
+    },
+
+    pagerArrow: {
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+
+    pagerDisabled: {
+      opacity: 0.3,
+    },
+
+    pageSq: {
+      width: 34,
+      height: 34,
+      borderRadius: 5,
+      backgroundColor: C.blueBtn,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+
+    pageSqActive: {
+      width: 34,
+      height: 34,
+      borderRadius: 5,
+      backgroundColor: '#4E90D8',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+
+    pageSqText: {
+      fontFamily: Fonts.bodySemiBold,
+      fontSize: 14,
+      color: '#F5F5F5',
     },
 
     pressed: {

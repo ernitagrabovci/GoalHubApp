@@ -43,50 +43,6 @@ const C = {
 
 const MONTHS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
 
-/* ── The player's own line ─────────────────────────────────────────── */
-
-const MY_STATS = { minutes: '---', goals: '0', assists: '0', yellow: '0', red: '0' };
-
-/* ── Squad statistics ──────────────────────────────────────────────── */
-
-type StatRow = {
-  name: string;
-  goals: number;
-  assists: number;
-  min: number;
-  yellow: boolean;
-  red: boolean;
-};
-
-const STATS: StatRow[] = [
-  { name: 'Driton Demiri', goals: 0, assists: 0, min: 90, yellow: false, red: false },
-  { name: 'Enver Mustafa', goals: 0, assists: 1, min: 90, yellow: true, red: false },
-  { name: 'Ardit Lapashtica', goals: 1, assists: 0, min: 90, yellow: false, red: false },
-  { name: 'Narti Cerkini', goals: 0, assists: 0, min: 90, yellow: false, red: false },
-  { name: 'Blerim Krasniqi', goals: 0, assists: 2, min: 78, yellow: false, red: false },
-  { name: 'Endrit Gashi', goals: 0, assists: 0, min: 90, yellow: true, red: false },
-  { name: 'Leart Berisha', goals: 1, assists: 0, min: 90, yellow: false, red: false },
-  { name: 'Riad Hoxha', goals: 0, assists: 1, min: 64, yellow: false, red: false },
-  { name: 'Arbnor Zeka', goals: 0, assists: 0, min: 90, yellow: false, red: true },
-  { name: 'Dion Nimani', goals: 0, assists: 0, min: 26, yellow: false, red: false },
-];
-
-type Starter = { name: string; position: string };
-
-const STARTERS: Starter[] = [
-  { name: 'Driton Demiri', position: 'Portjer' },
-  { name: 'Enver Mustafa', position: 'Mbrojtës' },
-  { name: 'Ardit Lapashtica', position: 'Mbrojtës' },
-  { name: 'Narti Cerkini', position: 'Mbrojtës' },
-  { name: 'Blerim Krasniqi', position: 'Mbrojtës' },
-  { name: 'Endrit Gashi', position: 'Mesfushor' },
-  { name: 'Leart Berisha', position: 'Mesfushor' },
-  { name: 'Riad Hoxha', position: 'Mesfushor' },
-  { name: 'Arbnor Zeka', position: 'Sulmues' },
-  { name: 'Dion Nimani', position: 'Sulmues' },
-  { name: 'Yll Demaku', position: 'Sulmues' },
-];
-
 /** "18/08/2026" → "18 Aug 2026". */
 function formatDate(date: string): string {
   const [day, month, year] = date.split('/');
@@ -260,17 +216,19 @@ export default function PlayerPlayedMatchScreen() {
               <View style={styles.headLine} />
 
               <View style={styles.body}>
+                {/* The player's own line. The match API carries no per-player
+                    statistics yet, so every figure reads as the placeholder. */}
                 <View style={styles.statRow}>
-                  <MyStat label="Minuta të luajtura" value={MY_STATS.minutes} />
-                  <MyStat label="Gola" value={MY_STATS.goals} />
-                  <MyStat label="Asiste" value={MY_STATS.assists} />
+                  <MyStat label="Minuta të luajtura" value="—" />
+                  <MyStat label="Gola" value="—" />
+                  <MyStat label="Asiste" value="—" />
                 </View>
 
                 {/* Only the top row carries the rules, so the two cards below
                     sit plain. */}
                 <View style={styles.statRow}>
-                  <MyStat label="Kartona të verdhë" value={MY_STATS.yellow} rule={false} />
-                  <MyStat label="Kartona të kuq" value={MY_STATS.red} rule={false} />
+                  <MyStat label="Kartona të verdhë" value="—" rule={false} />
+                  <MyStat label="Kartona të kuq" value="—" rule={false} />
                   {/* Keeps the second row on the same columns as the first. */}
                   <View style={styles.statCell} />
                 </View>
@@ -298,27 +256,13 @@ export default function PlayerPlayedMatchScreen() {
                   </View>
                 </View>
 
-                {STATS.map((p) => (
-                  <View key={p.name} style={[styles.tr, styles.trBorder]}>
-                    <Text
-                      style={[styles.tdName, styles.colName]}
-                      numberOfLines={1}
-                      adjustsFontSizeToFit
-                      minimumFontScale={0.7}
-                    >
-                      {p.name}
-                    </Text>
-                    <Text style={[styles.td, styles.colStat]}>{p.goals}</Text>
-                    <Text style={[styles.td, styles.colStat]}>{p.assists}</Text>
-                    <Text style={[styles.td, styles.colStat]}>{p.min}</Text>
-                    <View style={styles.colCard}>
-                      {p.yellow ? <View style={[styles.cardSq, { backgroundColor: C.yellow }]} /> : null}
-                    </View>
-                    <View style={styles.colCard}>
-                      {p.red ? <View style={[styles.cardSq, { backgroundColor: C.red }]} /> : null}
-                    </View>
-                  </View>
-                ))}
+                {/* The squad's lines arrive with the match, which the player
+                    has no endpoint for yet. */}
+                <View style={styles.tr}>
+                  <Text style={[styles.empty, styles.colName]} numberOfLines={2}>
+                    Statistikat e lojtarëve nuk janë të disponueshme.
+                  </Text>
+                </View>
               </View>
             </View>
 
@@ -329,15 +273,12 @@ export default function PlayerPlayedMatchScreen() {
               </View>
               <View style={styles.headLine} />
 
-              <Text style={styles.sectionLabel}>Startuesit (11)</Text>
-
               <View style={styles.squadGrid}>
-                {STARTERS.map((s) => (
-                  <View key={s.name} style={styles.playerCard}>
-                    <Text style={styles.playerName}>{s.name}</Text>
-                    <Text style={styles.playerPosition}>{s.position}</Text>
-                  </View>
-                ))}
+                {/* The eleven comes with the match, which the player has no
+                    endpoint for yet. */}
+                <Text style={styles.empty} numberOfLines={2}>
+                  Formacioni nuk është i disponueshëm.
+                </Text>
               </View>
             </View>
           </View>
@@ -640,6 +581,16 @@ const styles = StyleSheet.create(
       fontSize: 10.5,
       lineHeight: 13,
       color: C.hint,
+    },
+
+    /* The "not available" line each unresolved section shows. */
+    empty: {
+      flex: 1,
+      fontFamily: Fonts.body,
+      fontSize: 10.5,
+      lineHeight: 14,
+      color: C.hint,
+      paddingVertical: 6,
     },
 
     cardSq: {

@@ -34,6 +34,16 @@ export function listTrainings(
   return request<Paginated<ApiTraining>>(`/trainings${query}`, { token, signal });
 }
 
+/** The signed-in player's own team's sessions, each with their own attendance. */
+export function listMyTrainings(
+  token: string,
+  params: Pick<TrainingListParams, 'page' | 'status'> = {},
+  signal?: AbortSignal,
+) {
+  const query = toQuery({ page: params.page, status: params.status });
+  return request<Paginated<ApiTraining>>(`/my/trainings${query}`, { token, signal });
+}
+
 /** `GET /trainings/{training}` returns a single resource envelope. */
 type TrainingResponse = { data: ApiTraining };
 

@@ -100,7 +100,8 @@ export default function PlayerMatchesScreen() {
   const router = useRouter();
   const { token, signOut } = useSession();
 
-  const [matches, setMatches] = useState<Played[]>([]);
+  const [matches, setMatches] = useState<Played[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [lastPage, setLastPage] = useState(1);
 
@@ -113,18 +114,26 @@ export default function PlayerMatchesScreen() {
         if (controller.signal.aborted) return;
         setMatches(res.data.map(toPlayed));
         setLastPage(res.meta.last_page);
+        setError(null);
       })
-      .catch((e) => {
+      .catch((err) => {
         if (controller.signal.aborted) return;
-        if (e instanceof ApiError && e.status === 401) {
+        if (err instanceof ApiError && err.status === 401) {
           signOut();
           router.replace('/login');
+          return;
         }
+        setError(
+          err instanceof ApiError && err.status === 0
+            ? 'Nuk mund të lidhemi me serverin. Kontrollo lidhjen.'
+            : 'Nuk mund të ngarkohen ndeshjet.',
+        );
       });
 
     return () => controller.abort();
   }, [token, router, signOut, page]);
 
+  const rows = matches ?? [];
   const current = Math.min(page, Math.max(1, lastPage));
 
   return (
@@ -195,7 +204,7 @@ export default function PlayerMatchesScreen() {
                     <View style={{ width: ACTION_W }} />
                   </View>
 
-                  {matches.map((p) => (
+                  {rows.map((p) => (
                     <View key={p.id} style={[styles.tr, styles.trBorder]}>
                       <Text
                         style={[styles.td, styles.tdFixture, { width: COLS[0].width }]}
@@ -252,6 +261,14 @@ export default function PlayerMatchesScreen() {
                       </View>
                     </View>
                   ))}
+
+                  {rows.length === 0 ? (
+                    <View style={styles.tr}>
+                      <Text style={styles.empty} numberOfLines={2}>
+                        {error ?? (matches ? 'Nuk ka ndeshje të luajtura.' : '…')}
+                      </Text>
+                    </View>
+                  ) : null}
                 </View>
               </ScrollView>
             </View>
@@ -452,6 +469,16 @@ const styles = StyleSheet.create(
     tdFixture: {
       fontFamily: Fonts.bodySemiBold,
       color: C.text,
+    },
+
+    /* The load error / empty-list line, spanning the row. */
+    empty: {
+      flex: 1,
+      fontFamily: Fonts.body,
+      fontSize: 9.5,
+      lineHeight: 13,
+      color: C.gray,
+      textAlign: 'left',
     },
 
     tdStrong: {

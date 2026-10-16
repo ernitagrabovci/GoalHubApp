@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
 import { I, scaled } from '@/lib/responsive';
+import { attendanceLabel } from '@/lib/trainings';
 
 /**
  * Stërvitja — one session in full, opened from the "Shiko" button on a row of
@@ -41,6 +42,7 @@ export default function PlayerTrainingScreen() {
     field?: string;
     type?: string;
     duration?: string;
+    attendance?: string;
   }>();
 
   /* The session's own facts come from the list row they were opened on. */
@@ -49,6 +51,9 @@ export default function PlayerTrainingScreen() {
   const field = params.field ?? 'Salla e Brendshme';
   const type = params.type ?? 'Taktike';
   const duration = params.duration ?? '90 min';
+
+  /* The caller's own status, set by the trainer's attendance sheet. */
+  const attendance = attendanceLabel(params.attendance);
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
@@ -149,7 +154,9 @@ export default function PlayerTrainingScreen() {
               </View>
 
               <View style={styles.noteBody}>
-                <Text style={styles.noteText}>Pa finalizuar nga trajneri</Text>
+                <Text style={styles.noteText}>
+                  {attendance === '—' ? 'Pa finalizuar nga trajneri' : attendance}
+                </Text>
               </View>
             </View>
           </View>

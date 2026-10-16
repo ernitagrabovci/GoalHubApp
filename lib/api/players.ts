@@ -52,6 +52,11 @@ export function getPlayer(token: string, id: number, signal?: AbortSignal) {
   return request<PlayerResponse>(`/players/${id}`, { token, signal });
 }
 
+/** The signed-in user's own player record — read-only, any role may ask. */
+export function myPlayer(token: string, signal?: AbortSignal) {
+  return request<PlayerResponse>('/my/player', { token, signal });
+}
+
 /** Season totals per player, from `GET /players/statistics`. */
 export function playerStatistics(
   token: string,

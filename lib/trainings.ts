@@ -75,6 +75,15 @@ export function durationLabel(minutes: number | null | undefined): string {
   return minutes != null ? `${minutes} min` : '—';
 }
 
+/** API attendance `status` → the label the player's own screens show. A status
+ *  that is not one of the two settled ones reads as the placeholder, which the
+ *  training detail then spells out as "not yet finalized". */
+export function attendanceLabel(status: string | null | undefined): string {
+  if (status === 'present') return 'Prezent';
+  if (status === 'absent') return 'Mungesë';
+  return '—';
+}
+
 export function toTrainingRow(t: ApiTraining): TrainingRow {
   return {
     id: t.id,

@@ -256,6 +256,8 @@ export type ApiTraining = {
   reported_absences_count?: number;
   /** Only present on the show endpoint. */
   attendances?: ApiTrainingAttendance[];
+  /** The caller's own status — only present on the player's own list. */
+  my_attendance?: string | null;
 };
 
 /** A coaching-library item, from `GET /library` (paginated). */

@@ -1,6 +1,7 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useEffect, useState } from 'react';
 import {
   Image,
   Pressable,
@@ -12,7 +13,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
+import { ApiError } from '@/lib/api/errors';
+import { listMyMatches } from '@/lib/api/matches';
+import { myPlayer } from '@/lib/api/players';
+import { listMyTrainings } from '@/lib/api/trainings';
+import type { ApiMatch, ApiTraining } from '@/lib/api/types';
 import { I, scaled } from '@/lib/responsive';
+import { useSession } from '@/lib/session';
+import { durationLabel, trainingDate, trainingTime, typeName } from '@/lib/trainings';
 
 /**
  * GoalHub Player Home Dashboard
@@ -72,27 +80,7 @@ const IMG = {
   ndeshjet: require('@/assets/dashboard/ndeshjet.png'),
   trajnimet: require('@/assets/dashboard/trajnimet.png'),
   akademia: require('@/assets/dashboard/akademia.png'),
-
-  /* Away teams */
-  malisheva: require('@/assets/dashboard/malisheva.png'),
-  gjilani: require('@/assets/dashboard/gjilani.png'),
 };
-
-/* =========================================================
-   UPCOMING MATCHES
-   ========================================================= */
-
-type UpcomingMatch = {
-  age: string;
-  away: string;
-  awayLogo: number;
-  time: string;
-};
-
-const UPCOMING: UpcomingMatch[] = [
-  { age: 'U15', away: 'KF Malisheva', awayLogo: IMG.malisheva, time: '18:00' },
-  { age: 'U15', away: 'KF Gjilani', awayLogo: IMG.gjilani, time: '16:00' },
-];
 
 /* =========================================================
    MAIN COMPONENT
@@ -100,6 +88,54 @@ const UPCOMING: UpcomingMatch[] = [
 
 export function PlayerHome() {
   const router = useRouter();
+  const { token, signOut, user } = useSession();
+
+  /* The next session and the fixtures ahead, both from the player's own
+     read-only lists, and the shirt number off their player record. */
+  const [nextTraining, setNextTraining] = useState<ApiTraining | null>(null);
+  const [upcoming, setUpcoming] = useState<ApiMatch[]>([]);
+  const [jersey, setJersey] = useState('—');
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!token) return;
+    const controller = new AbortController();
+
+    Promise.all([
+      listMyTrainings(token, { status: 'upcoming' }, controller.signal),
+      listMyMatches(token, { status: 'upcoming' }, controller.signal),
+      myPlayer(token, controller.signal),
+    ])
+      .then(([trainings, matches, player]) => {
+        if (controller.signal.aborted) return;
+
+        /* Both lists arrive newest-first, so the soonest upcoming is last. */
+        const soonestFirst = <T extends { scheduled_at: string | null }>(rows: T[]) =>
+          [...rows].sort((a, b) => (a.scheduled_at ?? '').localeCompare(b.scheduled_at ?? ''));
+
+        setNextTraining(soonestFirst(trainings.data)[0] ?? null);
+        setUpcoming(soonestFirst(matches.data).slice(0, 2));
+        setJersey(
+          player.data.jersey_number != null ? String(player.data.jersey_number) : '—',
+        );
+        setError(null);
+      })
+      .catch((err) => {
+        if (controller.signal.aborted) return;
+        if (err instanceof ApiError && err.status === 401) {
+          signOut();
+          router.replace('/login');
+          return;
+        }
+        setError(
+          err instanceof ApiError && err.status === 0
+            ? 'Nuk mund të lidhemi me serverin. Kontrollo lidhjen.'
+            : 'Nuk mund të ngarkohen të dhënat.',
+        );
+      });
+
+    return () => controller.abort();
+  }, [token, router, signOut]);
 
   const open = (route: string) => {
     router.push(route as never);
@@ -132,7 +168,7 @@ export function PlayerHome() {
               </Text>
 
               <Text style={styles.welcomeSub}>
-                Mirë se vini, Ardit Llapashtica
+                {user?.name ? `Mirë se vini, ${user.name}` : 'Mirë se vini'}
               </Text>
             </View>
           </View>
@@ -151,7 +187,7 @@ export function PlayerHome() {
               <StatCard
                 labelTop="Numri i"
                 labelBottom="fanellës"
-                value="9"
+                value={jersey}
                 img={IMG.statPlayer}
                 imgStyle={styles.statImgPlayer}
                 imgCover
@@ -191,40 +227,54 @@ export function PlayerHome() {
 
             {/* NEXT TRAINING */}
 
-            <Pressable
-              onPress={() => open('/trainings')}
-              style={({ pressed }) => [
-                styles.eventBar,
-                pressed && styles.pressed,
-              ]}
-            >
-              <View style={styles.eventIcon}>
+            {nextTraining ? (
+              <Pressable
+                onPress={() =>
+                  router.push({
+                    pathname: '/stervitja-lojtarit',
+                    params: {
+                      date: trainingDate(nextTraining.scheduled_at),
+                      time: trainingTime(nextTraining.scheduled_at),
+                      field: nextTraining.field ?? '—',
+                      type: typeName(nextTraining.type),
+                      duration: durationLabel(nextTraining.duration_minutes),
+                      attendance: nextTraining.my_attendance ?? 'unconfirmed',
+                    },
+                  })
+                }
+                style={({ pressed }) => [
+                  styles.eventBar,
+                  pressed && styles.pressed,
+                ]}
+              >
+                <View style={styles.eventIcon}>
+                  <MaterialCommunityIcons
+                    name="calendar-month-outline"
+                    size={I(18)}
+                    color={C.green}
+                  />
+                </View>
+
+                <View style={styles.eventBody}>
+                  <Text style={styles.eventLabel}>
+                    Tjetra
+                  </Text>
+
+                  <Text
+                    style={styles.eventText}
+                    numberOfLines={1}
+                  >
+                    {`${trainingDate(nextTraining.scheduled_at)} • ${trainingTime(nextTraining.scheduled_at)} • ${typeName(nextTraining.type)}`}
+                  </Text>
+                </View>
+
                 <MaterialCommunityIcons
-                  name="calendar-month-outline"
-                  size={I(18)}
+                  name="chevron-right"
+                  size={I(21)}
                   color={C.green}
                 />
-              </View>
-
-              <View style={styles.eventBody}>
-                <Text style={styles.eventLabel}>
-                  Tjetra
-                </Text>
-
-                <Text
-                  style={styles.eventText}
-                  numberOfLines={1}
-                >
-                  29 GUSHT • 09:00 • Trajnim Taktik
-                </Text>
-              </View>
-
-              <MaterialCommunityIcons
-                name="chevron-right"
-                size={I(21)}
-                color={C.green}
-              />
-            </Pressable>
+              </Pressable>
+            ) : null}
 
             {/* =================================================
                 UPCOMING MATCHES
@@ -246,52 +296,50 @@ export function PlayerHome() {
             </View>
 
             <View style={styles.matchesCard}>
-              {UPCOMING.map((m, index) => (
-                <View
-                  key={`${m.age}-${m.away}`}
-                  style={[
-                    styles.matchRow,
-                    index > 0 && styles.matchRowSep,
-                  ]}
-                >
-                  <View style={styles.ageBadge}>
-                    <Text style={styles.ageText}>
-                      {m.age}
-                    </Text>
-                  </View>
-
-                  <View style={styles.teamHome}>
-                    <Image
-                      source={IMG.fcp}
-                      style={styles.matchLogo}
-                      resizeMode="contain"
-                    />
-                    <Text style={styles.teamName} numberOfLines={1}>
-                      Fc Prishtina
-                    </Text>
-                  </View>
-
-                  <View style={styles.vsCol}>
-                    <Text style={styles.vsText}>
-                      vs
-                    </Text>
-                    <Text style={styles.timeText}>
-                      {m.time}
-                    </Text>
-                  </View>
-
-                  <View style={styles.teamAway}>
-                    <Text style={styles.teamNameAway} numberOfLines={1}>
-                      {m.away}
-                    </Text>
-                    <Image
-                      source={m.awayLogo}
-                      style={styles.matchLogo}
-                      resizeMode="contain"
-                    />
-                  </View>
+              {upcoming.length === 0 ? (
+                <View style={styles.matchRow}>
+                  <Text style={styles.empty} numberOfLines={2}>
+                    {error ?? 'Nuk ka ndeshje të ardhshme.'}
+                  </Text>
                 </View>
-              ))}
+              ) : (
+                upcoming.map((m, index) => (
+                  <View
+                    key={m.id}
+                    style={[
+                      styles.matchRow,
+                      index > 0 && styles.matchRowSep,
+                    ]}
+                  >
+                    <View style={styles.teamHome}>
+                      <Image
+                        source={IMG.fcp}
+                        style={styles.matchLogo}
+                        resizeMode="contain"
+                      />
+                      <Text style={styles.teamName} numberOfLines={1}>
+                        {m.team?.name ?? 'Ekipi ynë'}
+                      </Text>
+                    </View>
+
+                    <View style={styles.vsCol}>
+                      <Text style={styles.vsText}>
+                        vs
+                      </Text>
+                      <Text style={styles.timeText}>
+                        {trainingTime(m.scheduled_at)}
+                      </Text>
+                    </View>
+
+                    {/* No crest comes down the API, so the rival is a name. */}
+                    <View style={styles.teamAway}>
+                      <Text style={styles.teamNameAway} numberOfLines={1}>
+                        {m.opponent ?? '—'}
+                      </Text>
+                    </View>
+                  </View>
+                ))
+              )}
             </View>
 
             {/* =================================================
@@ -967,18 +1015,13 @@ const styles = StyleSheet.create(scaled({
     borderTopColor: '#F5F5F5',
   },
 
-  ageBadge: {
-    backgroundColor: C.lightGreen,
-    borderRadius: 4,
-    paddingHorizontal: 7,
-    paddingVertical: 3,
-    marginRight: 9,
-  },
-
-  ageText: {
-    fontFamily: Fonts.bodySemiBold,
-    fontSize: 13,
-    color: C.greenDark,
+  /* The load error / empty-fixtures line, spanning the row. */
+  empty: {
+    flex: 1,
+    fontFamily: Fonts.body,
+    fontSize: 12,
+    lineHeight: 16,
+    color: C.muted,
   },
 
   teamHome: {
