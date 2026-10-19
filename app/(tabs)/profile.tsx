@@ -1,16 +1,17 @@
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { InitialsTile, ListRow } from '@/components/list-row';
 import { IconSymbol, type IconSymbolName } from '@/components/ui/icon-symbol';
 import { Fonts, Radius, Spacing, type ThemeColors } from '@/constants/theme';
+import { listMyChildren } from '@/lib/api/children';
 import { ApiError } from '@/lib/api/errors';
-import { ALL_PLAYERS } from '@/lib/data';
+import type { ApiChild } from '@/lib/api/types';
+import { positionLabel } from '@/lib/player-position';
 import { useLanguage } from '@/lib/i18n';
 import { useSession } from '@/lib/session';
-import { usePersistedState } from '@/lib/storage';
 import { useTheme, useThemedStyles } from '@/lib/theme';
 
 const VERSION = '1.0.0';
@@ -27,11 +28,11 @@ function errorMessage(error: unknown): string {
 
 export default function ProfileScreen() {
   const router = useRouter();
-  const { user, signOut, updateProfile, changePassword } = useSession();
+  const { user, token, signOut, updateProfile, changePassword } = useSession();
   const { t, lang, setLang } = useLanguage();
   const { colors, isDark, toggleTheme } = useTheme();
   const styles = useThemedStyles(createStyles);
-  const [childName] = usePersistedState<string>('parent:selectedChild', 'Agon Gashi');
+  const [child, setChild] = useState<ApiChild | null>(null);
 
   const [subOpen, setSubOpen] = useState(false);
   const [securityOpen, setSecurityOpen] = useState(false);
@@ -48,7 +49,27 @@ export default function ProfileScreen() {
   const [editError, setEditError] = useState<string | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
 
-  const child = ALL_PLAYERS.find((p) => p.name === childName);
+  /* A parent's linked child comes from their own children list. */
+  useEffect(() => {
+    if (!token || user?.role !== 'parent') return;
+    const controller = new AbortController();
+
+    listMyChildren(token, controller.signal)
+      .then((res) => {
+        if (controller.signal.aborted) return;
+        setChild(res.data[0] ?? null);
+      })
+      .catch((e) => {
+        if (controller.signal.aborted) return;
+        if (e instanceof ApiError && e.status === 401) {
+          signOut();
+          router.replace('/login');
+        }
+      });
+
+    return () => controller.abort();
+  }, [token, user?.role, router, signOut]);
+
   const nextEmail = emailDraft.trim();
   const emailChanged = nextEmail !== '' && nextEmail !== user?.email;
 
@@ -154,14 +175,32 @@ export default function ProfileScreen() {
             <>
               <Text style={styles.sectionLabel}>{t('profile.linkedChild')}</Text>
               <ListRow
-                title={child.name}
-                subtitle={t('common.personMeta', {
-                  position: child.position,
-                  number: child.number,
-                  age: child.age,
-                })}
-                leading={<InitialsTile initials={child.initials} color={child.color} />}
-                onPress={() => router.push('/child')}
+                title={child.name ?? '—'}
+                subtitle={[
+                  child.position ? positionLabel(child.position) : null,
+                  child.jersey_number != null ? `Nr. ${child.jersey_number}` : null,
+                  child.team?.name,
+                ]
+                  .filter(Boolean)
+                  .join(' · ')}
+                leading={
+                  <InitialsTile
+                    initials={(child.name ?? '')
+                      .split(' ')
+                      .filter(Boolean)
+                      .map((word) => word[0])
+                      .slice(0, 2)
+                      .join('')
+                      .toUpperCase()}
+                    color="#7B4F8E"
+                  />
+                }
+                onPress={() =>
+                  router.push({
+                    pathname: '/profili-femiut',
+                    params: { id: String(child.id), name: child.name ?? '' },
+                  })
+                }
               />
             </>
           ) : null}
@@ -172,7 +211,7 @@ export default function ProfileScreen() {
             <SettingRow
               icon="verified-user"
               label={t('profile.subscription')}
-              value="Club Pro · active"
+              value="—"
               onPress={() => setSubOpen(!subOpen)}
             />
             {subOpen ? (
@@ -180,11 +219,9 @@ export default function ProfileScreen() {
                 <View style={styles.divider} />
                 <View style={styles.inlineBody}>
                   <Text style={styles.inlineTitle}>{t('profile.subscriptionSub')}</Text>
-                  <Text style={styles.inlineText}>{t('profile.plan')}</Text>
-                  <Text style={styles.inlineText}>{t('profile.renews', { date: 'Sep 1, 2026' })}</Text>
-                  <Pressable style={styles.inlineBtn} onPress={() => alert(t('profile.manageDemo'))}>
-                    <Text style={styles.inlineBtnText}>{t('profile.manage')}</Text>
-                  </Pressable>
+                  <Text style={styles.inlineText}>
+                    Abonimi i klubit menaxhohet nga administratori.
+                  </Text>
                 </View>
               </>
             ) : null}

@@ -630,7 +630,7 @@ function TeamModal({
   onExpired: () => void;
 }) {
   const [name, setName] = useState(team?.name ?? '');
-  const [season, setSeason] = useState(team?.season ?? '2025/2026');
+  const [season, setSeason] = useState(team?.season ?? '');
   const [colorHex, setColorHex] = useState(team?.color_hex ?? TEAM_COLORS[0]);
   const [trainerId, setTrainerId] = useState<number | null>(team?.trainer?.id ?? null);
   const [assistantId, setAssistantId] = useState<number | null>(

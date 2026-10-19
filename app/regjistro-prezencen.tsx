@@ -99,11 +99,11 @@ export default function RegisterAttendanceScreen() {
   const validId = Number.isFinite(trainingId);
 
   /* The session's own facts, seeded from the list row and refreshed on load. */
-  const [date, setDate] = useState(params.date ?? '18 Aug 2026');
-  const [time, setTime] = useState(params.time ?? '17:00');
-  const [field, setField] = useState(params.field ?? 'Salla e Brendshme');
-  const [type, setType] = useState(params.type ?? 'Taktike');
-  const [duration, setDuration] = useState(params.duration ?? '90 min');
+  const [date, setDate] = useState(params.date ?? '—');
+  const [time, setTime] = useState(params.time ?? '—');
+  const [field, setField] = useState(params.field ?? '—');
+  const [type, setType] = useState(params.type ?? '—');
+  const [duration, setDuration] = useState(params.duration ?? '—');
 
   const [roster, setRoster] = useState<Roster[]>([]);
   const [marks, setMarks] = useState<(Mark | null)[]>([]);
@@ -550,9 +550,12 @@ export default function RegisterAttendanceScreen() {
           initial={{
             type,
             duration: duration.replace(/\D/g, ''),
-            field,
+            field: field === '—' ? '' : field,
             ...parseWhen(date, time),
           }}
+          /* The pitch names known to this session: its own. The session itself
+             is not passed as a booking, or its own slot would read as taken. */
+          fields={field && field !== '—' ? [field] : []}
           onClose={() => setEditing(false)}
           onConfirm={saveEdit}
         />

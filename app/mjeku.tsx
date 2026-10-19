@@ -9,7 +9,9 @@ import { Text } from '@/components/dashboard/dashboard-text';
 import { InjuryDraft, InjuryFormModal } from '@/components/medical/injury-form';
 import { Fonts } from '@/constants/theme';
 import { ApiError } from '@/lib/api/errors';
-import { listInjuries } from '@/lib/api/injuries';
+import { createInjury, listInjuries } from '@/lib/api/injuries';
+import { listPlayers } from '@/lib/api/players';
+import type { ApiPlayer } from '@/lib/api/types';
 import { toInjuryRow, type InjuryRow } from '@/lib/medical';
 import { I, scaled } from '@/lib/responsive';
 import { useSession } from '@/lib/session';
@@ -53,6 +55,39 @@ const STATUS_TONE: Record<string, string> = {
   'I shëruar': C.green,
 };
 
+/* The form's Albanian labels → the API's codes. */
+const API_DURING: Record<string, 'training' | 'match' | 'other'> = {
+  'Stërvitje': 'training',
+  'Ndeshje': 'match',
+  'Tjetër': 'other',
+};
+
+const API_STATUS: Record<string, 'injured' | 'rehabilitation' | 'recovered'> = {
+  'I lënduar': 'injured',
+  'Në rehabilitim': 'rehabilitation',
+  'I shëruar': 'recovered',
+};
+
+/** "18/08/2026" → "2026-08-18"; anything else is passed through. */
+function isoDate(value: string): string {
+  const [day, month, year] = value.split('/');
+  if (!day || !month || !year) return value;
+  return `${year}-${month}-${day}`;
+}
+
+/** Every squad member, walking the players pages. */
+async function loadPlayers(token: string, signal: AbortSignal): Promise<ApiPlayer[]> {
+  const out: ApiPlayer[] = [];
+  let page = 1;
+  for (;;) {
+    const res = await listPlayers(token, { page }, signal);
+    out.push(...res.data);
+    if (page >= res.meta.last_page) break;
+    page += 1;
+  }
+  return out;
+}
+
 const COLS: { key: keyof InjuryRow; label: string; width: number }[] = [
   { key: 'name', label: 'Lojtari', width: 96 },
   { key: 'type', label: 'Lloji Lëndimit', width: 88 },
@@ -69,46 +104,82 @@ export default function DoctorScreen() {
   const { token, signOut } = useSession();
 
   const [injuries, setInjuries] = useState<InjuryRow[]>([]);
+  const [squad, setSquad] = useState<ApiPlayer[]>([]);
   const [adding, setAdding] = useState(false);
+  const [createBusy, setCreateBusy] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     if (!token) return;
     const controller = new AbortController();
 
-    listInjuries(token, {}, controller.signal)
-      .then((res) => {
-        if (controller.signal.aborted) return;
-        setInjuries(res.data.map(toInjuryRow));
+    const expired = () => {
+      signOut();
+      router.replace('/login');
+    };
+
+    Promise.allSettled([
+      listInjuries(token, {}, controller.signal),
+      loadPlayers(token, controller.signal),
+    ]).then(([injuriesRes, playersRes]) => {
+      if (controller.signal.aborted) return;
+
+      if (injuriesRes.status === 'fulfilled') {
+        setInjuries(injuriesRes.value.data.map(toInjuryRow));
+      } else if (injuriesRes.reason instanceof ApiError && injuriesRes.reason.status === 401) {
+        expired();
+        return;
+      }
+
+      if (playersRes.status === 'fulfilled') {
+        setSquad(playersRes.value);
+      } else if (playersRes.reason instanceof ApiError && playersRes.reason.status === 401) {
+        expired();
+      }
+    });
+
+    return () => controller.abort();
+  }, [token, router, signOut, reloadKey]);
+
+  const roster = squad.flatMap((p) => (p.name ? [{ id: p.id, name: p.name }] : []));
+
+  const add = (d: InjuryDraft) => {
+    if (!token || createBusy) return;
+    if (!d.playerId) {
+      setCreateError('Zgjidh lojtarin nga lista e skuadrës.');
+      return;
+    }
+
+    setCreateBusy(true);
+    setCreateError(null);
+
+    createInjury(token, d.playerId, {
+      injury_type: d.type,
+      occurred_during: API_DURING[d.during] ?? 'other',
+      injury_date: isoDate(d.date),
+      expected_return: isoDate(d.returnDate),
+      status: API_STATUS[d.status] ?? 'injured',
+      description: d.desc.trim() || null,
+    })
+      .then(() => {
+        setCreateBusy(false);
+        setAdding(false);
+        setReloadKey((k) => k + 1);
       })
       .catch((e) => {
-        if (controller.signal.aborted) return;
+        setCreateBusy(false);
         if (e instanceof ApiError && e.status === 401) {
           signOut();
           router.replace('/login');
+          return;
         }
+        setCreateError(
+          e instanceof ApiError && e.status !== 0 && e.message
+            ? e.message
+            : 'Nuk mund të lidhemi me serverin. Kontrollo lidhjen.',
+        );
       });
-
-    return () => controller.abort();
-  }, [token, router, signOut]);
-
-  const add = (d: InjuryDraft) => {
-    setInjuries((prev) => [
-      {
-        id: Date.now(),
-        name: d.player,
-        team: TEAM,
-        type: d.type,
-        date: d.date,
-        returnDate: d.returnDate,
-        status: d.status,
-        during: d.during,
-        serviceDate: d.serviceDate,
-        desc: d.desc,
-        treatment: d.treatment,
-      },
-      ...prev,
-    ]);
-    setAdding(false);
   };
 
   return (
@@ -154,7 +225,10 @@ export default function DoctorScreen() {
           <View style={styles.colPad}>
             {/* ── Register ────────────────────────────────────────── */}
             <Pressable
-              onPress={() => setAdding(true)}
+              onPress={() => {
+                setCreateError(null);
+                setAdding(true);
+              }}
               accessibilityRole="button"
               accessibilityLabel="Regjistro lëndim"
               style={({ pressed }) => [styles.addBtn, pressed && styles.pressed]}
@@ -260,6 +334,9 @@ export default function DoctorScreen() {
         <InjuryFormModal
           title="Regjistro lëndim"
           confirmLabel="Krijo"
+          players={roster}
+          busy={createBusy}
+          error={createError}
           onClose={() => setAdding(false)}
           onConfirm={add}
         />

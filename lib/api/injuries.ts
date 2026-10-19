@@ -41,6 +41,31 @@ export function getInjury(token: string, id: number, signal?: AbortSignal) {
   return request<InjuryResponse>(`/injuries/${id}`, { token, signal });
 }
 
+/** The writable fields when registering an injury — `POST /players/{player}/injuries`. */
+export type CreateInjuryInput = {
+  injury_type: string;
+  occurred_during: 'training' | 'match' | 'other';
+  /** `YYYY-MM-DD`. */
+  injury_date: string;
+  expected_return?: string | null;
+  status: 'injured' | 'rehabilitation' | 'recovered';
+  description?: string | null;
+};
+
+export function createInjury(
+  token: string,
+  playerId: number,
+  input: CreateInjuryInput,
+  signal?: AbortSignal,
+) {
+  return request<MessageResponse>(`/players/${playerId}/injuries`, {
+    method: 'POST',
+    body: input,
+    token,
+    signal,
+  });
+}
+
 /** The writable fields of an injury — `PATCH /injuries/{injury}` (full object). */
 export type InjuryInput = {
   injury_type: string;

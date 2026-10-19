@@ -88,11 +88,11 @@ export default function TrainingScreen() {
 
   /* The session's own facts start from the list row they were opened on, and
      move with the edit popup afterwards. */
-  const [date, setDate] = useState(params.date ?? '18 Aug 2026');
-  const [time, setTime] = useState(params.time ?? '17:00');
-  const [field, setField] = useState(params.field ?? 'Salla e Brendshme');
-  const [type, setType] = useState(params.type ?? 'Taktike');
-  const [duration, setDuration] = useState(params.duration ?? '90 min');
+  const [date, setDate] = useState(params.date ?? '—');
+  const [time, setTime] = useState(params.time ?? '—');
+  const [field, setField] = useState(params.field ?? '—');
+  const [type, setType] = useState(params.type ?? '—');
+  const [duration, setDuration] = useState(params.duration ?? '—');
   const [players, setPlayers] = useState<AttendanceRow[]>([]);
 
   const [editing, setEditing] = useState(false);
@@ -341,9 +341,12 @@ export default function TrainingScreen() {
           initial={{
             type,
             duration: duration.replace(/\D/g, ''),
-            field,
+            field: field === '—' ? '' : field,
             ...parseWhen(date, time),
           }}
+          /* The pitch names known to this session: its own. The session itself
+             is not passed as a booking, or its own slot would read as taken. */
+          fields={field && field !== '—' ? [field] : []}
           onClose={() => setEditing(false)}
           onConfirm={save}
         />

@@ -148,7 +148,7 @@ async function fetchAllMatches(token: string, signal: AbortSignal): Promise<ApiM
 export default function MatchesScreen() {
   const router = useRouter();
   const { user, token, signOut } = useSession();
-  const clubName = user?.club ?? 'FC Prishtina';
+  const clubName = user?.club ?? '—';
 
   const [matches, setMatches] = useState<ApiMatch[] | null>(null);
   const [teams, setTeams] = useState<ApiTeam[]>([]);

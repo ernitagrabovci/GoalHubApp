@@ -1,4 +1,8 @@
-import { MONTHS, type TrainingDraft } from '@/components/trainings/training-form';
+import {
+  MONTHS,
+  type Booking,
+  type TrainingDraft,
+} from '@/components/trainings/training-form';
 import type { ApiTraining, TrainingInput } from '@/lib/api/types';
 
 /**
@@ -85,6 +89,28 @@ export function draftToInput(d: TrainingDraft): TrainingInput {
     duration_minutes: Number(d.duration) || 90,
     notes: d.note.trim() || null,
   };
+}
+
+/** A loaded session → the slot the form's availability check understands. */
+export function toBooking(t: ApiTraining): Booking | null {
+  if (!t.scheduled_at) return null;
+  const d = new Date(t.scheduled_at);
+  if (Number.isNaN(d.getTime())) return null;
+  return {
+    field: t.field ?? '',
+    year: String(d.getFullYear()),
+    day: pad2(d.getDate()),
+    mon: pad2(d.getMonth() + 1),
+    start: `${pad2(d.getHours())}:${pad2(d.getMinutes())}`,
+    minutes: t.duration_minutes ?? 90,
+  };
+}
+
+/** The distinct pitch names across the loaded sessions. */
+export function fieldNames(trainings: ApiTraining[]): string[] {
+  const names = new Set<string>();
+  for (const t of trainings) if (t.field) names.add(t.field);
+  return [...names].sort((a, b) => a.localeCompare(b));
 }
 
 /** Minutes as the screens show them: `90 min`, or the placeholder when absent. */

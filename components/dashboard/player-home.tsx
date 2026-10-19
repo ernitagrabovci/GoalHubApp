@@ -158,6 +158,7 @@ export function PlayerHome() {
 
           <View style={styles.padded}>
             <HeaderBlock
+              club={user?.club ?? '—'}
               onBell={() => open('/njoftimet-lojtarit')}
               onSettings={() => open('/settings')}
             />
@@ -455,9 +456,11 @@ export function PlayerHome() {
    ========================================================= */
 
 function HeaderBlock({
+  club,
   onBell,
   onSettings,
 }: {
+  club: string;
   onBell: () => void;
   onSettings: () => void;
 }) {
@@ -481,7 +484,7 @@ function HeaderBlock({
 
         <View style={styles.clubRow}>
           <Text style={styles.clubName}>
-            FC Prishtina
+            {club}
           </Text>
 
           <MaterialCommunityIcons

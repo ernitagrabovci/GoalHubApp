@@ -147,7 +147,7 @@ export default function ChildProfileScreen() {
   }, [token, childId, router, signOut]);
 
   const name = player?.name ?? params.name ?? 'Fëmija';
-  const team = player?.team?.name ?? params.team ?? 'Ekipi i Parë';
+  const team = player?.team?.name ?? params.team ?? '—';
   const nr = player?.jersey_number != null ? String(player.jersey_number) : params.nr ?? '';
   const pos = player?.position ? positionLabel(player.position) : params.pos ?? 'Sulmues';
 
@@ -195,9 +195,9 @@ export default function ChildProfileScreen() {
 
   const details = [
     { label: 'Mosha', value: player ? (player.age != null ? `${player.age} vjeç` : '—') : '—' },
-    { label: 'Kombësia', value: 'Kosovar' },
+    { label: 'Kombësia', value: player ? player.nationality ?? '—' : '—' },
     { label: 'Email', value: player ? player.email ?? '—' : '—' },
-    { label: 'Licensa FFK', value: '111' },
+    { label: 'Licensa FFK', value: player ? player.ffk_license ?? '—' : '—' },
     { label: 'Kontrata nga', value: player ? formatDate(player.contract_start) : '—' },
     { label: 'Kontrata deri', value: player ? formatDate(player.contract_end) : '—' },
   ];

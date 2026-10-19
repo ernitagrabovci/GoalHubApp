@@ -10,8 +10,15 @@ import { Fonts } from '@/constants/theme';
 import { dashboardStats } from '@/lib/api/dashboard';
 import { ApiError } from '@/lib/api/errors';
 import { listMatches } from '@/lib/api/matches';
+import { activityReport } from '@/lib/api/reports';
 import { listTeams, teamStats } from '@/lib/api/teams';
-import type { ApiMatch, ApiTeam, DashboardStats, TeamStats } from '@/lib/api/types';
+import type {
+  ActivityReport,
+  ApiMatch,
+  ApiTeam,
+  DashboardStats,
+  TeamStats,
+} from '@/lib/api/types';
 import { I, scaled } from '@/lib/responsive';
 import { useSession } from '@/lib/session';
 
@@ -62,26 +69,43 @@ const IMG = {
   doctor: require('@/assets/dashboard/doctor.png'),
 };
 
-const ACTIVITY = [
-  {
-    dot: '#D94B4B',
-    title: 'Lëndimi i regjistruar',
-    name: '— Nartl Çeripin',
-    time: '5 ditë më parë',
-  },
-  {
-    dot: '#1B5FA0',
-    title: 'N. Çerkin i regjistruar',
-    name: '— Ekipi i Parë',
-    time: '6 ditë më parë',
-  },
-  {
-    dot: '#159447',
-    title: 'Pagesa €50.00',
-    name: '— E. Hoxha',
-    time: '2 javë më parë',
-  },
-];
+/* The activity report carries logins, not a feed — each row is one of them. */
+const ROLE_TONE: Record<string, string> = {
+  administrator: '#1B5FA0',
+  trainer: '#159447',
+  assistant_trainer: '#159447',
+  technical_staff: '#159447',
+  player: '#D94B4B',
+  parent: '#7B4F8E',
+  financier: '#E4A000',
+};
+
+const ROLE_NAME: Record<string, string> = {
+  administrator: 'Administratori',
+  trainer: 'Trajneri',
+  assistant_trainer: 'Asistenti',
+  technical_staff: 'Stafi teknik',
+  player: 'Lojtari',
+  parent: 'Prindi',
+  financier: 'Financieri',
+};
+
+/** An ISO timestamp → "5 ditë më parë". */
+function ago(iso: string | null): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+
+  const mins = Math.max(0, Math.round((Date.now() - d.getTime()) / 60000));
+  if (mins < 1) return 'tani';
+  if (mins < 60) return `${mins} min më parë`;
+
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours} orë më parë`;
+
+  const days = Math.floor(hours / 24);
+  return days < 7 ? `${days} ditë më parë` : `${Math.floor(days / 7)} javë më parë`;
+}
 
 /** Today's date as `YYYY-MM-DD`, for comparing against `scheduled_at`. */
 function localDay(iso: string | null): string | null {
@@ -110,6 +134,7 @@ export function AdminHome() {
   const [teamData, setTeamData] = useState<TeamStats | null>(null);
   const [teams, setTeams] = useState<ApiTeam[] | null>(null);
   const [matches, setMatches] = useState<ApiMatch[] | null>(null);
+  const [activity, setActivity] = useState<ActivityReport | null>(null);
 
   // These dashboard reads are one-shots — fetched together, and a failure of one
   // simply leaves its section empty. An abort is indistinguishable from a
@@ -123,10 +148,13 @@ export function AdminHome() {
       teamStats(token, controller.signal),
       listTeams(token, controller.signal),
       listMatches(token, { status: 'upcoming' }, controller.signal),
-    ]).then(([dash, team, teamList, matchList]) => {
+      activityReport(token, controller.signal),
+    ]).then(([dash, team, teamList, matchList, activityRes]) => {
       if (controller.signal.aborted) return;
 
-      const failure = [dash, team, teamList, matchList].find((r) => r.status === 'rejected');
+      const failure = [dash, team, teamList, matchList, activityRes].find(
+        (r) => r.status === 'rejected',
+      );
       if (
         failure &&
         failure.status === 'rejected' &&
@@ -142,6 +170,7 @@ export function AdminHome() {
       if (team.status === 'fulfilled') setTeamData(team.value);
       if (teamList.status === 'fulfilled') setTeams(teamList.value.data);
       if (matchList.status === 'fulfilled') setMatches(matchList.value.data);
+      if (activityRes.status === 'fulfilled') setActivity(activityRes.value);
     });
 
     return () => controller.abort();
@@ -152,8 +181,9 @@ export function AdminHome() {
   const count = (value: number | undefined) => (value == null ? '—' : String(value));
   const income = stats ? `€${Math.round(Number(stats.monthly_income))}` : '—';
   const firstName = user?.name.split(' ')[0] ?? 'Admin';
-  const clubName = data?.club.name ?? 'Fc Prishtina';
+  const clubName = data?.club.name ?? '—';
   const todayMatches = (matches ?? []).filter((m) => isToday(m.scheduled_at));
+  const recentLogins = (activity?.recent_logins ?? []).slice(0, 3);
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -295,18 +325,39 @@ export function AdminHome() {
                   <MaterialCommunityIcons name="heart-pulse" size={I(16)} color={C.green} />
                   <Text style={styles.cardHeadText}>Raportet</Text>
                 </View>
-                {ACTIVITY.map((a, i) => (
-                  <View key={i} style={styles.activityRow}>
-                    <View style={[styles.activityDot, { backgroundColor: a.dot }]} />
+                {activity === null ? (
+                  <View style={styles.activityRow}>
+                    <View style={[styles.activityDot, { backgroundColor: C.faint }]} />
                     <View style={styles.activityBody}>
-                      <Text style={styles.activityText} numberOfLines={2}>
-                        {a.title}
-                        <Text style={styles.activityName}> {a.name}</Text>
-                      </Text>
-                      <Text style={styles.activityTime}>{a.time}</Text>
+                      <Text style={styles.activityText}>…</Text>
                     </View>
                   </View>
-                ))}
+                ) : recentLogins.length === 0 ? (
+                  <View style={styles.activityRow}>
+                    <View style={[styles.activityDot, { backgroundColor: C.faint }]} />
+                    <View style={styles.activityBody}>
+                      <Text style={styles.activityText}>Nuk ka aktivitet.</Text>
+                    </View>
+                  </View>
+                ) : (
+                  recentLogins.map((a) => (
+                    <View key={a.id} style={styles.activityRow}>
+                      <View
+                        style={[
+                          styles.activityDot,
+                          { backgroundColor: ROLE_TONE[a.role] ?? C.faint },
+                        ]}
+                      />
+                      <View style={styles.activityBody}>
+                        <Text style={styles.activityText} numberOfLines={2}>
+                          {`${ROLE_NAME[a.role] ?? a.role} u kyç`}
+                          <Text style={styles.activityName}>{` — ${a.name}`}</Text>
+                        </Text>
+                        <Text style={styles.activityTime}>{ago(a.last_login_at)}</Text>
+                      </View>
+                    </View>
+                  ))
+                )}
                 <SeeAllFooter color={C.text} onPress={() => router.push('/raportet')} />
               </View>
 

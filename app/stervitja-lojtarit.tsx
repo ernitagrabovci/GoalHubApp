@@ -46,11 +46,11 @@ export default function PlayerTrainingScreen() {
   }>();
 
   /* The session's own facts come from the list row they were opened on. */
-  const date = params.date ?? '18 Aug 2026';
-  const time = params.time ?? '17:00';
-  const field = params.field ?? 'Salla e Brendshme';
-  const type = params.type ?? 'Taktike';
-  const duration = params.duration ?? '90 min';
+  const date = params.date ?? '—';
+  const time = params.time ?? '—';
+  const field = params.field ?? '—';
+  const type = params.type ?? '—';
+  const duration = params.duration ?? '—';
 
   /* The caller's own status, set by the trainer's attendance sheet. */
   const attendance = attendanceLabel(params.attendance);

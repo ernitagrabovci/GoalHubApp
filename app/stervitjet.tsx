@@ -7,13 +7,24 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
 import { FilterSelect, type FilterOption } from '@/components/filters/filter-select';
-import { TrainingDraft, TrainingFormModal } from '@/components/trainings/training-form';
+import {
+  TrainingDraft,
+  TrainingFormModal,
+  type Booking,
+} from '@/components/trainings/training-form';
 import { Fonts } from '@/constants/theme';
 import { ApiError } from '@/lib/api/errors';
 import { createTraining, deleteTraining, listTrainings } from '@/lib/api/trainings';
 import { I, scaled } from '@/lib/responsive';
 import { useSession } from '@/lib/session';
-import { draftToInput, toTrainingRow, type TrainingRow } from '@/lib/trainings';
+import {
+  draftToInput,
+  fieldNames,
+  toBooking,
+  toTrainingRow,
+  type TrainingRow,
+} from '@/lib/trainings';
+import type { ApiTraining } from '@/lib/api/types';
 
 /**
  * Stërvitjet — the trainer's training list, opened from the "Stërvitjet" card
@@ -95,6 +106,8 @@ export default function TrainingListScreen() {
   const { token, signOut } = useSession();
 
   const [trainings, setTrainings] = useState<TrainingRow[]>([]);
+  /* The raw rows behind the list — they tell the form which slots are taken. */
+  const [rawTrainings, setRawTrainings] = useState<ApiTraining[]>([]);
   const [adding, setAdding] = useState(false);
   const [typeFilter, setTypeFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
@@ -107,6 +120,7 @@ export default function TrainingListScreen() {
         signal,
       ).then((res) => {
         if (signal?.aborted) return;
+        setRawTrainings(res.data);
         setTrainings(res.data.map(toTrainingRow));
       }),
     [token, typeFilter, statusFilter],
@@ -417,6 +431,10 @@ export default function TrainingListScreen() {
         <TrainingFormModal
           title="Shto stërvitje të re"
           confirmLabel="Krijo"
+          fields={fieldNames(rawTrainings)}
+          bookings={rawTrainings
+            .map(toBooking)
+            .filter((b): b is Booking => b !== null)}
           onClose={() => setAdding(false)}
           onConfirm={add}
         />

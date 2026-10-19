@@ -1,6 +1,6 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { BlurView } from 'expo-blur';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -13,6 +13,7 @@ import {
 
 import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
+import { listCompetitions } from '@/lib/api/competitions';
 import { ApiError } from '@/lib/api/errors';
 import { createMatch, updateMatch } from '@/lib/api/matches';
 import type { ApiMatch, ApiTeam } from '@/lib/api/types';
@@ -45,15 +46,6 @@ const MO = {
 };
 
 const VENUES = ['Shtëpi', 'Musafir'];
-const COMPS = [
-  'Superliga e Kosovës',
-  'U21 Superliga e Kosovës',
-  'U19 Superliga e Kosovës',
-  'U17 Superliga e Kosovës',
-  'U15 Superliga e Kosovës',
-  'U13 Superliga e Kosovës',
-  'Kupa e Kosovës',
-];
 /* The API only accepts these on update — "played" is set by saving a result. */
 const STATUS = ['E ardhshme', 'Anuluar'];
 
@@ -97,6 +89,36 @@ function writeErrorText(err: unknown): string {
   return 'Veprimi nuk mund të kryhet.';
 }
 
+/** Competition names for the popups — `GET /competitions` is admin-only. */
+function useCompetitionNames(
+  token: string,
+  onExpired: () => void,
+): { names: string[]; failed: boolean } {
+  const [names, setNames] = useState<string[]>([]);
+  const [failed, setFailed] = useState(false);
+  const expired = useRef(onExpired);
+  useEffect(() => {
+    expired.current = onExpired;
+  }, [onExpired]);
+
+  useEffect(() => {
+    const ctl = new AbortController();
+    listCompetitions(token, ctl.signal)
+      .then((res) => setNames(res.data.map((c) => c.name)))
+      .catch((e) => {
+        if (ctl.signal.aborted) return;
+        if (e instanceof ApiError && e.status === 401) {
+          expired.current();
+          return;
+        }
+        setFailed(true);
+      });
+    return () => ctl.abort();
+  }, [token]);
+
+  return { names, failed };
+}
+
 /* ── "Shto ndeshje" ───────────────────────────────────────────────── */
 
 export function AddMatchModal({ token, teams, clubName, onClose, onSaved, onExpired }: ModalBaseProps) {
@@ -104,10 +126,12 @@ export function AddMatchModal({ token, teams, clubName, onClose, onSaved, onExpi
   const cardW = Math.min(width - 24, 360);
   const maxBody = Math.max(280, height - 187);
 
+  const { names: comps, failed: compsFailed } = useCompetitionNames(token, onExpired);
+
   const [teamId, setTeamId] = useState<number | null>(teams[0]?.id ?? null);
   const [venue, setVenue] = useState(VENUES[0]);
   const [rival, setRival] = useState('');
-  const [comp, setComp] = useState(COMPS[0]);
+  const [comp, setComp] = useState('');
   const [day, setDay] = useState('');
   const [month, setMonth] = useState('');
   const [year, setYear] = useState('');
@@ -117,6 +141,9 @@ export function AddMatchModal({ token, teams, clubName, onClose, onSaved, onExpi
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
+  /* The first known competition stands in until one is picked. */
+  const selectedComp = comp || comps[0] || '';
+
   const atHome = venue !== 'Musafir';
   const fixtureName = atHome ? `${clubName} - ${rival.trim()}` : `${rival.trim()} - ${clubName}`;
 
@@ -124,7 +151,7 @@ export function AddMatchModal({ token, teams, clubName, onClose, onSaved, onExpi
     if (busy) return;
     setErr(null);
 
-    if (teamId === null || !rival.trim() || !comp || !day || !month || !year || !hour || !minute) {
+    if (teamId === null || !rival.trim() || !day || !month || !year || !hour || !minute) {
       setErr('Plotëso të gjitha fushat e kërkuara.');
       return;
     }
@@ -133,7 +160,7 @@ export function AddMatchModal({ token, teams, clubName, onClose, onSaved, onExpi
     createMatch(token, {
       team_id: teamId,
       opponent: rival.trim(),
-      competition: comp,
+      competition: selectedComp || null,
       venue: atHome ? 'home' : 'away',
       scheduled_at: `${year}-${pad2(Number(month))}-${pad2(Number(day))}T${pad2(
         Number(hour),
@@ -197,7 +224,12 @@ export function AddMatchModal({ token, teams, clubName, onClose, onSaved, onExpi
           </View>
 
           <Text style={[styles.label, styles.gap]}>Gara/Kompeticion</Text>
-          <NMSelect value={comp} options={COMPS} onChange={setComp} />
+          <NMSelect value={selectedComp || '—'} options={comps} onChange={setComp} />
+          {comps.length === 0 ? (
+            <Text style={styles.hint}>
+              {compsFailed ? 'Kompeticionet nuk u ngarkuan.' : 'Nuk ka kompeticione të regjistruara.'}
+            </Text>
+          ) : null}
 
           <Text style={[styles.label, styles.gap]}>Data & Ora:</Text>
           <View style={styles.clockRow}>
@@ -247,16 +279,24 @@ export function EditMatchModal({
   const atHome = (match.venue ?? 'home') !== 'away';
   const kickoff = toStamp(match.scheduled_at);
 
+  const { names: comps, failed: compsFailed } = useCompetitionNames(token, onExpired);
+
   const [teamId, setTeamId] = useState<number | null>(match.team?.id ?? teams[0]?.id ?? null);
   const [venue, setVenue] = useState(atHome ? VENUES[0] : VENUES[1]);
   const [rival, setRival] = useState(match.opponent ?? '');
-  const [comp, setComp] = useState(match.competition ?? COMPS[0]);
+  const [comp, setComp] = useState(match.competition ?? '');
   const [when, setWhen] = useState(kickoff);
   const [transport, setTransport] = useState(toStamp(match.transport_at) || kickoff);
   const [status, setStatus] = useState(match.status === 'cancelled' ? STATUS[1] : STATUS[0]);
   const [note, setNote] = useState(match.notes ?? '');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+
+  const selectedComp = comp || comps[0] || '';
+
+  /* Keep a match's existing competition selectable even if it was deactivated. */
+  const compOptions =
+    selectedComp && !comps.includes(selectedComp) ? [selectedComp, ...comps] : comps;
 
   const home = venue !== 'Musafir';
   const fixtureName = home ? `${clubName} - ${rival.trim()}` : `${rival.trim()} - ${clubName}`;
@@ -265,7 +305,7 @@ export function EditMatchModal({
     if (busy) return;
     setErr(null);
 
-    if (teamId === null || !rival.trim() || !comp) {
+    if (teamId === null || !rival.trim()) {
       setErr('Plotëso të gjitha fushat e kërkuara.');
       return;
     }
@@ -280,7 +320,7 @@ export function EditMatchModal({
     updateMatch(token, match.id, {
       team_id: teamId,
       opponent: rival.trim(),
-      competition: comp,
+      competition: selectedComp || null,
       venue: home ? 'home' : 'away',
       scheduled_at: scheduledAt,
       transport_at: fromStamp(transport),
@@ -344,7 +384,12 @@ export function EditMatchModal({
           </View>
 
           <Text style={[styles.label, styles.gap]}>Gara/Kompeticion:</Text>
-          <NMSelect value={comp} options={COMPS} onChange={setComp} />
+          <NMSelect value={selectedComp || '—'} options={compOptions} onChange={setComp} />
+          {compOptions.length === 0 ? (
+            <Text style={styles.hint}>
+              {compsFailed ? 'Kompeticionet nuk u ngarkuan.' : 'Nuk ka kompeticione të regjistruara.'}
+            </Text>
+          ) : null}
 
           <View style={styles.row}>
             <View style={styles.col}>
@@ -584,6 +629,13 @@ const styles = StyleSheet.create(
       fontSize: 9,
       color: MO.err,
       marginBottom: 8,
+    },
+
+    hint: {
+      fontFamily: Fonts.body,
+      fontSize: 9,
+      color: C.hint,
+      marginTop: 4,
     },
 
     label: {

@@ -16,7 +16,9 @@ import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
 import { ApiError } from '@/lib/api/errors';
 import { getFee, listFees, registerPayment } from '@/lib/api/finance';
-import type { ApiFee } from '@/lib/api/types';
+import { getPlayer } from '@/lib/api/players';
+import type { ApiFee, ApiPlayer } from '@/lib/api/types';
+import { positionLabel } from '@/lib/player-position';
 import type { PickedFile } from '@/lib/api/upload';
 import { dmy, monthLabel, statusLabel, STATUS_TONE, usd } from '@/lib/finance';
 import { I, scaled } from '@/lib/responsive';
@@ -78,19 +80,11 @@ function toIsoDate(day: string, month: string, year: string): string | null {
   return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
 }
 
-/** Left table — labels and the bold values that sit opposite them. */
-const PROFILE: [string, string][] = [
-  ['Ekipi', 'Ekipi i Parë'],
-  ['Pozicioni', 'Sulmues'],
-  ['Nr. fanellës', '9'],
-  ['Email', 'ardit@goalhub.com'],
-  ['Lloji', 'Nxënës/Anëtar'],
-  ['Kuota mujore', '$0.00'],
-  ['Afati (ditë)', '7'],
-  ['Cikli', '-'],
-  ['Kontr. fillon', '-'],
-  ['Kontr. mbaron', '-'],
-];
+/** Backend `contract_type` → the label the profile table shows. */
+const CONTRACT_TYPE: Record<string, string> = {
+  anetare: 'Nxënës/Anëtar',
+  kontraktual: 'Kontraktual',
+};
 
 export default function PaymentDetailScreen() {
   const router = useRouter();
@@ -109,6 +103,7 @@ export default function PaymentDetailScreen() {
 
   const [fee, setFee] = useState<ApiFee | null>(null);
   const [others, setOthers] = useState<ApiFee[]>([]);
+  const [profile, setProfile] = useState<ApiPlayer | null>(null);
   const [day, setDay] = useState('');
   const [month, setMonth] = useState('');
   const [year, setYear] = useState('');
@@ -172,6 +167,57 @@ export default function PaymentDetailScreen() {
 
     return () => controller.abort();
   }, [token, playerId, feeId, router, signOut]);
+
+  /* The profile table. Financiers cannot read `/players/{id}`, so a 403 is
+     expected for them and the rows fall back to dashes. */
+  useEffect(() => {
+    if (!token || !playerId || Number.isNaN(playerId)) return;
+    const controller = new AbortController();
+
+    getPlayer(token, playerId, controller.signal)
+      .then((res) => {
+        if (controller.signal.aborted) return;
+        setProfile(res.data);
+      })
+      .catch((err) => {
+        if (controller.signal.aborted) return;
+        if (err instanceof ApiError && err.status === 401) {
+          signOut();
+          router.replace('/login');
+        }
+      });
+
+    return () => controller.abort();
+  }, [token, playerId, router, signOut]);
+
+  const profileRows: [string, string][] = [
+    ['Ekipi', profile?.team?.name ?? team],
+    ['Pozicioni', profile?.position ? positionLabel(profile.position) : '—'],
+    [
+      'Nr. fanellës',
+      profile?.jersey_number != null ? String(profile.jersey_number) : '—',
+    ],
+    ['Email', profile?.email ?? '—'],
+    [
+      'Lloji',
+      profile?.contract_type
+        ? CONTRACT_TYPE[profile.contract_type] ?? profile.contract_type
+        : '—',
+    ],
+    [
+      'Kuota mujore',
+      profile?.monthly_amount != null ? usd(Number(profile.monthly_amount)) : '—',
+    ],
+    [
+      'Afati (ditë)',
+      profile?.payment_deadline_days != null
+        ? String(profile.payment_deadline_days)
+        : '—',
+    ],
+    ['Cikli', profile?.billing_cycle ?? '—'],
+    ['Kontr. fillon', dmy(profile?.contract_start)],
+    ['Kontr. mbaron', dmy(profile?.contract_end)],
+  ];
 
   const submit = () => {
     if (!token || saving) return;
@@ -283,7 +329,7 @@ export default function PaymentDetailScreen() {
                 <View style={styles.headLine} />
 
                 <View style={styles.pBody}>
-                  {PROFILE.map(([label, value]) => (
+                  {profileRows.map(([label, value]) => (
                     <View key={label} style={styles.pRow}>
                       <Text
                         style={styles.pLabel}

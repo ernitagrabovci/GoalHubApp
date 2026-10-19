@@ -92,32 +92,66 @@ const SQ_SHEEN = ['rgba(245,245,245,0.55)', 'rgba(245,245,245,0.00)'] as const;
 
 type Square = { label: string; value: string; hint: string; tone: string; tall?: boolean };
 
+const TRAINER_ROLES = new Set(['trainer', 'assistant_trainer', 'technical_staff']);
+
 /**
  * The grid's 2-3-2 rhythm, spelled out row by row. Cells carry a fixed width
  * rather than flexing, so the short rows stay ragged instead of stretching to
- * fill the slot they leave open.
+ * fill the slot they leave open. Counts cover the whole club, not just the
+ * page currently on screen.
  */
-const SQUARE_ROWS: Square[][] = [
-  [
-    { label: 'Të gjithë userat', value: '144', hint: 'aktiv', tone: C.text, tall: true },
-    {
-      label: 'Userat e deaktivizuar',
-      value: '0',
-      hint: 'akses i ndaluar',
-      tone: C.red,
-      tall: true,
-    },
-  ],
-  [
-    { label: 'Administratori', value: '1', hint: 'akses i plotë', tone: C.green },
-    { label: 'Trajnerë', value: '5', hint: 'ekip + stërvitje', tone: C.green },
-    { label: 'Lojtarë', value: '85', hint: 'të regjistruar', tone: C.orange },
-  ],
-  [
-    { label: 'Prindër', value: '42', hint: 'kujdestarë', tone: C.blue },
-    { label: 'Financier', value: '1', hint: 'financat', tone: C.blue },
-  ],
-];
+function summaryRows(users: ApiMember[] | null): Square[][] {
+  const count = (test: (u: ApiMember) => boolean) =>
+    users ? String(users.filter(test).length) : '—';
+
+  return [
+    [
+      {
+        label: 'Të gjithë userat',
+        value: users ? String(users.length) : '—',
+        hint: 'aktiv',
+        tone: C.text,
+        tall: true,
+      },
+      {
+        label: 'Userat e deaktivizuar',
+        value: count((u) => !u.is_active),
+        hint: 'akses i ndaluar',
+        tone: C.red,
+        tall: true,
+      },
+    ],
+    [
+      {
+        label: 'Administratori',
+        value: count((u) => u.role === 'administrator'),
+        hint: 'akses i plotë',
+        tone: C.green,
+      },
+      {
+        label: 'Trajnerë',
+        value: count((u) => TRAINER_ROLES.has(u.role)),
+        hint: 'ekip + stërvitje',
+        tone: C.green,
+      },
+      {
+        label: 'Lojtarë',
+        value: count((u) => u.role === 'player'),
+        hint: 'të regjistruar',
+        tone: C.orange,
+      },
+    ],
+    [
+      { label: 'Prindër', value: count((u) => u.role === 'parent'), hint: 'kujdestarë', tone: C.blue },
+      {
+        label: 'Financier',
+        value: count((u) => u.role === 'financier'),
+        hint: 'financat',
+        tone: C.blue,
+      },
+    ],
+  ];
+}
 
 /* ── Users ─────────────────────────────────────────────────────────── */
 
@@ -827,6 +861,8 @@ export default function UsersListScreen() {
   );
   const [actionError, setActionError] = useState<string | null>(null);
   const [rows, setRows] = useState<ApiUser[]>([]);
+  /** Every club member, for the headline counts. */
+  const [allUsers, setAllUsers] = useState<ApiUser[] | null>(null);
   const [teams, setTeams] = useState<ApiTeam[]>([]);
   const [meta, setMeta] = useState<Paginated<ApiUser>['meta'] | null>(null);
   const [page, setPage] = useState(1);
@@ -883,6 +919,32 @@ export default function UsersListScreen() {
       });
     return () => controller.abort();
   }, [token, page, reload, router, signOut, search, roleFilter, statusFilter, teamFilter]);
+
+  /* The headline counts need the whole club, not just the visible page. */
+  useEffect(() => {
+    if (!token) return;
+    const controller = new AbortController();
+
+    (async () => {
+      try {
+        const all: ApiUser[] = [];
+        for (let p = 1; ; p += 1) {
+          const res = await listUsers(token, { page: p }, controller.signal);
+          all.push(...res.data);
+          if (!res.meta || p >= res.meta.last_page) break;
+        }
+        if (!controller.signal.aborted) setAllUsers(all);
+      } catch (e) {
+        if (controller.signal.aborted) return;
+        if (e instanceof ApiError && e.status === 401) {
+          signOut();
+          router.replace('/login');
+        }
+      }
+    })();
+
+    return () => controller.abort();
+  }, [token, reload, router, signOut]);
 
   /* The edit popup's team picker reads from the club's real teams. */
   useEffect(() => {
@@ -1011,7 +1073,7 @@ export default function UsersListScreen() {
           <View style={styles.colPad}>
             {/* ── Summary grid: 2-3-2, ragged ends left open ───────────── */}
             <View style={styles.sqGrid}>
-              {SQUARE_ROWS.map((row) => (
+              {summaryRows(allUsers).map((row) => (
                 <View key={row[0].label} style={styles.sqRow}>
                   {row.map((s) => (
                     <SummarySquare key={s.label} square={s} tall={s.tall} />

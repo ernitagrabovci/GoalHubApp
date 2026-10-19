@@ -18,7 +18,8 @@ import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
 import { ApiError } from '@/lib/api/errors';
 import { badges, listNotifications, markNotificationsRead } from '@/lib/api/notifications';
-import type { ApiNotification, Paginated } from '@/lib/api/types';
+import { listTeams } from '@/lib/api/teams';
+import type { ApiNotification, ApiTeam, Paginated } from '@/lib/api/types';
 import { I, scaled } from '@/lib/responsive';
 import { useSession } from '@/lib/session';
 
@@ -64,8 +65,6 @@ const MO = {
   white: '#F5F5F5',
 };
 
-/** Who a new notification can go to, once "Të gjithë klubin" is ruled out. */
-const FILTER_TEAMS = ['Ekipi i Parë', 'U21', 'U19', 'U17', 'U15', 'U13'];
 const FILTER_ROLES = ['Lojtarë', 'Trajner', 'Prindër'];
 
 type Target = 'all' | 'filter';
@@ -153,6 +152,28 @@ export default function NotificationsScreen() {
   const [error, setError] = useState<string | null>(null);
   const [composing, setComposing] = useState(false);
   const [markingRead, setMarkingRead] = useState(false);
+  const [teams, setTeams] = useState<ApiTeam[]>([]);
+
+  /* The filter's choices come from the club's teams, not a fixed list. */
+  useEffect(() => {
+    if (!token) return;
+    const controller = new AbortController();
+
+    listTeams(token, controller.signal)
+      .then((res) => {
+        if (controller.signal.aborted) return;
+        setTeams(res.data);
+      })
+      .catch((err) => {
+        if (controller.signal.aborted) return;
+        if (err instanceof ApiError && err.status === 401) {
+          signOut();
+          router.replace('/login');
+        }
+      });
+
+    return () => controller.abort();
+  }, [token, router, signOut]);
 
   // The unread badge is exact; the list itself is paginated.
   useEffect(() => {
@@ -550,7 +571,10 @@ export default function NotificationsScreen() {
             accessibilityRole="button"
             accessibilityLabel="Mbylle dritaren"
           />
-          <NewNotificationModal onClose={() => setComposing(false)} />
+          <NewNotificationModal
+            teamNames={teams.map((t) => t.name)}
+            onClose={() => setComposing(false)}
+          />
         </View>
       ) : null}
     </SafeAreaView>
@@ -570,7 +594,13 @@ function Radio({ on }: { on: boolean }) {
  * Two ways in, nested: "Të gjithë klubin" is the whole audience in one tap,
  * while "Filtro" opens the team and role pickers underneath it.
  */
-function NewNotificationModal({ onClose }: { onClose: () => void }) {
+function NewNotificationModal({
+  teamNames,
+  onClose,
+}: {
+  teamNames: string[];
+  onClose: () => void;
+}) {
   const { width, height } = useWindowDimensions();
   const cardW = Math.min(width - 24, 360);
   const maxBody = Math.max(260, height - 167);
@@ -640,7 +670,7 @@ function NewNotificationModal({ onClose }: { onClose: () => void }) {
         {target === 'filter' ? (
           <View style={styles.stepBox}>
             <Text style={styles.stepHead}>Hapi 2 - Zgjedh ekip(et)</Text>
-            {FILTER_TEAMS.map((t) => (
+            {teamNames.map((t) => (
               <Pressable
                 key={t}
                 onPress={() => toggle(teams, setTeams, t)}

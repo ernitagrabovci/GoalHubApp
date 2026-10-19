@@ -66,8 +66,15 @@ export type ApiPlayer = {
   health_status: 'active' | 'injured' | 'rehabilitation' | 'suspended' | string;
   date_of_birth: string | null;
   age: number | null;
+  nationality: string | null;
   contract_start: string | null;
   contract_end: string | null;
+  ffk_license: string | null;
+  contract_type: string | null;
+  /** Server may serialise DECIMAL columns as strings. */
+  monthly_amount: number | string | null;
+  payment_deadline_days: number | null;
+  billing_cycle: string | null;
 };
 
 /** Laravel's paginated resource collection envelope. */

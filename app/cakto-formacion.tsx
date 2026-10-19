@@ -93,47 +93,8 @@ const MONTHS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', '
 
 const SEASON_YEAR = '2026';
 
-type SquadMember = { nr: string; name: string; pos: string };
-
 /* A squad row the screen renders, plus the backend player id when it has one. */
 type Player = { key: string; id: number | null; nr: string; name: string; pos: string };
-
-const SQUAD: SquadMember[] = [
-  { nr: '1', name: 'Luan Kryeziu', pos: 'Portier' },
-  { nr: '2', name: 'Bekim Rexhepi', pos: 'Portier' },
-  { nr: '3', name: 'Ilir Bytyqi', pos: 'Portier' },
-  { nr: '4', name: 'Driton Demiri', pos: 'Portier' },
-  { nr: '5', name: 'Dren Hyseni', pos: 'Mbrojtës' },
-  { nr: '6', name: 'Bekim Shala', pos: 'Mbrojtës' },
-  { nr: '7', name: 'Dardan Krasniqi', pos: 'Mbrojtës' },
-  { nr: '8', name: 'Fisnik Berisha', pos: 'Mbrojtës' },
-  { nr: '9', name: 'Jetmir Zeka', pos: 'Mbrojtës' },
-  { nr: '10', name: 'Riad Hoxha', pos: 'Mbrojtës' },
-  { nr: '11', name: 'Endrit Gashi', pos: 'Mbrojtës' },
-  { nr: '12', name: 'Fatos Bytyqi', pos: 'Mesfushor' },
-  { nr: '13', name: 'Endrit Hoxha', pos: 'Mesfushor' },
-  { nr: '14', name: 'Genc Morina', pos: 'Mesfushor' },
-  { nr: '15', name: 'Kujtim Gashi', pos: 'Mesfushor' },
-  { nr: '16', name: 'Leart Berisha', pos: 'Mesfushor' },
-  { nr: '17', name: 'Mergim Berisha', pos: 'Mesfushor' },
-  { nr: '18', name: 'Blerim Krasniqi', pos: 'Mesfushor' },
-  { nr: '19', name: 'Ardit Llapashtica', pos: 'Sulmues' },
-  { nr: '20', name: 'Hamdi Shala', pos: 'Sulmues' },
-  { nr: '21', name: 'Arbnor Zeka', pos: 'Sulmues' },
-  { nr: '22', name: 'Dion Nimani', pos: 'Sulmues' },
-  { nr: '23', name: 'Yll Demaku', pos: 'Sulmues' },
-  { nr: '24', name: 'Narti Cerkini', pos: 'Sulmues' },
-  { nr: '25', name: 'Erion Zeka', pos: 'Sulmues' },
-];
-
-/* The id-less fallback squad, shown until a real team loads. */
-const STATIC_SQUAD: Player[] = SQUAD.map((p) => ({
-  key: p.nr,
-  id: null,
-  nr: p.nr,
-  name: p.name,
-  pos: p.pos,
-}));
 
 const INSTRUCTIONS = [
   'Zgjedh Startues për 11 lojtarët kryesorë',
@@ -175,14 +136,10 @@ export default function SetFormationScreen() {
   const day = `${params.day ?? ''} ${monthName(params.mon ?? '')} ${SEASON_YEAR}`.trim();
   const time = params.time ?? '';
 
-  const [squad, setSquad] = useState<Player[]>(STATIC_SQUAD);
+  const [squad, setSquad] = useState<Player[]>([]);
   /* Every player starts outside the squad; the trainer calls them up. */
-  const [roles, setRoles] = useState<Record<string, string>>(() =>
-    Object.fromEntries(STATIC_SQUAD.map((p) => [p.key, CLOSED])),
-  );
-  const [positions, setPositions] = useState<Record<string, string>>(() =>
-    Object.fromEntries(STATIC_SQUAD.map((p) => [p.key, p.pos])),
-  );
+  const [roles, setRoles] = useState<Record<string, string>>({});
+  const [positions, setPositions] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   /* Only one dropdown is ever unrolled, and it floats over the rows below. */
@@ -478,6 +435,12 @@ export default function SetFormationScreen() {
                     </View>
                   );
                 })}
+
+                {roster.length === 0 ? (
+                  <Text style={styles.rosterEmpty} numberOfLines={1}>
+                    Nuk ka lojtarë.
+                  </Text>
+                ) : null}
               </View>
             </View>
           </View>
@@ -759,6 +722,14 @@ const styles = StyleSheet.create(
       backgroundColor: C.blue1,
       borderBottomLeftRadius: 4,
       borderBottomRightRadius: 4,
+    },
+
+    rosterEmpty: {
+      paddingHorizontal: 9,
+      paddingVertical: 12,
+      fontFamily: Fonts.body,
+      fontSize: 11,
+      color: C.hint,
     },
 
     /* The name block stays at the top when a dropdown below it opens. */

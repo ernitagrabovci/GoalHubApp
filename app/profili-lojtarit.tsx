@@ -9,7 +9,8 @@ import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
 import { ApiError } from '@/lib/api/errors';
 import { myPlayer } from '@/lib/api/players';
-import type { ApiPlayer } from '@/lib/api/types';
+import { listMyTrainings } from '@/lib/api/trainings';
+import type { ApiPlayer, ApiTraining } from '@/lib/api/types';
 import { positionLabel } from '@/lib/player-position';
 import { statusLabel } from '@/lib/player-status';
 import { I, scaled } from '@/lib/responsive';
@@ -55,32 +56,27 @@ const IMG = {
   star: require('@/assets/dashboard/star.png'),
 };
 
-/* Season totals shown in the identity card. */
+/* The player's own season totals have no read endpoint; the finance figures
+   are admin/financier-only. Both read as honest dashes. */
 const STATS = [
-  { label: 'Ndeshjet', value: '1', tone: C.text },
-  { label: 'Golat', value: '0', tone: C.green },
-  { label: 'Asiste', value: '0', tone: C.blue },
+  { label: 'Ndeshjet', value: '—', tone: C.text },
+  { label: 'Golat', value: '—', tone: C.green },
+  { label: 'Asiste', value: '—', tone: C.blue },
 ];
 
 const STATS2 = [
-  { label: 'K.verdha', value: '0', tone: C.orange },
-  { label: 'K.kuq', value: '0', tone: C.red },
-  { label: 'Minuta', value: '0', tone: C.text },
+  { label: 'K.verdha', value: '—', tone: C.orange },
+  { label: 'K.kuq', value: '—', tone: C.red },
+  { label: 'Minuta', value: '—', tone: C.text },
 ];
 
 /* Financial squares, two per row. Two share the "e papaguar" label, so each
    needs its own key. */
 const MONEY = [
-  { key: 'papaguar-0', label: 'e papaguar', value: '0', tone: C.green },
-  { key: 'papaguar-1', label: 'e papaguar', value: '1', tone: C.redDark },
-  { key: 'vonese', label: 'me vonesë', value: '0', tone: C.orange },
-  { key: 'kritike', label: 'kritike', value: '0', tone: C.redSoft },
-];
-
-const ATTENDANCE = [
-  { label: 'prezent', value: '0', dot: C.green },
-  { label: 'mungesë', value: '0', dot: C.red },
-  { label: 'pa status', value: '0', dot: C.hintSoft },
+  { key: 'papaguar-0', label: 'e papaguar', value: '—', tone: C.green },
+  { key: 'papaguar-1', label: 'e papaguar', value: '—', tone: C.redDark },
+  { key: 'vonese', label: 'me vonesë', value: '—', tone: C.orange },
+  { key: 'kritike', label: 'kritike', value: '—', tone: C.redSoft },
 ];
 
 const MONTHS = [
@@ -121,6 +117,7 @@ export default function PlayerOwnProfileScreen() {
   const params = useLocalSearchParams<{ name?: string; team?: string; nr?: string; pos?: string }>();
   const [player, setPlayer] = useState<ApiPlayer | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [trainings, setTrainings] = useState<ApiTraining[] | null>(null);
 
   useEffect(() => {
     if (!token) return;
@@ -149,21 +146,66 @@ export default function PlayerOwnProfileScreen() {
     return () => controller.abort();
   }, [token, router, signOut]);
 
-  const name = player?.name ?? params.name ?? 'Ardit Llapashtica';
-  const team = player?.team?.name ?? params.team ?? 'Ekipi i Parë';
+  /* The player's own attendance, across every training of their team. */
+  useEffect(() => {
+    if (!token) return;
+    const controller = new AbortController();
+
+    (async () => {
+      try {
+        const all: ApiTraining[] = [];
+        for (let p = 1; ; p += 1) {
+          const res = await listMyTrainings(token, { page: p }, controller.signal);
+          all.push(...res.data);
+          if (!res.meta || p >= res.meta.last_page) break;
+        }
+        if (!controller.signal.aborted) setTrainings(all);
+      } catch (err) {
+        if (controller.signal.aborted) return;
+        if (err instanceof ApiError && err.status === 401) {
+          signOut();
+          router.replace('/login');
+        }
+      }
+    })();
+
+    return () => controller.abort();
+  }, [token, router, signOut]);
+
+  const name = player?.name ?? params.name ?? '—';
+  const team = player?.team?.name ?? params.team ?? '—';
   const nr = player?.jersey_number != null ? String(player.jersey_number) : params.nr ?? '9';
   const pos = player?.position ? positionLabel(player.position) : params.pos ?? 'Sulmues';
 
-  // Personal-details rows. With no fetched player the original static values
-  // stay, so the design reads the same; otherwise each mapped field is driven
-  // by the API and the unmapped rows (nationality, FFK licence) stay static.
+  const present = trainings
+    ? trainings.filter((t) => t.my_attendance === 'present').length
+    : null;
+  const absent = trainings
+    ? trainings.filter((t) => t.my_attendance === 'absent').length
+    : null;
+  const unknown = trainings ? trainings.length - (present ?? 0) - (absent ?? 0) : null;
+  const presentPct =
+    trainings && trainings.length > 0
+      ? Math.round(((present ?? 0) / trainings.length) * 100)
+      : 0;
+
+  const attendance = [
+    { label: 'prezent', value: present == null ? '—' : String(present), dot: C.green },
+    { label: 'mungesë', value: absent == null ? '—' : String(absent), dot: C.red },
+    {
+      label: 'pa status',
+      value: unknown == null ? '—' : String(unknown),
+      dot: C.hintSoft,
+    },
+  ];
+
   const details = [
-    { label: 'Mosha', value: player ? (player.age != null ? `${player.age} vjeç` : '—') : '21 vjeç' },
-    { label: 'Kombësia', value: 'Kosovar' },
-    { label: 'Email', value: player ? player.email ?? '—' : 'narti@gmail.com' },
-    { label: 'Licensa FFK', value: '111' },
-    { label: 'Kontrata nga', value: player ? formatContract(player.contract_start) : '25 gusht 2026' },
-    { label: 'Kontrata deri', value: player ? formatContract(player.contract_end) : '26 gusht 2027' },
+    { label: 'Mosha', value: player?.age != null ? `${player.age} vjeç` : '—' },
+    { label: 'Kombësia', value: player?.nationality ?? '—' },
+    { label: 'Email', value: player?.email ?? '—' },
+    { label: 'Licensa FFK', value: player?.ffk_license ?? '—' },
+    { label: 'Kontrata nga', value: player ? formatContract(player.contract_start) : '—' },
+    { label: 'Kontrata deri', value: player ? formatContract(player.contract_end) : '—' },
   ];
 
   return (
@@ -309,7 +351,7 @@ export default function PlayerOwnProfileScreen() {
 
                   <View style={styles.totalBox}>
                     <Text style={styles.totalLabel}>Totali i paguar</Text>
-                    <Text style={styles.totalValue}>$0.00</Text>
+                    <Text style={styles.totalValue}>—</Text>
                   </View>
                 </View>
               </View>
@@ -337,12 +379,12 @@ export default function PlayerOwnProfileScreen() {
               <View style={[styles.duoCard, styles.card]}>
                 <View style={styles.prezencaTop}>
                   <Text style={styles.cardTitle}>Prezenca</Text>
-                  <Text style={styles.prezencaPct}>0%</Text>
+                  <Text style={styles.prezencaPct}>{`${presentPct}%`}</Text>
                 </View>
                 <View style={styles.grayRule} />
 
                 <View style={styles.body}>
-                  {ATTENDANCE.map((a) => (
+                  {attendance.map((a) => (
                     <View key={a.label} style={styles.attRow}>
                       <View style={styles.attLeft}>
                         <View style={[styles.dot, { backgroundColor: a.dot }]} />
@@ -356,7 +398,9 @@ export default function PlayerOwnProfileScreen() {
 
                   <View style={styles.totalRow}>
                     <Text style={styles.totalRowLabel}>total stërvitje</Text>
-                    <Text style={styles.totalRowValue}>16</Text>
+                    <Text style={styles.totalRowValue}>
+                      {trainings ? String(trainings.length) : '—'}
+                    </Text>
                   </View>
                 </View>
               </View>

@@ -17,7 +17,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
 import { ApiError } from '@/lib/api/errors';
-import { listMatches } from '@/lib/api/matches';
+import { createMatch, listMatches } from '@/lib/api/matches';
 import type { ApiMatch } from '@/lib/api/types';
 import { I, scaled } from '@/lib/responsive';
 import { useSession } from '@/lib/session';
@@ -74,15 +74,6 @@ const MO = {
 
 /* Popup option sets */
 const VENUES = ['Shtëpi', 'Musafir'];
-const COMPS = [
-  'Superliga e Kosovës',
-  'U21 Superliga e Kosovës',
-  'U19 Superliga e Kosovës',
-  'U17 Superliga e Kosovës',
-  'U15 Superliga e Kosovës',
-  'U13 Superliga e Kosovës',
-  'Kupa e Kosovës',
-];
 const MONTHS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
 
 /** Two-digit zero pad for the date parts. */
@@ -160,6 +151,16 @@ type Fixture = {
   comp: string;
 };
 
+/** What the "Shto ndeshje" popup hands to `POST /matches`. */
+type MatchDraft = {
+  opponent: string;
+  competition: string | null;
+  venue: 'home' | 'away';
+  scheduled_at: string;
+  transport_at: string | null;
+  notes: string | null;
+};
+
 /* ── Results ───────────────────────────────────────────────────────── */
 
 type Played = {
@@ -196,14 +197,14 @@ function resultOf(score: string) {
 export default function TrainerMatchesScreen() {
   const router = useRouter();
   const { user, token, signOut } = useSession();
-  const club = user?.club ?? 'FC Prishtina';
+  const club = user?.club ?? '—';
 
   const [matches, setMatches] = useState<ApiMatch[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-  // A match added from the popup lives only on the device — the v1 API is
-  // read-only for matches (no POST/PATCH yet).
-  const [added, setAdded] = useState<Fixture[]>([]);
   const [adding, setAdding] = useState(false);
+  const [saveBusy, setSaveBusy] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     if (!token) return;
@@ -226,16 +227,15 @@ export default function TrainerMatchesScreen() {
       });
 
     return () => controller.abort();
-  }, [token, router, signOut]);
+  }, [token, router, signOut, reloadKey]);
 
   const upcoming = useMemo(() => {
     const now = currentMs();
-    const apiUpcoming = (matches ?? [])
+    return (matches ?? [])
       .filter((m) => m.scheduled_at && new Date(m.scheduled_at).getTime() > now)
       .sort((a, b) => new Date(a.scheduled_at!).getTime() - new Date(b.scheduled_at!).getTime())
       .map((m) => toFixture(m, club));
-    return [...added, ...apiUpcoming];
-  }, [matches, added, club]);
+  }, [matches, club]);
 
   const played = useMemo(() => {
     const now = currentMs();
@@ -270,9 +270,39 @@ export default function TrainerMatchesScreen() {
     ];
   }, [matches, played.length]);
 
-  const save = (f: Fixture) => {
-    setAdded((prev) => [f, ...prev]);
-    setAdding(false);
+  /* The competitions already on the calendar — the only list the staff API
+     exposes, since `/competitions` is administrator-only. */
+  const compOptions = useMemo(() => {
+    const names = (matches ?? [])
+      .map((m) => m.competition)
+      .filter((c): c is string => Boolean(c));
+    return Array.from(new Set(names));
+  }, [matches]);
+
+  const save = (d: MatchDraft) => {
+    if (!token || saveBusy) return;
+    setSaveBusy(true);
+    setSaveError(null);
+
+    createMatch(token, d)
+      .then(() => {
+        setSaveBusy(false);
+        setAdding(false);
+        setReloadKey((k) => k + 1);
+      })
+      .catch((e) => {
+        setSaveBusy(false);
+        if (e instanceof ApiError && e.status === 401) {
+          signOut();
+          router.replace('/login');
+          return;
+        }
+        setSaveError(
+          e instanceof ApiError && e.status !== 0 && e.message
+            ? e.message
+            : 'Nuk mund të lidhemi me serverin. Kontrollo lidhjen.',
+        );
+      });
   };
 
   return (
@@ -375,7 +405,10 @@ export default function TrainerMatchesScreen() {
           <View style={styles.colPad}>
             {/* ── Add a fixture ───────────────────────────────────── */}
             <Pressable
-              onPress={() => setAdding(true)}
+              onPress={() => {
+                setSaveError(null);
+                setAdding(true);
+              }}
               accessibilityRole="button"
               accessibilityLabel="Shto ndeshje"
               style={({ pressed }) => [styles.addBtn, pressed && styles.pressed]}
@@ -601,7 +634,13 @@ export default function TrainerMatchesScreen() {
             accessibilityRole="button"
             accessibilityLabel="Mbylle dritaren"
           />
-          <AddMatchModal club={club} onClose={() => setAdding(false)} onSave={save} />
+          <AddMatchModal
+            comps={compOptions}
+            busy={saveBusy}
+            error={saveError}
+            onClose={() => setAdding(false)}
+            onSave={save}
+          />
         </View>
       ) : null}
     </SafeAreaView>
@@ -613,20 +652,24 @@ export default function TrainerMatchesScreen() {
 /* ------------------------------------------------------------------ */
 
 function AddMatchModal({
-  club,
+  comps,
+  busy,
+  error,
   onClose,
   onSave,
 }: {
-  club: string;
+  comps: string[];
+  busy: boolean;
+  error: string | null;
   onClose: () => void;
-  onSave: (f: Fixture) => void;
+  onSave: (d: MatchDraft) => void;
 }) {
   const { width, height } = useWindowDimensions();
   const cardW = Math.min(width - 24, 360);
   const maxBody = Math.max(280, height - 187);
 
   const [rival, setRival] = useState('');
-  const [comp, setComp] = useState(COMPS[0]);
+  const [comp, setComp] = useState(comps[0] ?? '');
   const [venue, setVenue] = useState(VENUES[0]);
   const [when, setWhen] = useState<Clock>(EMPTY_CLOCK);
   const [transport, setTransport] = useState<Clock>(EMPTY_CLOCK);
@@ -634,22 +677,19 @@ function AddMatchModal({
   const [err, setErr] = useState(false);
 
   const submit = () => {
-    const complete =
-      rival.trim() && comp && venue && when.day && when.month && when.year && when.hour && when.minute;
-    if (!complete) {
+    if (busy) return;
+    const scheduled = isoDateTime(when);
+    if (!rival.trim() || !scheduled) {
       setErr(true);
       return;
     }
-    const atHome = venue !== 'Musafir';
     onSave({
-      id: Date.now(),
-      day: when.day,
-      mon: MONTHS[Number(when.month) - 1] ?? '—',
-      home: atHome ? club : rival.trim(),
-      away: atHome ? rival.trim() : club,
-      time: `${when.hour}:${when.minute}`,
-      venue: atHome ? 'Shtëpi' : 'Musafir',
-      comp,
+      opponent: rival.trim(),
+      competition: comp || null,
+      venue: venue === 'Musafir' ? 'away' : 'home',
+      scheduled_at: scheduled,
+      transport_at: isoDateTime(transport),
+      notes: note.trim() || null,
     });
   };
 
@@ -666,7 +706,8 @@ function AddMatchModal({
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={styles.nmContent}
       >
-        {err ? <Text style={styles.nmErr}>Plotëso të gjitha fushat e kërkuara.</Text> : null}
+        {err ? <Text style={styles.nmErr}>Plotëso kundërshtarin, datën dhe orën.</Text> : null}
+        {error ? <Text style={styles.nmErr}>{error}</Text> : null}
 
         <Text style={styles.nmLabel}>Kundershtari:</Text>
         <TextInput
@@ -677,7 +718,11 @@ function AddMatchModal({
         />
 
         <Text style={[styles.nmLabel, styles.nmGap]}>Gara/Kompeticioni:</Text>
-        <NMSelect value={comp} options={COMPS} onChange={setComp} />
+        {comps.length > 0 ? (
+          <NMSelect value={comp} options={comps} onChange={setComp} />
+        ) : (
+          <Text style={styles.nmErr}>Nuk ka kompeticione të regjistruara.</Text>
+        )}
 
         <Text style={[styles.nmLabel, styles.nmGap]}>Vendoshja</Text>
         <NMSelect value={venue} options={VENUES} onChange={setVenue} />
@@ -708,10 +753,16 @@ function AddMatchModal({
           </Pressable>
           <Pressable
             onPress={submit}
+            disabled={busy}
             accessibilityRole="button"
-            style={({ pressed }) => [styles.nmBtn, styles.nmBtnSave, pressed && styles.pressed]}
+            style={({ pressed }) => [
+              styles.nmBtn,
+              styles.nmBtnSave,
+              busy && styles.nmBtnBusy,
+              pressed && styles.pressed,
+            ]}
           >
-            <Text style={styles.nmBtnText}>Shto</Text>
+            <Text style={styles.nmBtnText}>{busy ? '...' : 'Shto'}</Text>
           </Pressable>
         </View>
       </ScrollView>
@@ -727,6 +778,17 @@ type Clock = { day: string; month: string; year: string; hour: string; minute: s
 
 const EMPTY_CLOCK: Clock = { day: '', month: '', year: '', hour: '', minute: '' };
 
+/** A fully filled clock as `YYYY-MM-DD HH:mm:00`; anything incomplete is null. */
+function isoDateTime(c: Clock): string | null {
+  const filled =
+    c.day.length === 2 &&
+    c.month.length === 2 &&
+    c.year.length === 4 &&
+    c.hour.length === 2 &&
+    c.minute.length === 2;
+  return filled ? `${c.year}-${c.month}-${c.day} ${c.hour}:${c.minute}:00` : null;
+}
+
 /** "DD/MM/YY ---- HH:MM" on one line, the same shape wherever a moment is asked for. */
 function ClockBoxes({ value, onChange }: { value: Clock; onChange: (next: Clock) => void }) {
   const set = (patch: Partial<Clock>) => onChange({ ...value, ...patch });
@@ -734,13 +796,14 @@ function ClockBoxes({ value, onChange }: { value: Clock; onChange: (next: Clock)
   const box = (
     key: 'day' | 'month' | 'year' | 'hour' | 'minute',
     placeholder: string,
+    maxLength = 2,
   ) => (
     <TextInput
       value={value[key]}
       onChangeText={(text) => set({ [key]: text })}
       placeholder={placeholder}
       placeholderTextColor={MO.ph}
-      maxLength={2}
+      maxLength={maxLength}
       keyboardType="number-pad"
       allowFontScaling={false}
       style={styles.nmDateBox}
@@ -753,7 +816,7 @@ function ClockBoxes({ value, onChange }: { value: Clock; onChange: (next: Clock)
       <Text style={styles.nmSep}>/</Text>
       {box('month', 'MM')}
       <Text style={styles.nmSep}>/</Text>
-      {box('year', 'YY')}
+      {box('year', 'YYYY', 4)}
       <Text style={styles.nmDash}>----</Text>
       {box('hour', 'HH')}
       <Text style={styles.nmSep}>:</Text>
@@ -1256,6 +1319,10 @@ const styles = StyleSheet.create(
       paddingHorizontal: 15,
       paddingTop: 9,
       paddingBottom: 15,
+    },
+
+    nmBtnBusy: {
+      opacity: 0.6,
     },
 
     nmErr: {

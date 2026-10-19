@@ -10,8 +10,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
 import { ApiError } from '@/lib/api/errors';
+import { listPlayers } from '@/lib/api/players';
 import { listRatings } from '@/lib/api/ratings';
-import type { PlayerRatingRow } from '@/lib/api/types';
+import type { ApiPlayer, PlayerRatingRow } from '@/lib/api/types';
 import { I, scaled } from '@/lib/responsive';
 import { useSession } from '@/lib/session';
 
@@ -63,12 +64,6 @@ const SQ_SHEEN = ['rgba(245,245,245,0.55)', 'rgba(245,245,245,0.00)'] as const;
 /* ── Team totals ───────────────────────────────────────────────────── */
 
 type Square = { label: string; value: string; tone: string };
-
-const SUMMARY: Square[] = [
-  { label: 'Mesatarja e ekipit', value: '7.4', tone: C.green },
-  { label: 'Të vlerësuar', value: '24', tone: C.text },
-  { label: 'Pa vlerësim', value: '1', tone: C.text },
-];
 
 /** A square of the summary row — frosted, then glossed. */
 function SummarySquare({ square }: { square: Square }) {
@@ -158,6 +153,7 @@ export default function PlayerRatingsScreen() {
   const { token, signOut } = useSession();
 
   const [rows, setRows] = useState<PlayerRatingRow[]>([]);
+  const [playerTotal, setPlayerTotal] = useState<number | null>(null);
 
   useEffect(() => {
     if (!token) return;
@@ -177,15 +173,54 @@ export default function PlayerRatingsScreen() {
     return () => controller.abort();
   }, [token, router, signOut]);
 
+  /* The squad total feeds the "Pa vlerësim" square. */
+  useEffect(() => {
+    if (!token) return;
+    const controller = new AbortController();
+
+    (async () => {
+      try {
+        const all: ApiPlayer[] = [];
+        for (let p = 1; ; p += 1) {
+          const res = await listPlayers(token, { page: p }, controller.signal);
+          all.push(...res.data);
+          if (!res.meta || p >= res.meta.last_page) break;
+        }
+        if (!controller.signal.aborted) setPlayerTotal(all.length);
+      } catch (e) {
+        if (controller.signal.aborted) return;
+        if (e instanceof ApiError && e.status === 401) {
+          signOut();
+          router.replace('/login');
+        }
+      }
+    })();
+
+    return () => controller.abort();
+  }, [token, router, signOut]);
+
   const players = rows.map(toRatedPlayer);
 
-  // Only "Të vlerësuar" has a clear API equivalent — the rated-player count.
-  // The team average and the un-rated total stay static.
-  const summary: Square[] = SUMMARY.map((s) =>
-    s.label === 'Të vlerësuar'
-      ? { ...s, value: players.length ? String(players.length) : '—' }
-      : s,
-  );
+  const teamAverage = players.length
+    ? average(players.flatMap((p) => p.scores))
+    : null;
+
+  const summary: Square[] = [
+    {
+      label: 'Mesatarja e ekipit',
+      value: teamAverage != null ? teamAverage.toFixed(1) : '—',
+      tone: C.green,
+    },
+    { label: 'Të vlerësuar', value: players.length ? String(players.length) : '—', tone: C.text },
+    {
+      label: 'Pa vlerësim',
+      value:
+        playerTotal != null
+          ? String(Math.max(0, playerTotal - players.length))
+          : '—',
+      tone: C.text,
+    },
+  ];
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>

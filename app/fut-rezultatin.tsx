@@ -73,21 +73,6 @@ type StatRow = {
   nota: string;
 };
 
-/* The eleven who played — shown only when the page has no match id to load. */
-const STATS: StatRow[] = [
-  { playerId: null, name: 'Driton Demiri', goals: '0', assists: '0', minutes: '90', yellow: '0', red: '0', nota: '7.5' },
-  { playerId: null, name: 'Enver Mustafa', goals: '0', assists: '1', minutes: '90', yellow: '1', red: '0', nota: '6.8' },
-  { playerId: null, name: 'Ardit Lapashtica', goals: '1', assists: '0', minutes: '90', yellow: '0', red: '0', nota: '7.9' },
-  { playerId: null, name: 'Narti Cerkini', goals: '0', assists: '0', minutes: '90', yellow: '0', red: '0', nota: '6.5' },
-  { playerId: null, name: 'Blerim Krasniqi', goals: '0', assists: '2', minutes: '78', yellow: '0', red: '0', nota: '7.2' },
-  { playerId: null, name: 'Endrit Gashi', goals: '0', assists: '0', minutes: '90', yellow: '1', red: '0', nota: '6.9' },
-  { playerId: null, name: 'Leart Berisha', goals: '1', assists: '0', minutes: '90', yellow: '0', red: '0', nota: '8.1' },
-  { playerId: null, name: 'Riad Hoxha', goals: '0', assists: '1', minutes: '64', yellow: '0', red: '0', nota: '6.4' },
-  { playerId: null, name: 'Arbnor Zeka', goals: '0', assists: '0', minutes: '90', yellow: '0', red: '1', nota: '5.8' },
-  { playerId: null, name: 'Dion Nimani', goals: '0', assists: '0', minutes: '26', yellow: '0', red: '0', nota: '6.2' },
-  { playerId: null, name: 'Yll Demaku', goals: '0', assists: '0', minutes: '12', yellow: '0', red: '0', nota: '6.0' },
-];
-
 /** A number out of a text box; empty or invalid falls back. */
 function numOr(value: string, fallback: number): number {
   const n = Number(value.replace(',', '.'));
@@ -103,7 +88,7 @@ export default function EnterResultScreen() {
   const matchId = params.id ? Number(params.id) : null;
   const hasId = matchId !== null && !Number.isNaN(matchId);
 
-  const home = params.home ?? 'FC Prishtina';
+  const home = params.home ?? '—';
   const away = params.away ?? '';
   /* The side we are not: the fixture is always listed with Prishtina in it. */
   const rival = home.includes('Prishtina') ? away : home;
@@ -112,8 +97,7 @@ export default function EnterResultScreen() {
   const [awayScore, setAwayScore] = useState('0');
   /* The match's venue, once loaded — decides which box is our own goals. */
   const [venue, setVenue] = useState<string | null>(null);
-  /* The id-less fallback keeps the design's demo line. */
-  const [stats, setStats] = useState<StatRow[]>(() => (hasId ? [] : STATS));
+  const [stats, setStats] = useState<StatRow[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   /* Which score box is unrolled, or null when both are shut. */
@@ -366,7 +350,7 @@ export default function EnterResultScreen() {
 
                   {stats.map((row, i) => (
                     <View
-                      key={`${row.playerId ?? 'static'}-${i}`}
+                      key={`${row.playerId ?? 'row'}-${i}`}
                       style={[styles.tr, i > 0 && styles.trBorder]}
                     >
                       {COLS.map((c) =>
@@ -393,6 +377,14 @@ export default function EnterResultScreen() {
                       )}
                     </View>
                   ))}
+
+                  {stats.length === 0 ? (
+                    <View style={[styles.tr, styles.trBorder]}>
+                      <Text style={[styles.tdName, { width: 300 }]} numberOfLines={1}>
+                        Nuk ka lojtarë të regjistruar për këtë ndeshje.
+                      </Text>
+                    </View>
+                  ) : null}
                 </View>
               </ScrollView>
             </View>

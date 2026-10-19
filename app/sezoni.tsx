@@ -1,7 +1,7 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { BlurView } from 'expo-blur';
 import {
   Animated,
@@ -15,9 +15,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
-import { getSeasons } from '@/lib/api/club';
+import { activateSeason, createSeason, deleteSeason, getSeasons } from '@/lib/api/club';
+import { listCompetitions } from '@/lib/api/competitions';
 import { ApiError } from '@/lib/api/errors';
-import type { ApiSeason } from '@/lib/api/types';
+import { listMatches } from '@/lib/api/matches';
+import type { ApiCompetition, ApiMatch, ApiSeason } from '@/lib/api/types';
 import { I, scaled } from '@/lib/responsive';
 import { useSession } from '@/lib/session';
 
@@ -73,33 +75,16 @@ const MO = {
   err: '#C90000',
 };
 
-const COMP_OPTIONS = [
-  { name: 'Kupa e Kosovës', tag: 'Kupë' },
-  { name: 'Liga e Dytë e Kosovës', tag: 'Ligë' },
-  { name: 'Ndeshje Miqësore', tag: 'Miqësore' },
-  { name: 'Superliga e Kosovës', tag: 'Ligë' },
-];
+const COMP_TAG: Record<string, string> = {
+  league: 'Ligë',
+  cup: 'Kupë',
+  friendly: 'Miqësore',
+};
 
 type Stat = { label: string; value: string; color: string };
 
-const STATS: Stat[] = [
-  { label: 'Ndeshja', value: '20', color: C.blue },
-  { label: 'Fitore', value: '4', color: C.green },
-  { label: 'Barazime', value: '3', color: C.orange },
-  { label: 'Humbje', value: '3', color: C.red },
-  { label: 'Gola', value: '22', color: C.blue },
-];
-
 /* 4-column info grid rows: label, value, label, value */
 type InfoRow = [string, string, string, string];
-
-const INFO: InfoRow[] = [
-  ['Sezoni', '2025/2026', 'Kompeticion', 'Kupa e Kosovës'],
-  ['Filloi', '01 Jul 2024', 'Mbaron', '30 Jun 2025'],
-  ['Ndeshje luajtur', '10 / 10', 'Golat', '22 shënuar · 18 pësuar'],
-];
-
-const CURRENT_COMP = 'Kupa e Kosovës';
 
 type Hist = {
   id: number;
@@ -123,65 +108,165 @@ function fmtDay(iso: string | null | undefined): string {
   return `${String(d.getDate()).padStart(2, '0')} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
 }
 
+/** `01/07/2025` → `2025-07-01`, or `null` when incomplete. */
+function isoDay(value: string): string | null {
+  const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(value.trim());
+  if (!m) return null;
+  return `${m[3]}-${m[2]}-${m[1]}`;
+}
+
+/** A match belongs to the season when its kick-off falls inside the range. */
+function inSeason(match: ApiMatch, season: ApiSeason | null): boolean {
+  if (!season || !match.scheduled_at) return false;
+  const day = match.scheduled_at.slice(0, 10);
+  if (season.start_date && day < season.start_date.slice(0, 10)) return false;
+  if (season.end_date && day > season.end_date.slice(0, 10)) return false;
+  return true;
+}
+
+function seasonErrorText(err: unknown): string {
+  if (err instanceof ApiError) {
+    if (err.status === 0) return 'Nuk mund të lidhemi me serverin. Kontrollo lidhjen.';
+    if (err.status === 422) return 'Të dhënat nuk janë të vlefshme. Kontrollo datat.';
+    if (err.status === 403) return 'Nuk keni leje për këtë veprim.';
+    if (err.status === 404) return 'Sezoni nuk u gjet.';
+  }
+  return 'Veprimi nuk mund të kryhet.';
+}
+
 export default function SezoniScreen() {
   const router = useRouter();
   const { token, signOut } = useSession();
 
   const [seasons, setSeasons] = useState<ApiSeason[]>([]);
-  const [history, setHistory] = useState<Hist[]>([]);
+  const [competitions, setCompetitions] = useState<ApiCompetition[]>([]);
+  const [matches, setMatches] = useState<ApiMatch[]>([]);
+  const [reload, setReload] = useState(0);
   const [compOpen, setCompOpen] = useState(false);
+  const [pickedComp, setPickedComp] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
+  const [createBusy, setCreateBusy] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
+  const [actionId, setActionId] = useState<number | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  const expired = useCallback(() => {
+    signOut();
+    router.replace('/login');
+  }, [router, signOut]);
 
   useEffect(() => {
     if (!token) return;
     const controller = new AbortController();
 
-    getSeasons(token, controller.signal)
-      .then((res) => {
-        if (controller.signal.aborted) return;
-        setSeasons(res.data);
-        setHistory(
-          res.data.map((s, i) => ({
-            id: s.id ?? i,
-            season: s.name,
-            range: `${fmtDay(s.start_date)} — ${fmtDay(s.end_date)}`,
-            comps: s.competitions ?? [],
-            closed: !s.is_active,
-            active: s.is_active,
-          })),
-        );
-      })
-      .catch((e) => {
-        if (controller.signal.aborted) return;
-        if (e instanceof ApiError && e.status === 401) {
-          signOut();
-          router.replace('/login');
+    Promise.allSettled([
+      getSeasons(token, controller.signal),
+      listCompetitions(token, controller.signal),
+      (async () => {
+        const all: ApiMatch[] = [];
+        for (let p = 1; ; p += 1) {
+          const res = await listMatches(token, { page: p }, controller.signal);
+          all.push(...res.data);
+          if (!res.meta || p >= res.meta.last_page) break;
         }
-      });
+        return all;
+      })(),
+    ]).then(([seasonRes, compRes, matchRes]) => {
+      if (controller.signal.aborted) return;
+
+      if (seasonRes.status === 'rejected') {
+        if (seasonRes.reason instanceof ApiError && seasonRes.reason.status === 401) {
+          expired();
+          return;
+        }
+      } else {
+        setSeasons(seasonRes.value.data);
+      }
+
+      if (compRes.status === 'fulfilled') setCompetitions(compRes.value.data);
+      if (matchRes.status === 'fulfilled') setMatches(matchRes.value);
+    });
 
     return () => controller.abort();
-  }, [token, router, signOut]);
+  }, [token, reload, expired]);
 
   const active = seasons.find((s) => s.is_active) ?? seasons[0] ?? null;
+  const compNames = competitions.map((c) => c.name);
+  const currentComp = pickedComp ?? active?.competitions?.[0] ?? compNames[0] ?? null;
 
-  const handleCreateSeason = (d: { season: string; range: string; comps: string[] }) => {
-    setHistory((prev) => [
-      { id: Date.now(), season: d.season, range: d.range, comps: d.comps, closed: false, active: false },
-      ...prev,
-    ]);
-    setCreateOpen(false);
+  const scoped = matches.filter(
+    (m) => inSeason(m, active) && (!currentComp || m.competition === currentComp),
+  );
+  const played = scoped.filter((m) => m.goals_for !== null && m.goals_against !== null);
+  const wins = played.filter((m) => (m.goals_for ?? 0) > (m.goals_against ?? 0)).length;
+  const draws = played.filter((m) => m.goals_for === m.goals_against).length;
+  const losses = played.length - wins - draws;
+  const goalsFor = played.reduce((n, m) => n + (m.goals_for ?? 0), 0);
+  const goalsAgainst = played.reduce((n, m) => n + (m.goals_against ?? 0), 0);
+  const winRate = played.length ? Math.round((wins / played.length) * 100) : 0;
+
+  const stats: Stat[] = [
+    { label: 'Ndeshja', value: String(played.length), color: C.blue },
+    { label: 'Fitore', value: String(wins), color: C.green },
+    { label: 'Barazime', value: String(draws), color: C.orange },
+    { label: 'Humbje', value: String(losses), color: C.red },
+    { label: 'Gola', value: String(goalsFor), color: C.blue },
+  ];
+
+  const history: Hist[] = seasons.map((s, i) => ({
+    id: s.id ?? i,
+    season: s.name,
+    range: `${fmtDay(s.start_date)} — ${fmtDay(s.end_date)}`,
+    comps: s.competitions ?? [],
+    closed: !s.is_active,
+    active: s.is_active,
+  }));
+
+  const handleCreateSeason = (d: SeasonDraft) => {
+    if (!token || createBusy) return;
+    setCreateBusy(true);
+    setCreateError(null);
+
+    createSeason(token, {
+      name: d.name,
+      start_date: d.start,
+      end_date: d.end,
+      competitions: d.comps,
+    })
+      .then(() => {
+        setCreateBusy(false);
+        setCreateOpen(false);
+        setReload((r) => r + 1);
+      })
+      .catch((e) => {
+        setCreateBusy(false);
+        if (e instanceof ApiError && e.status === 401) {
+          expired();
+          return;
+        }
+        setCreateError(seasonErrorText(e));
+      });
   };
 
-  const toggleClosed = (id: number) =>
-    setHistory((prev) => prev.map((h) => (h.id === id ? { ...h, closed: !h.closed } : h)));
+  const runAction = (id: number, run: (t: string, i: number) => Promise<unknown>) => {
+    if (!token || actionId !== null) return;
+    setActionId(id);
+    setActionError(null);
 
-  const setActive = (id: number) =>
-    setHistory((prev) =>
-      prev.map((h) => (h.id === id ? { ...h, active: !h.active } : h)),
-    );
-
-  const removeSeason = (id: number) =>
-    setHistory((prev) => prev.filter((h) => h.id !== id));
+    run(token, id)
+      .then(() => {
+        setActionId(null);
+        setReload((r) => r + 1);
+      })
+      .catch((e) => {
+        setActionId(null);
+        if (e instanceof ApiError && e.status === 401) {
+          expired();
+          return;
+        }
+        setActionError(seasonErrorText(e));
+      });
+  };
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
@@ -230,7 +315,7 @@ export default function SezoniScreen() {
                 style={({ pressed }) => [styles.ctlSelect, pressed && styles.pressed]}
               >
                 <Text style={styles.ctlSelectText} numberOfLines={1}>
-                  {CURRENT_COMP}
+                  {currentComp ?? '—'}
                 </Text>
                 <MaterialCommunityIcons name="chevron-down" size={I(13)} color={C.gray} />
               </Pressable>
@@ -247,40 +332,51 @@ export default function SezoniScreen() {
 
             {compOpen ? (
               <View style={styles.compOptBox}>
-                {['Kupa e Kosovës', 'Superliga e Kosovës', 'Liga e Dytë'].map((c) => {
-                  const active = c === CURRENT_COMP;
+                {compNames.map((c) => {
+                  const isCurrent = c === currentComp;
                   return (
                     <Pressable
                       key={c}
-                      onPress={() => setCompOpen(false)}
-                      style={[styles.compOpt, active && styles.compOptActive]}
+                      onPress={() => {
+                        setPickedComp(c);
+                        setCompOpen(false);
+                      }}
+                      style={[styles.compOpt, isCurrent && styles.compOptActive]}
                     >
-                      <Text style={[styles.compOptText, active && styles.compOptTextActive]}>
+                      <Text style={[styles.compOptText, isCurrent && styles.compOptTextActive]}>
                         {c}
                       </Text>
                     </Pressable>
                   );
                 })}
+                {compNames.length === 0 ? (
+                  <Text style={styles.emptyText}>Nuk ka kompeticione.</Text>
+                ) : null}
               </View>
             ) : null}
 
             {/* ── Current season card ────────────────────────────── */}
             <View style={[styles.card, styles.mainGap]}>
               <View style={styles.cardHead}>
-                <Text style={styles.cardHeadText}>{CURRENT_COMP}</Text>
+                <Text style={styles.cardHeadText}>{currentComp ?? '—'}</Text>
               </View>
               <View style={styles.cardBody}>
                 {/* info grid */}
                 <View style={styles.infoTable}>
                   {([
-                    ['Sezoni', active?.name ?? '—', 'Kompeticion', CURRENT_COMP],
+                    ['Sezoni', active?.name ?? '—', 'Kompeticion', currentComp ?? '—'],
                     [
                       'Filloi',
                       fmtDay(active?.start_date),
                       'Mbaron',
                       fmtDay(active?.end_date),
                     ],
-                    INFO[2],
+                    [
+                      'Ndeshje luajtur',
+                      `${played.length} / ${scoped.length}`,
+                      'Golat',
+                      `${goalsFor} shënuar · ${goalsAgainst} pësuar`,
+                    ],
                   ] as InfoRow[]).map(([l1, v1, l2, v2], idx) => (
                     <View key={idx} style={styles.iRow}>
                       <Text style={[styles.iLabel, styles.c1]} numberOfLines={1}>
@@ -302,7 +398,7 @@ export default function SezoniScreen() {
                 {/* statistics */}
                 <Text style={styles.statsTitle}>Statistikat e sezonit</Text>
                 <View style={styles.statsRow}>
-                  {STATS.map((s) => (
+                  {stats.map((s) => (
                     <View key={s.label} style={styles.stat}>
                       <Text style={[styles.statValue, { color: s.color }]}>{s.value}</Text>
                       <Text style={styles.statLabel}>{s.label}</Text>
@@ -313,10 +409,10 @@ export default function SezoniScreen() {
                 {/* win-rate / fitness bar */}
                 <View style={styles.fitRow}>
                   <Text style={styles.fitLabel}>Shkalla e fitoreve</Text>
-                  <Text style={styles.fitPct}>40%</Text>
+                  <Text style={styles.fitPct}>{`${winRate}%`}</Text>
                 </View>
                 <View style={styles.bar}>
-                  <View style={styles.barFill} />
+                  <View style={[styles.barFill, { width: `${winRate}%` }]} />
                 </View>
               </View>
             </View>
@@ -342,23 +438,23 @@ export default function SezoniScreen() {
                     </View>
                   </View>
                   <View style={styles.histRight}>
-                    <Pressable
-                      onPress={() => toggleClosed(h.id)}
-                      accessibilityRole="button"
-                      style={({ pressed }) => [styles.statusBtn, pressed && styles.pressed]}
-                    >
+                    <View style={styles.statusBtn}>
                       <Text style={styles.statusText} numberOfLines={1}>
                         {h.closed ? 'I mbyllur' : 'I hapur'}
                       </Text>
-                    </Pressable>
+                    </View>
                     <View style={styles.histActions}>
                       <Pressable
-                        onPress={() => setActive(h.id)}
+                        onPress={() => {
+                          if (!h.active) runAction(h.id, activateSeason);
+                        }}
+                        disabled={h.active || actionId !== null}
                         accessibilityRole="button"
                         style={({ pressed }) => [
                           styles.hBtn,
                           styles.aktivBtn,
                           h.active && styles.aktivBtnOn,
+                          (h.active || actionId !== null) && styles.hBtnOff,
                           pressed && styles.pressed,
                         ]}
                       >
@@ -370,11 +466,13 @@ export default function SezoniScreen() {
                         </Text>
                       </Pressable>
                       <Pressable
-                        onPress={() => removeSeason(h.id)}
+                        onPress={() => runAction(h.id, deleteSeason)}
+                        disabled={actionId !== null}
                         accessibilityRole="button"
                         style={({ pressed }) => [
                           styles.hBtn,
                           styles.fshiBtn,
+                          actionId !== null && styles.hBtnOff,
                           pressed && styles.pressed,
                         ]}
                       >
@@ -389,6 +487,7 @@ export default function SezoniScreen() {
               {history.length === 0 ? (
                 <Text style={styles.emptyText}>Nuk ka sezone ende.</Text>
               ) : null}
+              {actionError ? <Text style={styles.actionErr}>{actionError}</Text> : null}
             </View>
           </View>
         </ScrollView>
@@ -408,7 +507,12 @@ export default function SezoniScreen() {
             accessibilityLabel="Mbylle dritaren"
           />
           <CreateSeasonModal
-            onClose={() => setCreateOpen(false)}
+            comps={competitions}
+            busy={createBusy}
+            error={createError}
+            onClose={() => {
+              if (!createBusy) setCreateOpen(false);
+            }}
             onCreate={handleCreateSeason}
           />
         </View>
@@ -417,12 +521,18 @@ export default function SezoniScreen() {
   );
 }
 
-type SeasonDraft = { season: string; range: string; comps: string[] };
+type SeasonDraft = { name: string; start: string; end: string; comps: string[] };
 
 function CreateSeasonModal({
+  comps: competitions,
+  busy,
+  error,
   onClose,
   onCreate,
 }: {
+  comps: ApiCompetition[];
+  busy: boolean;
+  error: string | null;
   onClose: () => void;
   onCreate: (d: SeasonDraft) => void;
 }) {
@@ -443,16 +553,18 @@ function CreateSeasonModal({
     );
 
   const submit = () => {
-    const comps = COMP_OPTIONS.filter((c) => selected.includes(c.name)).map((c) => c.name);
-    if (!seasonName.trim() || !startDate.trim() || !endDate.trim() || comps.length === 0) {
+    if (busy) return;
+    const picked = competitions
+      .filter((c) => selected.includes(c.name))
+      .map((c) => c.name);
+    const start = isoDay(startDate);
+    const end = isoDay(endDate);
+    if (!seasonName.trim() || !start || !end || picked.length === 0) {
       setShowError(true);
       return;
     }
-    onCreate({
-      season: seasonName.trim(),
-      range: `${startDate.trim()} — ${endDate.trim()}`,
-      comps,
-    });
+    setShowError(false);
+    onCreate({ name: seasonName.trim(), start, end, comps: picked });
   };
 
   const translateY = anim.interpolate({ inputRange: [0, 1], outputRange: [-6, 0] });
@@ -488,6 +600,8 @@ function CreateSeasonModal({
             <TextInput
               value={startDate}
               onChangeText={setStartDate}
+              placeholder="DD/MM/YYYY"
+              placeholderTextColor={MO.label}
               allowFontScaling={false}
               style={styles.mInput}
             />
@@ -497,6 +611,8 @@ function CreateSeasonModal({
             <TextInput
               value={endDate}
               onChangeText={setEndDate}
+              placeholder="DD/MM/YYYY"
+              placeholderTextColor={MO.label}
               allowFontScaling={false}
               style={styles.mInput}
             />
@@ -505,11 +621,11 @@ function CreateSeasonModal({
 
         <View style={styles.mBox}>
           <Text style={styles.mBoxTitle}>Kompeticionet</Text>
-          {COMP_OPTIONS.map((opt) => {
+          {competitions.map((opt) => {
             const on = selected.includes(opt.name);
             return (
               <Pressable
-                key={opt.name}
+                key={opt.id}
                 onPress={() => toggle(opt.name)}
                 accessibilityRole="checkbox"
                 accessibilityState={{ checked: on }}
@@ -519,11 +635,14 @@ function CreateSeasonModal({
                   {on ? <View style={styles.mRadioDot} /> : null}
                 </View>
                 <Text style={styles.mOptText} numberOfLines={1}>
-                  {opt.name} ({opt.tag})
+                  {`${opt.name} (${COMP_TAG[opt.type] ?? opt.type})`}
                 </Text>
               </Pressable>
             );
           })}
+          {competitions.length === 0 ? (
+            <Text style={styles.mErr}>Nuk ka kompeticione të regjistruara.</Text>
+          ) : null}
         </View>
 
         {showError ? (
@@ -531,21 +650,34 @@ function CreateSeasonModal({
             Plotëso të gjitha fushat dhe zgjidh të paktën një kompeticion.
           </Text>
         ) : null}
+        {error ? <Text style={styles.mErr}>{error}</Text> : null}
 
         <View style={styles.mActions}>
           <Pressable
             onPress={onClose}
+            disabled={busy}
             accessibilityRole="button"
-            style={({ pressed }) => [styles.mBtn, styles.mBtnCancel, pressed && styles.pressed]}
+            style={({ pressed }) => [
+              styles.mBtn,
+              styles.mBtnCancel,
+              busy && styles.mBtnOff,
+              pressed && styles.pressed,
+            ]}
           >
             <Text style={styles.mBtnText}>Anulo</Text>
           </Pressable>
           <Pressable
             onPress={submit}
+            disabled={busy}
             accessibilityRole="button"
-            style={({ pressed }) => [styles.mBtn, styles.mBtnCreate, pressed && styles.pressed]}
+            style={({ pressed }) => [
+              styles.mBtn,
+              styles.mBtnCreate,
+              busy && styles.mBtnOff,
+              pressed && styles.pressed,
+            ]}
           >
-            <Text style={styles.mBtnText}>Krijo sezonin</Text>
+            <Text style={styles.mBtnText}>{busy ? '…' : 'Krijo sezonin'}</Text>
           </Pressable>
         </View>
       </View>
@@ -961,6 +1093,10 @@ const styles = StyleSheet.create(
       paddingHorizontal: 10,
     },
 
+    hBtnOff: {
+      opacity: 0.5,
+    },
+
     aktivBtn: {
       borderColor: C.aktivBorder,
       backgroundColor: 'transparent',
@@ -997,6 +1133,14 @@ const styles = StyleSheet.create(
       color: C.gray,
       textAlign: 'center',
       paddingVertical: 18,
+    },
+
+    actionErr: {
+      fontFamily: Fonts.body,
+      fontSize: 11,
+      color: C.red,
+      paddingHorizontal: 16,
+      paddingBottom: 14,
     },
 
     pressed: {
@@ -1204,6 +1348,10 @@ const styles = StyleSheet.create(
 
     mBtnCreate: {
       backgroundColor: MO.create,
+    },
+
+    mBtnOff: {
+      opacity: 0.6,
     },
 
     mBtnText: {

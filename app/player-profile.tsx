@@ -8,8 +8,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
 import { ApiError } from '@/lib/api/errors';
-import { getPlayer, listPlayers } from '@/lib/api/players';
-import type { ApiPlayer } from '@/lib/api/types';
+import { getPlayer, listPlayers, playerStatistics } from '@/lib/api/players';
+import type { ApiPlayer, PlayerStatRow } from '@/lib/api/types';
 import { positionLabel } from '@/lib/player-position';
 import { statusLabel } from '@/lib/player-status';
 import { I, scaled } from '@/lib/responsive';
@@ -52,32 +52,20 @@ const IMG = {
   star: require('@/assets/dashboard/star.png'),
 };
 
-/* Season totals shown in the identity card. */
-const STATS = [
-  { label: 'Ndeshjet', value: '1', tone: C.text },
-  { label: 'Golat', value: '0', tone: C.green },
-  { label: 'Asiste', value: '0', tone: C.blue },
-];
-
-const STATS2 = [
-  { label: 'K.verdha', value: '0', tone: C.orange },
-  { label: 'K.kuq', value: '0', tone: C.red },
-  { label: 'Minuta', value: '0', tone: C.text },
-];
-
-/* Financial squares, two per row. Two share the "e papaguar" label, so each
-   needs its own key. */
+/* Finance totals are admin/financier-only and there is no per-player
+   attendance read endpoint, so these squares show honest dashes instead of
+   invented counts. Two share the "e papaguar" label, so each needs its key. */
 const MONEY = [
-  { key: 'papaguar-0', label: 'e papaguar', value: '0', tone: C.green },
-  { key: 'papaguar-1', label: 'e papaguar', value: '1', tone: C.redDark },
-  { key: 'vonese', label: 'me vonesë', value: '0', tone: C.orange },
-  { key: 'kritike', label: 'kritike', value: '0', tone: C.redSoft },
+  { key: 'papaguar-0', label: 'e papaguar', value: '—', tone: C.green },
+  { key: 'papaguar-1', label: 'e papaguar', value: '—', tone: C.redDark },
+  { key: 'vonese', label: 'me vonesë', value: '—', tone: C.orange },
+  { key: 'kritike', label: 'kritike', value: '—', tone: C.redSoft },
 ];
 
 const ATTENDANCE = [
-  { label: 'prezent', value: '0', dot: C.green },
-  { label: 'mungesë', value: '0', dot: C.red },
-  { label: 'pa status', value: '0', dot: C.hintSoft },
+  { label: 'prezent', value: '—', dot: C.green },
+  { label: 'mungesë', value: '—', dot: C.red },
+  { label: 'pa status', value: '—', dot: C.hintSoft },
 ];
 
 const MONTHS = [
@@ -125,6 +113,7 @@ export default function PlayerProfileScreen() {
 
   const playerId = params.id ? Number(params.id) : null;
   const [player, setPlayer] = useState<ApiPlayer | null>(null);
+  const [seasonStats, setSeasonStats] = useState<PlayerStatRow | null>(null);
 
   /* The squad behind the header selector — picking one reloads the page. */
   const [roster, setRoster] = useState<ApiPlayer[]>([]);
@@ -138,6 +127,27 @@ export default function PlayerProfileScreen() {
       .then((res) => {
         if (controller.signal.aborted) return;
         setPlayer(res.data);
+      })
+      .catch((e) => {
+        if (controller.signal.aborted) return;
+        if (e instanceof ApiError && e.status === 401) {
+          signOut();
+          router.replace('/login');
+        }
+      });
+
+    return () => controller.abort();
+  }, [token, playerId, router, signOut]);
+
+  /* Season totals for the identity card — one row out of the club aggregate. */
+  useEffect(() => {
+    if (!token || !playerId) return;
+    const controller = new AbortController();
+
+    playerStatistics(token, {}, controller.signal)
+      .then((res) => {
+        if (controller.signal.aborted) return;
+        setSeasonStats(res.data.find((r) => r.player_id === playerId) ?? null);
       })
       .catch((e) => {
         if (controller.signal.aborted) return;
@@ -181,23 +191,34 @@ export default function PlayerProfileScreen() {
   };
 
   const name = player?.name ?? params.name ?? 'Narti Cerkini';
-  const team = player?.team?.name ?? params.team ?? 'Ekipi i Parë';
+  const team = player?.team?.name ?? params.team ?? '—';
   const nr =
     player?.jersey_number != null ? String(player.jersey_number) : params.nr ?? '1';
   const pos = player?.position
     ? positionLabel(player.position)
     : params.pos ?? 'Portier';
 
-  // Personal-details rows. With no fetched player the original static values
-  // stay, so the design reads the same; otherwise each mapped field is driven
-  // by the API and the unmapped rows (nationality, FFK licence) stay static.
+  const num = (v: number | string | null | undefined) => (v == null ? '—' : String(v));
+
+  const stats = [
+    { label: 'Ndeshjet', value: num(seasonStats?.matches), tone: C.text },
+    { label: 'Golat', value: num(seasonStats?.goals), tone: C.green },
+    { label: 'Asiste', value: num(seasonStats?.assists), tone: C.blue },
+  ];
+
+  const stats2 = [
+    { label: 'K.verdha', value: num(seasonStats?.yellow_cards), tone: C.orange },
+    { label: 'K.kuq', value: num(seasonStats?.red_cards), tone: C.red },
+    { label: 'Minuta', value: num(seasonStats?.minutes), tone: C.text },
+  ];
+
   const details = [
-    { label: 'Mosha', value: player ? (player.age != null ? `${player.age} vjeç` : '—') : '21 vjeç' },
-    { label: 'Kombësia', value: 'Kosovar' },
-    { label: 'Email', value: player ? player.email ?? '—' : 'narti@gmail.com' },
-    { label: 'Licensa FFK', value: '111' },
-    { label: 'Kontrata nga', value: player ? formatContract(player.contract_start) : '25 gusht 2026' },
-    { label: 'Kontrata deri', value: player ? formatContract(player.contract_end) : '26 gusht 2027' },
+    { label: 'Mosha', value: player?.age != null ? `${player.age} vjeç` : '—' },
+    { label: 'Kombësia', value: player?.nationality ?? '—' },
+    { label: 'Email', value: player?.email ?? '—' },
+    { label: 'Licensa FFK', value: player?.ffk_license ?? '—' },
+    { label: 'Kontrata nga', value: player ? formatContract(player.contract_start) : '—' },
+    { label: 'Kontrata deri', value: player ? formatContract(player.contract_end) : '—' },
   ];
 
   return (
@@ -324,7 +345,7 @@ export default function PlayerProfileScreen() {
 
                 <View style={styles.body}>
                   <View style={styles.statRow}>
-                    {STATS.map((s) => (
+                    {stats.map((s) => (
                       <View key={s.label} style={styles.statCol}>
                         <Text style={[styles.statValue, { color: s.tone }]}>{s.value}</Text>
                         <Text style={styles.statLabel} numberOfLines={1}>
@@ -335,7 +356,7 @@ export default function PlayerProfileScreen() {
                   </View>
 
                   <View style={[styles.statRow, styles.statRowLast]}>
-                    {STATS2.map((s) => (
+                    {stats2.map((s) => (
                       <View key={s.label} style={styles.statCol}>
                         <Text style={[styles.statValue, { color: s.tone }]}>{s.value}</Text>
                         <Text style={styles.statLabel} numberOfLines={1}>
@@ -407,7 +428,7 @@ export default function PlayerProfileScreen() {
               <View style={[styles.duoCard, styles.card]}>
                 <View style={styles.prezencaTop}>
                   <Text style={styles.cardTitle}>Prezenca</Text>
-                  <Text style={styles.prezencaPct}>0%</Text>
+                  <Text style={styles.prezencaPct}>—</Text>
                 </View>
                 <View style={styles.grayRule} />
 
@@ -426,7 +447,7 @@ export default function PlayerProfileScreen() {
 
                   <View style={styles.totalRow}>
                     <Text style={styles.totalRowLabel}>total stërvitje</Text>
-                    <Text style={styles.totalRowValue}>16</Text>
+                    <Text style={styles.totalRowValue}>—</Text>
                   </View>
                 </View>
               </View>

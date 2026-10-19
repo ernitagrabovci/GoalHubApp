@@ -3,7 +3,7 @@ import { BlurView } from 'expo-blur';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
@@ -107,9 +107,6 @@ export default function ConversationScreen() {
   const [msgs, setMsgs] = useState<Msg[]>([]);
   /* The bubble whose action bar is unfolded — also the target of its actions. */
   const [selected, setSelected] = useState<string | null>(null);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [draft, setDraft] = useState('');
-  /* What the composer's field holds, apart from the edit-in-place draft. */
   const [composer, setComposer] = useState('');
 
   useEffect(() => {
@@ -155,37 +152,16 @@ export default function ConversationScreen() {
       });
   };
 
-  const pickReaction = (emoji: string) => {
-    setMsgs((prev) =>
-      prev.map((m) =>
-        m.id === selected ? { ...m, reaction: m.reaction === emoji ? undefined : emoji } : m,
-      ),
-    );
+  /* The v1 API sends and reads messages; it has no edit, delete or reaction
+     endpoints, so those actions say so instead of pretending to work. */
+  const unsupported = () => {
     setSelected(null);
+    Alert.alert('Nuk mbështetet', 'Ky veprim nuk ofrohet nga serveri ende.');
   };
 
-  const startEdit = () => {
-    const msg = msgs.find((m) => m.id === selected);
-    if (!msg) return;
-    setDraft(msg.text);
-    setEditingId(msg.id);
-    setSelected(null);
-  };
+  const pickReaction = (_emoji: string) => unsupported();
 
-  const saveEdit = () => {
-    setMsgs((prev) =>
-      prev.map((m) => (m.id === editingId ? { ...m, text: draft.trim() || m.text } : m)),
-    );
-    setEditingId(null);
-  };
-
-  /* Deletion leaves a tombstone in the same slot rather than closing the gap. */
-  const removeMsg = () => {
-    setMsgs((prev) =>
-      prev.map((m) => (m.id === selected ? { ...m, deleted: true, reaction: undefined } : m)),
-    );
-    setSelected(null);
-  };
+  const removeMsg = () => unsupported();
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
@@ -208,10 +184,10 @@ export default function ConversationScreen() {
 
               <View style={styles.peer}>
                 <View style={styles.peerAvatar}>
-                  <Text style={styles.peerInitials}>{initials ?? 'AR'}</Text>
+                  <Text style={styles.peerInitials}>{initials ?? '—'}</Text>
                 </View>
                 <Text style={styles.peerName} numberOfLines={1}>
-                  {name ?? 'Ardit Rexha'}
+                  {name ?? '—'}
                 </Text>
               </View>
             </View>
@@ -230,8 +206,7 @@ export default function ConversationScreen() {
             >
               {msgs.map((msg) => {
                 const tick = msg.status ? TICKS[msg.status] : null;
-                const isEditing = editingId === msg.id;
-                const isSelected = selected === msg.id && !isEditing;
+                const isSelected = selected === msg.id;
 
                 return (
                   <View
@@ -244,7 +219,7 @@ export default function ConversationScreen() {
                   >
                     <Pressable
                       onPress={() => setSelected(isSelected ? null : msg.id)}
-                      disabled={isEditing || !!msg.deleted}
+                      disabled={!!msg.deleted}
                       accessibilityRole="button"
                       accessibilityLabel={`Mesazhi: ${msg.text}`}
                       style={[
@@ -253,19 +228,9 @@ export default function ConversationScreen() {
                         isSelected && styles.bubbleActive,
                       ]}
                     >
-                      {isEditing ? (
-                        <TextInput
-                          style={styles.editInput}
-                          value={draft}
-                          onChangeText={setDraft}
-                          multiline
-                          autoFocus
-                        />
-                      ) : (
-                        <Text style={msg.deleted ? styles.deletedText : styles.msgText}>
-                          {msg.deleted ? DELETED_TEXT : msg.text}
-                        </Text>
-                      )}
+                      <Text style={msg.deleted ? styles.deletedText : styles.msgText}>
+                        {msg.deleted ? DELETED_TEXT : msg.text}
+                      </Text>
 
                       {msg.reaction ? (
                         <View
@@ -278,27 +243,6 @@ export default function ConversationScreen() {
                         </View>
                       ) : null}
                     </Pressable>
-
-                    {isEditing ? (
-                      <View style={styles.editActions}>
-                        <Pressable
-                          onPress={() => setEditingId(null)}
-                          accessibilityRole="button"
-                          accessibilityLabel="Anulo"
-                          style={({ pressed }) => [styles.barBtn, pressed && styles.pressed]}
-                        >
-                          <Text style={styles.barBtnText}>Anulo</Text>
-                        </Pressable>
-                        <Pressable
-                          onPress={saveEdit}
-                          accessibilityRole="button"
-                          accessibilityLabel="Ruaj"
-                          style={({ pressed }) => [styles.barBtn, pressed && styles.pressed]}
-                        >
-                          <Text style={styles.barBtnText}>Ruaj</Text>
-                        </Pressable>
-                      </View>
-                    ) : null}
 
                     {/* Unfolds under the tapped bubble, on its own side. */}
                     {isSelected ? (
@@ -318,17 +262,6 @@ export default function ConversationScreen() {
                         </View>
 
                         <View style={styles.pickerActions}>
-                          {/* Only your own messages can be rewritten. */}
-                          {msg.mine ? (
-                            <Pressable
-                              onPress={startEdit}
-                              accessibilityRole="button"
-                              accessibilityLabel="Edito mesazhin"
-                              style={({ pressed }) => [styles.barBtn, pressed && styles.pressed]}
-                            >
-                              <Text style={styles.barBtnText}>Edito</Text>
-                            </Pressable>
-                          ) : null}
                           <Pressable
                             onPress={removeMsg}
                             accessibilityRole="button"

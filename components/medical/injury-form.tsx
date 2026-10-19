@@ -38,18 +38,6 @@ const MO = {
   err: '#C90000',
 };
 
-const PLAYERS = [
-  'Bekim Rexhepi',
-  'Dardan Krasniqi',
-  'Endrit Hoxha',
-  'Genc Morina',
-  'Ardit Llapashtica',
-  'Hamdi Shala',
-  'Driton Demiri',
-  'Enver Mustafa',
-  'Narti Cerkini',
-];
-
 const TYPES = ['Muskulor', 'Kyç', 'Gisht', 'Shputë', 'Shpatullë', 'Kofshë', 'Kokë', 'Gripi', 'Tjetër'];
 const DURING = ['Ndeshje', 'Stërvitje', 'Tjetër'];
 const STATUSES = ['I lënduar', 'Në rehabilitim', 'I shëruar'];
@@ -73,6 +61,8 @@ export function formatDate({ day, month, year }: DateParts): string {
 const isFilled = (d: DateParts) => d.day.length === 2 && d.month.length === 2 && d.year.length === 4;
 
 export type InjuryDraft = {
+  /** The real player row behind `player`, when the form was given the squad. */
+  playerId?: number;
   player: string;
   type: string;
   during: string;
@@ -88,6 +78,7 @@ export function InjuryFormModal({
   title,
   confirmLabel,
   initial,
+  players,
   busy = false,
   error = null,
   onClose,
@@ -96,6 +87,8 @@ export function InjuryFormModal({
   title: string;
   confirmLabel: string;
   initial?: Partial<InjuryDraft>;
+  /** The squad the injury can belong to; when absent only the initial player is offered. */
+  players?: { id: number; name: string }[];
   /** Disables the confirm button while a request is in flight. */
   busy?: boolean;
   /** A save failure to show above the fields. */
@@ -107,7 +100,14 @@ export function InjuryFormModal({
   const cardW = Math.min(width - 24, 360);
   const maxBody = Math.max(280, height - 187);
 
-  const [player, setPlayer] = useState(initial?.player ?? PLAYERS[0]);
+  /* Without a roster only the injury's own player is offered — no invented names. */
+  const rosterNames = players ? players.map((p) => p.name) : [];
+  const playerOptions =
+    initial?.player && !rosterNames.includes(initial.player)
+      ? [initial.player, ...rosterNames]
+      : rosterNames;
+
+  const [player, setPlayer] = useState(initial?.player ?? players?.[0]?.name ?? '');
   const [type, setType] = useState(initial?.type ?? TYPES[0]);
   const [during, setDuring] = useState(initial?.during ?? DURING[1]);
   const [status, setStatus] = useState(initial?.status ?? STATUSES[0]);
@@ -126,6 +126,7 @@ export function InjuryFormModal({
       return;
     }
     onConfirm({
+      playerId: players?.find((p) => p.name === player)?.id,
       player,
       type,
       during,
@@ -170,7 +171,7 @@ export function InjuryFormModal({
           <View style={styles.row}>
             <View style={styles.col}>
               <Text style={styles.label}>Lojtari:</Text>
-              <Select value={player} options={PLAYERS} onChange={setPlayer} />
+              <Select value={player} options={playerOptions} onChange={setPlayer} />
             </View>
             <View style={styles.col}>
               <Text style={styles.label}>Lloji i lëndimit:</Text>

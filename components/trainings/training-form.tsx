@@ -42,21 +42,15 @@ const MO = {
 
 const TYPES = ['Taktike', 'Rregullt', 'Fizike', 'Rikuperim'];
 const DURATIONS = ['45', '60', '75', '90', '105', '120'];
-const FIELDS = ['Salla e Brendshme', 'Fusha 1', 'Fusha 2', 'Fusha 3'];
 
-type Booking = { day: string; mon: string; start: string; minutes: number };
-
-/* What is already booked on each pitch. An entered slot that overlaps any of
-   these reads as taken. */
-const BOOKINGS: Record<string, Booking[]> = {
-  'Salla e Brendshme': [
-    { day: '18', mon: '08', start: '16:00', minutes: 90 },
-    { day: '17', mon: '08', start: '17:00', minutes: 90 },
-    { day: '12', mon: '08', start: '10:00', minutes: 90 },
-  ],
-  'Fusha 1': [{ day: '18', mon: '08', start: '09:00', minutes: 120 }],
-  'Fusha 2': [{ day: '15', mon: '08', start: '09:00', minutes: 90 }],
-  'Fusha 3': [],
+/** One scheduled slot on a pitch, derived from the trainings on screen. */
+export type Booking = {
+  field: string;
+  year: string;
+  day: string;
+  mon: string;
+  start: string;
+  minutes: number;
 };
 
 const toMinutes = (time: string) => {
@@ -65,10 +59,18 @@ const toMinutes = (time: string) => {
 };
 
 /** True when the pitch already holds something that overlaps this slot. */
-function isBusy(field: string, day: string, mon: string, start: string, minutes: number) {
+function isBusy(
+  bookings: Booking[],
+  field: string,
+  year: string,
+  day: string,
+  mon: string,
+  start: string,
+  minutes: number,
+) {
   const from = toMinutes(start);
-  return (BOOKINGS[field] ?? []).some((b) => {
-    if (b.day !== day || b.mon !== mon) return false;
+  return bookings.some((b) => {
+    if (b.field !== field || b.year !== year || b.day !== day || b.mon !== mon) return false;
     const bookedFrom = toMinutes(b.start);
     return bookedFrom < from + minutes && from < bookedFrom + b.minutes;
   });
@@ -113,12 +115,18 @@ export function TrainingFormModal({
   title,
   confirmLabel,
   initial,
+  fields = [],
+  bookings = [],
   onClose,
   onConfirm,
 }: {
   title: string;
   confirmLabel: string;
   initial?: Partial<TrainingDraft>;
+  /** Known pitch names — empty falls back to a free-text entry. */
+  fields?: string[];
+  /** Slots already taken, normally the sessions in the caller's list. */
+  bookings?: Booking[];
   onClose: () => void;
   onConfirm: (draft: TrainingDraft) => void;
 }) {
@@ -141,17 +149,27 @@ export function TrainingFormModal({
 
   /* The pitches can only be judged once the slot itself is known. */
   const hasSlot =
-    day.length === 2 && month.length === 2 && hour.length === 2 && minute.length === 2;
+    year.length === 4 &&
+    day.length === 2 &&
+    month.length === 2 &&
+    hour.length === 2 &&
+    minute.length === 2;
+
+  const slot = `${hour}:${minute}`;
+  const freeAt = (name: string) =>
+    !isBusy(bookings, name, year, day, month, slot, minutes);
 
   /* A pitch picked earlier can be taken by a later change to the slot, so the
      choice only counts while it still reads as free. */
-  const chosen =
-    hasSlot &&
-    FIELDS.some(
-      (f) => f === field && !isBusy(f, day, month, `${hour}:${minute}`, minutes),
-    )
-      ? field
-      : '';
+  const chosen = !hasSlot
+    ? ''
+    : fields.length > 0
+      ? fields.some((f) => f === field) && freeAt(field)
+        ? field
+        : ''
+      : field.trim() && freeAt(field.trim())
+        ? field.trim()
+        : '';
 
   const submit = () => {
     if (!chosen || !day || !month || !year || !hour || !minute) {
@@ -270,41 +288,57 @@ export function TrainingFormModal({
           {/* ── Fusha ───────────────────────────────────────────── */}
           <Text style={[styles.label, styles.gap]}>Fusha:</Text>
           {hasSlot ? (
-            <View>
-              {FIELDS.map((f) => {
-                const busy = isBusy(f, day, month, `${hour}:${minute}`, minutes);
-                const active = f === chosen;
+            fields.length > 0 ? (
+              <View>
+                {fields.map((f) => {
+                  const busy = !freeAt(f);
+                  const active = f === chosen;
 
-                return (
-                  <Pressable
-                    key={f}
-                    disabled={busy}
-                    onPress={() => setField(f)}
-                    accessibilityRole="button"
-                    accessibilityLabel={`${f} — ${busy ? 'e zënë' : 'e lirë'}`}
-                    style={({ pressed }) => [
-                      styles.fieldRow,
-                      active && styles.fieldRowActive,
-                      busy && styles.fieldRowBusy,
-                      pressed && styles.pressed,
-                    ]}
-                  >
-                    <Text style={styles.fieldName} numberOfLines={1}>
-                      {f}
-                    </Text>
-                    <Text
-                      style={[
-                        styles.fieldState,
-                        { color: busy ? MO.err : MO.create },
+                  return (
+                    <Pressable
+                      key={f}
+                      disabled={busy}
+                      onPress={() => setField(f)}
+                      accessibilityRole="button"
+                      accessibilityLabel={`${f} — ${busy ? 'e zënë' : 'e lirë'}`}
+                      style={({ pressed }) => [
+                        styles.fieldRow,
+                        active && styles.fieldRowActive,
+                        busy && styles.fieldRowBusy,
+                        pressed && styles.pressed,
                       ]}
-                      numberOfLines={1}
                     >
-                      {busy ? 'E zënë' : 'E lirë'}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
+                      <Text style={styles.fieldName} numberOfLines={1}>
+                        {f}
+                      </Text>
+                      <Text
+                        style={[styles.fieldState, { color: busy ? MO.err : MO.create }]}
+                        numberOfLines={1}
+                      >
+                        {busy ? 'E zënë' : 'E lirë'}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            ) : (
+              <View>
+                <TextInput
+                  value={field}
+                  onChangeText={setField}
+                  placeholder="Emri i fushës"
+                  placeholderTextColor={MO.ph}
+                  maxLength={100}
+                  allowFontScaling={false}
+                  style={styles.fieldInput}
+                />
+                {field.trim() && !freeAt(field.trim()) ? (
+                  <Text style={styles.fieldHint}>
+                    Kjo fushë është e zënë në këtë orar.
+                  </Text>
+                ) : null}
+              </View>
+            )
           ) : (
             <Text style={styles.fieldHint}>
               Zgjedh datën, orën dhe kohëzgjatjen për të parë disponibilitetin.
@@ -590,6 +624,19 @@ const styles = StyleSheet.create(
     },
 
     /* ── Fusha ───────────────────────────────────────────────── */
+    fieldInput: {
+      height: 31,
+      backgroundColor: MO.inputBg,
+      borderWidth: 1,
+      borderColor: MO.inputBorder,
+      borderRadius: 1,
+      paddingHorizontal: 8,
+      paddingVertical: 0,
+      fontSize: 11.5,
+      fontFamily: Fonts.body,
+      color: MO.text,
+    },
+
     fieldHint: {
       fontFamily: Fonts.body,
       fontSize: 9.5,

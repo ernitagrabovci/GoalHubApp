@@ -161,6 +161,7 @@ export function ParentHome() {
 
           <View style={styles.padded}>
             <HeaderBlock
+              club={user?.club ?? '—'}
               onBell={() => open('/njoftimet-prindit')}
               onSettings={() => open('/settings')}
             />
@@ -373,9 +374,11 @@ export function ParentHome() {
    ========================================================= */
 
 function HeaderBlock({
+  club,
   onBell,
   onSettings,
 }: {
+  club: string;
   onBell: () => void;
   onSettings: () => void;
 }) {
@@ -399,7 +402,7 @@ function HeaderBlock({
 
         <View style={styles.clubRow}>
           <Text style={styles.clubName}>
-            FC Prishtina
+            {club}
           </Text>
 
           <MaterialCommunityIcons

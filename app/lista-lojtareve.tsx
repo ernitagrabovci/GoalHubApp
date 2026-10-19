@@ -11,9 +11,9 @@ import { Text } from '@/components/dashboard/dashboard-text';
 import { FilterSelect, type FilterOption } from '@/components/filters/filter-select';
 import { Fonts } from '@/constants/theme';
 import { ApiError } from '@/lib/api/errors';
-import { listPlayers } from '@/lib/api/players';
+import { listPlayers, playerStats } from '@/lib/api/players';
 import { listTeams } from '@/lib/api/teams';
-import type { ApiPlayer, ApiTeam } from '@/lib/api/types';
+import type { ApiPlayer, ApiTeam, PlayerStats } from '@/lib/api/types';
 import { POSITIONS, positionLabel } from '@/lib/player-position';
 import { I, scaled } from '@/lib/responsive';
 import { useSession } from '@/lib/session';
@@ -71,14 +71,6 @@ const SQ_SHEEN = ['rgba(245,245,245,0.55)', 'rgba(245,245,245,0.00)'] as const;
 /* ── Headline squares ──────────────────────────────────────────────── */
 
 type Square = { label: string; value: string };
-
-/* Every number here is black — no tone colour, unlike the other squares. */
-const SUMMARY: Square[] = [
-  { label: 'Lojtarë gjithsej', value: '25' },
-  { label: 'Lojtarë aktiv', value: '34' },
-  { label: 'Lojtarët e lënduar', value: '0' },
-  { label: 'Lojtarët e pezulluar', value: '1' },
-];
 
 const POSITION_OPTIONS: FilterOption[] = [
   { label: 'Të gjitha pozicionet', value: '' },
@@ -187,8 +179,29 @@ export default function PlayerListScreen() {
   const { token, signOut } = useSession();
   const [rows, setRows] = useState<Player[]>([]);
   const [teams, setTeams] = useState<ApiTeam[]>([]);
+  const [stats, setStats] = useState<PlayerStats | null>(null);
   const [teamFilter, setTeamFilter] = useState('');
   const [positionFilter, setPositionFilter] = useState('');
+
+  useEffect(() => {
+    if (!token) return;
+    const controller = new AbortController();
+
+    playerStats(token, controller.signal)
+      .then((res) => {
+        if (controller.signal.aborted) return;
+        setStats(res);
+      })
+      .catch((e) => {
+        if (controller.signal.aborted) return;
+        if (e instanceof ApiError && e.status === 401) {
+          signOut();
+          router.replace('/login');
+        }
+      });
+
+    return () => controller.abort();
+  }, [token, router, signOut]);
 
   useEffect(() => {
     if (!token) return;
@@ -239,6 +252,18 @@ export default function PlayerListScreen() {
     ...teams.map((t) => ({ label: t.name, value: String(t.id) })),
   ];
 
+  /* Every number here is black — no tone colour, unlike the other squares.
+     Rehabilitation counts as injured, the same way the table's status does. */
+  const summary: Square[] = [
+    { label: 'Lojtarë gjithsej', value: stats ? String(stats.total) : '—' },
+    { label: 'Lojtarë aktiv', value: stats ? String(stats.active) : '—' },
+    {
+      label: 'Lojtarët e lënduar',
+      value: stats ? String(stats.injured + stats.rehabilitation) : '—',
+    },
+    { label: 'Lojtarët e pezulluar', value: stats ? String(stats.suspended) : '—' },
+  ];
+
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
       <StatusBar style="dark" />
@@ -267,7 +292,7 @@ export default function PlayerListScreen() {
                   Lista e lojtarëve
                 </Text>
                 <Text style={styles.subtitle} numberOfLines={1}>
-                  Ekipi i parë · 25 lojtarë · sezoni 2024/25
+                  {stats ? `Ekipi i parë · ${stats.total} lojtarë` : 'Ekipi i parë'}
                 </Text>
               </View>
             </View>
@@ -286,7 +311,7 @@ export default function PlayerListScreen() {
             bounces={false}
             contentContainerStyle={styles.summaryRow}
           >
-            {SUMMARY.map((s) => (
+            {summary.map((s) => (
               <SummarySquare key={s.label} square={s} />
             ))}
           </ScrollView>
