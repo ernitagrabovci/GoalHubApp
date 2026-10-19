@@ -242,6 +242,7 @@ export default function PlayerMatchesScreen() {
                             router.push({
                               pathname: '/ndeshja-luajtur-lojtarit',
                               params: {
+                                id: String(p.id),
                                 home,
                                 away,
                                 venue: p.venue,

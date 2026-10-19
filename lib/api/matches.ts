@@ -35,6 +35,11 @@ export function getMatch(token: string, id: number, signal?: AbortSignal) {
   return request<MatchResponse>(`/matches/${id}`, { token, signal });
 }
 
+/** One own-team match, including lineup and player stats (`/my/matches/{match}`). */
+export function getMyMatch(token: string, id: number, signal?: AbortSignal) {
+  return request<MatchResponse>(`/my/matches/${id}`, { token, signal });
+}
+
 /* ─────────────────────────────── Writes ─────────────────────────────── */
 
 export type MatchWriteInput = {

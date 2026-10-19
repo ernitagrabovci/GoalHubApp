@@ -1,5 +1,10 @@
 import { request } from '@/lib/api/client';
-import type { ApiInjury, Paginated } from '@/lib/api/types';
+import type {
+  ApiInjury,
+  MessageResponse,
+  MutationResponse,
+  Paginated,
+} from '@/lib/api/types';
 
 export type InjuryListParams = {
   page?: number;
@@ -34,4 +39,34 @@ type InjuryResponse = { data: ApiInjury };
 
 export function getInjury(token: string, id: number, signal?: AbortSignal) {
   return request<InjuryResponse>(`/injuries/${id}`, { token, signal });
+}
+
+/** The writable fields of an injury — `PATCH /injuries/{injury}` (full object). */
+export type InjuryInput = {
+  injury_type: string;
+  occurred_during: 'training' | 'match' | 'other';
+  /** `YYYY-MM-DD`. */
+  injury_date: string;
+  expected_return?: string | null;
+  status: 'injured' | 'rehabilitation' | 'recovered';
+  description?: string | null;
+  treatment?: string | null;
+};
+
+export function updateInjury(
+  token: string,
+  id: number,
+  input: InjuryInput,
+  signal?: AbortSignal,
+) {
+  return request<MutationResponse<ApiInjury>>(`/injuries/${id}`, {
+    method: 'PATCH',
+    body: input,
+    token,
+    signal,
+  });
+}
+
+export function deleteInjury(token: string, id: number, signal?: AbortSignal) {
+  return request<MessageResponse>(`/injuries/${id}`, { method: 'DELETE', token, signal });
 }

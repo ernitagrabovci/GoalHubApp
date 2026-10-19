@@ -3,7 +3,7 @@ import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import {
   Alert,
   Pressable,
@@ -18,6 +18,8 @@ import { DeleteAccountModal } from '@/components/settings/delete-account-modal';
 import { Fonts } from '@/constants/theme';
 import { deactivateAccount } from '@/lib/api/account';
 import { ApiError } from '@/lib/api/errors';
+import { getSecuritySessions } from '@/lib/api/security';
+import type { SecuritySessionsResponse } from '@/lib/api/types';
 import { I, scaled } from '@/lib/responsive';
 import { useSession, type Role } from '@/lib/session';
 
@@ -62,6 +64,18 @@ const ROLE_NAME: Record<Role, string> = {
   parent: 'Prind',
   financier: 'Financier',
 };
+
+/** `2026-10-14T08:30:00Z` → `14/10/2026 08:30`; absent or unparseable → `—`. */
+function when(iso: string | null | undefined): string {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '—';
+  const dd = String(d.getDate()).padStart(2, '0');
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mi = String(d.getMinutes()).padStart(2, '0');
+  return `${dd}/${mm}/${d.getFullYear()} ${hh}:${mi}`;
+}
 
 const QUICK_ACTIONS: { label: string; color: string; route?: string }[] = [
   { label: 'Ndrysho fjalëkalimin', color: C.ok, route: '/account-settings' },
@@ -175,6 +189,35 @@ export default function SecuritySettingsScreen() {
 
   const [dangerBusy, setDangerBusy] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [sessions, setSessions] = useState<SecuritySessionsResponse | null>(null);
+  const [sessionsError, setSessionsError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!token) return;
+    const controller = new AbortController();
+
+    getSecuritySessions(token, controller.signal)
+      .then((res) => {
+        if (controller.signal.aborted) return;
+        setSessions(res);
+        setSessionsError(null);
+      })
+      .catch((e) => {
+        if (controller.signal.aborted) return;
+        if (e instanceof ApiError && e.status === 401) {
+          signOut();
+          router.replace('/login');
+          return;
+        }
+        setSessionsError(
+          e instanceof ApiError && e.status === 0
+            ? 'Nuk mund të lidhemi me serverin. Kontrollo lidhjen.'
+            : 'Nuk mund të ngarkohet historia e hyrjeve.',
+        );
+      });
+
+    return () => controller.abort();
+  }, [token, router, signOut]);
 
   /* 2FA has no backend, so it counts nothing yet — the score tops out at 3. */
   const score: number = 3;
@@ -215,15 +258,16 @@ export default function SecuritySettingsScreen() {
     );
   };
 
-  /* The API exposes no session metadata, so only role and email are real —
-     the IP/client/last-login rows have no source yet. */
+  const current = sessions?.current;
   const sessionRows = [
     { label: 'Roli', value: user ? ROLE_NAME[user.role] : '—' },
     { label: 'Emaili', value: user?.email ?? '—' },
-    { label: 'Hyrja e fundit', value: '—' },
-    { label: 'IP adresa', value: '—' },
-    { label: 'Browser', value: '—' },
+    { label: 'Hyrja e fundit', value: when(sessions?.last_login_at) },
+    { label: 'IP adresa', value: current?.ip_address ?? '—' },
+    { label: 'Browser', value: current?.user_agent ?? '—' },
   ];
+
+  const loginRows = sessions?.sessions ?? [];
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
@@ -338,15 +382,30 @@ export default function SecuritySettingsScreen() {
               <View style={styles.cardHeadSplit}>
                 <Text style={styles.cardHeadText}>Historia e hyrjeve</Text>
                 <View style={styles.badge}>
-                  <Text style={styles.badgeText}>0</Text>
+                  <Text style={styles.badgeText}>{loginRows.length}</Text>
                 </View>
               </View>
 
-              <View style={styles.emptyWrap}>
-                <View style={styles.emptyBox}>
-                  <Text style={styles.emptyText}>Nuk ka regjistrime të hyrjeve.</Text>
+              {loginRows.length > 0 ? (
+                <View style={styles.rows}>
+                  {loginRows.map((s, i) => (
+                    <InfoRow
+                      key={s.id}
+                      label={s.current ? `${s.name} · ky sesion` : s.name}
+                      value={when(s.last_used_at ?? s.created_at)}
+                      last={i === loginRows.length - 1}
+                    />
+                  ))}
                 </View>
-              </View>
+              ) : (
+                <View style={styles.emptyWrap}>
+                  <View style={styles.emptyBox}>
+                    <Text style={styles.emptyText}>
+                      {sessionsError ?? (sessions ? 'Nuk ka regjistrime të hyrjeve.' : 'Duke u ngarkuar…')}
+                    </Text>
+                  </View>
+                </View>
+              )}
 
               <View style={styles.subWrap}>
                 <Text style={styles.subText}>Veprimet e shpejta</Text>

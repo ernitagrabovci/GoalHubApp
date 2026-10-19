@@ -6,6 +6,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Image,
   Pressable,
   ScrollView,
@@ -19,8 +20,15 @@ import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
 import { ApiError } from '@/lib/api/errors';
 import { matchesReport } from '@/lib/api/reports';
-import { listTeams, teamStats } from '@/lib/api/teams';
-import type { ApiTeam, MatchReportRow, TeamStats } from '@/lib/api/types';
+import {
+  createTeam,
+  deleteTeam,
+  listTeams,
+  teamStats,
+  updateTeam,
+} from '@/lib/api/teams';
+import type { ApiMember, ApiTeam, MatchReportRow, TeamStats } from '@/lib/api/types';
+import { listUsers } from '@/lib/api/users';
 import { I, scaled } from '@/lib/responsive';
 import { useSession } from '@/lib/session';
 
@@ -132,10 +140,28 @@ function chunkPairs<T>(items: T[]): T[][] {
 /* Screen                                                              */
 /* ------------------------------------------------------------------ */
 
-/** The popup only needs a team's editable fields, not the full record. */
-type TeamEdit = { name: string; season: string; coach: string };
+type ModalState = { title: string; team?: ApiTeam };
 
-type ModalState = { title: string; team?: TeamEdit };
+/** Preset shirt colours — the backend wants a `#RRGGBB` hex. */
+const TEAM_COLORS = ['#159447', '#1749B8', '#E03131', '#E4A000', '#6C62D8', '#111111'];
+
+/** Active staff who can be attached to a team, all pages included. */
+async function loadStaff(token: string, signal: AbortSignal): Promise<ApiMember[]> {
+  const roles = ['trainer', 'assistant_trainer', 'technical_staff'];
+  const out: ApiMember[] = [];
+
+  for (const role of roles) {
+    let page = 1;
+    for (;;) {
+      const res = await listUsers(token, { role, page, status: 'active' }, signal);
+      out.push(...res.data);
+      if (page >= res.meta.last_page) break;
+      page += 1;
+    }
+  }
+
+  return out;
+}
 
 export default function TeamsScreen() {
   const router = useRouter();
@@ -145,7 +171,9 @@ export default function TeamsScreen() {
   const [teams, setTeams] = useState<ApiTeam[] | null>(null);
   const [stats, setStats] = useState<TeamStats | null>(null);
   const [matches, setMatches] = useState<MatchReportRow[] | null>(null);
+  const [staff, setStaff] = useState<ApiMember[]>([]);
   const [listError, setListError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
   // The team list, its counts and the club's fixtures are one-shots — fetched
   // together, and a failure of one leaves only that section at "—". An abort is
@@ -159,7 +187,8 @@ export default function TeamsScreen() {
       listTeams(token, controller.signal),
       teamStats(token, controller.signal),
       matchesReport(token, {}, controller.signal),
-    ]).then(([teamsRes, statsRes, matchesRes]) => {
+      loadStaff(token, controller.signal),
+    ]).then(([teamsRes, statsRes, matchesRes, staffRes]) => {
       if (controller.signal.aborted) return;
 
       const rejected = [teamsRes, statsRes, matchesRes].find((r) => r.status === 'rejected');
@@ -185,10 +214,12 @@ export default function TeamsScreen() {
 
       if (matchesRes.status === 'fulfilled') setMatches(matchesRes.value.matches);
       else setMatches([]);
+
+      if (staffRes.status === 'fulfilled') setStaff(staffRes.value);
     });
 
     return () => controller.abort();
-  }, [token, router, signOut]);
+  }, [token, router, signOut, reloadKey]);
 
   const count = (value: number | undefined) => (value == null ? '—' : String(value));
   const seasonName = stats?.season ?? '—';
@@ -327,16 +358,7 @@ export default function TeamsScreen() {
                       <TeamCard
                         key={team.id}
                         team={team}
-                        onEdit={() =>
-                          setModal({
-                            title: 'Edito ekip',
-                            team: {
-                              name: team.name,
-                              season: team.season ?? '',
-                              coach: team.trainer?.name ?? '',
-                            },
-                          })
-                        }
+                        onEdit={() => setModal({ title: 'Edito ekip', team })}
                         onOpen={() => router.push(`/ekipa?id=${team.id}`)}
                       />
                     ))}
@@ -459,7 +481,19 @@ export default function TeamsScreen() {
 
       {/* Overlay on the SafeAreaView so the blur covers the whole screen */}
       {modal ? (
-        <TeamModal title={modal.title} team={modal.team} onClose={() => setModal(null)} />
+        <TeamModal
+          title={modal.title}
+          team={modal.team}
+          staff={staff}
+          token={token ?? ''}
+          onClose={() => setModal(null)}
+          onSaved={() => setReloadKey((k) => k + 1)}
+          onExpired={() => {
+            setModal(null);
+            signOut();
+            router.replace('/login');
+          }}
+        />
       ) : null}
     </SafeAreaView>
   );
@@ -562,19 +596,152 @@ function TeamRecordCard({
 /* Create / edit popup                                                 */
 /* ------------------------------------------------------------------ */
 
+type StaffOption = { id: number; name: string };
+
+/** The active staff of one role, keeping a current assignee even if not loaded. */
+function optionsFor(
+  staff: ApiMember[],
+  role: string,
+  current: StaffOption | null,
+): StaffOption[] {
+  const out = staff
+    .filter((m) => m.role === role)
+    .map((m) => ({ id: m.id, name: m.name }));
+
+  if (current && !out.some((o) => o.id === current.id)) out.unshift(current);
+  return out;
+}
+
 function TeamModal({
   title,
   team,
+  staff,
+  token,
   onClose,
+  onSaved,
+  onExpired,
 }: {
   title: string;
-  team?: TeamEdit;
+  team?: ApiTeam;
+  staff: ApiMember[];
+  token: string;
   onClose: () => void;
+  onSaved: () => void;
+  onExpired: () => void;
 }) {
   const [name, setName] = useState(team?.name ?? '');
   const [season, setSeason] = useState(team?.season ?? '2025/2026');
-  const [coach, setCoach] = useState(team?.coach ?? '');
-  const [assistant, setAssistant] = useState('');
+  const [colorHex, setColorHex] = useState(team?.color_hex ?? TEAM_COLORS[0]);
+  const [trainerId, setTrainerId] = useState<number | null>(team?.trainer?.id ?? null);
+  const [assistantId, setAssistantId] = useState<number | null>(
+    team?.assistant_trainer?.id ?? null,
+  );
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const trainerOptions = optionsFor(staff, 'trainer', team?.trainer ?? null);
+  const assistantOptions = optionsFor(staff, 'assistant_trainer', team?.assistant_trainer ?? null);
+
+  function fail(e: unknown) {
+    if (e instanceof ApiError && e.status === 401) {
+      onExpired();
+      return;
+    }
+    setError(errorText(e));
+  }
+
+  async function remove() {
+    if (!team) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await deleteTeam(token, team.id);
+      onSaved();
+      onClose();
+    } catch (e) {
+      fail(e);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function confirmDelete() {
+    if (!team || busy) return;
+    Alert.alert(
+      'Fshi ekipin',
+      `A jeni i sigurt që dëshironi të fshini "${team.name}"?`,
+      [
+        { text: 'Anulo', style: 'cancel' },
+        { text: 'Fshi', style: 'destructive', onPress: remove },
+      ],
+    );
+  }
+
+  async function save() {
+    if (busy) return;
+    if (!name.trim()) {
+      setError('Shkruaj emrin e ekipit.');
+      return;
+    }
+    if (!season.trim()) {
+      setError('Shkruaj sezonin.');
+      return;
+    }
+
+    setBusy(true);
+    setError(null);
+    try {
+      const input = {
+        name: name.trim(),
+        season: season.trim(),
+        color_hex: colorHex,
+        trainer_id: trainerId,
+        assistant_trainer_id: assistantId,
+      };
+      if (team) await updateTeam(token, team.id, input);
+      else await createTeam(token, input);
+      onSaved();
+      onClose();
+    } catch (e) {
+      fail(e);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const renderChips = (
+    options: StaffOption[],
+    selected: number | null,
+    onPick: (id: number | null) => void,
+  ) => (
+    <View style={styles.chipsRow}>
+      {options.length === 0 ? (
+        <Text style={styles.chipsEmpty}>Nuk ka staf të regjistruar.</Text>
+      ) : (
+        options.map((o) => {
+          const active = o.id === selected;
+          return (
+            <Pressable
+              key={o.id}
+              onPress={() => onPick(active ? null : o.id)}
+              accessibilityRole="button"
+              accessibilityState={{ selected: active }}
+              accessibilityLabel={o.name}
+              style={({ pressed }) => [
+                styles.chip,
+                active && styles.chipActive,
+                pressed && styles.pressed,
+              ]}
+            >
+              <Text style={[styles.chipText, active && styles.chipTextActive]} numberOfLines={1}>
+                {o.name}
+              </Text>
+            </Pressable>
+          );
+        })
+      )}
+    </View>
+  );
 
   return (
     <View style={styles.ovWrap}>
@@ -616,36 +783,50 @@ function TeamModal({
             </View>
           </View>
 
-          <View style={styles.popGridRow}>
-            <View style={styles.popCol}>
-              <Text style={styles.popLabel}>Trajneri kryesor:</Text>
-              <TextInput
-                value={coach}
-                onChangeText={setCoach}
-                autoCorrect={false}
-                allowFontScaling={false}
-                style={styles.popInput}
-              />
-            </View>
-            <View style={styles.popCol}>
-              <Text style={styles.popLabel}>Asistenti i trajnerit:</Text>
-              <TextInput
-                value={assistant}
-                onChangeText={setAssistant}
-                autoCorrect={false}
-                allowFontScaling={false}
-                style={styles.popInput}
-              />
-            </View>
-          </View>
+          <Text style={styles.popLabel}>Trajneri kryesor:</Text>
+          {renderChips(trainerOptions, trainerId, setTrainerId)}
+
+          <Text style={styles.popLabel}>Asistenti i trajnerit:</Text>
+          {renderChips(assistantOptions, assistantId, setAssistantId)}
 
           <Text style={styles.popLabel}>Ngjyra e ekipit:</Text>
-          <View style={styles.swatchOuter}>
-            <View style={styles.swatchInner} />
+          <View style={styles.swatches}>
+            {TEAM_COLORS.map((color) => {
+              const active = color === colorHex;
+              return (
+                <Pressable
+                  key={color}
+                  onPress={() => setColorHex(color)}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: active }}
+                  accessibilityLabel={`Ngjyra ${color}`}
+                  style={[styles.swatchOuter, active && styles.swatchSelected]}
+                >
+                  <View style={[styles.swatchInner, { backgroundColor: color }]} />
+                </Pressable>
+              );
+            })}
           </View>
+
+          {error ? <Text style={styles.popError}>{error}</Text> : null}
         </View>
 
         <View style={styles.popActions}>
+          {team ? (
+            <Pressable
+              onPress={confirmDelete}
+              disabled={busy}
+              accessibilityRole="button"
+              style={({ pressed }) => [
+                styles.popBtn,
+                styles.popDelete,
+                busy && styles.btnDisabled,
+                pressed && styles.pressed,
+              ]}
+            >
+              <Text style={styles.popDeleteText}>Fshi</Text>
+            </Pressable>
+          ) : null}
           <Pressable
             onPress={onClose}
             accessibilityRole="button"
@@ -654,11 +835,21 @@ function TeamModal({
             <Text style={styles.popBtnText}>Anulo</Text>
           </Pressable>
           <Pressable
-            onPress={onClose}
+            onPress={save}
+            disabled={busy}
             accessibilityRole="button"
-            style={({ pressed }) => [styles.popBtn, styles.popCreate, pressed && styles.pressed]}
+            style={({ pressed }) => [
+              styles.popBtn,
+              styles.popCreate,
+              busy && styles.btnDisabled,
+              pressed && styles.pressed,
+            ]}
           >
-            <Text style={styles.popBtnText}>Krijo</Text>
+            {busy ? (
+              <ActivityIndicator color="#F5F5F5" size="small" />
+            ) : (
+              <Text style={styles.popBtnText}>{team ? 'Ruaj' : 'Krijo'}</Text>
+            )}
           </Pressable>
         </View>
       </View>
@@ -1234,6 +1425,54 @@ const styles = StyleSheet.create(
       color: C.text,
     },
 
+    chipsRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 6,
+      marginBottom: 10,
+    },
+
+    chipsEmpty: {
+      fontFamily: Fonts.body,
+      fontSize: 12,
+      lineHeight: 15,
+      color: C.gray,
+    },
+
+    chip: {
+      maxWidth: '100%',
+      height: 28,
+      paddingHorizontal: 10,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 1,
+      borderColor: '#000000',
+      borderRadius: 14,
+      backgroundColor: '#F5F5F5',
+    },
+
+    chipActive: {
+      backgroundColor: C.green,
+      borderColor: C.green,
+    },
+
+    chipText: {
+      fontFamily: Fonts.body,
+      fontSize: 11.5,
+      lineHeight: 14,
+      color: C.text,
+    },
+
+    chipTextActive: {
+      color: '#F5F5F5',
+    },
+
+    swatches: {
+      flexDirection: 'row',
+      gap: 8,
+      marginBottom: 4,
+    },
+
     swatchOuter: {
       width: 34,
       height: 34,
@@ -1245,11 +1484,24 @@ const styles = StyleSheet.create(
       backgroundColor: '#F5F5F5',
     },
 
+    swatchSelected: {
+      borderWidth: 2,
+      borderColor: C.green,
+    },
+
     swatchInner: {
       width: 24,
       height: 24,
       borderRadius: 2,
       backgroundColor: C.green,
+    },
+
+    popError: {
+      fontFamily: Fonts.body,
+      fontSize: 12,
+      lineHeight: 16,
+      color: C.red,
+      marginTop: 4,
     },
 
     popActions: {
@@ -1274,6 +1526,22 @@ const styles = StyleSheet.create(
 
     popCreate: {
       backgroundColor: C.green,
+    },
+
+    popDelete: {
+      marginRight: 'auto',
+      borderWidth: 1,
+      borderColor: C.red,
+    },
+
+    popDeleteText: {
+      fontFamily: Fonts.bodySemiBold,
+      fontSize: 12.5,
+      color: C.red,
+    },
+
+    btnDisabled: {
+      opacity: 0.5,
     },
 
     popBtnText: {

@@ -1,6 +1,7 @@
 import { request } from '@/lib/api/client';
 import type {
   ApiClubProfile,
+  ApiFieldAvailability,
   ApiSeason,
   ApiTrainingField,
   MessageResponse,
@@ -50,6 +51,48 @@ export function getSeasons(token: string, signal?: AbortSignal) {
 /** The club's training fields, by name — `GET /club/fields`. */
 export function getFields(token: string, signal?: AbortSignal) {
   return request<{ data: ApiTrainingField[] }>('/club/fields', { token, signal });
+}
+
+/** The writable fields of a training field — `POST`/`PATCH /club/fields`. */
+export type FieldInput = {
+  name: string;
+  type: 'artificial' | 'natural' | 'indoor';
+  status: 'active' | 'inactive' | 'maintenance';
+  address?: string | null;
+  capacity?: number | null;
+  dimensions?: string | null;
+  has_lighting?: boolean;
+  locker_rooms?: number | null;
+  /** Days omitted are stored closed, `07:00`–`22:00`. */
+  availability?: ApiFieldAvailability | null;
+  notes?: string | null;
+};
+
+export function createField(token: string, input: FieldInput, signal?: AbortSignal) {
+  return request<MutationResponse<ApiTrainingField>>('/club/fields', {
+    method: 'POST',
+    body: input,
+    token,
+    signal,
+  });
+}
+
+export function updateField(
+  token: string,
+  id: number,
+  input: FieldInput,
+  signal?: AbortSignal,
+) {
+  return request<MutationResponse<ApiTrainingField>>(`/club/fields/${id}`, {
+    method: 'PATCH',
+    body: input,
+    token,
+    signal,
+  });
+}
+
+export function deleteField(token: string, id: number, signal?: AbortSignal) {
+  return request<MessageResponse>(`/club/fields/${id}`, { method: 'DELETE', token, signal });
 }
 
 /** Create a season (inactive until activated) — `POST /club/seasons`. */

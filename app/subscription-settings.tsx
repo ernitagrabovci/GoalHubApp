@@ -230,7 +230,7 @@ export default function SubscriptionSettingsScreen() {
 
               <View style={styles.pairWrap}>
                 <PairInline
-                  left={{ label: 'Fillimi', value: '—' }}
+                  left={{ label: 'Fillimi', value: dayDate(sub?.starts_at) }}
                   right={{ label: 'Përfundimi', value: dayDate(sub?.ends_at) }}
                 />
               </View>

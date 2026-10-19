@@ -2,14 +2,14 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
 import { InjuryDraft, InjuryFormModal } from '@/components/medical/injury-form';
 import { Fonts } from '@/constants/theme';
 import { ApiError } from '@/lib/api/errors';
-import { getInjury } from '@/lib/api/injuries';
+import { deleteInjury, getInjury, updateInjury, type InjuryInput } from '@/lib/api/injuries';
 import { toInjuryRow } from '@/lib/medical';
 import { I, scaled } from '@/lib/responsive';
 import { useSession } from '@/lib/session';
@@ -35,6 +35,7 @@ const C = {
   headLine: 'rgba(30,40,35,0.10)',
 
   green: '#159447',
+  red: '#E03131',
 };
 
 const LABELS = [
@@ -55,6 +56,32 @@ function formatDate(value: string): string {
   const month = MONTHS[Number(mm) - 1];
   if (!day || !month || !year) return value;
   return `${day} ${month} ${year}`;
+}
+
+/** The form's "27/08/2026" → the API's "2026-08-27". */
+function isoDate(value: string): string {
+  const [day, month, year] = value.split('/');
+  return `${year}-${month}-${day}`;
+}
+
+const DURING_API: Record<string, InjuryInput['occurred_during']> = {
+  Stërvitje: 'training',
+  Ndeshje: 'match',
+  Tjetër: 'other',
+};
+
+const STATUS_API: Record<string, InjuryInput['status']> = {
+  'I lënduar': 'injured',
+  'Në rehabilitim': 'rehabilitation',
+  'I shëruar': 'recovered',
+};
+
+function errorText(error: unknown): string {
+  if (error instanceof ApiError) {
+    if (error.status === 0) return 'Nuk mund të lidhemi me serverin. Kontrollo lidhjen.';
+    return error.message;
+  }
+  return 'Diçka shkoi keq. Provo përsëri.';
 }
 
 export default function InjuryDetailScreen() {
@@ -91,6 +118,76 @@ export default function InjuryDetailScreen() {
   }));
   const [team, setTeam] = useState(params.team ?? '');
   const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  const refresh = (row: ReturnType<typeof toInjuryRow>) => {
+    setTeam(row.team);
+    setInjury({
+      player: row.name,
+      type: row.type,
+      during: row.during,
+      status: row.status,
+      date: row.date,
+      returnDate: row.returnDate,
+      serviceDate: row.serviceDate,
+      desc: row.desc,
+      treatment: row.treatment,
+    });
+  };
+
+  const save = async (d: InjuryDraft) => {
+    if (!token || !injuryId) return;
+
+    setSaving(true);
+    setSaveError(null);
+    try {
+      const res = await updateInjury(token, injuryId, {
+        injury_type: d.type,
+        occurred_during: DURING_API[d.during] ?? 'other',
+        injury_date: isoDate(d.date),
+        expected_return: d.returnDate ? isoDate(d.returnDate) : null,
+        status: STATUS_API[d.status] ?? 'injured',
+        description: d.desc.trim() || null,
+        treatment: d.treatment.trim() || null,
+      });
+      refresh(toInjuryRow(res.data));
+      setEditing(false);
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 401) {
+        signOut();
+        router.replace('/login');
+        return;
+      }
+      setSaveError(errorText(e));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const askDelete = () => {
+    if (!token || !injuryId) return;
+    Alert.alert('Fshi lëndimin', 'A jeni i sigurt që dëshironi ta fshini?', [
+      { text: 'Anulo', style: 'cancel' },
+      {
+        text: 'Fshi',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await deleteInjury(token, injuryId);
+            router.back();
+          } catch (e) {
+            if (e instanceof ApiError && e.status === 401) {
+              signOut();
+              router.replace('/login');
+              return;
+            }
+            Alert.alert('Nuk u fshi', errorText(e));
+          }
+        },
+      },
+    ]);
+  };
 
   useEffect(() => {
     if (!token || !injuryId || Number.isNaN(injuryId)) return;
@@ -174,18 +271,31 @@ export default function InjuryDetailScreen() {
           contentContainerStyle={styles.scroll}
         >
           <View style={styles.colPad}>
-            {/* ── Edit the record ─────────────────────────────────── */}
-            <Pressable
-              onPress={() => setEditing(true)}
-              accessibilityRole="button"
-              accessibilityLabel="Edito lëndimin"
-              style={({ pressed }) => [styles.editBtn, pressed && styles.pressed]}
-            >
-              <MaterialCommunityIcons name="pencil" size={I(14)} color={C.text} />
-              <Text style={styles.editBtnText} numberOfLines={1}>
-                Edito
-              </Text>
-            </Pressable>
+            {/* ── Edit / delete the record ────────────────────────── */}
+            <View style={styles.actions}>
+              <Pressable
+                onPress={() => setEditing(true)}
+                accessibilityRole="button"
+                accessibilityLabel="Edito lëndimin"
+                style={({ pressed }) => [styles.editBtn, pressed && styles.pressed]}
+              >
+                <MaterialCommunityIcons name="pencil" size={I(14)} color={C.text} />
+                <Text style={styles.editBtnText} numberOfLines={1}>
+                  Edito
+                </Text>
+              </Pressable>
+              <Pressable
+                onPress={askDelete}
+                accessibilityRole="button"
+                accessibilityLabel="Fshi lëndimin"
+                style={({ pressed }) => [styles.deleteBtn, pressed && styles.pressed]}
+              >
+                <MaterialCommunityIcons name="trash-can-outline" size={I(14)} color={C.red} />
+                <Text style={styles.deleteBtnText} numberOfLines={1}>
+                  Fshi
+                </Text>
+              </Pressable>
+            </View>
 
             <View style={styles.card}>
               {/* ── Table head: two titles, split by the card's rule ─ */}
@@ -231,11 +341,14 @@ export default function InjuryDetailScreen() {
           title="Edito lëndimin"
           confirmLabel="Ruaj"
           initial={injury}
-          onClose={() => setEditing(false)}
-          onConfirm={(d) => {
-            setInjury(d);
+          busy={saving}
+          error={saveError}
+          onClose={() => {
+            if (saving) return;
             setEditing(false);
+            setSaveError(null);
           }}
+          onConfirm={save}
         />
       ) : null}
     </SafeAreaView>
@@ -298,14 +411,19 @@ const styles = StyleSheet.create(
       paddingBottom: 24,
     },
 
-    /* ── Edit the record ─────────────────────────────────────── */
+    /* ── Edit / delete the record ────────────────────────────── */
+    actions: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      marginTop: 8,
+    },
+
     editBtn: {
-      alignSelf: 'flex-start',
       flexDirection: 'row',
       alignItems: 'center',
       gap: 6,
       height: 32,
-      marginTop: 8,
       paddingHorizontal: 12,
       backgroundColor: C.blue1,
       borderWidth: 1,
@@ -318,6 +436,24 @@ const styles = StyleSheet.create(
       fontSize: 11.5,
       lineHeight: 15,
       color: C.text,
+    },
+
+    deleteBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      height: 32,
+      paddingHorizontal: 12,
+      borderWidth: 1,
+      borderColor: C.red,
+      borderRadius: 4,
+    },
+
+    deleteBtnText: {
+      fontFamily: Fonts.bodySemiBold,
+      fontSize: 11.5,
+      lineHeight: 15,
+      color: C.red,
     },
 
     /* ── Card ────────────────────────────────────────────────── */

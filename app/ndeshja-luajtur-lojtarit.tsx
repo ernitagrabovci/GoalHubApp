@@ -1,12 +1,18 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
+import { ApiError } from '@/lib/api/errors';
+import { getMyMatch } from '@/lib/api/matches';
+import type { ApiMatch } from '@/lib/api/types';
+import { positionLabel } from '@/lib/player-position';
 import { I, scaled } from '@/lib/responsive';
+import { useSession } from '@/lib/session';
 
 /**
  * A played match — opened from "Shiko" on the results table of the player's
@@ -51,14 +57,6 @@ function formatDate(date: string): string {
   return `${day} ${mon.charAt(0).toUpperCase()}${mon.slice(1).toLowerCase()} ${year}`;
 }
 
-/** A win is Prishtina scoring more than the opponent. */
-function outcome(home: string, score: string): 'F' | 'H' | 'B' {
-  const [h, a] = score.split('-').map(Number);
-  if (h === a) return 'B';
-  const atHome = home.includes('Prishtina');
-  return (atHome ? h > a : a > h) ? 'F' : 'H';
-}
-
 const RESULT = {
   F: { label: 'Fitore', color: C.green },
   H: { label: 'Humbje', color: C.red },
@@ -96,8 +94,10 @@ function MyStat({
 
 export default function PlayerPlayedMatchScreen() {
   const router = useRouter();
+  const { user, token, signOut } = useSession();
 
   const params = useLocalSearchParams<{
+    id?: string;
     home?: string;
     away?: string;
     venue?: string;
@@ -107,13 +107,98 @@ export default function PlayerPlayedMatchScreen() {
     score?: string;
   }>();
 
-  const home = params.home ?? '';
-  const away = params.away ?? '';
-  const score = params.score ?? '';
+  const id = params.id ? Number(params.id) : null;
+
+  const [match, setMatch] = useState<ApiMatch | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!token || !id || Number.isNaN(id)) return;
+    const controller = new AbortController();
+
+    getMyMatch(token, id, controller.signal)
+      .then((res) => {
+        if (controller.signal.aborted) return;
+        setMatch(res.data);
+        setError(null);
+      })
+      .catch((e) => {
+        if (controller.signal.aborted) return;
+        if (e instanceof ApiError && e.status === 401) {
+          signOut();
+          router.replace('/login');
+          return;
+        }
+        setError(
+          e instanceof ApiError && e.status === 0
+            ? 'Nuk mund të lidhemi me serverin. Kontrollo lidhjen.'
+            : 'Nuk mund të ngarkohet ndeshja.',
+        );
+      });
+
+    return () => controller.abort();
+  }, [token, id, router, signOut]);
+
+  const teamName = match?.team?.name ?? '';
+  const opponent = match?.opponent ?? '';
+  const isHome = match?.venue === 'home';
+
+  const home = match ? (isHome ? teamName : opponent) : params.home ?? '';
+  const away = match ? (isHome ? opponent : teamName) : params.away ?? '';
 
   /* The fixture is named from our side, so the page is titled for the rival. */
-  const rival = home.includes('Prishtina') ? away : home;
-  const result = RESULT[outcome(home, score)];
+  const rival = match ? opponent : away || home;
+
+  const sched = match?.scheduled_at ? new Date(match.scheduled_at) : null;
+  const validSched = sched && !Number.isNaN(sched.getTime()) ? sched : null;
+  const dateLabel = validSched
+    ? `${String(validSched.getDate()).padStart(2, '0')}/${String(validSched.getMonth() + 1).padStart(2, '0')}/${validSched.getFullYear()}`
+    : params.date ?? '';
+  const timeLabel = validSched
+    ? `${String(validSched.getHours()).padStart(2, '0')}:${String(validSched.getMinutes()).padStart(2, '0')}`
+    : params.time ?? '';
+
+  const scoreLabel =
+    match && match.goals_for != null && match.goals_against != null
+      ? `${match.goals_for} - ${match.goals_against}`
+      : params.score ?? '—';
+
+  const result =
+    match && match.goals_for != null && match.goals_against != null
+      ? match.goals_for > match.goals_against
+        ? RESULT.F
+        : match.goals_for < match.goals_against
+          ? RESULT.H
+          : RESULT.B
+      : null;
+
+  const statRows = (match?.player_stats ?? []).map((s) => ({
+    name: s.player_name ?? '—',
+    goals: String(s.goals ?? 0),
+    assists: String(s.assists ?? 0),
+    minutes: s.minutes_played == null ? '—' : String(s.minutes_played),
+    yellow: String(s.yellow_cards ?? 0),
+    red: String(s.red_cards ?? 0),
+  }));
+
+  /* The player's own line — matched by the signed-in account's name. */
+  const mine = (match?.player_stats ?? []).find(
+    (s) => s.player_name != null && s.player_name === user?.name,
+  );
+
+  const starters = (match?.lineup ?? []).filter((l) => l.type === 'starter');
+  const venueLabel = match ? (isHome ? 'Shtëpi' : 'Musafir') : params.venue ?? '—';
+  const compLabel = match?.competition || params.comp || '—';
+
+  const my = mine
+    ? {
+        minutes: mine.minutes_played == null ? '—' : String(mine.minutes_played),
+        goals: String(mine.goals ?? 0),
+        assists: String(mine.assists ?? 0),
+        yellow: String(mine.yellow_cards ?? 0),
+        red: String(mine.red_cards ?? 0),
+      }
+    : { minutes: '—', goals: '—', assists: '—', yellow: '—', red: '—' };
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
@@ -143,7 +228,7 @@ export default function PlayerPlayedMatchScreen() {
                   {`vs ${rival}`}
                 </Text>
                 <Text style={styles.subtitle} numberOfLines={1}>
-                  {`${formatDate(params.date ?? '')}, ${params.time ?? ''}`}
+                  {`${formatDate(dateLabel)}, ${timeLabel}`}
                 </Text>
               </View>
             </View>
@@ -173,7 +258,7 @@ export default function PlayerPlayedMatchScreen() {
                       Vendodhja
                     </Text>
                     <Text style={styles.cellValue} numberOfLines={1}>
-                      {params.venue ?? ''}
+                      {venueLabel}
                     </Text>
                   </View>
 
@@ -189,7 +274,7 @@ export default function PlayerPlayedMatchScreen() {
                       adjustsFontSizeToFit
                       minimumFontScale={0.65}
                     >
-                      {params.comp ?? ''}
+                      {compLabel}
                     </Text>
                   </View>
                 </View>
@@ -199,10 +284,13 @@ export default function PlayerPlayedMatchScreen() {
                 {/* The score and the verdict. */}
                 <View style={styles.resultCol}>
                   <Text style={styles.resultScore} numberOfLines={1}>
-                    {score}
+                    {scoreLabel}
                   </Text>
-                  <Text style={[styles.resultLabel, { color: result.color }]} numberOfLines={1}>
-                    {result.label}
+                  <Text
+                    style={[styles.resultLabel, { color: result?.color ?? C.gray }]}
+                    numberOfLines={1}
+                  >
+                    {result?.label ?? '—'}
                   </Text>
                 </View>
               </View>
@@ -216,19 +304,19 @@ export default function PlayerPlayedMatchScreen() {
               <View style={styles.headLine} />
 
               <View style={styles.body}>
-                {/* The player's own line. The match API carries no per-player
-                    statistics yet, so every figure reads as the placeholder. */}
+                {/* The player's own line, from their row in the match's
+                    player statistics. */}
                 <View style={styles.statRow}>
-                  <MyStat label="Minuta të luajtura" value="—" />
-                  <MyStat label="Gola" value="—" />
-                  <MyStat label="Asiste" value="—" />
+                  <MyStat label="Minuta të luajtura" value={my.minutes} />
+                  <MyStat label="Gola" value={my.goals} />
+                  <MyStat label="Asiste" value={my.assists} />
                 </View>
 
                 {/* Only the top row carries the rules, so the two cards below
                     sit plain. */}
                 <View style={styles.statRow}>
-                  <MyStat label="Kartona të verdhë" value="—" rule={false} />
-                  <MyStat label="Kartona të kuq" value="—" rule={false} />
+                  <MyStat label="Kartona të verdhë" value={my.yellow} rule={false} />
+                  <MyStat label="Kartona të kuq" value={my.red} rule={false} />
                   {/* Keeps the second row on the same columns as the first. */}
                   <View style={styles.statCell} />
                 </View>
@@ -256,13 +344,26 @@ export default function PlayerPlayedMatchScreen() {
                   </View>
                 </View>
 
-                {/* The squad's lines arrive with the match, which the player
-                    has no endpoint for yet. */}
-                <View style={styles.tr}>
-                  <Text style={[styles.empty, styles.colName]} numberOfLines={2}>
-                    Statistikat e lojtarëve nuk janë të disponueshme.
-                  </Text>
-                </View>
+                {statRows.map((row, i) => (
+                  <View key={`${row.name}-${i}`} style={[styles.tr, i > 0 && styles.trBorder]}>
+                    <Text style={[styles.tdName, styles.colName]} numberOfLines={1}>
+                      {row.name}
+                    </Text>
+                    <Text style={[styles.td, styles.colStat]}>{row.goals}</Text>
+                    <Text style={[styles.td, styles.colStat]}>{row.assists}</Text>
+                    <Text style={[styles.td, styles.colStat]}>{row.minutes}</Text>
+                    <Text style={[styles.td, styles.colCardText]}>{row.yellow}</Text>
+                    <Text style={[styles.td, styles.colCardText]}>{row.red}</Text>
+                  </View>
+                ))}
+
+                {statRows.length === 0 ? (
+                  <View style={styles.tr}>
+                    <Text style={[styles.empty, styles.colName]} numberOfLines={2}>
+                      {error ?? (match ? 'Nuk ka statistika.' : '…')}
+                    </Text>
+                  </View>
+                ) : null}
               </View>
             </View>
 
@@ -273,12 +374,23 @@ export default function PlayerPlayedMatchScreen() {
               </View>
               <View style={styles.headLine} />
 
+              <Text style={styles.sectionLabel}>{`Startuesit (${starters.length})`}</Text>
+
               <View style={styles.squadGrid}>
-                {/* The eleven comes with the match, which the player has no
-                    endpoint for yet. */}
-                <Text style={styles.empty} numberOfLines={2}>
-                  Formacioni nuk është i disponueshëm.
-                </Text>
+                {starters.map((s) => (
+                  <View key={s.player_id} style={styles.playerCard}>
+                    <Text style={styles.playerName} numberOfLines={2}>
+                      {s.player_name ?? '—'}
+                    </Text>
+                    <Text style={styles.playerPosition}>{positionLabel(s.position)}</Text>
+                  </View>
+                ))}
+
+                {starters.length === 0 ? (
+                  <Text style={styles.empty} numberOfLines={2}>
+                    {error ?? (match ? 'Nuk ka formacion.' : '…')}
+                  </Text>
+                ) : null}
               </View>
             </View>
           </View>
@@ -560,6 +672,11 @@ const styles = StyleSheet.create(
       width: 24,
       alignItems: 'center',
       justifyContent: 'center',
+    },
+
+    colCardText: {
+      width: 24,
+      textAlign: 'center',
     },
 
     th: {

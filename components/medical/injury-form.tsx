@@ -88,12 +88,18 @@ export function InjuryFormModal({
   title,
   confirmLabel,
   initial,
+  busy = false,
+  error = null,
   onClose,
   onConfirm,
 }: {
   title: string;
   confirmLabel: string;
   initial?: Partial<InjuryDraft>;
+  /** Disables the confirm button while a request is in flight. */
+  busy?: boolean;
+  /** A save failure to show above the fields. */
+  error?: string | null;
   onClose: () => void;
   onConfirm: (draft: InjuryDraft) => void;
 }) {
@@ -114,6 +120,7 @@ export function InjuryFormModal({
   const [err, setErr] = useState(false);
 
   const submit = () => {
+    if (busy) return;
     if (!player || !type || !isFilled(date) || !isFilled(returnDate)) {
       setErr(true);
       return;
@@ -157,6 +164,7 @@ export function InjuryFormModal({
           contentContainerStyle={styles.content}
         >
           {err ? <Text style={styles.err}>Plotëso lojtarin, llojin dhe datat.</Text> : null}
+          {error ? <Text style={styles.err}>{error}</Text> : null}
 
           {/* ── Lojtari / Lloji ─────────────────────────────────── */}
           <View style={styles.row}>
@@ -225,11 +233,17 @@ export function InjuryFormModal({
             </Pressable>
             <Pressable
               onPress={submit}
+              disabled={busy}
               accessibilityRole="button"
               accessibilityLabel={confirmLabel}
-              style={({ pressed }) => [styles.btn, styles.btnConfirm, pressed && styles.pressed]}
+              style={({ pressed }) => [
+                styles.btn,
+                styles.btnConfirm,
+                busy && styles.btnBusy,
+                pressed && styles.pressed,
+              ]}
             >
-              <Text style={styles.btnText}>{confirmLabel}</Text>
+              <Text style={styles.btnText}>{busy ? '...' : confirmLabel}</Text>
             </Pressable>
           </View>
         </ScrollView>
@@ -568,6 +582,10 @@ const styles = StyleSheet.create(
     btnConfirm: {
       width: 74,
       backgroundColor: MO.create,
+    },
+
+    btnBusy: {
+      opacity: 0.6,
     },
 
     btnText: {

@@ -2,6 +2,7 @@ import { request } from '@/lib/api/client';
 import type {
   ApiMessage,
   ConversationsResponse,
+  CreateGroupResponse,
   GroupThreadResponse,
   ThreadResponse,
 } from '@/lib/api/types';
@@ -26,6 +27,26 @@ export function sendMessage(
     method: 'POST',
     token,
     body: { body },
+    signal,
+  });
+}
+
+export type CreateGroupInput = {
+  name: string;
+  member_ids: number[];
+  /** Coaching staff only; defaults to their own team. */
+  team_id?: number | null;
+};
+
+/**
+ * Create a group. Administrators are always added as a member; coaching staff
+ * must pass the team they manage (or omit it to use their own team).
+ */
+export function createGroup(token: string, input: CreateGroupInput, signal?: AbortSignal) {
+  return request<CreateGroupResponse>('/groups', {
+    method: 'POST',
+    body: input,
+    token,
     signal,
   });
 }

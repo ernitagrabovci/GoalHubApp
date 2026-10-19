@@ -104,6 +104,26 @@ export type ApiSeason = {
   competitions?: string[] | null;
 };
 
+/** The fixed week keys stored in a training field's availability. */
+export type FieldDay =
+  | 'e_hene'
+  | 'e_marte'
+  | 'e_merkure'
+  | 'e_enjte'
+  | 'e_premte'
+  | 'e_shtune'
+  | 'e_diele';
+
+export type ApiFieldAvailabilitySlot = {
+  open: boolean;
+  /** `HH:MM`. */
+  from: string;
+  to: string;
+};
+
+/** The whole week, as stored and returned by the club fields endpoints. */
+export type ApiFieldAvailability = Record<FieldDay, ApiFieldAvailabilitySlot>;
+
 /** A training field, from `GET /club/fields`. */
 export type ApiTrainingField = {
   id: number;
@@ -115,7 +135,7 @@ export type ApiTrainingField = {
   dimensions: string | null;
   has_lighting: boolean;
   locker_rooms: number;
-  availability: string[] | null;
+  availability: ApiFieldAvailability | null;
   notes: string | null;
 };
 
@@ -424,6 +444,7 @@ export type ApiClubProfile = {
     plan: string | null;
     on_trial: boolean;
     active: boolean;
+    starts_at: string | null;
     ends_at: string | null;
   };
 };
@@ -567,6 +588,33 @@ export type GroupThreadResponse = {
   group: { id: number; name: string; members: string[] };
   messages: ApiMessage[];
   updates: ApiMessage[];
+};
+
+/** `POST /groups` — the new group's opening envelope. */
+export type CreateGroupResponse = GroupThreadResponse & { message: string };
+
+/** One personal access token, from `GET /security/sessions`. */
+export type ApiSecuritySession = {
+  id: number;
+  name: string;
+  created_at: string | null;
+  last_used_at: string | null;
+  expires_at: string | null;
+  current: boolean;
+};
+
+/** `GET /security/sessions` — current request metadata plus the caller's tokens. */
+export type SecuritySessionsResponse = {
+  last_login_at: string | null;
+  current: {
+    /** Null when the caller authenticated without a personal access token. */
+    id: number | null;
+    ip_address: string | null;
+    user_agent: string | null;
+    created_at: string | null;
+    last_used_at: string | null;
+  };
+  sessions: ApiSecuritySession[];
 };
 
 /** One payable period, from `GET /finance/players/{player}/unpaid`. */

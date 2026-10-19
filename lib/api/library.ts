@@ -42,6 +42,21 @@ export function listLibrary(
   return request<TrainingLibraryResponse>(`/library${query}`, { token, signal });
 }
 
+/** The signed-in player's own shelf — materials shared with their team. */
+export function myLibrary(
+  token: string,
+  params: LibraryListParams = {},
+  signal?: AbortSignal,
+) {
+  const query = toQuery({
+    page: params.page,
+    level: params.level,
+    category: params.category,
+    search: params.search,
+  });
+  return request<TrainingLibraryResponse>(`/my/library${query}`, { token, signal });
+}
+
 /**
  * Add a library item, optionally attaching a file. The request goes out as
  * multipart when a file is present, JSON otherwise.

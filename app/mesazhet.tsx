@@ -9,7 +9,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
 import { ApiError } from '@/lib/api/errors';
-import { listConversations } from '@/lib/api/messages';
+import { createGroup, listConversations } from '@/lib/api/messages';
 import type { ApiContact, ApiConversation } from '@/lib/api/types';
 import { I, scaled } from '@/lib/responsive';
 import { useSession } from '@/lib/session';
@@ -54,6 +54,14 @@ const MO = {
   white: '#F5F5F5',
 };
 
+function errorText(error: unknown): string {
+  if (error instanceof ApiError) {
+    if (error.status === 0) return 'Nuk mund të lidhemi me serverin. Kontrollo lidhjen.';
+    return error.message;
+  }
+  return 'Diçka shkoi keq. Provo përsëri.';
+}
+
 /** Read = blue double tick; still in flight = the same shape, greyed. */
 const TICKS = {
   read: { icon: 'check-all' as const, color: C.blue },
@@ -67,6 +75,7 @@ export default function MessagesScreen() {
   const [conversations, setConversations] = useState<ApiConversation[]>([]);
   const [contacts, setContacts] = useState<ApiContact[]>([]);
   const [creating, setCreating] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     if (!token) return;
@@ -87,7 +96,7 @@ export default function MessagesScreen() {
       });
 
     return () => controller.abort();
-  }, [token, router, signOut]);
+  }, [token, router, signOut, reloadKey]);
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
@@ -217,8 +226,15 @@ export default function MessagesScreen() {
             accessibilityLabel="Mbylle dritaren"
           />
           <NewGroupModal
-            people={contacts.map((c) => c.name)}
+            contacts={contacts}
+            token={token ?? ''}
             onClose={() => setCreating(false)}
+            onCreated={() => setReloadKey((k) => k + 1)}
+            onExpired={() => {
+              setCreating(false);
+              signOut();
+              router.replace('/login');
+            }}
           />
         </View>
       ) : null}
@@ -235,14 +251,28 @@ function Radio({ on }: { on: boolean }) {
   return <View style={[styles.radio, on && styles.radioOn]} />;
 }
 
-function NewGroupModal({ people, onClose }: { people: string[]; onClose: () => void }) {
+function NewGroupModal({
+  contacts,
+  token,
+  onClose,
+  onCreated,
+  onExpired,
+}: {
+  contacts: ApiContact[];
+  token: string;
+  onClose: () => void;
+  onCreated: () => void;
+  onExpired: () => void;
+}) {
   const { width, height } = useWindowDimensions();
   const cardW = Math.min(width - 24, 360);
   /* Capped so a long roster scrolls inside the card instead of growing it. */
   const listMax = Math.min(230, Math.max(110, height * 0.32));
 
   const [groupName, setGroupName] = useState('');
-  const [picked, setPicked] = useState<string[]>([]);
+  const [picked, setPicked] = useState<number[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   /* Measured so the rail beside the roster can mirror the real scroll. */
   const [viewH, setViewH] = useState(0);
@@ -255,10 +285,36 @@ function NewGroupModal({ people, onClose }: { people: string[]; onClose: () => v
     ? (offset / Math.max(1, contentH - viewH)) * (viewH - thumbH)
     : 0;
 
-  const toggle = (person: string) =>
-    setPicked((prev) =>
-      prev.includes(person) ? prev.filter((x) => x !== person) : [...prev, person],
-    );
+  const toggle = (id: number) =>
+    setPicked((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+
+  const submit = async () => {
+    if (busy) return;
+    if (!groupName.trim()) {
+      setError('Sheno emrin e grupit.');
+      return;
+    }
+    if (picked.length < 1) {
+      setError('Zgjidh të paktën një person.');
+      return;
+    }
+
+    setBusy(true);
+    setError(null);
+    try {
+      await createGroup(token, { name: groupName.trim(), member_ids: picked });
+      onCreated();
+      onClose();
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 401) {
+        onExpired();
+        return;
+      }
+      setError(errorText(e));
+    } finally {
+      setBusy(false);
+    }
+  };
 
   return (
     <View style={[styles.nmCard, { width: cardW }]}>
@@ -290,16 +346,16 @@ function NewGroupModal({ people, onClose }: { people: string[]; onClose: () => v
               onScroll={(e) => setOffset(e.nativeEvent.contentOffset.y)}
               contentContainerStyle={styles.groupInner}
             >
-              {people.map((person) => (
+              {contacts.map((person) => (
                 <Pressable
-                  key={person}
-                  onPress={() => toggle(person)}
+                  key={person.id}
+                  onPress={() => toggle(person.id)}
                   accessibilityRole="checkbox"
-                  accessibilityState={{ checked: picked.includes(person) }}
+                  accessibilityState={{ checked: picked.includes(person.id) }}
                   style={({ pressed }) => [styles.personRow, pressed && styles.pressed]}
                 >
-                  <Radio on={picked.includes(person)} />
-                  <Text style={styles.personText}>{person}</Text>
+                  <Radio on={picked.includes(person.id)} />
+                  <Text style={styles.personText}>{person.name}</Text>
                 </Pressable>
               ))}
             </ScrollView>
@@ -313,6 +369,8 @@ function NewGroupModal({ people, onClose }: { people: string[]; onClose: () => v
           </View>
         </View>
 
+        {error ? <Text style={styles.nmErr}>{error}</Text> : null}
+
         <View style={styles.nmActions}>
           <Pressable
             onPress={onClose}
@@ -322,11 +380,17 @@ function NewGroupModal({ people, onClose }: { people: string[]; onClose: () => v
             <Text style={styles.nmBtnText}>Anulo</Text>
           </Pressable>
           <Pressable
-            onPress={onClose}
+            onPress={submit}
+            disabled={busy}
             accessibilityRole="button"
-            style={({ pressed }) => [styles.nmBtn, styles.nmBtnSave, pressed && styles.pressed]}
+            style={({ pressed }) => [
+              styles.nmBtn,
+              styles.nmBtnSave,
+              busy && styles.nmBtnBusy,
+              pressed && styles.pressed,
+            ]}
           >
-            <Text style={styles.nmBtnText}>Krijo</Text>
+            <Text style={styles.nmBtnText}>{busy ? '...' : 'Krijo'}</Text>
           </Pressable>
         </View>
       </View>
@@ -685,6 +749,18 @@ const styles = StyleSheet.create(
     nmBtnSave: {
       width: 74,
       backgroundColor: MO.create,
+    },
+
+    nmBtnBusy: {
+      opacity: 0.6,
+    },
+
+    nmErr: {
+      fontFamily: Fonts.body,
+      fontSize: 9.5,
+      lineHeight: 13,
+      color: '#C90000',
+      marginTop: 10,
     },
 
     nmBtnText: {

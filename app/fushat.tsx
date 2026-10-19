@@ -4,6 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import { BlurView } from 'expo-blur';
 import { useEffect, useState } from 'react';
 import {
+  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -15,9 +16,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
-import { getFields } from '@/lib/api/club';
+import { createField, deleteField, getFields, updateField } from '@/lib/api/club';
 import { ApiError } from '@/lib/api/errors';
-import type { ApiTrainingField } from '@/lib/api/types';
+import type {
+  ApiFieldAvailability,
+  ApiTrainingField,
+  FieldDay,
+} from '@/lib/api/types';
 import { I, scaled } from '@/lib/responsive';
 import { useSession } from '@/lib/session';
 
@@ -86,75 +91,124 @@ type Field = {
   id: number;
   label: string; // shown in the dropdown (may include the surface type)
   name: string; // shown as the card title
-  address: string;
-  capacity: string;
-  dimensions: string;
-  lighting: string;
-  availability: string;
-  lloji?: string;
-  statusi?: string;
-  changingRoom?: string;
-  notes?: string;
-  weekly?: DayRow[];
+  type: string | null;
+  status: string | null;
+  address: string | null;
+  capacity: number | null;
+  dimensions: string | null;
+  hasLighting: boolean;
+  lockerRooms: number;
+  notes: string | null;
+  weekly: DayRow[];
 };
+
+/** The week in storage order — the backend keys are fixed. */
+const DAY_KEYS: FieldDay[] = [
+  'e_hene',
+  'e_marte',
+  'e_merkure',
+  'e_enjte',
+  'e_premte',
+  'e_shtune',
+  'e_diele',
+];
+
+const DAY_LABELS = [
+  'E Hene',
+  'E Marte',
+  'E Merkure',
+  'E Enjte',
+  'E Premte',
+  'E Shtune',
+  'E Djele',
+];
+
+/* Modal option sets — values are what the API stores, labels what we show. */
+const LLOJI = [
+  { value: 'natural', label: 'Natyrale' },
+  { value: 'artificial', label: 'Sintetike' },
+  { value: 'indoor', label: 'Hibrid' },
+];
+const STATUSI = [
+  { value: 'active', label: 'Aktive' },
+  { value: 'inactive', label: 'Pasive' },
+  { value: 'maintenance', label: 'Mirëmbajtje' },
+];
+const KAPACITETI = ['500', '1000', '5000', '12000'];
+const DIMENSIONET = ['90x45', '100x60', '105x68'];
+const DHOMA = [
+  { value: '1', label: 'Po' },
+  { value: '0', label: 'Jo' },
+];
+
+const typeLabel = (value: string | null) =>
+  LLOJI.find((o) => o.value === value)?.label ?? value ?? '';
 
 /** Map an API training field onto the screen's `Field` view-model. */
 function toField(f: ApiTrainingField): Field {
-  const availability =
-    f.availability && f.availability.length
-      ? f.availability.join(', ')
-      : 'Asnjë ditë e hapur.';
+  const weekly = DAY_KEYS.map((key, i) => {
+    const slot = f.availability?.[key];
+    return {
+      name: DAY_LABELS[i],
+      from: slot?.from ?? '07:00',
+      to: slot?.to ?? '22:00',
+      open: slot?.open ?? false,
+    };
+  });
 
   return {
     id: f.id,
-    label: f.type ? `${f.name}-${f.type}` : f.name,
+    label: f.type ? `${f.name} · ${typeLabel(f.type)}` : f.name,
     name: f.name,
-    address: f.address ?? '—',
-    capacity: f.capacity != null ? `${f.capacity} spekt.` : '—',
-    dimensions: f.dimensions ?? '—',
-    lighting: f.has_lighting ? 'Po' : 'Jo',
-    availability,
-    lloji: f.type ?? '',
-    statusi: f.status ?? '',
-    changingRoom: f.locker_rooms > 0 ? 'Po' : 'Jo',
-    notes: f.notes ?? '',
+    type: f.type,
+    status: f.status,
+    address: f.address,
+    capacity: f.capacity,
+    dimensions: f.dimensions,
+    hasLighting: f.has_lighting,
+    lockerRooms: f.locker_rooms,
+    notes: f.notes,
+    weekly,
   };
 }
 
-/* Modal option sets */
-const LLOJI = ['Natyrale', 'Sintetike', 'Hibrid'];
-const STATUSI = ['Aktive', 'Pasive'];
-const KAPACITETI = ['500 spekt.', '1.000 spekt.', '5.000 spekt.', '12.000 spekt.'];
-const DIMENSIONET = ['90x45', '100x60', '105x68'];
-const DHOMA = ['Po', 'Jo'];
-
 /* Default weekly state (matches the reference screenshot) */
 const WEEK: DayRow[] = [
-  { name: 'E Hene', from: '07:00', to: '07:00', open: true },
-  { name: 'E Marte', from: '07:00', to: '07:00', open: true },
-  { name: 'E Merkure', from: '07:00', to: '07:00', open: true },
-  { name: 'E Enjte', from: '07:00', to: '07:00', open: false },
-  { name: 'E Premte', from: '07:00', to: '07:00', open: false },
-  { name: 'E Shtune', from: '07:00', to: '07:00', open: false },
-  { name: 'E Djele', from: '07:00', to: '07:00', open: false },
+  { name: 'E Hene', from: '07:00', to: '22:00', open: true },
+  { name: 'E Marte', from: '07:00', to: '22:00', open: true },
+  { name: 'E Merkure', from: '07:00', to: '22:00', open: true },
+  { name: 'E Enjte', from: '07:00', to: '22:00', open: false },
+  { name: 'E Premte', from: '07:00', to: '22:00', open: false },
+  { name: 'E Shtune', from: '07:00', to: '22:00', open: false },
+  { name: 'E Djele', from: '07:00', to: '22:00', open: false },
 ];
 
 const cloneWeek = () => WEEK.map((d) => ({ ...d }));
-
-const allClosedWeek = () => WEEK.map((d) => ({ ...d, open: false }));
 
 function availabilityFrom(days: DayRow[]) {
   const open = days.filter((d) => d.open);
   return open.length === 0 ? 'Asnjë ditë e hapur.' : open.map((d) => d.name).join(', ');
 }
 
-/* Weekly initial — use stored schedule, else derive from availability.
-   A brand-new field defaults to the first three days open (matches the sample). */
+/* Weekly initial — use the stored schedule; a new field defaults to the
+   first three days open (matches the sample). */
 function initialWeek(f?: Field): DayRow[] {
   if (f?.weekly?.length) return f.weekly.map((d) => ({ ...d }));
-  if (!f) return cloneWeek();
-  if (f.availability && !f.availability.includes('Asnjë')) return cloneWeek();
-  return allClosedWeek();
+  return cloneWeek();
+}
+
+/** Pads the clock boxes and builds the day-keyed object the API expects. */
+function availabilityPayload(days: DayRow[]): ApiFieldAvailability {
+  const out = {} as ApiFieldAvailability;
+  const norm = (t: string) => {
+    const [h = '', m = ''] = t.split(':');
+    return `${h.padStart(2, '0').slice(0, 2)}:${m.padStart(2, '0').slice(0, 2)}`;
+  };
+
+  days.forEach((d, i) => {
+    out[DAY_KEYS[i]] = { open: d.open, from: norm(d.from), to: norm(d.to) };
+  });
+  return out;
 }
 
 /* Split / rebuild "HH:MM" clock strings so hour and minute edit in their own box */
@@ -169,17 +223,24 @@ const timeDigits = (v: string) => v.replace(/[^0-9]/g, '').slice(0, 2);
 
 type FieldPayload = {
   name: string;
-  address: string;
-  capacity: string;
-  dimensions: string;
-  lighting: string;
-  availability: string;
-  lloji: string;
-  statusi: string;
-  changingRoom: string;
-  notes: string;
-  weekly: DayRow[];
+  type: 'natural' | 'artificial' | 'indoor';
+  status: 'active' | 'inactive' | 'maintenance';
+  address: string | null;
+  capacity: number | null;
+  dimensions: string | null;
+  has_lighting: boolean;
+  locker_rooms: number;
+  availability: ApiFieldAvailability;
+  notes: string | null;
 };
+
+function errorText(error: unknown): string {
+  if (error instanceof ApiError) {
+    if (error.status === 0) return 'Nuk mund të lidhemi me serverin. Kontrollo lidhjen.';
+    return error.message;
+  }
+  return 'Diçka shkoi keq. Provo përsëri.';
+}
 
 export default function FushatScreen() {
   const router = useRouter();
@@ -188,6 +249,7 @@ export default function FushatScreen() {
   const [fields, setFields] = useState<Field[]>([]);
   const [currentId, setCurrentId] = useState(0);
   const [open, setOpen] = useState(false);
+  const [listError, setListError] = useState<string | null>(null);
   const [modal, setModal] = useState<null | { mode: 'add' } | { mode: 'edit'; field: Field }>(null);
 
   useEffect(() => {
@@ -199,14 +261,17 @@ export default function FushatScreen() {
         if (controller.signal.aborted) return;
         const mapped = res.data.map(toField);
         setFields(mapped);
-        setCurrentId(mapped.length ? mapped[0].id : 0);
+        setCurrentId((id) => (mapped.some((f) => f.id === id) ? id : (mapped[0]?.id ?? 0)));
+        setListError(null);
       })
       .catch((e) => {
         if (controller.signal.aborted) return;
         if (e instanceof ApiError && e.status === 401) {
           signOut();
           router.replace('/login');
+          return;
         }
+        setListError(errorText(e));
       });
 
     return () => controller.abort();
@@ -223,67 +288,72 @@ export default function FushatScreen() {
 
   const openEdit = (f: Field) => setModal({ mode: 'edit', field: f });
 
-  const removeField = (id: number) => {
-    const next = fields.filter((f) => f.id !== id);
-    setFields(next);
-    if (currentId === id) {
-      setCurrentId(next.length ? next[0].id : 0);
+  const handleAuthError = (e: unknown) => {
+    if (e instanceof ApiError && e.status === 401) {
+      signOut();
+      router.replace('/login');
+      return true;
     }
+    return false;
   };
 
-  const save = (p: FieldPayload) => {
-    if (!modal) return;
-    if (modal.mode === 'add') {
-      const nf: Field = {
-        id: Date.now(),
-        label: p.name,
-        name: p.name,
-        address: p.address,
-        capacity: p.capacity,
-        dimensions: p.dimensions,
-        lighting: p.lighting,
-        availability: p.availability,
-        lloji: p.lloji,
-        statusi: p.statusi,
-        changingRoom: p.changingRoom,
-        notes: p.notes,
-        weekly: p.weekly.map((d) => ({ ...d })),
-      };
-      setFields((prev) => [...prev, nf]);
-      setCurrentId(nf.id);
-    } else {
-      const target = modal.field;
-      setFields((prev) =>
-        prev.map((f) =>
-          f.id === target.id
-            ? {
-                ...f,
-                label: f.name === p.name ? f.label : p.name,
-                name: p.name,
-                address: p.address,
-                capacity: p.capacity,
-                dimensions: p.dimensions,
-                lighting: p.lighting,
-                availability: p.availability,
-                lloji: p.lloji,
-                statusi: p.statusi,
-                changingRoom: p.changingRoom,
-                notes: p.notes,
-                weekly: p.weekly.map((d) => ({ ...d })),
-              }
-            : f,
-        ),
-      );
+  const removeField = (field: Field) => {
+    if (!token) return;
+    Alert.alert(
+      'Fshi fushën',
+      `A jeni i sigurt që dëshironi të fshini "${field.name}"?`,
+      [
+        { text: 'Anulo', style: 'cancel' },
+        {
+          text: 'Fshi',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteField(token, field.id);
+              setFields((prev) => {
+                const next = prev.filter((f) => f.id !== field.id);
+                setCurrentId((id) => (id === field.id ? (next[0]?.id ?? 0) : id));
+                return next;
+              });
+            } catch (e) {
+              if (handleAuthError(e)) return;
+              Alert.alert('Nuk u fshi', errorText(e));
+            }
+          },
+        },
+      ],
+    );
+  };
+
+  /** Returns an error message to show in the modal, or null on success. */
+  const save = async (p: FieldPayload): Promise<string | null> => {
+    if (!modal || !token) return 'Sesioni ka skaduar.';
+
+    try {
+      if (modal.mode === 'add') {
+        const res = await createField(token, p);
+        const nf = toField(res.data);
+        setFields((prev) => [...prev, nf]);
+        setCurrentId(nf.id);
+      } else {
+        const res = await updateField(token, modal.field.id, p);
+        const nf = toField(res.data);
+        setFields((prev) => prev.map((f) => (f.id === nf.id ? nf : f)));
+      }
+      setModal(null);
+      return null;
+    } catch (e) {
+      if (handleAuthError(e)) return null;
+      return errorText(e);
     }
-    setModal(null);
   };
 
   const detailRows = sel
     ? [
-        { label: 'Adresa', value: sel.address },
-        { label: 'Kapaciteti', value: sel.capacity },
-        { label: 'Dimensionet', value: sel.dimensions },
-        { label: 'Ndriçimi', value: sel.lighting },
+        { label: 'Adresa', value: sel.address ?? '—' },
+        { label: 'Kapaciteti', value: sel.capacity != null ? `${sel.capacity} spekt.` : '—' },
+        { label: 'Dimensionet', value: sel.dimensions ?? '—' },
+        { label: 'Ndriçimi', value: sel.hasLighting ? 'Po' : 'Jo' },
       ]
     : [];
 
@@ -390,7 +460,7 @@ export default function FushatScreen() {
                       </Text>
                     </Pressable>
                     <Pressable
-                      onPress={() => removeField(sel.id)}
+                      onPress={() => removeField(sel)}
                       accessibilityRole="button"
                       style={({ pressed }) => [styles.fshiBtn, pressed && styles.pressed]}
                     >
@@ -411,13 +481,15 @@ export default function FushatScreen() {
 
                   <View style={styles.avail}>
                     <Text style={styles.availLabel}>Disponueshmëria Javore</Text>
-                    <Text style={styles.availValue}>{sel.availability}</Text>
+                    <Text style={styles.availValue}>{availabilityFrom(sel.weekly)}</Text>
                   </View>
                 </View>
               </View>
             ) : (
               <View style={[styles.card, styles.cardGap]}>
-                <Text style={styles.emptyText}>Nuk ka fusha të regjistruara.</Text>
+                <Text style={styles.emptyText}>
+                  {listError ?? 'Nuk ka fusha të regjistruara.'}
+                </Text>
               </View>
             )}
           </View>
@@ -454,7 +526,8 @@ type FieldModalProps = {
   mode: 'add' | 'edit';
   field: Field | null;
   onClose: () => void;
-  onSave: (p: FieldPayload) => void;
+  /** Resolves to an error message to display, or null on success. */
+  onSave: (p: FieldPayload) => Promise<string | null>;
 };
 
 function FieldModal({ mode, field, onClose, onSave }: FieldModalProps) {
@@ -464,45 +537,64 @@ function FieldModal({ mode, field, onClose, onSave }: FieldModalProps) {
   const isEdit = mode === 'edit';
   const src = field ?? null;
 
-  const [name, setName] = useState(isEdit && src ? src.name : '');
-  const [lloji, setLloji] = useState<string>(isEdit && src?.lloji ? src.lloji : LLOJI[0]);
-  const [statusi, setStatusi] = useState<string>(
-    isEdit && src?.statusi ? src.statusi : STATUSI[0],
+  const [name, setName] = useState(src?.name ?? '');
+  const [lloji, setLloji] = useState<string>(src?.type ?? 'natural');
+  const [statusi, setStatusi] = useState<string>(src?.status ?? 'active');
+  const [address, setAddress] = useState(src?.address ?? '');
+  const [capacity, setCapacity] = useState<string>(
+    src?.capacity != null ? String(src.capacity) : '',
   );
-  const [address, setAddress] = useState(isEdit && src ? src.address : '');
-  const [capacity, setCapacity] = useState<string>(isEdit && src ? src.capacity : '');
-  const [dimensions, setDimensions] = useState<string>(
-    isEdit && src ? src.dimensions : '',
-  );
-  const [lighting, setLighting] = useState(isEdit && src ? src.lighting === 'Po' : false);
-  const [dhoma, setDhoma] = useState<string>(
-    isEdit && src?.changingRoom ? src.changingRoom : DHOMA[0],
-  );
+  const [dimensions, setDimensions] = useState<string>(src?.dimensions ?? '');
+  const [lighting, setLighting] = useState(src?.hasLighting ?? false);
+  const [dhoma, setDhoma] = useState<string>(String(src?.lockerRooms ?? 0));
   const [days, setDays] = useState<DayRow[]>(() => initialWeek(src ?? undefined));
-  const [notes, setNotes] = useState(isEdit && src?.notes ? src.notes : '');
-  const [err, setErr] = useState(false);
+  const [notes, setNotes] = useState(src?.notes ?? '');
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
 
   const patchDay = (i: number, p: Partial<DayRow>) =>
     setDays((prev) => prev.map((d, idx) => (idx === i ? { ...d, ...p } : d)));
 
-  const submit = () => {
-    if (!name.trim() || !lloji || !statusi || !address.trim()) {
-      setErr(true);
+  const capacityOptions = KAPACITETI.map((v) => ({ value: v, label: `${v} spekt.` }));
+  if (capacity && !KAPACITETI.includes(capacity)) {
+    capacityOptions.unshift({ value: capacity, label: `${capacity} spekt.` });
+  }
+
+  const dimensionOptions = DIMENSIONET.map((v) => ({ value: v, label: v }));
+  if (dimensions && !DIMENSIONET.includes(dimensions)) {
+    dimensionOptions.unshift({ value: dimensions, label: dimensions });
+  }
+
+  const dhomaOptions = [...DHOMA];
+  if (dhoma !== '0' && dhoma !== '1') {
+    dhomaOptions.unshift({ value: dhoma, label: `${dhoma} dhoma` });
+  }
+
+  const submit = async () => {
+    if (busy) return;
+    if (!name.trim() || !address.trim()) {
+      setError('Plotëso emrin dhe adresën e fushës.');
       return;
     }
-    onSave({
+
+    setBusy(true);
+    setError(null);
+
+    const message = await onSave({
       name: name.trim(),
+      type: lloji as FieldPayload['type'],
+      status: statusi as FieldPayload['status'],
       address: address.trim(),
-      capacity: capacity || '—',
-      dimensions: dimensions || '—',
-      lighting: lighting ? 'Po' : 'Jo',
-      availability: availabilityFrom(days),
-      lloji,
-      statusi,
-      changingRoom: dhoma,
-      notes: notes.trim(),
-      weekly: days.map((d) => ({ ...d })),
+      capacity: capacity ? Number(capacity) || null : null,
+      dimensions: dimensions || null,
+      has_lighting: lighting,
+      locker_rooms: Number(dhoma) || 0,
+      availability: availabilityPayload(days),
+      notes: notes.trim() || null,
     });
+
+    setBusy(false);
+    if (message) setError(message);
   };
 
   const title = mode === 'add' ? 'Shto fushë të re' : 'Ndrysho fushën';
@@ -519,7 +611,7 @@ function FieldModal({ mode, field, onClose, onSave }: FieldModalProps) {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.fmContent}
       >
-        {err ? <Text style={styles.fmErr}>Plotëso të gjitha fushat e kërkuara.</Text> : null}
+        {error ? <Text style={styles.fmErr}>{error}</Text> : null}
 
         <Text style={styles.fmLabel}>Emri i fushës:</Text>
         <TextInput
@@ -553,13 +645,13 @@ function FieldModal({ mode, field, onClose, onSave }: FieldModalProps) {
         <View style={styles.fmRowTop}>
           <View style={styles.fmCol}>
             <Text style={styles.fmLabel}>Kapaciteti (spekt.):</Text>
-            <FMSelect value={capacity} options={KAPACITETI} onChange={setCapacity} />
+            <FMSelect value={capacity} options={capacityOptions} onChange={setCapacity} />
           </View>
           <View style={styles.fmCol}>
             <Text style={styles.fmLabel}>Dimensionet:</Text>
             <FMSelect
               value={dimensions}
-              options={DIMENSIONET}
+              options={dimensionOptions}
               onChange={setDimensions}
             />
           </View>
@@ -581,7 +673,7 @@ function FieldModal({ mode, field, onClose, onSave }: FieldModalProps) {
           </View>
           <View style={styles.fmCol}>
             <Text style={styles.fmLabel}>Dhoma zëvështoreje:</Text>
-            <FMSelect value={dhoma} options={DHOMA} onChange={setDhoma} />
+            <FMSelect value={dhoma} options={dhomaOptions} onChange={setDhoma} />
           </View>
         </View>
 
@@ -608,16 +700,26 @@ function FieldModal({ mode, field, onClose, onSave }: FieldModalProps) {
           </Pressable>
           <Pressable
             onPress={submit}
+            disabled={busy}
             accessibilityRole="button"
-            style={({ pressed }) => [styles.fmBtn, styles.fmBtnCreate, pressed && styles.pressed]}
+            style={({ pressed }) => [
+              styles.fmBtn,
+              styles.fmBtnCreate,
+              busy && styles.fmBtnBusy,
+              pressed && styles.pressed,
+            ]}
           >
-            <Text style={styles.fmBtnText}>Krijo sezonin</Text>
+            <Text style={styles.fmBtnText}>
+              {busy ? '...' : isEdit ? 'Ruaj' : 'Shto'}
+            </Text>
           </Pressable>
         </View>
       </ScrollView>
     </View>
   );
 }
+
+type Option = { value: string; label: string };
 
 /* Compact select with an in-flow options list */
 function FMSelect({
@@ -627,12 +729,12 @@ function FMSelect({
   emptyLabel = '',
 }: {
   value: string;
-  options: string[];
+  options: Option[];
   onChange: (v: string) => void;
   emptyLabel?: string;
 }) {
   const [open, setOpen] = useState(false);
-  const show = value ? value : emptyLabel;
+  const show = options.find((o) => o.value === value)?.label ?? (value || emptyLabel);
   const isPh = !value;
   return (
     <View>
@@ -649,18 +751,18 @@ function FMSelect({
       {open ? (
         <View style={styles.fmOpts}>
           {options.map((o) => {
-            const active = o === value;
+            const active = o.value === value;
             return (
               <Pressable
-                key={o}
+                key={o.value}
                 onPress={() => {
-                  onChange(o);
+                  onChange(o.value);
                   setOpen(false);
                 }}
                 style={[styles.fmOpt, active && styles.fmOptActive]}
               >
                 <Text style={[styles.fmOptText, active && styles.fmOptTextActive]} numberOfLines={1}>
-                  {o}
+                  {o.label}
                 </Text>
               </Pressable>
             );
@@ -1426,6 +1528,10 @@ const styles = StyleSheet.create(
     fmBtnCreate: {
       width: 92,
       backgroundColor: MO.create,
+    },
+
+    fmBtnBusy: {
+      opacity: 0.6,
     },
 
     fmBtnText: {
