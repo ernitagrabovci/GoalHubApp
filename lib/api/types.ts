@@ -224,8 +224,21 @@ export type ApiTeam = {
   created_at: string | null;
 };
 
-/** A team plus its squad, from `GET /teams/{team}`. */
-export type ApiTeamDetail = ApiTeam & { players: ApiPlayer[] };
+/** A team's played-match record for the club's active season. */
+export type TeamSeasonRecord = {
+  played: number;
+  wins: number;
+  draws: number;
+  losses: number;
+  goals_for: number;
+  goals_against: number;
+};
+
+/** A team plus its squad and season record, from `GET /teams/{team}`. */
+export type ApiTeamDetail = ApiTeam & {
+  players: ApiPlayer[];
+  season_record?: TeamSeasonRecord | null;
+};
 
 /** Team totals, from `GET /teams/stats`. */
 export type TeamStats = {

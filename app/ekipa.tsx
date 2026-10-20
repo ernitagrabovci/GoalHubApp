@@ -94,6 +94,7 @@ export default function EkipaScreen() {
 
   const loadError = error ?? (Number.isFinite(teamId) ? null : 'Ekipi nuk u gjet.');
   const rosterCount = team ? String(team.players.length) : '—';
+  const record = team?.season_record;
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
@@ -150,15 +151,21 @@ export default function EkipaScreen() {
                 <View style={styles.cardHeadBlock}>
                   <View style={styles.miniRow}>
                     <View style={styles.miniCol}>
-                      <Text style={[styles.miniNum, { color: C.text }]}>—</Text>
+                      <Text style={[styles.miniNum, { color: C.text }]}>
+                        {record ? String(record.played) : '—'}
+                      </Text>
                       <Text style={styles.miniSub}>Ndeshje</Text>
                     </View>
                     <View style={styles.miniCol}>
-                      <Text style={[styles.miniNum, { color: C.green }]}>—</Text>
+                      <Text style={[styles.miniNum, { color: C.green }]}>
+                        {record ? String(record.wins) : '—'}
+                      </Text>
                       <Text style={styles.miniSub}>Fitore</Text>
                     </View>
                     <View style={styles.miniCol}>
-                      <Text style={[styles.miniNum, { color: C.blue }]}>—</Text>
+                      <Text style={[styles.miniNum, { color: C.blue }]}>
+                        {record ? String(record.goals_for) : '—'}
+                      </Text>
                       <Text style={styles.miniSub}>Gola +</Text>
                     </View>
                   </View>
@@ -168,15 +175,21 @@ export default function EkipaScreen() {
 
                 <View style={styles.miniRow}>
                   <View style={styles.miniCol}>
-                    <Text style={[styles.miniNum, { color: C.red }]}>—</Text>
+                    <Text style={[styles.miniNum, { color: C.red }]}>
+                      {record ? String(record.losses) : '—'}
+                    </Text>
                     <Text style={styles.miniSub}>Humbje</Text>
                   </View>
                   <View style={styles.miniCol}>
-                    <Text style={[styles.miniNum, { color: C.text }]}>—</Text>
+                    <Text style={[styles.miniNum, { color: C.text }]}>
+                      {record ? String(record.draws) : '—'}
+                    </Text>
                     <Text style={styles.miniSub}>Barazim</Text>
                   </View>
                   <View style={styles.miniCol}>
-                    <Text style={[styles.miniNum, { color: C.red }]}>—</Text>
+                    <Text style={[styles.miniNum, { color: C.red }]}>
+                      {record ? String(record.goals_against) : '—'}
+                    </Text>
                     <Text style={styles.miniSub}>Gola -</Text>
                   </View>
                 </View>
