@@ -1,5 +1,5 @@
 import { BlurView } from 'expo-blur';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Modal, Pressable, StyleSheet, View } from 'react-native';
 
 import { Text } from '@/components/dashboard/dashboard-text';
@@ -39,13 +39,6 @@ export function DeletePlayerModal({
 }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (visible) {
-      setSaving(false);
-      setError(null);
-    }
-  }, [visible]);
 
   const confirm = () => {
     if (!token || saving) return;

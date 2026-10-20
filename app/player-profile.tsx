@@ -573,6 +573,7 @@ export default function PlayerProfileScreen() {
 
       {playerId != null && !Number.isNaN(playerId) ? (
         <HealthStatusModal
+          key={healthOpen ? 'health-open' : 'health-closed'}
           visible={healthOpen}
           token={token}
           playerId={playerId}
@@ -588,6 +589,7 @@ export default function PlayerProfileScreen() {
 
       {playerId != null && !Number.isNaN(playerId) ? (
         <DeletePlayerModal
+          key={deleteOpen ? 'delete-open' : 'delete-closed'}
           visible={deleteOpen}
           token={token}
           playerId={playerId}

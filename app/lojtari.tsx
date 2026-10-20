@@ -550,6 +550,7 @@ export default function PlayerProfileScreen() {
 
       {playerId != null && !Number.isNaN(playerId) ? (
         <HealthStatusModal
+          key={healthOpen ? 'health-open' : 'health-closed'}
           visible={healthOpen}
           token={token}
           playerId={playerId}

@@ -1,6 +1,6 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { BlurView } from 'expo-blur';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Modal, Pressable, StyleSheet, View } from 'react-native';
 
 import { Text } from '@/components/dashboard/dashboard-text';
@@ -49,13 +49,6 @@ export function HealthStatusModal({
 }) {
   const [saving, setSaving] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (visible) {
-      setSaving(null);
-      setError(null);
-    }
-  }, [visible]);
 
   const choose = (status: string) => {
     if (!token || saving) return;

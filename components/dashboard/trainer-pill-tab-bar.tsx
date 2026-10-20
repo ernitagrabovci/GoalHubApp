@@ -2,10 +2,12 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useRouter, type Href } from 'expo-router';
 import type { BottomTabBarProps } from 'expo-router/build/react-navigation/bottom-tabs';
 import type { ComponentProps } from 'react';
+import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
+import { badges } from '@/lib/api/notifications';
 import { I, scaled } from '@/lib/responsive';
 import { useSession } from '@/lib/session';
 
@@ -40,7 +42,28 @@ const ITEMS: Item[] = [
 
 export function TrainerPillTabBar({ state, navigation, insets }: BottomTabBarProps) {
   const router = useRouter();
-  const { user } = useSession();
+  const { user, token } = useSession();
+  const [unread, setUnread] = useState(0);
+
+  /* Keeps the Chat pill's counter current without opening the messages page. */
+  useEffect(() => {
+    if (!token) return;
+    const controller = new AbortController();
+    const refresh = () => {
+      badges(token, controller.signal)
+        .then((res) => {
+          if (!controller.signal.aborted) setUnread(res.messages);
+        })
+        .catch(() => {});
+    };
+
+    refresh();
+    const timer = setInterval(refresh, 15000);
+    return () => {
+      controller.abort();
+      clearInterval(timer);
+    };
+  }, [token, state.index]);
 
   /** Items that leave the tab bar behind and open a root route instead. */
   const fullScreens: Record<string, { path: Href; label: string }> = {
@@ -66,7 +89,16 @@ export function TrainerPillTabBar({ state, navigation, insets }: BottomTabBarPro
                 accessibilityLabel={full.label}
               >
                 <View style={styles.item}>
-                  <MaterialCommunityIcons name={item.icon} size={I(22)} color={C.muted} />
+                  <View style={styles.iconWrap}>
+                    <MaterialCommunityIcons name={item.icon} size={I(22)} color={C.muted} />
+                    {item.name === 'chat' && unread > 0 ? (
+                      <View style={styles.badge}>
+                        <Text style={styles.badgeText}>
+                          {unread > 99 ? '99+' : unread}
+                        </Text>
+                      </View>
+                    ) : null}
+                  </View>
                   <Text style={[styles.label, { color: C.muted }]} numberOfLines={1}>
                     {item.label}
                   </Text>
@@ -139,6 +171,27 @@ const styles = StyleSheet.create(scaled({
   },
   itemActive: {
     backgroundColor: C.activeBg,
+  },
+  iconWrap: {
+    position: 'relative',
+  },
+  badge: {
+    position: 'absolute',
+    top: -4,
+    right: -9,
+    minWidth: 15,
+    height: 15,
+    borderRadius: 8,
+    paddingHorizontal: 3,
+    backgroundColor: '#E03131',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  badgeText: {
+    fontFamily: Fonts.bodyBold,
+    fontSize: 8,
+    lineHeight: 10,
+    color: '#FFFFFF',
   },
   label: {
     fontFamily: Fonts.bodySemiBold,

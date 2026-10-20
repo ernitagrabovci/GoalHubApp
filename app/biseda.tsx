@@ -1,8 +1,8 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { BlurView } from 'expo-blur';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -62,6 +62,8 @@ type Msg = {
   time: string;
   mine: boolean;
   status?: Status;
+  /** Who wrote it — group bubbles name the sender above the text. */
+  sender?: string | null;
   /** The leading reaction tally; the API groups them by emoji. */
   reaction?: string;
   reactionCount?: number;
@@ -76,6 +78,7 @@ function toMsg(m: ApiMessage): Msg {
     time: m.time,
     mine: m.mine,
     status: m.mine ? (m.read ? 'read' : 'delivered') : undefined,
+    sender: m.sender,
     reaction: m.reactions[0]?.reaction,
     reactionCount: m.reactions[0]?.count,
     deleted: m.deleted,
@@ -97,6 +100,12 @@ function Veil() {
 }
 
 export default function ConversationScreen() {
+  const { id, type } = useLocalSearchParams<{ id?: string; type?: string }>();
+  /* Remounts per conversation, so a new thread starts with clean state. */
+  return <Conversation key={`${type ?? 'dm'}-${id ?? ''}`} />;
+}
+
+function Conversation() {
   const router = useRouter();
   const { token, signOut } = useSession();
 
@@ -114,37 +123,97 @@ export default function ConversationScreen() {
   /* The bubble whose action bar is unfolded — also the target of its actions. */
   const [selected, setSelected] = useState<string | null>(null);
   const [composer, setComposer] = useState('');
+  const [sending, setSending] = useState(false);
   /* Inline edit replaces the bubble text until saved or cancelled. */
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState('');
 
-  useEffect(() => {
-    if (!token || !peerId || Number.isNaN(peerId)) return;
-    const controller = new AbortController();
+  /* Highest id drawn, so each poll asks only for what is newer. */
+  const lastId = useRef(0);
+  /* A poll already in flight; a slow one must not overlap the next tick. */
+  const polling = useRef(false);
+  /* New messages only pull the thread down while it is already at the end. */
+  const atBottom = useRef(true);
+  const threadRef = useRef<ScrollView>(null);
 
-    const load = isGroup
-      ? getGroupThread(token, peerId, controller.signal).then((res) => res.messages)
-      : getThread(token, peerId, controller.signal).then((res) => res.messages);
+  /* Merges a polled batch: edits/deletes/reacts replace their bubbles, the
+     partner's reads flip our ticks, and anything new is appended. */
+  const merge = useCallback(
+    (
+      res: { messages: ApiMessage[]; updates: ApiMessage[] },
+      readIds: number[],
+    ) => {
+      /* The opening load always lands at the newest message. */
+      if (lastId.current === 0) atBottom.current = true;
 
-    load
-      .then((messages) => {
-        if (controller.signal.aborted) return;
-        setMsgs(messages.map(toMsg));
-      })
-      .catch((e) => {
-        if (controller.signal.aborted) return;
-        if (e instanceof ApiError && e.status === 401) {
-          signOut();
-          router.replace('/login');
+      const updated = new Map(res.updates.map((m) => [String(m.id), toMsg(m)]));
+      const reads = new Set(readIds.map(String));
+
+      setMsgs((prev) => {
+        let next = prev;
+        if (updated.size) next = next.map((m) => updated.get(m.id) ?? m);
+        if (reads.size) {
+          next = next.map((m) =>
+            m.mine && reads.has(m.id) ? { ...m, status: 'read' as const } : m
+          );
         }
+
+        const known = new Set(next.map((m) => m.id));
+        const fresh = res.messages.map(toMsg).filter((m) => !known.has(m.id));
+        return fresh.length ? [...next, ...fresh] : next;
       });
 
-    return () => controller.abort();
-  }, [token, peerId, isGroup, router, signOut]);
+      const newest = res.messages.reduce((max, m) => Math.max(max, m.id), 0);
+      if (newest > lastId.current) lastId.current = newest;
+    },
+    []
+  );
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!token || !peerId || Number.isNaN(peerId)) return;
+      const controller = new AbortController();
+
+      const poll = () => {
+        if (polling.current || controller.signal.aborted) return;
+        polling.current = true;
+
+        const after = lastId.current || undefined;
+        const requestThread = isGroup
+          ? getGroupThread(token, peerId, controller.signal, after)
+          : getThread(token, peerId, controller.signal, after);
+
+        requestThread
+          .then((res) => {
+            if (controller.signal.aborted) return;
+            merge(res, 'read_ids' in res ? res.read_ids : []);
+          })
+          .catch((e) => {
+            if (controller.signal.aborted) return;
+            if (e instanceof ApiError && e.status === 401) {
+              signOut();
+              router.replace('/login');
+            }
+          })
+          .finally(() => {
+            polling.current = false;
+          });
+      };
+
+      poll();
+      const timer = setInterval(poll, 3000);
+      return () => {
+        controller.abort();
+        clearInterval(timer);
+      };
+    }, [token, peerId, isGroup, router, signOut, merge])
+  );
 
   const send = () => {
     const body = composer.trim();
-    if (!body || !token || !peerId) return;
+    if (!body || !token || !peerId || sending) return;
+
+    setSending(true);
     setComposer('');
 
     const post = isGroup
@@ -152,13 +221,18 @@ export default function ConversationScreen() {
       : sendMessage(token, peerId, body);
 
     post
-      .then((res) => setMsgs((prev) => [...prev, toMsg(res.message)]))
+      .then((res) => {
+        const msg = toMsg(res.message);
+        if (res.message.id > lastId.current) lastId.current = res.message.id;
+        setMsgs((prev) => (prev.some((m) => m.id === msg.id) ? prev : [...prev, msg]));
+        requestAnimationFrame(() => threadRef.current?.scrollToEnd({ animated: true }));
+      })
       .catch((e) => {
-        if (e instanceof ApiError && e.status === 401) {
-          signOut();
-          router.replace('/login');
-        }
-      });
+        /* Put the text back, unless the user has already typed something new. */
+        setComposer((prev) => prev || body);
+        fail(e);
+      })
+      .finally(() => setSending(false));
   };
 
   const fail = (e: unknown) => {
@@ -306,9 +380,19 @@ export default function ConversationScreen() {
           {/* ── Thread ────────────────────────────────────────── */}
           <Pressable style={styles.thread} onPress={() => setSelected(null)}>
             <ScrollView
+              ref={threadRef}
               showsVerticalScrollIndicator={false}
               bounces={false}
               contentContainerStyle={styles.threadInner}
+              scrollEventThrottle={16}
+              onScroll={(e) => {
+                const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent;
+                atBottom.current =
+                  contentOffset.y + layoutMeasurement.height >= contentSize.height - 48;
+              }}
+              onContentSizeChange={() => {
+                if (atBottom.current) threadRef.current?.scrollToEnd({ animated: false });
+              }}
             >
               {msgs.map((msg) => {
                 const tick = msg.status ? TICKS[msg.status] : null;
@@ -363,9 +447,14 @@ export default function ConversationScreen() {
                           </View>
                         </>
                       ) : (
-                        <Text style={msg.deleted ? styles.deletedText : styles.msgText}>
-                          {msg.deleted ? DELETED_TEXT : msg.text}
-                        </Text>
+                        <>
+                          {isGroup && !msg.mine && !msg.deleted && msg.sender ? (
+                            <Text style={styles.senderName}>{msg.sender}</Text>
+                          ) : null}
+                          <Text style={msg.deleted ? styles.deletedText : styles.msgText}>
+                            {msg.deleted ? DELETED_TEXT : msg.text}
+                          </Text>
+                        </>
                       )}
 
                       {msg.reaction ? (
@@ -452,9 +541,14 @@ export default function ConversationScreen() {
             />
             <Pressable
               onPress={send}
+              disabled={sending}
               accessibilityRole="button"
               accessibilityLabel="Dërgo mesazhin"
-              style={({ pressed }) => [styles.sendBtn, pressed && styles.pressed]}
+              style={({ pressed }) => [
+                styles.sendBtn,
+                sending && styles.sendOff,
+                pressed && styles.pressed,
+              ]}
             >
               <MaterialCommunityIcons name="arrow-right" size={I(21)} color={C.white} />
             </Pressable>
@@ -633,6 +727,15 @@ const styles = StyleSheet.create(
       color: C.text,
     },
 
+    /* Names the writer above a group bubble, the way chat apps do. */
+    senderName: {
+      fontFamily: Fonts.bodyBold,
+      fontSize: 10.5,
+      lineHeight: 14,
+      color: C.green,
+      marginBottom: 1,
+    },
+
     deletedText: {
       fontFamily: Fonts.body,
       fontSize: 13,
@@ -789,6 +892,10 @@ const styles = StyleSheet.create(
       backgroundColor: C.green,
       alignItems: 'center',
       justifyContent: 'center',
+    },
+
+    sendOff: {
+      opacity: 0.6,
     },
 
     pressed: {

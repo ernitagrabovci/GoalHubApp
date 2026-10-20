@@ -13,9 +13,18 @@ export function listConversations(token: string, signal?: AbortSignal) {
   return request<ConversationsResponse>('/conversations', { token, signal });
 }
 
-/** One direct thread. Fetching it also marks the partner's messages read. */
-export function getThread(token: string, userId: number, signal?: AbortSignal) {
-  return request<ThreadResponse>(`/conversations/${userId}`, { token, signal });
+/**
+ * One direct thread. Fetching it also marks the partner's messages read.
+ * Pass `afterId` to fetch only what arrived since the last poll.
+ */
+export function getThread(
+  token: string,
+  userId: number,
+  signal?: AbortSignal,
+  afterId?: number,
+) {
+  const query = afterId ? `?after_id=${afterId}` : '';
+  return request<ThreadResponse>(`/conversations/${userId}${query}`, { token, signal });
 }
 
 export function sendMessage(
@@ -52,9 +61,18 @@ export function createGroup(token: string, input: CreateGroupInput, signal?: Abo
   });
 }
 
-/** One group thread. Fetching it also marks the group's messages read. */
-export function getGroupThread(token: string, groupId: number, signal?: AbortSignal) {
-  return request<GroupThreadResponse>(`/groups/${groupId}`, { token, signal });
+/**
+ * One group thread. Fetching it also marks the group's messages read.
+ * Pass `afterId` to fetch only what arrived since the last poll.
+ */
+export function getGroupThread(
+  token: string,
+  groupId: number,
+  signal?: AbortSignal,
+  afterId?: number,
+) {
+  const query = afterId ? `?after_id=${afterId}` : '';
+  return request<GroupThreadResponse>(`/groups/${groupId}${query}`, { token, signal });
 }
 
 export function sendGroupMessage(
