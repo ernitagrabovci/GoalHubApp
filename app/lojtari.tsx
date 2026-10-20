@@ -6,6 +6,7 @@ import { Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
+import { HealthStatusModal } from '@/components/players/health-status-modal';
 import { Fonts } from '@/constants/theme';
 import { ApiError } from '@/lib/api/errors';
 import {
@@ -119,6 +120,7 @@ export default function PlayerProfileScreen() {
   /* The squad behind the header selector — picking one reloads the page. */
   const [roster, setRoster] = useState<ApiPlayer[]>([]);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [healthOpen, setHealthOpen] = useState(false);
 
   useEffect(() => {
     if (!token || !playerId || Number.isNaN(playerId)) return;
@@ -371,20 +373,32 @@ export default function PlayerProfileScreen() {
                     <Text style={styles.playerTeam} numberOfLines={1}>
                       {team}
                     </Text>
-                    <View
-                      style={[
+                    <Pressable
+                      onPress={() => player && setHealthOpen(true)}
+                      disabled={!player}
+                      accessibilityRole="button"
+                      accessibilityLabel="Ndrysho statusin shëndetësor"
+                      style={({ pressed }) => [
                         styles.activePill,
                         {
                           backgroundColor: player
                             ? STATUS_TONE[player.health_status] ?? C.green
                             : C.green,
                         },
+                        pressed && styles.pressed,
                       ]}
                     >
                       <Text style={styles.activePillText}>
                         {player ? statusLabel(player.health_status) : 'Aktiv'}
                       </Text>
-                    </View>
+                      {player ? (
+                        <MaterialCommunityIcons
+                          name="chevron-down"
+                          size={I(10)}
+                          color="#F5F5F5"
+                        />
+                      ) : null}
+                    </Pressable>
                   </View>
                 </View>
 
@@ -533,6 +547,21 @@ export default function PlayerProfileScreen() {
           </View>
         </ScrollView>
       </View>
+
+      {playerId != null && !Number.isNaN(playerId) ? (
+        <HealthStatusModal
+          visible={healthOpen}
+          token={token}
+          playerId={playerId}
+          current={player?.health_status ?? 'active'}
+          onClose={() => setHealthOpen(false)}
+          onUpdated={(updated) => setPlayer(updated)}
+          onUnauthorized={() => {
+            signOut();
+            router.replace('/login');
+          }}
+        />
+      ) : null}
     </SafeAreaView>
   );
 }
@@ -809,6 +838,9 @@ const styles = StyleSheet.create(
     activePill: {
       alignSelf: 'flex-start',
       marginTop: 4,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 3,
       paddingHorizontal: 9,
       paddingVertical: 2,
       borderRadius: 999,
