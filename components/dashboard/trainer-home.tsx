@@ -198,7 +198,7 @@ export function TrainerHome() {
             {/* NEXT TRAINING */}
 
             <Pressable
-              onPress={() => open('/trainings')}
+              onPress={() => open('/stervitjet')}
               style={({ pressed }) => [
                 styles.eventBar,
                 pressed && styles.pressed,
