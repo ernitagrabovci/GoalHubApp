@@ -10,10 +10,13 @@ import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
 import { ApiError } from '@/lib/api/errors';
 import {
+  deleteMessage,
   getGroupThread,
   getThread,
+  reactToMessage,
   sendGroupMessage,
   sendMessage,
+  updateMessage,
 } from '@/lib/api/messages';
 import type { ApiMessage } from '@/lib/api/types';
 import { I, scaled } from '@/lib/responsive';
@@ -59,7 +62,9 @@ type Msg = {
   time: string;
   mine: boolean;
   status?: Status;
+  /** The leading reaction tally; the API groups them by emoji. */
   reaction?: string;
+  reactionCount?: number;
   deleted?: boolean;
 };
 
@@ -72,6 +77,7 @@ function toMsg(m: ApiMessage): Msg {
     mine: m.mine,
     status: m.mine ? (m.read ? 'read' : 'delivered') : undefined,
     reaction: m.reactions[0]?.reaction,
+    reactionCount: m.reactions[0]?.count,
     deleted: m.deleted,
   };
 }
@@ -108,6 +114,9 @@ export default function ConversationScreen() {
   /* The bubble whose action bar is unfolded — also the target of its actions. */
   const [selected, setSelected] = useState<string | null>(null);
   const [composer, setComposer] = useState('');
+  /* Inline edit replaces the bubble text until saved or cancelled. */
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editText, setEditText] = useState('');
 
   useEffect(() => {
     if (!token || !peerId || Number.isNaN(peerId)) return;
@@ -152,16 +161,113 @@ export default function ConversationScreen() {
       });
   };
 
-  /* The v1 API sends and reads messages; it has no edit, delete or reaction
-     endpoints, so those actions say so instead of pretending to work. */
-  const unsupported = () => {
-    setSelected(null);
-    Alert.alert('Nuk mbështetet', 'Ky veprim nuk ofrohet nga serveri ende.');
+  const fail = (e: unknown) => {
+    if (e instanceof ApiError && e.status === 401) {
+      signOut();
+      router.replace('/login');
+      return;
+    }
+    Alert.alert(
+      'Veprimi dështoi',
+      e instanceof ApiError && e.status !== 0
+        ? e.message
+        : 'Nuk mund të lidhemi me serverin. Kontrollo lidhjen.',
+    );
   };
 
-  const pickReaction = (_emoji: string) => unsupported();
+  /* The API groups reactions by emoji, so the bubble shows the leading tally. */
+  const applyReactions = (id: string, reactions: ApiMessage['reactions']) =>
+    setMsgs((prev) =>
+      prev.map((m) =>
+        m.id === id
+          ? {
+              ...m,
+              reaction: reactions[0]?.reaction,
+              reactionCount: reactions[0]?.count,
+            }
+          : m
+      )
+    );
 
-  const removeMsg = () => unsupported();
+  const pickReaction = (msg: Msg, emoji: string) => {
+    if (!token) return;
+    setSelected(null);
+
+    reactToMessage(token, Number(msg.id), emoji)
+      .then((res) => applyReactions(String(res.id), res.reactions))
+      .catch(fail);
+  };
+
+  const removeMsg = (msg: Msg) => {
+    if (!token) return;
+
+    Alert.alert('Fshij mesazhin', 'Ky mesazh do të fshihet për të gjithë.', [
+      { text: 'Anulo', style: 'cancel' },
+      {
+        text: 'Fshij',
+        style: 'destructive',
+        onPress: () => {
+          setSelected(null);
+          deleteMessage(token, Number(msg.id))
+            .then(() =>
+              setMsgs((prev) =>
+                prev.map((m) =>
+                  m.id === msg.id
+                    ? {
+                        ...m,
+                        text: '',
+                        deleted: true,
+                        reaction: undefined,
+                        reactionCount: undefined,
+                      }
+                    : m
+                )
+              )
+            )
+            .catch(fail);
+        },
+      },
+    ]);
+  };
+
+  const startEdit = (msg: Msg) => {
+    setSelected(null);
+    setEditingId(msg.id);
+    setEditText(msg.text);
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setEditText('');
+  };
+
+  const saveEdit = () => {
+    const body = editText.trim();
+    if (!token || !editingId) return;
+    if (!body) {
+      Alert.alert('Mesazhi është bosh', 'Shkruaj tekstin e mesazhit para se ta ruash.');
+      return;
+    }
+
+    updateMessage(token, Number(editingId), body)
+      .then((res) => {
+        const updated = res.message;
+        setMsgs((prev) =>
+          prev.map((m) =>
+            m.id === String(updated.id)
+              ? {
+                  ...m,
+                  text: updated.body,
+                  reaction: updated.reactions[0]?.reaction,
+                  reactionCount: updated.reactions[0]?.count,
+                }
+              : m
+          )
+        );
+        cancelEdit();
+      })
+      .catch(fail);
+  };
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
@@ -219,7 +325,7 @@ export default function ConversationScreen() {
                   >
                     <Pressable
                       onPress={() => setSelected(isSelected ? null : msg.id)}
-                      disabled={!!msg.deleted}
+                      disabled={!!msg.deleted || editingId === msg.id}
                       accessibilityRole="button"
                       accessibilityLabel={`Mesazhi: ${msg.text}`}
                       style={[
@@ -228,9 +334,39 @@ export default function ConversationScreen() {
                         isSelected && styles.bubbleActive,
                       ]}
                     >
-                      <Text style={msg.deleted ? styles.deletedText : styles.msgText}>
-                        {msg.deleted ? DELETED_TEXT : msg.text}
-                      </Text>
+                      {editingId === msg.id ? (
+                        <>
+                          <TextInput
+                            style={styles.editInput}
+                            value={editText}
+                            onChangeText={setEditText}
+                            autoFocus
+                            multiline
+                          />
+                          <View style={styles.editActions}>
+                            <Pressable
+                              onPress={cancelEdit}
+                              accessibilityRole="button"
+                              accessibilityLabel="Anulo ndryshimin"
+                              hitSlop={6}
+                            >
+                              <Text style={styles.barBtnText}>Anulo</Text>
+                            </Pressable>
+                            <Pressable
+                              onPress={saveEdit}
+                              accessibilityRole="button"
+                              accessibilityLabel="Ruaj ndryshimin"
+                              hitSlop={6}
+                            >
+                              <Text style={[styles.barBtnText, styles.barBtnSave]}>Ruaj</Text>
+                            </Pressable>
+                          </View>
+                        </>
+                      ) : (
+                        <Text style={msg.deleted ? styles.deletedText : styles.msgText}>
+                          {msg.deleted ? DELETED_TEXT : msg.text}
+                        </Text>
+                      )}
 
                       {msg.reaction ? (
                         <View
@@ -239,7 +375,12 @@ export default function ConversationScreen() {
                             msg.mine ? styles.reactionMine : styles.reactionTheirs,
                           ]}
                         >
-                          <Text style={styles.reactionEmoji}>{msg.reaction}</Text>
+                          <Text style={styles.reactionEmoji}>
+                            {msg.reaction}
+                            {msg.reactionCount && msg.reactionCount > 1
+                              ? ` ${msg.reactionCount}`
+                              : ''}
+                          </Text>
                         </View>
                       ) : null}
                     </Pressable>
@@ -251,7 +392,7 @@ export default function ConversationScreen() {
                           {EMOJI.map((emoji) => (
                             <Pressable
                               key={emoji}
-                              onPress={() => pickReaction(emoji)}
+                              onPress={() => pickReaction(msg, emoji)}
                               accessibilityRole="button"
                               accessibilityLabel={`Reagim ${emoji}`}
                               style={({ pressed }) => [styles.emojiBtn, pressed && styles.pressed]}
@@ -261,16 +402,26 @@ export default function ConversationScreen() {
                           ))}
                         </View>
 
-                        <View style={styles.pickerActions}>
-                          <Pressable
-                            onPress={removeMsg}
-                            accessibilityRole="button"
-                            accessibilityLabel="Fshij mesazhin"
-                            style={({ pressed }) => [styles.barBtn, pressed && styles.pressed]}
-                          >
-                            <Text style={[styles.barBtnText, styles.barBtnDanger]}>Fshij</Text>
-                          </Pressable>
-                        </View>
+                        {msg.mine ? (
+                          <View style={styles.pickerActions}>
+                            <Pressable
+                              onPress={() => startEdit(msg)}
+                              accessibilityRole="button"
+                              accessibilityLabel="Ndrysho mesazhin"
+                              style={({ pressed }) => [styles.barBtn, pressed && styles.pressed]}
+                            >
+                              <Text style={styles.barBtnText}>Ndrysho</Text>
+                            </Pressable>
+                            <Pressable
+                              onPress={() => removeMsg(msg)}
+                              accessibilityRole="button"
+                              accessibilityLabel="Fshij mesazhin"
+                              style={({ pressed }) => [styles.barBtn, pressed && styles.pressed]}
+                            >
+                              <Text style={[styles.barBtnText, styles.barBtnDanger]}>Fshij</Text>
+                            </Pressable>
+                          </View>
+                        ) : null}
                       </View>
                     ) : null}
 
@@ -584,6 +735,10 @@ const styles = StyleSheet.create(
 
     barBtnDanger: {
       color: C.red,
+    },
+
+    barBtnSave: {
+      color: C.green,
     },
 
     meta: {

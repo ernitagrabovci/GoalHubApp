@@ -1,6 +1,7 @@
 import { request } from '@/lib/api/client';
 import type {
   ApiMessage,
+  ApiMessageReaction,
   ConversationsResponse,
   CreateGroupResponse,
   GroupThreadResponse,
@@ -68,4 +69,46 @@ export function sendGroupMessage(
     body: { body },
     signal,
   });
+}
+
+/** Edit one of your own messages. */
+export function updateMessage(
+  token: string,
+  messageId: number,
+  body: string,
+  signal?: AbortSignal,
+) {
+  return request<{ message: ApiMessage }>(`/messages/${messageId}`, {
+    method: 'PATCH',
+    token,
+    body: { body },
+    signal,
+  });
+}
+
+/** Soft-delete one of your own messages. */
+export function deleteMessage(token: string, messageId: number, signal?: AbortSignal) {
+  return request<{ message: ApiMessage }>(`/messages/${messageId}`, {
+    method: 'DELETE',
+    token,
+    signal,
+  });
+}
+
+/** Toggle or replace your reaction on a message. */
+export function reactToMessage(
+  token: string,
+  messageId: number,
+  reaction: string,
+  signal?: AbortSignal,
+) {
+  return request<{ id: number; reactions: ApiMessageReaction[] }>(
+    `/messages/${messageId}/reactions`,
+    {
+      method: 'POST',
+      token,
+      body: { reaction },
+      signal,
+    },
+  );
 }

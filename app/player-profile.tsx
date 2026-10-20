@@ -8,8 +8,19 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
 import { ApiError } from '@/lib/api/errors';
-import { getPlayer, listPlayers, playerStatistics } from '@/lib/api/players';
-import type { ApiPlayer, PlayerStatRow } from '@/lib/api/types';
+import {
+  getPlayer,
+  listPlayers,
+  playerAttendance,
+  playerFinance,
+  playerStatistics,
+} from '@/lib/api/players';
+import type {
+  ApiAttendance,
+  ApiFinanceSummary,
+  ApiPlayer,
+  PlayerStatRow,
+} from '@/lib/api/types';
 import { positionLabel } from '@/lib/player-position';
 import { statusLabel } from '@/lib/player-status';
 import { I, scaled } from '@/lib/responsive';
@@ -52,21 +63,6 @@ const IMG = {
   star: require('@/assets/dashboard/star.png'),
 };
 
-/* Finance totals are admin/financier-only and there is no per-player
-   attendance read endpoint, so these squares show honest dashes instead of
-   invented counts. Two share the "e papaguar" label, so each needs its key. */
-const MONEY = [
-  { key: 'papaguar-0', label: 'e papaguar', value: '—', tone: C.green },
-  { key: 'papaguar-1', label: 'e papaguar', value: '—', tone: C.redDark },
-  { key: 'vonese', label: 'me vonesë', value: '—', tone: C.orange },
-  { key: 'kritike', label: 'kritike', value: '—', tone: C.redSoft },
-];
-
-const ATTENDANCE = [
-  { label: 'prezent', value: '—', dot: C.green },
-  { label: 'mungesë', value: '—', dot: C.red },
-  { label: 'pa status', value: '—', dot: C.hintSoft },
-];
 
 const MONTHS = [
   'janar',
@@ -114,6 +110,8 @@ export default function PlayerProfileScreen() {
   const playerId = params.id ? Number(params.id) : null;
   const [player, setPlayer] = useState<ApiPlayer | null>(null);
   const [seasonStats, setSeasonStats] = useState<PlayerStatRow | null>(null);
+  const [attendance, setAttendance] = useState<ApiAttendance | null>(null);
+  const [finance, setFinance] = useState<ApiFinanceSummary | null>(null);
 
   /* The squad behind the header selector — picking one reloads the page. */
   const [roster, setRoster] = useState<ApiPlayer[]>([]);
@@ -148,6 +146,41 @@ export default function PlayerProfileScreen() {
       .then((res) => {
         if (controller.signal.aborted) return;
         setSeasonStats(res.data.find((r) => r.player_id === playerId) ?? null);
+      })
+      .catch((e) => {
+        if (controller.signal.aborted) return;
+        if (e instanceof ApiError && e.status === 401) {
+          signOut();
+          router.replace('/login');
+        }
+      });
+
+    return () => controller.abort();
+  }, [token, playerId, router, signOut]);
+
+  /* Attendance is staff-wide; finance only loads for administrators. A 403
+     on either just leaves that card showing dashes. */
+  useEffect(() => {
+    if (!token || !playerId) return;
+    const controller = new AbortController();
+
+    playerAttendance(token, playerId, controller.signal)
+      .then((res) => {
+        if (controller.signal.aborted) return;
+        setAttendance(res);
+      })
+      .catch((e) => {
+        if (controller.signal.aborted) return;
+        if (e instanceof ApiError && e.status === 401) {
+          signOut();
+          router.replace('/login');
+        }
+      });
+
+    playerFinance(token, playerId, controller.signal)
+      .then((res) => {
+        if (controller.signal.aborted) return;
+        setFinance(res);
       })
       .catch((e) => {
         if (controller.signal.aborted) return;
@@ -210,6 +243,19 @@ export default function PlayerProfileScreen() {
     { label: 'K.verdha', value: num(seasonStats?.yellow_cards), tone: C.orange },
     { label: 'K.kuq', value: num(seasonStats?.red_cards), tone: C.red },
     { label: 'Minuta', value: num(seasonStats?.minutes), tone: C.text },
+  ];
+
+  const money = [
+    { key: 'unpaid', label: 'e papaguar', value: num(finance?.unpaid), tone: C.green },
+    { key: 'overdue', label: 'skaduar', value: num(finance?.overdue), tone: C.redDark },
+    { key: 'delayed', label: 'me vonesë', value: num(finance?.delayed), tone: C.orange },
+    { key: 'critical', label: 'kritike', value: num(finance?.critical), tone: C.redSoft },
+  ];
+
+  const attendanceRows = [
+    { label: 'prezent', value: num(attendance?.present), dot: C.green },
+    { label: 'mungesë', value: num(attendance?.absent), dot: C.red },
+    { label: 'pa status', value: num(attendance?.unconfirmed), dot: C.hintSoft },
   ];
 
   const details = [
@@ -377,7 +423,7 @@ export default function PlayerProfileScreen() {
 
                 <View style={styles.body}>
                   <View style={styles.moneyRow}>
-                    {MONEY.slice(0, 2).map((m) => (
+                    {money.slice(0, 2).map((m) => (
                       <View key={m.key} style={styles.moneySq}>
                         <Text style={[styles.moneyValue, { color: m.tone }]}>{m.value}</Text>
                         <Text style={styles.moneyLabel} numberOfLines={1}>
@@ -388,7 +434,7 @@ export default function PlayerProfileScreen() {
                   </View>
 
                   <View style={styles.moneyRow}>
-                    {MONEY.slice(2).map((m) => (
+                    {money.slice(2).map((m) => (
                       <View key={m.key} style={styles.moneySq}>
                         <Text style={[styles.moneyValue, { color: m.tone }]}>{m.value}</Text>
                         <Text style={styles.moneyLabel} numberOfLines={1}>
@@ -400,7 +446,9 @@ export default function PlayerProfileScreen() {
 
                   <View style={styles.totalBox}>
                     <Text style={styles.totalLabel}>Totali i paguar</Text>
-                    <Text style={styles.totalValue}>$0.00</Text>
+                    <Text style={styles.totalValue}>
+                      {finance ? `€${finance.total_paid.toFixed(2)}` : '—'}
+                    </Text>
                   </View>
                 </View>
               </View>
@@ -428,12 +476,14 @@ export default function PlayerProfileScreen() {
               <View style={[styles.duoCard, styles.card]}>
                 <View style={styles.prezencaTop}>
                   <Text style={styles.cardTitle}>Prezenca</Text>
-                  <Text style={styles.prezencaPct}>—</Text>
+                  <Text style={styles.prezencaPct}>
+                    {attendance ? `${attendance.rate}%` : '—'}
+                  </Text>
                 </View>
                 <View style={styles.grayRule} />
 
                 <View style={styles.body}>
-                  {ATTENDANCE.map((a) => (
+                  {attendanceRows.map((a) => (
                     <View key={a.label} style={styles.attRow}>
                       <View style={styles.attLeft}>
                         <View style={[styles.dot, { backgroundColor: a.dot }]} />
@@ -447,7 +497,7 @@ export default function PlayerProfileScreen() {
 
                   <View style={styles.totalRow}>
                     <Text style={styles.totalRowLabel}>total stërvitje</Text>
-                    <Text style={styles.totalRowValue}>—</Text>
+                    <Text style={styles.totalRowValue}>{num(attendance?.total)}</Text>
                   </View>
                 </View>
               </View>

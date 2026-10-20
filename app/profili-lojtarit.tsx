@@ -8,9 +8,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
 import { ApiError } from '@/lib/api/errors';
-import { myPlayer } from '@/lib/api/players';
+import { myFinance, myPlayer, myStatistics } from '@/lib/api/players';
 import { listMyTrainings } from '@/lib/api/trainings';
-import type { ApiPlayer, ApiTraining } from '@/lib/api/types';
+import type {
+  ApiFinanceSummary,
+  ApiPlayer,
+  ApiPlayerStatistics,
+  ApiTraining,
+} from '@/lib/api/types';
 import { positionLabel } from '@/lib/player-position';
 import { statusLabel } from '@/lib/player-status';
 import { I, scaled } from '@/lib/responsive';
@@ -56,28 +61,6 @@ const IMG = {
   star: require('@/assets/dashboard/star.png'),
 };
 
-/* The player's own season totals have no read endpoint; the finance figures
-   are admin/financier-only. Both read as honest dashes. */
-const STATS = [
-  { label: 'Ndeshjet', value: '—', tone: C.text },
-  { label: 'Golat', value: '—', tone: C.green },
-  { label: 'Asiste', value: '—', tone: C.blue },
-];
-
-const STATS2 = [
-  { label: 'K.verdha', value: '—', tone: C.orange },
-  { label: 'K.kuq', value: '—', tone: C.red },
-  { label: 'Minuta', value: '—', tone: C.text },
-];
-
-/* Financial squares, two per row. Two share the "e papaguar" label, so each
-   needs its own key. */
-const MONEY = [
-  { key: 'papaguar-0', label: 'e papaguar', value: '—', tone: C.green },
-  { key: 'papaguar-1', label: 'e papaguar', value: '—', tone: C.redDark },
-  { key: 'vonese', label: 'me vonesë', value: '—', tone: C.orange },
-  { key: 'kritike', label: 'kritike', value: '—', tone: C.redSoft },
-];
 
 const MONTHS = [
   'janar',
@@ -118,6 +101,8 @@ export default function PlayerOwnProfileScreen() {
   const [player, setPlayer] = useState<ApiPlayer | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [trainings, setTrainings] = useState<ApiTraining[] | null>(null);
+  const [stats, setStats] = useState<ApiPlayerStatistics | null>(null);
+  const [finance, setFinance] = useState<ApiFinanceSummary | null>(null);
 
   useEffect(() => {
     if (!token) return;
@@ -141,6 +126,38 @@ export default function PlayerOwnProfileScreen() {
             ? 'Nuk mund të lidhemi me serverin. Kontrollo lidhjen.'
             : 'Nuk mund të ngarkohet profili.',
         );
+      });
+
+    return () => controller.abort();
+  }, [token, router, signOut]);
+
+  /* Lifetime match totals and the player's own fee status. */
+  useEffect(() => {
+    if (!token) return;
+    const controller = new AbortController();
+
+    myStatistics(token, controller.signal)
+      .then((res) => {
+        if (!controller.signal.aborted) setStats(res);
+      })
+      .catch((err) => {
+        if (controller.signal.aborted) return;
+        if (err instanceof ApiError && err.status === 401) {
+          signOut();
+          router.replace('/login');
+        }
+      });
+
+    myFinance(token, controller.signal)
+      .then((res) => {
+        if (!controller.signal.aborted) setFinance(res);
+      })
+      .catch((err) => {
+        if (controller.signal.aborted) return;
+        if (err instanceof ApiError && err.status === 401) {
+          signOut();
+          router.replace('/login');
+        }
       });
 
     return () => controller.abort();
@@ -197,6 +214,28 @@ export default function PlayerOwnProfileScreen() {
       value: unknown == null ? '—' : String(unknown),
       dot: C.hintSoft,
     },
+  ];
+
+  const num = (v: number | null | undefined) => (v == null ? '—' : String(v));
+  const totals = stats?.statistics;
+
+  const statsRows = [
+    { label: 'Ndeshjet', value: num(totals?.matches), tone: C.text },
+    { label: 'Golat', value: num(totals?.goals), tone: C.green },
+    { label: 'Asiste', value: num(totals?.assists), tone: C.blue },
+  ];
+
+  const statsRows2 = [
+    { label: 'K.verdha', value: num(totals?.yellow_cards), tone: C.orange },
+    { label: 'K.kuq', value: num(totals?.red_cards), tone: C.red },
+    { label: 'Minuta', value: num(totals?.minutes), tone: C.text },
+  ];
+
+  const money = [
+    { key: 'unpaid', label: 'e papaguar', value: num(finance?.unpaid), tone: C.green },
+    { key: 'overdue', label: 'skaduar', value: num(finance?.overdue), tone: C.redDark },
+    { key: 'delayed', label: 'me vonesë', value: num(finance?.delayed), tone: C.orange },
+    { key: 'critical', label: 'kritike', value: num(finance?.critical), tone: C.redSoft },
   ];
 
   const details = [
@@ -296,7 +335,7 @@ export default function PlayerOwnProfileScreen() {
 
                 <View style={styles.body}>
                   <View style={styles.statRow}>
-                    {STATS.map((s) => (
+                    {statsRows.map((s) => (
                       <View key={s.label} style={styles.statCol}>
                         <Text style={[styles.statValue, { color: s.tone }]}>{s.value}</Text>
                         <Text style={styles.statLabel} numberOfLines={1}>
@@ -307,7 +346,7 @@ export default function PlayerOwnProfileScreen() {
                   </View>
 
                   <View style={[styles.statRow, styles.statRowLast]}>
-                    {STATS2.map((s) => (
+                    {statsRows2.map((s) => (
                       <View key={s.label} style={styles.statCol}>
                         <Text style={[styles.statValue, { color: s.tone }]}>{s.value}</Text>
                         <Text style={styles.statLabel} numberOfLines={1}>
@@ -328,7 +367,7 @@ export default function PlayerOwnProfileScreen() {
 
                 <View style={styles.body}>
                   <View style={styles.moneyRow}>
-                    {MONEY.slice(0, 2).map((m) => (
+                    {money.slice(0, 2).map((m) => (
                       <View key={m.key} style={styles.moneySq}>
                         <Text style={[styles.moneyValue, { color: m.tone }]}>{m.value}</Text>
                         <Text style={styles.moneyLabel} numberOfLines={1}>
@@ -339,7 +378,7 @@ export default function PlayerOwnProfileScreen() {
                   </View>
 
                   <View style={styles.moneyRow}>
-                    {MONEY.slice(2).map((m) => (
+                    {money.slice(2).map((m) => (
                       <View key={m.key} style={styles.moneySq}>
                         <Text style={[styles.moneyValue, { color: m.tone }]}>{m.value}</Text>
                         <Text style={styles.moneyLabel} numberOfLines={1}>
@@ -351,7 +390,9 @@ export default function PlayerOwnProfileScreen() {
 
                   <View style={styles.totalBox}>
                     <Text style={styles.totalLabel}>Totali i paguar</Text>
-                    <Text style={styles.totalValue}>—</Text>
+                    <Text style={styles.totalValue}>
+                      {finance ? `€${finance.total_paid.toFixed(2)}` : '—'}
+                    </Text>
                   </View>
                 </View>
               </View>

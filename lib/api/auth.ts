@@ -4,12 +4,25 @@ import type {
   MeResponse,
   MessageResponse,
   ProfileResponse,
+  SessionResponse,
 } from '@/lib/api/types';
 
+/**
+ * Password login. A 2FA account answers with a challenge instead of a token —
+ * call `challengeTwoFactor` with the returned token to finish signing in.
+ */
 export function login(email: string, password: string) {
   return request<LoginResponse>('/auth/login', {
     method: 'POST',
     body: { email, password },
+  });
+}
+
+/** Exchange a valid TOTP or recovery code for a session token. */
+export function challengeTwoFactor(challengeToken: string, code: string) {
+  return request<SessionResponse>('/auth/two-factor/challenge', {
+    method: 'POST',
+    body: { challenge_token: challengeToken, code },
   });
 }
 

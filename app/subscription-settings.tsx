@@ -177,6 +177,9 @@ export default function SubscriptionSettingsScreen() {
   const planName = sub?.plan ?? '—';
   const planSub = sub ? (sub.on_trial ? 'Provë falas' : active ? 'Abonim aktiv' : 'Pa abonim') : '—';
   const statusText = sub?.status ?? '—';
+  const priceText = sub?.price
+    ? `€${sub.price.amount} / ${sub.price.interval}`
+    : '—';
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
@@ -237,7 +240,7 @@ export default function SubscriptionSettingsScreen() {
 
               <View style={[styles.pairWrap, styles.pairWrapLast]}>
                 <Pair
-                  left={{ label: 'Çmimi', value: '—' }}
+                  left={{ label: 'Çmimi', value: priceText }}
                   right={{ label: 'Statusi', value: statusText }}
                 />
               </View>

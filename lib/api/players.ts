@@ -1,6 +1,9 @@
 import { request } from '@/lib/api/client';
 import type {
+  ApiAttendance,
+  ApiFinanceSummary,
   ApiPlayer,
+  ApiPlayerStatistics,
   ApiPosition,
   MessageResponse,
   MutationResponse,
@@ -55,6 +58,26 @@ export function getPlayer(token: string, id: number, signal?: AbortSignal) {
 /** The signed-in user's own player record — read-only, any role may ask. */
 export function myPlayer(token: string, signal?: AbortSignal) {
   return request<PlayerResponse>('/my/player', { token, signal });
+}
+
+/** Finalized-training attendance totals for one player (coaching staff). */
+export function playerAttendance(token: string, id: number, signal?: AbortSignal) {
+  return request<ApiAttendance>(`/players/${id}/attendance`, { token, signal });
+}
+
+/** One player's fee totals (administrator). */
+export function playerFinance(token: string, id: number, signal?: AbortSignal) {
+  return request<ApiFinanceSummary>(`/players/${id}/finance`, { token, signal });
+}
+
+/** The signed-in player's lifetime match totals. */
+export function myStatistics(token: string, signal?: AbortSignal) {
+  return request<ApiPlayerStatistics>('/my/statistics', { token, signal });
+}
+
+/** The signed-in player's own fee totals. */
+export function myFinance(token: string, signal?: AbortSignal) {
+  return request<ApiFinanceSummary>('/my/finance', { token, signal });
 }
 
 /** Season totals per player, from `GET /players/statistics`. */

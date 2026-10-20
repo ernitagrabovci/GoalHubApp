@@ -5,10 +5,12 @@ import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState, type ReactNode } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   Pressable,
   ScrollView,
   StyleSheet,
+  TextInput,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -18,8 +20,18 @@ import { DeleteAccountModal } from '@/components/settings/delete-account-modal';
 import { Fonts } from '@/constants/theme';
 import { deactivateAccount } from '@/lib/api/account';
 import { ApiError } from '@/lib/api/errors';
-import { getSecuritySessions } from '@/lib/api/security';
-import type { SecuritySessionsResponse } from '@/lib/api/types';
+import {
+  confirmTwoFactor,
+  disableTwoFactor,
+  getSecuritySessions,
+  getTwoFactorStatus,
+  setupTwoFactor,
+} from '@/lib/api/security';
+import type {
+  SecuritySessionsResponse,
+  TwoFactorSetupResponse,
+  TwoFactorStatus,
+} from '@/lib/api/types';
 import { I, scaled } from '@/lib/responsive';
 import { useSession, type Role } from '@/lib/session';
 
@@ -37,6 +49,8 @@ const C = {
 
   text: '#111111',
   gray: '#8A8A8A',
+  frame: '#000000',
+  white: '#F5F5F5',
 
   card: '#F6FBFF',
   cardBorder: 'rgba(100,140,190,0.30)',
@@ -75,6 +89,15 @@ function when(iso: string | null | undefined): string {
   const hh = String(d.getHours()).padStart(2, '0');
   const mi = String(d.getMinutes()).padStart(2, '0');
   return `${dd}/${mm}/${d.getFullYear()} ${hh}:${mi}`;
+}
+
+function panelErrorMessage(error: unknown): string {
+  if (error instanceof ApiError) {
+    if (error.status === 429) return 'Shumë tentativa. Provo përsëri pas një minute.';
+    if (error.status === 0) return 'Nuk mund të lidhemi me serverin. Kontrollo lidhjen.';
+    return error.message;
+  }
+  return 'Diçka shkoi keq. Provo përsëri.';
 }
 
 const QUICK_ACTIONS: { label: string; color: string; route?: string }[] = [
@@ -192,6 +215,16 @@ export default function SecuritySettingsScreen() {
   const [sessions, setSessions] = useState<SecuritySessionsResponse | null>(null);
   const [sessionsError, setSessionsError] = useState<string | null>(null);
 
+  const [twoFactor, setTwoFactor] = useState<TwoFactorStatus | null>(null);
+  const [twoFactorError, setTwoFactorError] = useState<string | null>(null);
+  const [panel, setPanel] = useState<'enable' | 'disable' | null>(null);
+  const [setupData, setSetupData] = useState<TwoFactorSetupResponse | null>(null);
+  const [recoveryCodes, setRecoveryCodes] = useState<string[] | null>(null);
+  const [code, setCode] = useState('');
+  const [password, setPassword] = useState('');
+  const [panelBusy, setPanelBusy] = useState(false);
+  const [panelError, setPanelError] = useState<string | null>(null);
+
   useEffect(() => {
     if (!token) return;
     const controller = new AbortController();
@@ -219,8 +252,31 @@ export default function SecuritySettingsScreen() {
     return () => controller.abort();
   }, [token, router, signOut]);
 
-  /* 2FA has no backend, so it counts nothing yet — the score tops out at 3. */
-  const score: number = 3;
+  useEffect(() => {
+    if (!token) return;
+    const controller = new AbortController();
+
+    getTwoFactorStatus(token, controller.signal)
+      .then((res) => {
+        if (controller.signal.aborted) return;
+        setTwoFactor(res);
+        setTwoFactorError(null);
+      })
+      .catch((e) => {
+        if (controller.signal.aborted) return;
+        if (e instanceof ApiError && e.status === 401) {
+          signOut();
+          router.replace('/login');
+          return;
+        }
+        setTwoFactorError('Nuk mund të lexohet statusi i 2FA.');
+      });
+
+    return () => controller.abort();
+  }, [token, router, signOut]);
+
+  /* The score counts the four fixed controls plus an enabled 2FA. */
+  const score: number = twoFactor?.enabled ? 4 : 3;
 
   const alertError = (e: unknown) =>
     Alert.alert(
@@ -229,6 +285,86 @@ export default function SecuritySettingsScreen() {
         ? e.message
         : 'Nuk mund të lidhemi me serverin. Kontrollo lidhjen.',
     );
+
+  const resetPanel = () => {
+    setPanel(null);
+    setSetupData(null);
+    setRecoveryCodes(null);
+    setCode('');
+    setPassword('');
+    setPanelError(null);
+    setPanelBusy(false);
+  };
+
+  const startEnable = async () => {
+    if (!token || panelBusy) return;
+
+    resetPanel();
+    setPanel('enable');
+    setPanelBusy(true);
+
+    try {
+      const data = await setupTwoFactor(token);
+      setSetupData(data);
+    } catch (e) {
+      setPanel(null);
+      alertError(e);
+    } finally {
+      setPanelBusy(false);
+    }
+  };
+
+  const confirmEnable = async () => {
+    if (!token || panelBusy) return;
+
+    const trimmed = code.trim();
+    if (trimmed.length !== 6) {
+      setPanelError('Shkruaj kodin 6-shifror.');
+      return;
+    }
+
+    setPanelBusy(true);
+    setPanelError(null);
+    try {
+      const res = await confirmTwoFactor(token, trimmed);
+      setRecoveryCodes(res.recovery_codes);
+      setCode('');
+      setTwoFactor({
+        enabled: true,
+        confirmed_at: new Date().toISOString(),
+        recovery_codes_remaining: res.recovery_codes.length,
+      });
+    } catch (e) {
+      setPanelError(panelErrorMessage(e));
+    } finally {
+      setPanelBusy(false);
+    }
+  };
+
+  const submitDisable = async () => {
+    if (!token || panelBusy) return;
+
+    if (!password) {
+      setPanelError('Shkruaj fjalëkalimin.');
+      return;
+    }
+    if (!code.trim()) {
+      setPanelError('Shkruaj kodin e autentikimit.');
+      return;
+    }
+
+    setPanelBusy(true);
+    setPanelError(null);
+    try {
+      await disableTwoFactor(token, password, code.trim());
+      setTwoFactor({ enabled: false, confirmed_at: null, recovery_codes_remaining: 0 });
+      resetPanel();
+    } catch (e) {
+      setPanelError(panelErrorMessage(e));
+    } finally {
+      setPanelBusy(false);
+    }
+  };
 
   /* Deactivating is reversible: it flips the flag, then the session ends. */
   const onDeactivate = () => {
@@ -324,11 +460,29 @@ export default function SecuritySettingsScreen() {
                   title="Email i konfirmuar"
                   desc={user?.email ?? '—'}
                 />
-                {/* Display-only: 2FA has no backend anywhere in the API. */}
                 <StatusRow
-                  tone={C.warn}
+                  tone={twoFactor?.enabled ? C.ok : C.warn}
                   title="Hyrje e dyfishtë (2FA)"
-                  desc="Së shpejti"
+                  desc={
+                    twoFactor
+                      ? twoFactor.enabled
+                        ? `Aktiv · ${twoFactor.recovery_codes_remaining} kode rikuperimi`
+                        : 'Jo aktiv'
+                      : twoFactorError ?? 'Duke u ngarkuar…'
+                  }
+                  actionLabel={
+                    twoFactor ? (twoFactor.enabled ? 'Çaktivizo' : 'Aktivizo') : undefined
+                  }
+                  onAction={
+                    twoFactor
+                      ? twoFactor.enabled
+                        ? () => {
+                            resetPanel();
+                            setPanel('disable');
+                          }
+                        : startEnable
+                      : undefined
+                  }
                 />
                 <StatusRow
                   tone={C.ok}
@@ -337,6 +491,176 @@ export default function SecuritySettingsScreen() {
                   last
                 />
               </View>
+
+              {panel === 'enable' ? (
+                <View style={styles.panel}>
+                  {recoveryCodes ? (
+                    <>
+                      <Text style={styles.panelTitle}>2FA u aktivizua</Text>
+                      <Text style={styles.panelHint}>
+                        Ruaj këto kode rikuperimi — shfaqen vetëm një herë.
+                      </Text>
+                      <View style={styles.codes}>
+                        {recoveryCodes.map((recoveryCode) => (
+                          <Text key={recoveryCode} style={styles.codeLine} selectable>
+                            {recoveryCode}
+                          </Text>
+                        ))}
+                      </View>
+                      <Pressable
+                        onPress={resetPanel}
+                        accessibilityRole="button"
+                        style={({ pressed }) => [
+                          styles.panelPrimary,
+                          pressed && styles.pressed,
+                        ]}
+                      >
+                        <Text style={styles.panelPrimaryText}>Kuptova</Text>
+                      </Pressable>
+                    </>
+                  ) : (
+                    <>
+                      <Text style={styles.panelTitle}>Aktivizo 2FA</Text>
+                      <Text style={styles.panelHint}>
+                        Shto çelësin te aplikacioni i autentikimit, pastaj shkruaj kodin
+                        që shfaqet.
+                      </Text>
+
+                      {setupData ? (
+                        <>
+                          <Text style={styles.secret} selectable>
+                            {setupData.secret}
+                          </Text>
+                          <Text style={styles.link} selectable numberOfLines={2}>
+                            {setupData.otpauth_url}
+                          </Text>
+                        </>
+                      ) : (
+                        <Text style={styles.panelHint}>
+                          {panelBusy ? 'Duke përgatitur…' : 'Nuk u ngarkua çelësi.'}
+                        </Text>
+                      )}
+
+                      <TextInput
+                        style={styles.panelField}
+                        placeholder="000000"
+                        placeholderTextColor={C.gray}
+                        value={code}
+                        onChangeText={(value) => setCode(value.replace(/[^0-9]/g, ''))}
+                        keyboardType="number-pad"
+                        maxLength={6}
+                        editable={!panelBusy}
+                        textContentType="oneTimeCode"
+                        accessibilityLabel="Kodi 6-shifror"
+                      />
+
+                      {panelError ? (
+                        <Text style={styles.panelError} accessibilityRole="alert">
+                          {panelError}
+                        </Text>
+                      ) : null}
+
+                      <View style={styles.panelBtns}>
+                        <Pressable
+                          onPress={resetPanel}
+                          disabled={panelBusy}
+                          accessibilityRole="button"
+                          style={({ pressed }) => [
+                            styles.panelGhost,
+                            pressed && styles.pressed,
+                          ]}
+                        >
+                          <Text style={styles.panelGhostText}>Anulo</Text>
+                        </Pressable>
+                        <Pressable
+                          onPress={confirmEnable}
+                          disabled={panelBusy || !setupData}
+                          accessibilityRole="button"
+                          style={({ pressed }) => [
+                            styles.panelPrimary,
+                            (pressed || panelBusy || !setupData) && styles.off,
+                          ]}
+                        >
+                          {panelBusy ? (
+                            <ActivityIndicator color={C.text} size="small" />
+                          ) : (
+                            <Text style={styles.panelPrimaryText}>Konfirmo</Text>
+                          )}
+                        </Pressable>
+                      </View>
+                    </>
+                  )}
+                </View>
+              ) : null}
+
+              {panel === 'disable' ? (
+                <View style={styles.panel}>
+                  <Text style={styles.panelTitle}>Çaktivizo 2FA</Text>
+                  <Text style={styles.panelHint}>
+                    Fjalëkalimi dhe kodi i autentikimit kërkohen për ta çaktivizuar.
+                  </Text>
+
+                  <TextInput
+                    style={styles.panelField}
+                    placeholder="Fjalëkalimi"
+                    placeholderTextColor={C.gray}
+                    value={password}
+                    onChangeText={setPassword}
+                    secureTextEntry
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    editable={!panelBusy}
+                    accessibilityLabel="Fjalëkalimi"
+                  />
+                  <TextInput
+                    style={styles.panelField}
+                    placeholder="Kodi 6-shifror ose kod rikuperimi"
+                    placeholderTextColor={C.gray}
+                    value={code}
+                    onChangeText={setCode}
+                    autoCapitalize="characters"
+                    autoCorrect={false}
+                    maxLength={20}
+                    editable={!panelBusy}
+                    accessibilityLabel="Kodi i autentikimit"
+                  />
+
+                  {panelError ? (
+                    <Text style={styles.panelError} accessibilityRole="alert">
+                      {panelError}
+                    </Text>
+                  ) : null}
+
+                  <View style={styles.panelBtns}>
+                    <Pressable
+                      onPress={resetPanel}
+                      disabled={panelBusy}
+                      accessibilityRole="button"
+                      style={({ pressed }) => [
+                        styles.panelGhost,
+                        pressed && styles.pressed,
+                      ]}
+                    >
+                      <Text style={styles.panelGhostText}>Anulo</Text>
+                    </Pressable>
+                    <Pressable
+                      onPress={submitDisable}
+                      disabled={panelBusy}
+                      accessibilityRole="button"
+                      style={({ pressed }) => [
+                        styles.panelSolid,
+                        (pressed || panelBusy) && styles.off,
+                      ]}
+                    >
+                      {panelBusy ? (
+                        <ActivityIndicator color={C.white} size="small" />
+                      ) : (
+                        <Text style={styles.panelSolidText}>Çaktivizo</Text>
+                      )}
+                    </Pressable>
+                  </View>
+                </View>
+              ) : null}
             </Card>
 
             {/* ── Sesioni aktual ───────────────────────────────── */}
@@ -697,6 +1021,153 @@ const styles = StyleSheet.create(
       fontSize: 13,
       lineHeight: 17,
       color: C.red,
+    },
+
+    /* ── 2FA inline panel ────────────────────────────────────── */
+    panel: {
+      paddingHorizontal: 16,
+      paddingVertical: 14,
+      backgroundColor: 'rgba(27,111,191,0.06)',
+      borderTopWidth: 1,
+      borderTopColor: C.rowLine,
+    },
+
+    panelTitle: {
+      fontFamily: Fonts.bodyBold,
+      fontSize: 14,
+      lineHeight: 18,
+      color: C.text,
+    },
+
+    panelHint: {
+      marginTop: 3,
+      fontFamily: Fonts.body,
+      fontSize: 12,
+      lineHeight: 16,
+      color: C.gray,
+    },
+
+    secret: {
+      marginTop: 10,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      fontFamily: Fonts.bodySemiBold,
+      fontSize: 15,
+      lineHeight: 20,
+      letterSpacing: 1.5,
+      textAlign: 'center',
+      color: C.text,
+      backgroundColor: C.white,
+      borderWidth: 1,
+      borderColor: C.frame,
+      borderRadius: 5,
+    },
+
+    link: {
+      marginTop: 6,
+      fontFamily: Fonts.body,
+      fontSize: 10,
+      lineHeight: 14,
+      color: C.blue,
+    },
+
+    panelField: {
+      height: 40,
+      marginTop: 10,
+      paddingHorizontal: 12,
+      paddingVertical: 0,
+      fontFamily: Fonts.body,
+      fontSize: 13,
+      color: C.text,
+      backgroundColor: C.white,
+      borderWidth: 1,
+      borderColor: C.frame,
+      borderRadius: 5,
+    },
+
+    panelError: {
+      marginTop: 8,
+      fontFamily: Fonts.bodySemiBold,
+      fontSize: 12,
+      lineHeight: 16,
+      color: C.red,
+    },
+
+    panelBtns: {
+      flexDirection: 'row',
+      gap: 8,
+      marginTop: 12,
+    },
+
+    panelGhost: {
+      flex: 1,
+      height: 36,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 1,
+      borderColor: C.frame,
+      borderRadius: 4,
+    },
+
+    panelGhostText: {
+      fontFamily: Fonts.bodySemiBold,
+      fontSize: 12,
+      lineHeight: 16,
+      color: C.text,
+    },
+
+    panelPrimary: {
+      flex: 1,
+      height: 36,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: 'rgba(54,172,107,0.20)',
+      borderWidth: 1,
+      borderColor: C.ok,
+      borderRadius: 4,
+    },
+
+    panelPrimaryText: {
+      fontFamily: Fonts.bodyBold,
+      fontSize: 12,
+      lineHeight: 16,
+      color: C.text,
+    },
+
+    panelSolid: {
+      flex: 1,
+      height: 36,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: C.red,
+      borderRadius: 4,
+    },
+
+    panelSolidText: {
+      fontFamily: Fonts.bodyBold,
+      fontSize: 12,
+      lineHeight: 16,
+      color: C.white,
+    },
+
+    codes: {
+      marginTop: 10,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      backgroundColor: C.white,
+      borderWidth: 1,
+      borderColor: C.frame,
+      borderRadius: 5,
+    },
+
+    codeLine: {
+      paddingVertical: 3,
+      fontFamily: Fonts.bodySemiBold,
+      fontSize: 13,
+      lineHeight: 18,
+      letterSpacing: 1,
+      textAlign: 'center',
+      color: C.text,
     },
 
     /* ── Key / value rows ────────────────────────────────────── */

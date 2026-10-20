@@ -26,15 +26,47 @@ export type ApiClub = {
 /** 422 responses carry `{ field: [message, ...] }`. */
 export type FieldErrors = Record<string, string[]>;
 
-export type LoginResponse = {
+/** A successful login / challenge completion — the app's stored session. */
+export type SessionResponse = {
   token: string;
   user: ApiUser;
   club: ApiClub | null;
 };
 
+/** A correct password on a 2FA account — no token until the code is checked. */
+export type TwoFactorChallengeResponse = {
+  two_factor_required: true;
+  challenge_token: string;
+  /** Seconds until the challenge token expires. */
+  expires_in: number;
+};
+
+/** `/auth/login` answers with either a session or a 2FA challenge. */
+export type LoginResponse = SessionResponse | TwoFactorChallengeResponse;
+
 export type MeResponse = {
   user: ApiUser;
   club: ApiClub | null;
+};
+
+/** `GET /auth/two-factor/status`. */
+export type TwoFactorStatus = {
+  enabled: boolean;
+  confirmed_at: string | null;
+  recovery_codes_remaining: number;
+};
+
+/** `POST /auth/two-factor/setup` — shown once for manual entry. */
+export type TwoFactorSetupResponse = {
+  secret: string;
+  otpauth_url: string;
+};
+
+/** `POST /auth/two-factor/confirm` — the recovery codes are shown only once. */
+export type TwoFactorConfirmResponse = {
+  enabled: boolean;
+  recovery_codes: string[];
+  message: string;
 };
 
 export type ProfileResponse = {
@@ -453,6 +485,8 @@ export type ApiClubProfile = {
     active: boolean;
     starts_at: string | null;
     ends_at: string | null;
+    /** The display price for the plan; null for unknown or missing plans. */
+    price: { amount: number; currency: string; interval: string } | null;
   };
 };
 
@@ -642,6 +676,41 @@ export type PlayerPeriods = {
   player: { id: number; name: string | null };
   unpaid: UnpaidPeriod[];
   future: UnpaidPeriod[];
+};
+
+/** `GET /players/{player}/attendance` — finalized-training totals. */
+export type ApiAttendance = {
+  total: number;
+  present: number;
+  absent: number;
+  unconfirmed: number;
+  /** Whole percent. */
+  rate: number;
+};
+
+/** `GET /players/{player}/finance` and `GET /my/finance`. */
+export type ApiFinanceSummary = {
+  paid: number;
+  unpaid: number;
+  delayed: number;
+  critical: number;
+  overdue: number;
+  total_paid: number;
+  total_outstanding: number;
+};
+
+/** `GET /my/statistics` — the signed-in player's lifetime match totals. */
+export type ApiPlayerStatistics = {
+  statistics: {
+    matches: number;
+    minutes: number;
+    goals: number;
+    assists: number;
+    yellow_cards: number;
+    red_cards: number;
+    /** `null` until at least one match has been rated. */
+    rating: number | null;
+  };
 };
 
 /** One row of `GET /players/statistics` — season totals per player. */

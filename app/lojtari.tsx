@@ -8,9 +8,19 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
 import { ApiError } from '@/lib/api/errors';
-import { getPlayer, listPlayers, playerStatistics } from '@/lib/api/players';
+import {
+  getPlayer,
+  listPlayers,
+  playerAttendance,
+  playerStatistics,
+} from '@/lib/api/players';
 import { listRatings } from '@/lib/api/ratings';
-import type { ApiPlayer, PlayerRatingRow, PlayerStatRow } from '@/lib/api/types';
+import type {
+  ApiAttendance,
+  ApiPlayer,
+  PlayerRatingRow,
+  PlayerStatRow,
+} from '@/lib/api/types';
 import { positionLabel } from '@/lib/player-position';
 import { statusLabel } from '@/lib/player-status';
 import { I, scaled } from '@/lib/responsive';
@@ -56,14 +66,6 @@ const C = {
 const IMG = {
   star: require('@/assets/dashboard/star.png'),
 };
-
-/* The staff API has no per-player attendance read endpoint, so the counts
-   are honest dashes rather than zeros that look like real data. */
-const ATTENDANCE = [
-  { label: 'prezent', value: '—', dot: C.green },
-  { label: 'mungesë', value: '—', dot: C.red },
-  { label: 'pa status', value: '—', dot: C.hintSoft },
-];
 
 const MONTHS = [
   'janar',
@@ -112,6 +114,7 @@ export default function PlayerProfileScreen() {
   const [player, setPlayer] = useState<ApiPlayer | null>(null);
   const [seasonStats, setSeasonStats] = useState<PlayerStatRow | null>(null);
   const [coachRatings, setCoachRatings] = useState<PlayerRatingRow | null>(null);
+  const [attendance, setAttendance] = useState<ApiAttendance | null>(null);
 
   /* The squad behind the header selector — picking one reloads the page. */
   const [roster, setRoster] = useState<ApiPlayer[]>([]);
@@ -159,6 +162,19 @@ export default function PlayerProfileScreen() {
       .then((res) => {
         if (controller.signal.aborted) return;
         setCoachRatings(res.data.find((r) => r.player_id === playerId) ?? null);
+      })
+      .catch((e) => {
+        if (controller.signal.aborted) return;
+        if (e instanceof ApiError && e.status === 401) {
+          signOut();
+          router.replace('/login');
+        }
+      });
+
+    playerAttendance(token, playerId, controller.signal)
+      .then((res) => {
+        if (controller.signal.aborted) return;
+        setAttendance(res);
       })
       .catch((e) => {
         if (controller.signal.aborted) return;
@@ -223,6 +239,12 @@ export default function PlayerProfileScreen() {
     { label: 'K.verdha', value: num(seasonStats?.yellow_cards), tone: C.orange },
     { label: 'K.kuq', value: num(seasonStats?.red_cards), tone: C.red },
     { label: 'Minuta', value: num(seasonStats?.minutes), tone: C.text },
+  ];
+
+  const attendanceRows = [
+    { label: 'prezent', value: num(attendance?.present), dot: C.green },
+    { label: 'mungesë', value: num(attendance?.absent), dot: C.red },
+    { label: 'pa status', value: num(attendance?.unconfirmed), dot: C.hintSoft },
   ];
 
   /* Averaged coach ratings, out of 10 — the rail fills to one tenth of it. */
@@ -444,12 +466,14 @@ export default function PlayerProfileScreen() {
               <View style={[styles.duoCard, styles.card]}>
                 <View style={styles.prezencaTop}>
                   <Text style={styles.cardTitle}>Prezenca</Text>
-                  <Text style={styles.prezencaPct}>—</Text>
+                  <Text style={styles.prezencaPct}>
+                    {attendance ? `${attendance.rate}%` : '—'}
+                  </Text>
                 </View>
                 <View style={styles.grayRule} />
 
                 <View style={styles.body}>
-                  {ATTENDANCE.map((a) => (
+                  {attendanceRows.map((a) => (
                     <View key={a.label} style={styles.attRow}>
                       <View style={styles.attLeft}>
                         <View style={[styles.dot, { backgroundColor: a.dot }]} />
@@ -463,7 +487,7 @@ export default function PlayerProfileScreen() {
 
                   <View style={styles.totalRow}>
                     <Text style={styles.totalRowLabel}>total stërvitje</Text>
-                    <Text style={styles.totalRowValue}>—</Text>
+                    <Text style={styles.totalRowValue}>{num(attendance?.total)}</Text>
                   </View>
                 </View>
               </View>

@@ -15,6 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
+import * as auth from '@/lib/api/auth';
 import { ApiError } from '@/lib/api/errors';
 import { scaled } from '@/lib/responsive';
 import { useSession } from '@/lib/session';
@@ -55,7 +56,7 @@ function errorMessage(error: unknown): string {
 
 export default function LoginScreen() {
   const router = useRouter();
-  const { user, signIn } = useSession();
+  const { user, completeSignIn } = useSession();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -78,7 +79,20 @@ export default function LoginScreen() {
     setBusy(true);
     setError(null);
     try {
-      await signIn(trimmed, password);
+      const result = await auth.login(trimmed, password);
+
+      // A 2FA account gets a short-lived challenge instead of a token; the
+      // session is only established once the code is verified.
+      if ('two_factor_required' in result) {
+        setBusy(false);
+        router.push({
+          pathname: '/two-factor',
+          params: { challenge_token: result.challenge_token },
+        });
+        return;
+      }
+
+      await completeSignIn(result);
       router.replace('/');
     } catch (err) {
       setError(errorMessage(err));

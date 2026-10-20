@@ -12,7 +12,7 @@ import * as auth from '@/lib/api/auth';
 import { ApiError } from '@/lib/api/errors';
 import { toSessionUser } from '@/lib/api/mappers';
 import { clearToken, getToken, setToken } from '@/lib/api/token-store';
-import type { ApiClub, ApiUser } from '@/lib/api/types';
+import type { ApiClub, ApiUser, SessionResponse } from '@/lib/api/types';
 
 export type Role = 'administrator' | 'trainer' | 'player' | 'parent' | 'financier';
 
@@ -51,7 +51,8 @@ type SessionValue = {
   user: SessionUser | null;
   token: string | null;
   status: SessionStatus;
-  signIn: (email: string, password: string) => Promise<void>;
+  /** Store a session returned by login or by the 2FA challenge. */
+  completeSignIn: (result: SessionResponse) => Promise<void>;
   signOut: () => void;
   updateProfile: (input: UpdateProfileInput) => Promise<void>;
   changePassword: (currentPassword: string, password: string) => Promise<void>;
@@ -98,8 +99,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  const signIn = useCallback(async (email: string, password: string) => {
-    const result = await auth.login(email, password);
+  const completeSignIn = useCallback(async (result: SessionResponse) => {
     await setToken(result.token);
     setTokenState(result.token);
     setClub(result.club);
@@ -158,8 +158,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   );
 
   const value = useMemo<SessionValue>(
-    () => ({ user, token, status, signIn, signOut, updateProfile, changePassword }),
-    [user, token, status, signIn, signOut, updateProfile, changePassword]
+    () => ({ user, token, status, completeSignIn, signOut, updateProfile, changePassword }),
+    [user, token, status, completeSignIn, signOut, updateProfile, changePassword]
   );
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
