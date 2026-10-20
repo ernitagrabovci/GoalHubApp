@@ -8,51 +8,11 @@ import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Fonts, type ThemeColors } from '@/constants/theme';
 import { useLanguage } from '@/lib/i18n';
 import { useTheme, useThemedStyles } from '@/lib/theme';
-import { ADMIN_TABS, MAIN_TABS, SIGNED_OUT_TABS, TRAINER_TABS } from '@/lib/tabs';
+import { ADMIN_TABS, PILL_TABS, SIGNED_OUT_TABS } from '@/lib/tabs';
 import { useSession } from '@/lib/session';
 
-/** Secondary feature screens — reachable from Home but hidden from the tab bar. */
-const HIDDEN_ROUTES = [
-  'player',
-  'rate',
-  'ratings',
-  'attendance',
-  'trainings',
-  'training',
-  'matches',
-  'match',
-  'lineup',
-  'admin',
-  'academy',
-  'academy-create',
-  'academy-item',
-  'tactical',
-  'tactical-editor',
-  'drills',
-  'drill',
-  'group',
-  'groups',
-  'medical',
-  'injury',
-  'injury-create',
-  'fees',
-  'fee',
-  'finance',
-  'reports',
-  'users',
-  'user',
-  'team',
-  'club',
-  'competitions',
-  'transfers',
-  'stats',
-  'child',
-  'child-attendance',
-  'child-ratings',
-  'expenses',
-  'channel',
-  'notifications',
-];
+/** Screens present in the navigator but never shown in the tab bar. */
+const HIDDEN_ROUTES = ['admin', 'pagesat', 'profile'];
 
 export default function TabLayout() {
   const { user } = useSession();
@@ -61,27 +21,13 @@ export default function TabLayout() {
   const styles = useThemedStyles(createStyles);
 
   const isAdmin = user?.role === 'administrator';
-  const isTrainer = user?.role === 'trainer';
-  const isPlayer = user?.role === 'player';
-  const isParent = user?.role === 'parent';
-  const isFinancier = user?.role === 'financier';
-  // Roles with the two-item Home | Chat floating pill (trainer style).
-  const twoTabPill = isTrainer || isPlayer || isParent || isFinancier;
-  const pillNav = isAdmin || twoTabPill;
-  const tabs = !user
-    ? SIGNED_OUT_TABS
-    : isAdmin
-      ? ADMIN_TABS
-      : twoTabPill
-        ? TRAINER_TABS
-        : MAIN_TABS;
+  // Every signed-in role uses a custom floating pill; only the administrator's
+  // has a real second tab (Pagesat).
+  const pillNav = !!user;
+  const tabs = !user ? SIGNED_OUT_TABS : isAdmin ? ADMIN_TABS : PILL_TABS;
   const visible = new Set(tabs.map((tab) => tab.name));
 
-  // Routes present in the navigator but hidden from the bar. Administrator,
-  // trainer, player and parent use a custom floating pill; profile stays
-  // reachable (header avatar) but hidden.
   const hiddenRoutes = HIDDEN_ROUTES.filter((name) => !visible.has(name));
-  const extraHidden = user && pillNav ? ['profile'] : [];
 
   return (
     <Tabs
@@ -103,7 +49,7 @@ export default function TabLayout() {
       }}
       tabBar={
         isAdmin ? (props) => <PillTabBar {...props} />
-        : twoTabPill ? (props) => <TrainerPillTabBar {...props} />
+        : user ? (props) => <TrainerPillTabBar {...props} />
         : undefined
       }>
       {tabs.map((tab) => (
@@ -117,9 +63,6 @@ export default function TabLayout() {
         />
       ))}
       {hiddenRoutes.map((name) => (
-        <Tabs.Screen key={name} name={name} options={{ href: null }} />
-      ))}
-      {extraHidden.map((name) => (
         <Tabs.Screen key={name} name={name} options={{ href: null }} />
       ))}
       {/* explore is a visible tab when signed out, hidden-but-reachable when signed in */}

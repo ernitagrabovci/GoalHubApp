@@ -30,10 +30,10 @@ const SECTIONS: AdminSection[] = [
     icon: 'trophy.fill',
     labelKey: 'admin.section.klubi',
     items: [
-      { key: 'clubProfile', icon: 'trophy.fill', labelKey: 'module.Club', route: '/club' },
+      { key: 'clubProfile', icon: 'trophy.fill', labelKey: 'module.Club', route: '/club-profile' },
       { key: 'competitions', icon: 'trophy.fill', labelKey: 'module.Competitions', route: '/competitions' },
-      { key: 'season', icon: 'calendar', labelKey: 'admin.item.season', route: '/club' },
-      { key: 'fields', icon: 'flag', labelKey: 'admin.item.fields', route: '/club' },
+      { key: 'season', icon: 'calendar', labelKey: 'admin.item.season', route: '/season-settings' },
+      { key: 'fields', icon: 'flag', labelKey: 'admin.item.fields', route: '/fushat' },
     ],
   },
   {
@@ -43,7 +43,7 @@ const SECTIONS: AdminSection[] = [
     items: [
       { key: 'teams', icon: 'person.2.fill', labelKey: 'module.Teams', route: '/teams' },
       { key: 'statistics', icon: 'chart.bar.fill', labelKey: 'admin.item.statistics' },
-      { key: 'transfers', icon: 'arrow.right', labelKey: 'admin.item.transfers', route: '/transfers' },
+      { key: 'transfers', icon: 'arrow.right', labelKey: 'admin.item.transfers', route: '/transferimet' },
     ],
   },
   {
@@ -51,10 +51,10 @@ const SECTIONS: AdminSection[] = [
     icon: 'person.2.fill',
     labelKey: 'admin.section.lojtaret',
     items: [
-      { key: 'registerPlayer', icon: 'plus', labelKey: 'admin.item.registerPlayer', route: '/players' },
+      { key: 'registerPlayer', icon: 'plus', labelKey: 'admin.item.registerPlayer', route: '/register-player' },
       { key: 'players', icon: 'person.2.fill', labelKey: 'module.Players', route: '/players' },
       { key: 'statistics', icon: 'chart.bar.fill', labelKey: 'admin.item.statistics' },
-      { key: 'ratings', icon: 'star.fill', labelKey: 'admin.item.ratings', route: '/ratings' },
+      { key: 'ratings', icon: 'star.fill', labelKey: 'admin.item.ratings', route: '/coach-ratings' },
     ],
   },
   {
@@ -62,23 +62,23 @@ const SECTIONS: AdminSection[] = [
     icon: 'figure.soccer',
     labelKey: 'admin.section.ndeshjet',
     items: [
-      { key: 'matches', icon: 'figure.soccer', labelKey: 'module.Matches', route: '/matches' },
-      { key: 'createMatch', icon: 'plus', labelKey: 'admin.item.createMatch', route: '/matches' },
+      { key: 'matches', icon: 'figure.soccer', labelKey: 'module.Matches', route: '/ndeshjet' },
+      { key: 'createMatch', icon: 'plus', labelKey: 'admin.item.createMatch', route: '/ndeshjet' },
     ],
   },
   {
     key: 'medical',
     icon: 'stethoscope',
     labelKey: 'admin.section.medical',
-    items: [{ key: 'medical', icon: 'stethoscope', labelKey: 'module.Medical', route: '/medical' }],
+    items: [{ key: 'medical', icon: 'stethoscope', labelKey: 'module.Medical', route: '/mjeku' }],
   },
   {
     key: 'pagesat',
     icon: 'dollarsign.circle.fill',
     labelKey: 'admin.section.pagesat',
     items: [
-      { key: 'paymentList', icon: 'receipt', labelKey: 'module.Payments', route: '/fees' },
-      { key: 'paymentReport', icon: 'chart.bar.fill', labelKey: 'admin.item.paymentReport', route: '/reports' },
+      { key: 'paymentList', icon: 'receipt', labelKey: 'module.Payments', route: '/pagesat' },
+      { key: 'paymentReport', icon: 'chart.bar.fill', labelKey: 'admin.item.paymentReport', route: '/raporti-pagesave' },
     ],
   },
   {
@@ -86,8 +86,8 @@ const SECTIONS: AdminSection[] = [
     icon: 'bubble.left.fill',
     labelKey: 'admin.section.komunikimet',
     items: [
-      { key: 'notifications', icon: 'notifications', labelKey: 'admin.item.notifications', route: '/notifications' },
-      { key: 'messages', icon: 'bubble.left.fill', labelKey: 'module.Messages', route: '/chat' },
+      { key: 'notifications', icon: 'notifications', labelKey: 'admin.item.notifications', route: '/njoftimet' },
+      { key: 'messages', icon: 'bubble.left.fill', labelKey: 'module.Messages', route: '/mesazhet' },
       { key: 'emails', icon: 'mail', labelKey: 'admin.item.emails' },
     ],
   },
@@ -96,9 +96,9 @@ const SECTIONS: AdminSection[] = [
     icon: 'chart.bar.fill',
     labelKey: 'admin.section.raportet',
     items: [
-      { key: 'playerReports', icon: 'person.2.fill', labelKey: 'module.Reports', route: '/reports' },
-      { key: 'matchReports', icon: 'figure.soccer', labelKey: 'module.Reports', route: '/reports' },
-      { key: 'paymentReports', icon: 'dollarsign.circle.fill', labelKey: 'module.Reports', route: '/reports' },
+      { key: 'playerReports', icon: 'person.2.fill', labelKey: 'module.Reports', route: '/raportet' },
+      { key: 'matchReports', icon: 'figure.soccer', labelKey: 'module.Reports', route: '/raporti-ndeshjeve' },
+      { key: 'paymentReports', icon: 'dollarsign.circle.fill', labelKey: 'module.Reports', route: '/raporti-pagesave' },
     ],
   },
   {
@@ -106,10 +106,10 @@ const SECTIONS: AdminSection[] = [
     icon: 'person.fill',
     labelKey: 'admin.section.perdoruesit',
     items: [
-      { key: 'createAccount', icon: 'plus', labelKey: 'admin.item.createAccount', route: '/users' },
-      { key: 'roles', icon: 'verified-user', labelKey: 'admin.item.roles' },
-      { key: 'userList', icon: 'person.fill', labelKey: 'admin.item.userList', route: '/users' },
-      { key: 'activity', icon: 'clock.fill', labelKey: 'admin.item.activity' },
+      { key: 'createAccount', icon: 'plus', labelKey: 'admin.item.createAccount', route: '/perdoruesit' },
+      { key: 'roles', icon: 'verified-user', labelKey: 'admin.item.roles', route: '/perdoruesit' },
+      { key: 'userList', icon: 'person.fill', labelKey: 'admin.item.userList', route: '/perdoruesit' },
+      { key: 'activity', icon: 'clock.fill', labelKey: 'admin.item.activity', route: '/aktiviteti' },
     ],
   },
   {
@@ -117,11 +117,11 @@ const SECTIONS: AdminSection[] = [
     icon: 'gearshape.fill',
     labelKey: 'admin.section.cilesimet',
     items: [
-      { key: 'accountSettings', icon: 'person.fill', labelKey: 'module.Settings', route: '/profile' },
-      { key: 'clubSettings', icon: 'trophy.fill', labelKey: 'admin.item.clubSettings', route: '/club' },
-      { key: 'notifSettings', icon: 'notifications', labelKey: 'admin.item.notifSettings' },
-      { key: 'security', icon: 'lock', labelKey: 'admin.item.security', route: '/profile' },
-      { key: 'subscription', icon: 'dollarsign.circle.fill', labelKey: 'admin.item.subscription', route: '/profile' },
+      { key: 'accountSettings', icon: 'person.fill', labelKey: 'module.Settings', route: '/account-settings' },
+      { key: 'clubSettings', icon: 'trophy.fill', labelKey: 'admin.item.clubSettings', route: '/club-settings' },
+      { key: 'notifSettings', icon: 'notifications', labelKey: 'admin.item.notifSettings', route: '/notification-settings' },
+      { key: 'security', icon: 'lock', labelKey: 'admin.item.security', route: '/security-settings' },
+      { key: 'subscription', icon: 'dollarsign.circle.fill', labelKey: 'admin.item.subscription', route: '/subscription-settings' },
     ],
   },
 ];

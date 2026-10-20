@@ -50,11 +50,19 @@ export default function ModulesScreen() {
             <Pressable
               key={module.label}
               style={styles.cell}
-              onPress={() =>
-                module.route
-                  ? router.push(module.route as never)
-                  : alert(t('common.comingSoon', { label: t(`module.${module.label}`) }))
-              }>
+              onPress={() => {
+                // Every module behind these tiles needs a session; send a
+                // signed-out visitor to sign in instead of into a dead route.
+                if (!user) {
+                  router.replace('/login');
+                  return;
+                }
+                if (module.route) {
+                  router.push(module.route as never);
+                } else {
+                  alert(t('common.comingSoon', { label: t(`module.${module.label}`) }));
+                }
+              }}>
               <View style={[styles.cellIcon, { backgroundColor: `${module.color}1F` }]}>
                 <IconSymbol name={module.icon} size={24} color={module.color} />
               </View>

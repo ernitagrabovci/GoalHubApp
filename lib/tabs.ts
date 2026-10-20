@@ -6,25 +6,22 @@ export type TabDef = {
   icon: IconSymbolName;
 };
 
-/** The single bottom bar every signed-in role sees — simple and consistent. */
-export const MAIN_TABS: TabDef[] = [
-  { name: 'index', title: 'Home', icon: 'house.fill' },
-  { name: 'chat', title: 'Chat', icon: 'bubble.left.fill' },
-  { name: 'profile', title: 'Profile', icon: 'person.fill' },
-];
-
-/** Administrator dashboard bar — rendered as a floating pill (see PillTabBar). */
+/**
+ * Administrator dashboard bar — Home and the finance tab. "Përdoruesit",
+ * "Mesazhet" and "Profili" are full-screen root routes drawn by PillTabBar,
+ * so they are not tabs.
+ */
 export const ADMIN_TABS: TabDef[] = [
   { name: 'index', title: 'Home', icon: 'house.fill' },
-  { name: 'users', title: 'Përdoruesit', icon: 'person.fill' },
   { name: 'pagesat', title: 'Pagesat', icon: 'dollarsign.circle.fill' },
-  { name: 'chat', title: 'Chat', icon: 'bubble.left.fill' },
 ];
 
-/** Trainer dashboard bar — Home | Chat, rendered as a floating pill (see TrainerPillTabBar). */
-export const TRAINER_TABS: TabDef[] = [
+/**
+ * Every non-admin signed-in role's bar — just Home. Chat and profile are
+ * full-screen root routes drawn by TrainerPillTabBar.
+ */
+export const PILL_TABS: TabDef[] = [
   { name: 'index', title: 'Home', icon: 'house.fill' },
-  { name: 'chat', title: 'Chat', icon: 'bubble.left.fill' },
 ];
 
 /** Shown in the tab bar when nobody is signed in (transient state). */
