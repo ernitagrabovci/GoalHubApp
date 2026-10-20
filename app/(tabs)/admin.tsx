@@ -42,7 +42,7 @@ const SECTIONS: AdminSection[] = [
     labelKey: 'admin.section.ekipet',
     items: [
       { key: 'teams', icon: 'person.2.fill', labelKey: 'module.Teams', route: '/teams' },
-      { key: 'statistics', icon: 'chart.bar.fill', labelKey: 'admin.item.statistics' },
+      { key: 'statistics', icon: 'chart.bar.fill', labelKey: 'admin.item.statistics', route: '/teams' },
       { key: 'transfers', icon: 'arrow.right', labelKey: 'admin.item.transfers', route: '/transferimet' },
     ],
   },
@@ -53,7 +53,7 @@ const SECTIONS: AdminSection[] = [
     items: [
       { key: 'registerPlayer', icon: 'plus', labelKey: 'admin.item.registerPlayer', route: '/register-player' },
       { key: 'players', icon: 'person.2.fill', labelKey: 'module.Players', route: '/players' },
-      { key: 'statistics', icon: 'chart.bar.fill', labelKey: 'admin.item.statistics' },
+      { key: 'statistics', icon: 'chart.bar.fill', labelKey: 'admin.item.statistics', route: '/player-statistics' },
       { key: 'ratings', icon: 'star.fill', labelKey: 'admin.item.ratings', route: '/coach-ratings' },
     ],
   },
