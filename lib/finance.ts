@@ -1,5 +1,3 @@
-import type { ApiFee } from '@/lib/api/types';
-
 /**
  * Shared finance formatting. The financier screens all speak the same three
  * status colours and the same handful of shapes, so they live here rather than
@@ -89,14 +87,4 @@ const PAY_METHOD: Record<string, string> = {
 export function payMethod(method: string | null | undefined): string {
   if (!method) return '—';
   return PAY_METHOD[method] ?? method;
-}
-
-/** The fee's player name, or `—` when the row carries none. */
-export function feePlayer(f: ApiFee): string {
-  return f.player?.name ?? '—';
-}
-
-/** The fee's team name, or `—` when the row carries none. */
-export function feeTeam(f: ApiFee): string {
-  return f.team?.name ?? '—';
 }

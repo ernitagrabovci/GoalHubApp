@@ -108,9 +108,6 @@ export const themes: Record<ThemeMode, ThemeColors> = {
   light: LightColors,
 };
 
-/** Back-compat alias — screens migrate to useTheme()/useThemedStyles() over time. */
-export const Colors = DarkColors;
-
 /* Every screen reads its font through this map, so swapping the family here
    restyles the whole app. */
 export const Fonts = {
@@ -173,6 +170,3 @@ export const lightNavigationTheme: Theme = {
     notification: LightColors.mint,
   },
 };
-
-/** Back-compat alias — _layout.tsx migrates to the pair of nav themes. */
-export const navigationTheme = darkNavigationTheme;
