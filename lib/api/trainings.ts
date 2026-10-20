@@ -5,6 +5,7 @@ import type {
   MutationResponse,
   Paginated,
   TrainingInput,
+  TrainingStats,
 } from '@/lib/api/types';
 
 export type TrainingListParams = {
@@ -38,6 +39,11 @@ export function listTrainings(
     status: params.status,
   });
   return request<Paginated<ApiTraining>>(`/trainings${query}`, { token, signal });
+}
+
+/** This month's session count and attendance rate for the caller's club. */
+export function trainingStats(token: string, signal?: AbortSignal) {
+  return request<TrainingStats>('/trainings/stats', { token, signal });
 }
 
 /** The signed-in player's own team's sessions, each with their own attendance. */

@@ -133,6 +133,15 @@ export type PlayerStats = {
   suspended: number;
 };
 
+/** This month's session count and attendance rate, from `GET /trainings/stats`. */
+export type TrainingStats = {
+  /** `YYYY-MM`. */
+  month: string;
+  sessions: number;
+  /** Percentage of present vs. marked rows; null when nothing is marked. */
+  attendance_rate: number | null;
+};
+
 export type ApiSeason = {
   id?: number;
   name: string;

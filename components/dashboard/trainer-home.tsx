@@ -15,7 +15,8 @@ import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
 import { ApiError } from '@/lib/api/errors';
 import { playerStats } from '@/lib/api/players';
-import type { PlayerStats } from '@/lib/api/types';
+import { trainingStats } from '@/lib/api/trainings';
+import type { PlayerStats, TrainingStats } from '@/lib/api/types';
 import { I, scaled } from '@/lib/responsive';
 import { useSession } from '@/lib/session';
 
@@ -85,23 +86,33 @@ export function TrainerHome() {
   const { user, token, signOut } = useSession();
 
   const [stats, setStats] = useState<PlayerStats | null>(null);
+  const [monthStats, setMonthStats] = useState<TrainingStats | null>(null);
 
   useEffect(() => {
     if (!token) return;
     const controller = new AbortController();
+
+    const handleAuthError = (err: unknown) => {
+      if (controller.signal.aborted) return;
+      if (err instanceof ApiError && err.status === 401) {
+        signOut();
+        router.replace('/login');
+      }
+    };
 
     playerStats(token, controller.signal)
       .then((res) => {
         if (controller.signal.aborted) return;
         setStats(res);
       })
-      .catch((err) => {
+      .catch(handleAuthError);
+
+    trainingStats(token, controller.signal)
+      .then((res) => {
         if (controller.signal.aborted) return;
-        if (err instanceof ApiError && err.status === 401) {
-          signOut();
-          router.replace('/login');
-        }
-      });
+        setMonthStats(res);
+      })
+      .catch(handleAuthError);
 
     return () => controller.abort();
   }, [token, router, signOut]);
@@ -175,7 +186,7 @@ export function TrainerHome() {
               <StatCard
                 labelTop="Shërvitje"
                 labelBottom="(muaj)"
-                value="—"
+                value={monthStats ? String(monthStats.sessions) : '—'}
                 img={IMG.stervitje}
                 imgStyle={styles.statImgStervitje}
                 imgCover
@@ -184,7 +195,11 @@ export function TrainerHome() {
               <StatCard
                 labelTop="Prani"
                 labelBottom="Mësimet"
-                value="—"
+                value={
+                  monthStats?.attendance_rate != null
+                    ? `${Math.round(monthStats.attendance_rate)}%`
+                    : '—'
+                }
               />
             </ScrollView>
           </View>
