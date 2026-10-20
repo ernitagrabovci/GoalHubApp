@@ -521,7 +521,7 @@ export default function PlayersScreen() {
                             onPress={() =>
                               router.push({
                                 pathname: '/edit-player',
-                                params: { name: p.name ?? '', team, nr },
+                                params: { id: String(p.id), name: p.name ?? '', team, nr },
                               })
                             }
                             accessibilityRole="button"

@@ -3,7 +3,9 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { Text } from '@/components/dashboard/dashboard-text';
 import { PlayerForm } from '@/components/players/player-form';
+import { Fonts } from '@/constants/theme';
 import { ApiError } from '@/lib/api/errors';
 import { getPlayer } from '@/lib/api/players';
 import type { ApiPlayer } from '@/lib/api/types';
@@ -12,11 +14,8 @@ import { useSession } from '@/lib/session';
 /**
  * Edito lojtarin — same form as registration, titled with the player's name.
  * Loads the player with `GET /players/{id}` and hands it to the shared form in
- * edit mode. Without an `id` it falls back to the placeholder player, the way
- * the page rendered before the real rows carried data.
+ * edit mode.
  */
-
-const FALLBACK = { name: 'Narti Cerkini', team: 'Ekipi i Parë', nr: '1' };
 
 function initialsOf(name: string) {
   return name
@@ -59,14 +58,13 @@ export default function EditPlayerScreen() {
     return () => controller.abort();
   }, [token, hasId, id, signOut, router]);
 
-  /* No real id — keep the static placeholder behaviour. */
   if (!hasId) {
-    const name = params.name ?? FALLBACK.name;
-    const team = params.team ?? FALLBACK.team;
-    const nr = params.nr ?? FALLBACK.nr;
-
     return (
-      <PlayerForm title={name} subtitle={`${team} *Nr.${nr}`} avatarInitials={initialsOf(name)} />
+      <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+        <View style={styles.center}>
+          <Text style={styles.errorText}>Lojtari nuk u gjet.</Text>
+        </View>
+      </SafeAreaView>
     );
   }
 
@@ -80,9 +78,9 @@ export default function EditPlayerScreen() {
     );
   }
 
-  const name = player.name ?? params.name ?? FALLBACK.name;
-  const team = player.team?.name ?? params.team ?? FALLBACK.team;
-  const nr = player.jersey_number != null ? String(player.jersey_number) : params.nr ?? FALLBACK.nr;
+  const name = player.name ?? params.name ?? '—';
+  const team = player.team?.name ?? params.team ?? '—';
+  const nr = player.jersey_number != null ? String(player.jersey_number) : params.nr ?? '—';
 
   return (
     <PlayerForm
@@ -104,5 +102,11 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+
+  errorText: {
+    fontFamily: Fonts.body,
+    fontSize: 14,
+    color: '#8A8A8A',
   },
 });
