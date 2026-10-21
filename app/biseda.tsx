@@ -3,7 +3,16 @@ import { BlurView } from 'expo-blur';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useRef, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import {
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  TextInput,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
@@ -347,7 +356,10 @@ function Conversation() {
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
       <StatusBar style="dark" />
 
-      <View style={styles.canvas}>
+      <KeyboardAvoidingView
+        style={styles.canvas}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
         {/* Pinned header — back arrow, then who you are talking to */}
         <View style={styles.header}>
           <View style={styles.colPad}>
@@ -556,7 +568,7 @@ function Conversation() {
             {selected ? <Veil /> : null}
           </View>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
