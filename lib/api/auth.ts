@@ -18,6 +18,23 @@ export function login(email: string, password: string) {
   });
 }
 
+/**
+ * Self-service administrator signup — creates the account and a 14-day-trial
+ * club, then answers with a session like login. The backend requires the email
+ * to be lowercase, so the caller normalises it before sending.
+ */
+export function signup(input: { name: string; email: string; password: string; clubName: string }) {
+  return request<SessionResponse>('/auth/signup', {
+    method: 'POST',
+    body: {
+      name: input.name,
+      email: input.email,
+      password: input.password,
+      club_name: input.clubName,
+    },
+  });
+}
+
 /** Exchange a valid TOTP or recovery code for a session token. */
 export function challengeTwoFactor(challengeToken: string, code: string) {
   return request<SessionResponse>('/auth/two-factor/challenge', {

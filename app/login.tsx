@@ -23,7 +23,7 @@ import { useSession } from '@/lib/session';
 /**
  * Login. Credentials are exchanged for a Sanctum token against the API; a
  * signed-in session is restored on launch, so this screen redirects home when
- * one already exists. Account creation happens in the web app.
+ * one already exists. New administrators can create an account from here.
  */
 
 const C = {
@@ -182,6 +182,17 @@ export default function LoginScreen() {
             )}
           </Pressable>
 
+          <View style={styles.signupRow}>
+            <Text style={styles.signupText}>{"Don't have an account? "}</Text>
+            <Pressable
+              onPress={() => router.push('/signup')}
+              hitSlop={8}
+              accessibilityRole="link"
+            >
+              <Text style={styles.signupLink}>Sign up</Text>
+            </Pressable>
+          </View>
+
           {/* Everything the two modes share stays up here; the slack pushed
               below keeps the form high and the photo on the bottom edge. */}
           <View style={styles.spacer} />
@@ -316,6 +327,28 @@ const styles = StyleSheet.create(
     primaryText: {
       fontFamily: Fonts.bodyBold,
       fontSize: 16,
+      color: C.green,
+    },
+
+    /* ── Signup link ─────────────────────────────────────────── */
+    signupRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginTop: 16,
+    },
+
+    signupText: {
+      fontFamily: Fonts.body,
+      fontSize: 13,
+      lineHeight: 18,
+      color: C.gray,
+    },
+
+    signupLink: {
+      fontFamily: Fonts.bodySemiBold,
+      fontSize: 13,
+      lineHeight: 18,
       color: C.green,
     },
 
