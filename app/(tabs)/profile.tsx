@@ -1,20 +1,40 @@
 import { useRouter } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { InitialsTile, ListRow } from '@/components/list-row';
+import { Text } from '@/components/dashboard/dashboard-text';
 import { IconSymbol, type IconSymbolName } from '@/components/ui/icon-symbol';
-import { Fonts, Radius, Spacing, type ThemeColors } from '@/constants/theme';
+import { Fonts } from '@/constants/theme';
+import { deleteAccount } from '@/lib/api/account';
 import { listMyChildren } from '@/lib/api/children';
 import { ApiError } from '@/lib/api/errors';
 import type { ApiChild } from '@/lib/api/types';
 import { positionLabel } from '@/lib/player-position';
 import { useLanguage } from '@/lib/i18n';
 import { useSession } from '@/lib/session';
-import { useTheme, useThemedStyles } from '@/lib/theme';
+import { useTheme } from '@/lib/theme';
 
 const VERSION = '1.0.0';
+
+const C = {
+  text: '#111111',
+  gray: '#6E6E6E',
+  placeholder: '#A8A8A8',
+
+  card: '#F1FBF5',
+  cardBorder: '#CFE6D8',
+  divider: '#D8ECE1',
+
+  section: '#159447',
+  green: '#159447',
+  greenPressed: '#0E7430',
+  red: '#E03131',
+  redSoft: 'rgba(224,49,49,0.12)',
+  line: '#000000',
+  white: '#F5F5F5',
+};
 
 function errorMessage(error: unknown): string {
   if (error instanceof ApiError) {
@@ -30,8 +50,7 @@ export default function ProfileScreen() {
   const router = useRouter();
   const { user, token, signOut, updateProfile, changePassword } = useSession();
   const { t, lang, setLang } = useLanguage();
-  const { colors, isDark, toggleTheme } = useTheme();
-  const styles = useThemedStyles(createStyles);
+  const { isDark, toggleTheme } = useTheme();
   const [child, setChild] = useState<ApiChild | null>(null);
 
   const [subOpen, setSubOpen] = useState(false);
@@ -48,6 +67,9 @@ export default function ProfileScreen() {
   const [editBusy, setEditBusy] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [deletePass, setDeletePass] = useState('');
+  const [deleteBusy, setDeleteBusy] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   /* A parent's linked child comes from their own children list. */
   useEffect(() => {
@@ -127,14 +149,38 @@ export default function ProfileScreen() {
     }
   };
 
-  const handleDelete = () => {
-    alert(t('profile.accountDeleted'));
-    signOut();
-    router.replace('/login');
+  const handleDelete = async () => {
+    if (deleteBusy) return;
+    if (!token) return;
+    if (!deletePass) {
+      setDeleteError(t('profile.currentPassword'));
+      return;
+    }
+
+    setDeleteBusy(true);
+    setDeleteError(null);
+    try {
+      await deleteAccount(token, deletePass);
+      alert(t('profile.accountDeleted'));
+      signOut();
+      router.replace('/login');
+    } catch (err) {
+      setDeleteError(errorMessage(err));
+    } finally {
+      setDeleteBusy(false);
+    }
+  };
+
+  const closeDelete = () => {
+    setConfirmingDelete(false);
+    setDeletePass('');
+    setDeleteError(null);
   };
 
   return (
     <SafeAreaView style={styles.container}>
+      <StatusBar style="dark" />
+
       <View style={styles.header}>
         <Text style={styles.title}>{t('profile.title')}</Text>
       </View>
@@ -174,34 +220,45 @@ export default function ProfileScreen() {
           {user.role === 'parent' && child ? (
             <>
               <Text style={styles.sectionLabel}>{t('profile.linkedChild')}</Text>
-              <ListRow
-                title={child.name ?? '—'}
-                subtitle={[
-                  child.position ? positionLabel(child.position) : null,
-                  child.jersey_number != null ? `Nr. ${child.jersey_number}` : null,
-                  child.team?.name,
-                ]
-                  .filter(Boolean)
-                  .join(' · ')}
-                leading={
-                  <InitialsTile
-                    initials={(child.name ?? '')
-                      .split(' ')
-                      .filter(Boolean)
-                      .map((word) => word[0])
-                      .slice(0, 2)
-                      .join('')
-                      .toUpperCase()}
-                    color="#7B4F8E"
-                  />
-                }
-                onPress={() =>
-                  router.push({
-                    pathname: '/profili-femiut',
-                    params: { id: String(child.id), name: child.name ?? '' },
-                  })
-                }
-              />
+              <View style={styles.card}>
+                <Pressable
+                  onPress={() =>
+                    router.push({
+                      pathname: '/profili-femiut',
+                      params: { id: String(child.id), name: child.name ?? '' },
+                    })
+                  }
+                  accessibilityRole="button"
+                  style={({ pressed }) => [styles.childRow, pressed && styles.pressed]}
+                >
+                  <View style={styles.childTile}>
+                    <Text style={styles.childInitials}>
+                      {(child.name ?? '')
+                        .split(' ')
+                        .filter(Boolean)
+                        .map((word) => word[0])
+                        .slice(0, 2)
+                        .join('')
+                        .toUpperCase()}
+                    </Text>
+                  </View>
+                  <View style={styles.childBody}>
+                    <Text style={styles.childName} numberOfLines={1}>
+                      {child.name ?? '—'}
+                    </Text>
+                    <Text style={styles.childSub} numberOfLines={1}>
+                      {[
+                        child.position ? positionLabel(child.position) : null,
+                        child.jersey_number != null ? `Nr. ${child.jersey_number}` : null,
+                        child.team?.name,
+                      ]
+                        .filter(Boolean)
+                        .join(' · ')}
+                    </Text>
+                  </View>
+                  <IconSymbol name="chevron.right" size={16} color={C.gray} />
+                </Pressable>
+              </View>
             </>
           ) : null}
 
@@ -243,7 +300,7 @@ export default function ProfileScreen() {
                   value={nameDraft}
                   onChangeText={setNameDraft}
                   editable={!editBusy}
-                  placeholderTextColor={colors.textMuted}
+                  placeholderTextColor={C.placeholder}
                 />
                 <TextInput
                   style={styles.input}
@@ -253,7 +310,7 @@ export default function ProfileScreen() {
                   autoCapitalize="none"
                   keyboardType="email-address"
                   editable={!editBusy}
-                  placeholderTextColor={colors.textMuted}
+                  placeholderTextColor={C.placeholder}
                 />
                 {emailChanged ? (
                   <TextInput
@@ -264,7 +321,7 @@ export default function ProfileScreen() {
                     secureTextEntry
                     autoCapitalize="none"
                     editable={!editBusy}
-                    placeholderTextColor={colors.textMuted}
+                    placeholderTextColor={C.placeholder}
                   />
                 ) : null}
                 {editError ? (
@@ -293,7 +350,7 @@ export default function ProfileScreen() {
                   secureTextEntry
                   autoCapitalize="none"
                   editable={!passBusy}
-                  placeholderTextColor={colors.textMuted}
+                  placeholderTextColor={C.placeholder}
                 />
                 <TextInput
                   style={styles.input}
@@ -303,7 +360,7 @@ export default function ProfileScreen() {
                   secureTextEntry
                   autoCapitalize="none"
                   editable={!passBusy}
-                  placeholderTextColor={colors.textMuted}
+                  placeholderTextColor={C.placeholder}
                 />
                 <TextInput
                   style={styles.input}
@@ -313,7 +370,7 @@ export default function ProfileScreen() {
                   secureTextEntry
                   autoCapitalize="none"
                   editable={!passBusy}
-                  placeholderTextColor={colors.textMuted}
+                  placeholderTextColor={C.placeholder}
                 />
                 {passError ? (
                   <Text style={styles.inlineError} accessibilityRole="alert">
@@ -359,10 +416,31 @@ export default function ProfileScreen() {
             {confirmingDelete ? (
               <View style={styles.inlineBody}>
                 <Text style={styles.inlineTitle}>{t('profile.deleteConfirm')}</Text>
-                <Pressable style={styles.dangerBtn} onPress={handleDelete}>
-                  <Text style={styles.dangerBtnText}>{t('profile.deleteAccount')}</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder={t('profile.currentPassword')}
+                  value={deletePass}
+                  onChangeText={setDeletePass}
+                  secureTextEntry
+                  autoCapitalize="none"
+                  editable={!deleteBusy}
+                  placeholderTextColor={C.placeholder}
+                />
+                {deleteError ? (
+                  <Text style={styles.inlineError} accessibilityRole="alert">
+                    {deleteError}
+                  </Text>
+                ) : null}
+                <Pressable
+                  style={[styles.dangerBtn, deleteBusy && styles.rowDisabled]}
+                  onPress={handleDelete}
+                  disabled={deleteBusy}
+                >
+                  <Text style={styles.dangerBtnText}>
+                    {deleteBusy ? '…' : t('profile.deleteAccount')}
+                  </Text>
                 </Pressable>
-                <Pressable style={styles.cancelBtn} onPress={() => setConfirmingDelete(false)}>
+                <Pressable style={styles.cancelBtn} onPress={closeDelete} disabled={deleteBusy}>
                   <Text style={styles.cancelBtnText}>{t('profile.cancel')}</Text>
                 </Pressable>
               </View>
@@ -373,7 +451,7 @@ export default function ProfileScreen() {
 
           {/* Sign out */}
           <Pressable style={styles.signOut} onPress={handleSignOut}>
-            <IconSymbol name="logout" size={18} color={colors.danger} />
+            <IconSymbol name="logout" size={18} color={C.white} />
             <Text style={styles.signOutText}>{t('profile.signOut')}</Text>
           </Pressable>
           <Text style={styles.footnote}>
@@ -396,16 +474,14 @@ function SettingRow({
   value: string;
   onPress?: () => void;
 }) {
-  const { colors } = useTheme();
-  const styles = useThemedStyles(createStyles);
   const row = (
     <>
-      <IconSymbol name={icon} size={18} color={colors.textMuted} />
+      <IconSymbol name={icon} size={20} color={C.text} />
       <Text style={styles.rowLabel}>{label}</Text>
       <Text style={styles.rowValue} numberOfLines={1}>
         {value}
       </Text>
-      {onPress ? <IconSymbol name="chevron.right" size={16} color={colors.textMuted} /> : null}
+      {onPress ? <IconSymbol name="chevron.right" size={16} color={C.gray} /> : null}
     </>
   );
   if (onPress) {
@@ -418,30 +494,32 @@ function SettingRow({
   return <View style={styles.row}>{row}</View>;
 }
 
-const createStyles = (colors: ThemeColors) => StyleSheet.create({
+const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: 'transparent',
   },
   header: {
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.md,
+    paddingHorizontal: 27,
+    paddingTop: 2,
+    paddingBottom: 4,
   },
   title: {
-    fontFamily: Fonts.heading,
-    fontSize: 26,
-    color: colors.mint,
+    fontFamily: Fonts.bodyBold,
+    fontSize: 20,
+    lineHeight: 24,
+    letterSpacing: -0.3,
+    color: C.text,
     textTransform: 'lowercase',
   },
   content: {
-    paddingHorizontal: Spacing.lg,
-    paddingBottom: Spacing.xxl,
+    paddingHorizontal: 27,
+    paddingBottom: 46,
   },
   profile: {
     alignItems: 'center',
-    gap: Spacing.sm,
-    marginTop: Spacing.sm,
-    marginBottom: Spacing.xl,
+    gap: 6,
+    marginTop: 14,
+    marginBottom: 6,
   },
   avatar: {
     width: 76,
@@ -449,22 +527,25 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     borderRadius: 38,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: C.cardBorder,
   },
   avatarText: {
-    fontFamily: Fonts.heading,
-    fontSize: 28,
+    fontFamily: Fonts.bodyBold,
+    fontSize: 26,
   },
   name: {
-    fontFamily: Fonts.heading,
-    fontSize: 24,
-    color: colors.mint,
+    fontFamily: Fonts.bodyBold,
+    fontSize: 22,
+    lineHeight: 27,
+    color: C.text,
   },
   roleBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
     borderWidth: 1,
-    borderRadius: Radius.pill,
+    borderRadius: 999,
     paddingHorizontal: 12,
     paddingVertical: 4,
   },
@@ -474,182 +555,233 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     borderRadius: 4,
   },
   roleBadgeText: {
-    fontFamily: Fonts.bodyMedium,
-    fontSize: 12,
+    fontFamily: Fonts.bodySemiBold,
+    fontSize: 11,
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: 0.6,
   },
   subtitle: {
     fontFamily: Fonts.body,
     fontSize: 13,
-    color: colors.textMuted,
+    lineHeight: 17,
+    color: C.gray,
   },
   sectionLabel: {
-    fontFamily: Fonts.bodyMedium,
+    fontFamily: Fonts.bodySemiBold,
     fontSize: 11,
-    letterSpacing: 1.5,
+    letterSpacing: 1.2,
     textTransform: 'uppercase',
-    color: colors.emerald,
-    marginBottom: Spacing.sm,
-    marginTop: Spacing.lg,
+    color: C.section,
+    marginTop: 18,
+    marginBottom: 8,
   },
   card: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderWidth: 1,
-    borderRadius: Radius.lg,
-    paddingHorizontal: Spacing.lg,
+    backgroundColor: C.card,
+    borderColor: C.cardBorder,
+    borderWidth: 2,
+    borderRadius: 5,
+    paddingHorizontal: 16,
+    overflow: 'hidden',
   },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.md,
-    paddingVertical: Spacing.lg,
+    gap: 12,
+    minHeight: 54,
+    paddingVertical: 10,
   },
   rowLabel: {
     flex: 1,
-    fontFamily: Fonts.body,
-    fontSize: 14,
-    color: colors.textSecondary,
+    fontFamily: Fonts.bodySemiBold,
+    fontSize: 15,
+    lineHeight: 19,
+    color: C.text,
   },
   rowValue: {
-    fontFamily: Fonts.bodySemiBold,
-    fontSize: 14,
-    color: colors.text,
+    flexShrink: 1,
+    maxWidth: '46%',
+    textAlign: 'right',
+    fontFamily: Fonts.body,
+    fontSize: 13,
+    lineHeight: 17,
+    color: C.gray,
   },
   divider: {
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: colors.borderSoft,
+    height: 2,
+    backgroundColor: C.divider,
   },
   inlineBody: {
-    gap: Spacing.sm,
-    paddingVertical: Spacing.lg,
+    gap: 8,
+    paddingVertical: 14,
   },
   inlineTitle: {
     fontFamily: Fonts.bodySemiBold,
     fontSize: 13,
-    color: colors.text,
+    lineHeight: 17,
+    color: C.text,
   },
   inlineText: {
     fontFamily: Fonts.body,
     fontSize: 12,
-    color: colors.textMuted,
+    lineHeight: 16,
+    color: C.gray,
   },
   inlineError: {
     fontFamily: Fonts.bodySemiBold,
     fontSize: 12,
-    color: colors.danger,
+    lineHeight: 16,
+    color: C.red,
   },
   inlineBtn: {
-    marginTop: Spacing.xs,
-    flexDirection: 'row',
+    marginTop: 4,
+    height: 42,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: Spacing.sm,
-    backgroundColor: colors.mint,
-    borderRadius: Radius.md,
-    paddingVertical: Spacing.sm,
+    backgroundColor: C.green,
+    borderRadius: 3,
   },
   inlineBtnText: {
     fontFamily: Fonts.bodySemiBold,
-    fontSize: 13,
-    color: colors.textOnPrimary,
-    textTransform: 'lowercase',
+    fontSize: 14,
+    color: C.white,
   },
   input: {
+    height: 42,
     fontFamily: Fonts.body,
-    fontSize: 14,
-    color: colors.text,
-    backgroundColor: colors.surfaceAlt,
-    borderColor: colors.border,
+    fontSize: 13,
+    color: C.text,
+    backgroundColor: 'transparent',
+    borderColor: C.line,
     borderWidth: 1,
-    borderRadius: Radius.md,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm + 2,
+    borderRadius: 3,
+    paddingHorizontal: 10,
   },
   dangerBtn: {
-    flexDirection: 'row',
+    height: 42,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.danger,
-    borderRadius: Radius.md,
-    paddingVertical: Spacing.sm,
+    backgroundColor: C.red,
+    borderRadius: 3,
   },
   dangerBtnText: {
     fontFamily: Fonts.bodySemiBold,
-    fontSize: 13,
-    color: colors.textOnPrimary,
-    textTransform: 'lowercase',
+    fontSize: 14,
+    color: C.white,
+  },
+  rowDisabled: {
+    opacity: 0.6,
   },
   cancelBtn: {
-    flexDirection: 'row',
+    height: 42,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.surfaceAlt,
-    borderColor: colors.border,
+    backgroundColor: 'transparent',
+    borderColor: C.line,
     borderWidth: 1,
-    borderRadius: Radius.md,
-    paddingVertical: Spacing.sm,
+    borderRadius: 3,
   },
   cancelBtnText: {
     fontFamily: Fonts.bodySemiBold,
-    fontSize: 13,
-    color: colors.textSecondary,
-    textTransform: 'lowercase',
+    fontSize: 14,
+    color: C.text,
   },
   signOut: {
-    marginTop: Spacing.xxl,
+    marginTop: 22,
+    height: 54,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: Spacing.sm,
-    backgroundColor: `${colors.danger}1a`,
-    borderColor: `${colors.danger}55`,
-    borderWidth: 1,
-    borderRadius: Radius.md,
-    paddingVertical: Spacing.lg,
+    gap: 10,
+    backgroundColor: C.red,
+    borderRadius: 5,
   },
   signOutText: {
-    fontFamily: Fonts.bodySemiBold,
-    fontSize: 15,
-    color: colors.danger,
+    fontFamily: Fonts.bodyBold,
+    fontSize: 17,
+    lineHeight: 21,
+    color: C.white,
   },
   footnote: {
     fontFamily: Fonts.body,
-    fontSize: 12,
-    color: colors.textMuted,
+    fontSize: 11.5,
+    lineHeight: 15,
+    color: C.gray,
     textAlign: 'center',
-    marginTop: Spacing.lg,
+    marginTop: 12,
   },
   signedOut: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: Spacing.sm,
-    padding: Spacing.xxl,
+    gap: 8,
+    padding: 32,
   },
   signedOutTitle: {
-    fontFamily: Fonts.heading,
-    fontSize: 24,
-    color: colors.mint,
+    fontFamily: Fonts.bodyBold,
+    fontSize: 22,
+    lineHeight: 27,
+    color: C.text,
     textTransform: 'lowercase',
   },
   signedOutSub: {
     fontFamily: Fonts.body,
     fontSize: 14,
-    color: colors.textMuted,
+    lineHeight: 19,
+    color: C.gray,
     textAlign: 'center',
   },
   primary: {
-    marginTop: Spacing.lg,
-    backgroundColor: colors.mint,
-    borderRadius: Radius.md,
-    paddingVertical: Spacing.md,
-    paddingHorizontal: Spacing.xl,
+    marginTop: 14,
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+    backgroundColor: C.green,
+    borderRadius: 5,
   },
   primaryText: {
     fontFamily: Fonts.bodySemiBold,
     fontSize: 15,
-    color: colors.textOnPrimary,
+    color: C.white,
+  },
+
+  /* Linked child — the parent's one-row card. */
+  childRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 12,
+  },
+  childTile: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: '#EFE6F3',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  childInitials: {
+    fontFamily: Fonts.bodyBold,
+    fontSize: 13,
+    color: '#7B4F8E',
+  },
+  childBody: {
+    flex: 1,
+    gap: 2,
+  },
+  childName: {
+    fontFamily: Fonts.bodySemiBold,
+    fontSize: 15,
+    lineHeight: 19,
+    color: C.text,
+  },
+  childSub: {
+    fontFamily: Fonts.body,
+    fontSize: 12,
+    lineHeight: 16,
+    color: C.gray,
+  },
+  pressed: {
+    opacity: 0.5,
   },
 });
