@@ -205,13 +205,9 @@ export default function SeasonSettingsScreen() {
                   {ddmmyyyy(active?.start_date)} — {ddmmyyyy(active?.end_date)}
                 </Text>
               </View>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Sezoni aktiv"
-                style={({ pressed }) => [styles.activeBtn, pressed && styles.pressed]}
-              >
+              <View style={styles.activeBtn}>
                 <Text style={styles.activeBtnText}>Aktiv</Text>
-              </Pressable>
+              </View>
             </View>
 
             {/* ── New season ───────────────────────────────────── */}

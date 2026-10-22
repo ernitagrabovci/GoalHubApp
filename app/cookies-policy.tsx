@@ -1,9 +1,10 @@
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, View } from 'react-native';
 
 import { Text } from '@/components/dashboard/dashboard-text';
 import { LegalPage, type LegalSection } from '@/components/legal/legal-page';
 import { Fonts } from '@/constants/theme';
 import { scaled } from '@/lib/responsive';
+import { usePersistedState } from '@/lib/storage';
 
 const C = {
   green: '#159447',
@@ -51,14 +52,39 @@ const SECTIONS: LegalSection[] = [
   },
 ];
 
+type CookieChoice = 'all' | 'necessary' | 'none';
+
+const CHOICE_LABEL: Record<CookieChoice, string> = {
+  all: 'të gjitha cookies',
+  necessary: 'vetëm cookies e nevojshme',
+  none: 'asnjë cookie opsionale',
+};
+
 export default function CookiesPolicyScreen() {
+  const [choice, setChoice] = usePersistedState<CookieChoice | null>(
+    'cookie-consent',
+    null,
+  );
+
+  const choose = (value: CookieChoice) => {
+    setChoice(value);
+    Alert.alert('Preferenca u ruajt', `Zgjedhja juaj: ${CHOICE_LABEL[value]}.`);
+  };
+
   return (
     <LegalPage
       title="Politika e Cookies"
       sections={SECTIONS}
       footer={
         <View style={styles.actions}>
+          {choice ? (
+            <Text style={styles.saved}>
+              Zgjedhja juaj aktuale: {CHOICE_LABEL[choice]}.
+            </Text>
+          ) : null}
+
           <Pressable
+            onPress={() => choose('all')}
             accessibilityRole="button"
             style={({ pressed }) => [styles.btn, styles.allowAll, pressed && styles.pressed]}
           >
@@ -66,6 +92,7 @@ export default function CookiesPolicyScreen() {
           </Pressable>
 
           <Pressable
+            onPress={() => choose('necessary')}
             accessibilityRole="button"
             style={({ pressed }) => [styles.btn, styles.necessary, pressed && styles.pressed]}
           >
@@ -73,6 +100,7 @@ export default function CookiesPolicyScreen() {
           </Pressable>
 
           <Pressable
+            onPress={() => choose('none')}
             accessibilityRole="button"
             style={({ pressed }) => [styles.btn, styles.denyAll, pressed && styles.pressed]}
           >
@@ -89,6 +117,15 @@ const styles = StyleSheet.create(
     actions: {
       marginTop: 26,
       gap: 9,
+    },
+
+    saved: {
+      fontFamily: Fonts.bodyMedium,
+      fontSize: 12.5,
+      lineHeight: 17,
+      color: C.green,
+      textAlign: 'center',
+      marginBottom: 2,
     },
 
     btn: {

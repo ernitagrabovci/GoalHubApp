@@ -296,24 +296,6 @@ export function PlayerForm({
                 <Text style={styles.cardHeadText}>Të dhënat personale</Text>
               </View>
 
-              {/* Photo upload — divided from the fields by its bottom line */}
-              <View style={styles.photoZone}>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Ngarko foton"
-                  style={({ pressed }) => [styles.photoBtn, pressed && styles.pressed]}
-                >
-                  <View style={styles.photoCircle}>
-                    <MaterialCommunityIcons
-                      name="cloud-upload-outline"
-                      size={I(22)}
-                      color="#F5F5F5"
-                    />
-                  </View>
-                </Pressable>
-                <Text style={styles.photoHint}>Ngarko foton</Text>
-              </View>
-
               <View style={styles.cardBody}>
                 <View style={styles.row}>
                   <View style={styles.col}>
@@ -878,35 +860,6 @@ const styles = StyleSheet.create(
       paddingHorizontal: 15,
       paddingTop: 12,
       paddingBottom: 14,
-    },
-
-    /* ── Photo upload ────────────────────────────────────────── */
-    photoZone: {
-      height: 118,
-      alignItems: 'center',
-      justifyContent: 'center',
-      borderBottomWidth: 1,
-      borderBottomColor: C.headLine,
-    },
-
-    photoBtn: {
-      alignItems: 'center',
-    },
-
-    photoCircle: {
-      width: 52,
-      height: 52,
-      borderRadius: 26,
-      backgroundColor: C.green,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-
-    photoHint: {
-      fontFamily: Fonts.body,
-      fontSize: 12,
-      color: C.text,
-      marginTop: 8,
     },
 
     /* ── Fields ──────────────────────────────────────────────── */

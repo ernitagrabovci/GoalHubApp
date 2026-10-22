@@ -605,13 +605,6 @@ export default function TrainerMatchesScreen() {
                           >
                             <Text style={styles.rowBtnText}>Shiko</Text>
                           </Pressable>
-                          <Pressable
-                            accessibilityRole="button"
-                            accessibilityLabel="Statistikat"
-                            style={({ pressed }) => [styles.rowBtn, pressed && styles.pressed]}
-                          >
-                            <Text style={styles.rowBtnText}>Statistikat</Text>
-                          </Pressable>
                         </View>
                       </View>
                     );

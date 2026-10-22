@@ -175,9 +175,9 @@ export default function EnterResultScreen() {
 
   const save = () => {
     if (saving) return;
-    /* No match id: nothing to save to, close as before. */
+    /* No match id: there is nothing to save the stats against. */
     if (!hasId || !token) {
-      router.back();
+      setError('Ndeshja nuk u identifikua. Kthehu dhe provo përsëri.');
       return;
     }
 
