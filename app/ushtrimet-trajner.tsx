@@ -16,7 +16,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text } from '@/components/dashboard/dashboard-text';
 import { MONTHS } from '@/components/trainings/training-form';
 import { Fonts } from '@/constants/theme';
-import { createDrill, deleteDrill, getDrill, listDrills } from '@/lib/api/drills';
+import {
+  createDrill,
+  deleteDrill,
+  getDrill,
+  listDrills,
+  updateDrill,
+} from '@/lib/api/drills';
 import { ApiError } from '@/lib/api/errors';
 import type { ApiDrill, DrillInput } from '@/lib/api/types';
 import { I, scaled } from '@/lib/responsive';
@@ -74,7 +80,8 @@ export default function TrainerDrillsScreen() {
   const [lastPage, setLastPage] = useState(1);
   const [busyId, setBusyId] = useState<number | null>(null);
 
-  const [creating, setCreating] = useState(false);
+  /* The create/edit popup; `drill` null means a fresh one. */
+  const [form, setForm] = useState<{ drill: ApiDrill | null } | null>(null);
   const [opened, setOpened] = useState<ApiDrill | null>(null);
 
   const load = useCallback(
@@ -194,7 +201,7 @@ export default function TrainerDrillsScreen() {
           <View style={styles.colPad}>
             {/* ── Stërvitje e re ─────────────────────────────────── */}
             <Pressable
-              onPress={() => setCreating(true)}
+              onPress={() => setForm({ drill: null })}
               accessibilityRole="button"
               accessibilityLabel="Stërvitje e re"
               style={({ pressed }) => [styles.addBtn, pressed && styles.pressed]}
@@ -342,40 +349,59 @@ export default function TrainerDrillsScreen() {
       </View>
 
       {/* Overlays on the SafeAreaView so the blur covers the whole screen */}
-      {creating ? (
-        <NewDrillModal
+      {form ? (
+        <DrillFormModal
           token={token}
-          onClose={() => setCreating(false)}
-          onCreated={() => {
-            setCreating(false);
-            load().catch(() => setCreating(false));
+          drill={form.drill}
+          onClose={() => setForm(null)}
+          onSaved={() => {
+            setForm(null);
+            load().catch(() => setForm(null));
           }}
         />
       ) : null}
 
-      {opened ? <DrillDetailModal drill={opened} onClose={() => setOpened(null)} /> : null}
+      {opened ? (
+        <DrillDetailModal
+          drill={opened}
+          onClose={() => setOpened(null)}
+          onEdit={() => {
+            setOpened(null);
+            setForm({ drill: opened });
+          }}
+        />
+      ) : null}
     </SafeAreaView>
   );
 }
 
 /* ------------------------------------------------------------------ */
-/* "Stërvitje e re" popup                                              */
+/* Create / edit popup                                                 */
 /* ------------------------------------------------------------------ */
 
-function NewDrillModal({
+function DrillFormModal({
   token,
+  drill,
   onClose,
-  onCreated,
+  onSaved,
 }: {
   token: string | null;
+  /* The drill being edited; null creates a new one. */
+  drill: ApiDrill | null;
   onClose: () => void;
-  onCreated: () => void;
+  onSaved: () => void;
 }) {
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
-  const [category, setCategory] = useState('');
-  const [minutes, setMinutes] = useState('');
-  const [reps, setReps] = useState('');
+  const editing = drill != null;
+
+  const [title, setTitle] = useState(drill?.title ?? '');
+  const [description, setDescription] = useState(drill?.description ?? '');
+  const [category, setCategory] = useState(drill?.category ?? '');
+  const [minutes, setMinutes] = useState(
+    drill?.duration_minutes != null ? String(drill.duration_minutes) : '',
+  );
+  const [reps, setReps] = useState(
+    drill?.repetitions != null ? String(drill.repetitions) : '',
+  );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -399,8 +425,12 @@ function NewDrillModal({
     setSaving(true);
     setError(null);
 
-    createDrill(token, input)
-      .then(() => onCreated())
+    const request = drill
+      ? updateDrill(token, drill.id, input)
+      : createDrill(token, input);
+
+    request
+      .then(() => onSaved())
       .catch((e) => {
         setSaving(false);
         if (e instanceof ApiError && e.status === 422 && e.fieldErrors) {
@@ -408,7 +438,9 @@ function NewDrillModal({
         } else if (e instanceof ApiError && e.status === 0) {
           setError('Nuk mund të lidhemi me serverin. Kontrollo lidhjen.');
         } else {
-          setError('Ushtrimi nuk mund të krijohet.');
+          setError(
+            editing ? 'Ushtrimi nuk mund të përditësohet.' : 'Ushtrimi nuk mund të krijohet.',
+          );
         }
       });
   };
@@ -425,7 +457,9 @@ function NewDrillModal({
 
       <View style={styles.nsCard}>
         <View style={styles.nsHeader}>
-          <Text style={styles.nsTitle}>Stërvitje e re</Text>
+          <Text style={styles.nsTitle}>
+            {editing ? 'Edito ushtrimin' : 'Stërvitje e re'}
+          </Text>
         </View>
         <View style={styles.nsDivider} />
 
@@ -522,7 +556,15 @@ function NewDrillModal({
               pressed && styles.pressed,
             ]}
           >
-            <Text style={styles.nsBtnText}>{saving ? 'Duke krijuar…' : 'Krijo ushtrimin'}</Text>
+            <Text style={styles.nsBtnText}>
+              {saving
+                ? editing
+                  ? 'Duke ruajtur…'
+                  : 'Duke krijuar…'
+                : editing
+                  ? 'Ruaj ndryshimet'
+                  : 'Krijo ushtrimin'}
+            </Text>
           </Pressable>
         </View>
       </View>
@@ -534,7 +576,15 @@ function NewDrillModal({
 /* "Hap" popup — the drill in full                                     */
 /* ------------------------------------------------------------------ */
 
-function DrillDetailModal({ drill, onClose }: { drill: ApiDrill; onClose: () => void }) {
+function DrillDetailModal({
+  drill,
+  onClose,
+  onEdit,
+}: {
+  drill: ApiDrill;
+  onClose: () => void;
+  onEdit: () => void;
+}) {
   return (
     <View style={styles.ovWrap}>
       <BlurView style={styles.ovFill} intensity={45} tint="dark" />
@@ -575,6 +625,13 @@ function DrillDetailModal({ drill, onClose }: { drill: ApiDrill; onClose: () => 
         </ScrollView>
 
         <View style={styles.nsActions}>
+          <Pressable
+            onPress={onEdit}
+            accessibilityRole="button"
+            style={({ pressed }) => [styles.nsEdit, pressed && styles.pressed]}
+          >
+            <Text style={styles.nsBtnText}>Edito</Text>
+          </Pressable>
           <Pressable
             onPress={onClose}
             accessibilityRole="button"
@@ -986,6 +1043,15 @@ const styles = StyleSheet.create(
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: C.green,
+      borderRadius: 4,
+    },
+
+    nsEdit: {
+      height: 32,
+      paddingHorizontal: 16,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: C.blue,
       borderRadius: 4,
     },
 
