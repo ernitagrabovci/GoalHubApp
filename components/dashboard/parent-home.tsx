@@ -15,6 +15,7 @@ import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
 import { listMyChildren } from '@/lib/api/children';
 import { ApiError } from '@/lib/api/errors';
+import { badges } from '@/lib/api/notifications';
 import type { ApiChild, ChildrenResponse } from '@/lib/api/types';
 import { statusLabel } from '@/lib/player-status';
 import { I, scaled } from '@/lib/responsive';
@@ -85,17 +86,23 @@ export function ParentHome() {
 
   const [children, setChildren] = useState<ApiChild[] | null>(null);
   const [totals, setTotals] = useState<ChildrenResponse['totals'] | null>(null);
+  const [unread, setUnread] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!token) return;
     const controller = new AbortController();
 
-    listMyChildren(token, controller.signal)
-      .then((res) => {
+    Promise.all([
+      listMyChildren(token, controller.signal),
+      /* The badge count is optional — it must not blank the child list. */
+      badges(token, controller.signal).catch(() => null),
+    ])
+      .then(([res, counts]) => {
         if (controller.signal.aborted) return;
         setChildren(res.data);
         setTotals(res.totals);
+        if (counts) setUnread(counts.notifications);
         setError(null);
       })
       .catch((err) => {
@@ -162,6 +169,7 @@ export function ParentHome() {
           <View style={styles.padded}>
             <HeaderBlock
               club={user?.club ?? '—'}
+              unread={unread}
               onBell={() => open('/njoftimet-prindit')}
               onSettings={() => open('/settings')}
             />
@@ -375,10 +383,12 @@ export function ParentHome() {
 
 function HeaderBlock({
   club,
+  unread,
   onBell,
   onSettings,
 }: {
   club: string;
+  unread: number;
   onBell: () => void;
   onSettings: () => void;
 }) {
@@ -433,11 +443,13 @@ function HeaderBlock({
             color={C.text}
           />
 
-          <View style={styles.badge}>
-            <Text style={styles.badgeText}>
-              3
-            </Text>
-          </View>
+          {unread > 0 ? (
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>
+                {unread > 99 ? '99+' : unread}
+              </Text>
+            </View>
+          ) : null}
         </Pressable>
 
         {/* SETTINGS */}

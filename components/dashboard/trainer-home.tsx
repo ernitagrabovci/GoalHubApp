@@ -14,10 +14,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
 import { ApiError } from '@/lib/api/errors';
+import { badges } from '@/lib/api/notifications';
 import { playerStats } from '@/lib/api/players';
-import { trainingStats } from '@/lib/api/trainings';
-import type { PlayerStats, TrainingStats } from '@/lib/api/types';
+import { listTrainings, trainingStats } from '@/lib/api/trainings';
+import type { ApiTraining, PlayerStats, TrainingStats } from '@/lib/api/types';
 import { I, scaled } from '@/lib/responsive';
+import { trainingDate, trainingTime, typeName } from '@/lib/trainings';
 import { useSession } from '@/lib/session';
 
 /**
@@ -87,6 +89,8 @@ export function TrainerHome() {
 
   const [stats, setStats] = useState<PlayerStats | null>(null);
   const [monthStats, setMonthStats] = useState<TrainingStats | null>(null);
+  const [nextTraining, setNextTraining] = useState<ApiTraining | null>(null);
+  const [unread, setUnread] = useState(0);
 
   useEffect(() => {
     if (!token) return;
@@ -111,6 +115,23 @@ export function TrainerHome() {
       .then((res) => {
         if (controller.signal.aborted) return;
         setMonthStats(res);
+      })
+      .catch(handleAuthError);
+
+    listTrainings(token, { status: 'upcoming' }, controller.signal)
+      .then((res) => {
+        if (controller.signal.aborted) return;
+        const soonest = [...res.data].sort((a, b) =>
+          (a.scheduled_at ?? '').localeCompare(b.scheduled_at ?? ''),
+        )[0];
+        setNextTraining(soonest ?? null);
+      })
+      .catch(handleAuthError);
+
+    badges(token, controller.signal)
+      .then((res) => {
+        if (controller.signal.aborted) return;
+        setUnread(res.notifications);
       })
       .catch(handleAuthError);
 
@@ -139,6 +160,7 @@ export function TrainerHome() {
           <View style={styles.padded}>
             <HeaderBlock
               clubName={user?.club ?? '—'}
+              unread={unread}
               onBell={() => open('/njoftimet-trajner')}
               onSettings={() => open('/settings')}
             />
@@ -236,7 +258,11 @@ export function TrainerHome() {
                   style={styles.eventText}
                   numberOfLines={1}
                 >
-                  29 GUSHT • 09:00 • Trajnim Taktik
+                  {nextTraining
+                    ? `${trainingDate(nextTraining.scheduled_at).toUpperCase()} • ${trainingTime(
+                        nextTraining.scheduled_at,
+                      )} • ${typeName(nextTraining.type)}`
+                    : 'Nuk ka stërvitje të planifikuara'}
                 </Text>
               </View>
 
@@ -361,10 +387,12 @@ export function TrainerHome() {
 
 function HeaderBlock({
   clubName,
+  unread,
   onBell,
   onSettings,
 }: {
   clubName: string;
+  unread: number;
   onBell: () => void;
   onSettings: () => void;
 }) {
@@ -419,11 +447,13 @@ function HeaderBlock({
             color={C.text}
           />
 
-          <View style={styles.badge}>
-            <Text style={styles.badgeText}>
-              3
-            </Text>
-          </View>
+          {unread > 0 ? (
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>
+                {unread > 99 ? '99+' : unread}
+              </Text>
+            </View>
+          ) : null}
         </Pressable>
 
         {/* SETTINGS */}

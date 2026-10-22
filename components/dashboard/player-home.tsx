@@ -15,7 +15,8 @@ import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
 import { ApiError } from '@/lib/api/errors';
 import { listMyMatches } from '@/lib/api/matches';
-import { myPlayer } from '@/lib/api/players';
+import { badges } from '@/lib/api/notifications';
+import { myPlayer, myStatistics } from '@/lib/api/players';
 import { listMyTrainings } from '@/lib/api/trainings';
 import type { ApiMatch, ApiTraining } from '@/lib/api/types';
 import { I, scaled } from '@/lib/responsive';
@@ -95,6 +96,9 @@ export function PlayerHome() {
   const [nextTraining, setNextTraining] = useState<ApiTraining | null>(null);
   const [upcoming, setUpcoming] = useState<ApiMatch[]>([]);
   const [jersey, setJersey] = useState('—');
+  const [attendance, setAttendance] = useState<number | null>(null);
+  const [rating, setRating] = useState<number | null>(null);
+  const [unread, setUnread] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -105,8 +109,11 @@ export function PlayerHome() {
       listMyTrainings(token, { status: 'upcoming' }, controller.signal),
       listMyMatches(token, { status: 'upcoming' }, controller.signal),
       myPlayer(token, controller.signal),
+      listMyTrainings(token, { status: 'finished' }, controller.signal),
+      myStatistics(token, controller.signal),
+      badges(token, controller.signal),
     ])
-      .then(([trainings, matches, player]) => {
+      .then(([trainings, matches, player, finished, statistics, counts]) => {
         if (controller.signal.aborted) return;
 
         /* Both lists arrive newest-first, so the soonest upcoming is last. */
@@ -118,6 +125,18 @@ export function PlayerHome() {
         setJersey(
           player.data.jersey_number != null ? String(player.data.jersey_number) : '—',
         );
+
+        /* Attendance is the share of marked sessions they were present for;
+           the API has no single rate for players, so it comes from the
+           finished list (latest 20 sessions). */
+        const marked = finished.data.filter(
+          (t) => t.my_attendance === 'present' || t.my_attendance === 'absent',
+        );
+        const present = marked.filter((t) => t.my_attendance === 'present').length;
+        setAttendance(marked.length > 0 ? Math.round((present / marked.length) * 100) : null);
+
+        setRating(statistics.statistics.rating);
+        setUnread(counts.notifications);
         setError(null);
       })
       .catch((err) => {
@@ -159,6 +178,7 @@ export function PlayerHome() {
           <View style={styles.padded}>
             <HeaderBlock
               club={user?.club ?? '—'}
+              unread={unread}
               onBell={() => open('/njoftimet-lojtarit')}
               onSettings={() => open('/settings')}
             />
@@ -197,7 +217,7 @@ export function PlayerHome() {
               <StatCard
                 labelTop="Prezenca"
                 labelBottom="juaj"
-                value="67%"
+                value={attendance != null ? `${attendance}%` : '—'}
                 img={IMG.prezenca}
                 imgStyle={styles.statImgPrezenca}
                 imgCover
@@ -205,17 +225,11 @@ export function PlayerHome() {
 
               <StatCard
                 labelTop="Vlerësimi"
-                labelBottom="i fundit"
-                value="7.8"
+                labelBottom="mesatar"
+                value={rating != null ? rating.toFixed(1) : '—'}
                 img={IMG.stervitje}
                 imgStyle={styles.statImgStervitje}
                 imgCover
-              />
-
-              <StatCard
-                labelTop="Prani"
-                labelBottom="Mësimet"
-                value="0%"
               />
             </ScrollView>
           </View>
@@ -457,10 +471,12 @@ export function PlayerHome() {
 
 function HeaderBlock({
   club,
+  unread,
   onBell,
   onSettings,
 }: {
   club: string;
+  unread: number;
   onBell: () => void;
   onSettings: () => void;
 }) {
@@ -515,11 +531,13 @@ function HeaderBlock({
             color={C.text}
           />
 
-          <View style={styles.badge}>
-            <Text style={styles.badgeText}>
-              3
-            </Text>
-          </View>
+          {unread > 0 ? (
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>
+                {unread > 99 ? '99+' : unread}
+              </Text>
+            </View>
+          ) : null}
         </Pressable>
 
         {/* SETTINGS */}

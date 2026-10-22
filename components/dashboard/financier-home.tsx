@@ -15,6 +15,7 @@ import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
 import { ApiError } from '@/lib/api/errors';
 import { financeStats, listFees } from '@/lib/api/finance';
+import { badges } from '@/lib/api/notifications';
 import type { ApiFee, FinanceStats } from '@/lib/api/types';
 import { dmy, usd } from '@/lib/finance';
 import { I, scaled } from '@/lib/responsive';
@@ -81,7 +82,7 @@ const IMG = {
    SUMMARY GRID (2x2) — the labels; the counts come from the API
    ========================================================= */
 
-const SUMMARY_LABELS = ['Të paguar', 'Të papaguara', 'Me vonesë', 'Kritike'];
+const SUMMARY_LABELS = ['Të paguar', 'Të papaguara', 'Me vonesë', 'Në total'];
 
 /* =========================================================
    MAIN COMPONENT
@@ -93,6 +94,7 @@ export function FinancierHome() {
 
   const [stats, setStats] = useState<FinanceStats | null>(null);
   const [recent, setRecent] = useState<ApiFee[]>([]);
+  const [unread, setUnread] = useState(0);
 
   /* The headline totals and the recent-payments strip are one-shot. */
   useEffect(() => {
@@ -102,10 +104,11 @@ export function FinancierHome() {
     Promise.allSettled([
       financeStats(token, controller.signal),
       listFees(token, { status: 'paid' }, controller.signal),
-    ]).then(([totals, paid]) => {
+      badges(token, controller.signal),
+    ]).then(([totals, paid, counts]) => {
       if (controller.signal.aborted) return;
 
-      const failure = [totals, paid].find((r) => r.status === 'rejected');
+      const failure = [totals, paid, counts].find((r) => r.status === 'rejected');
       if (
         failure &&
         failure.status === 'rejected' &&
@@ -119,14 +122,20 @@ export function FinancierHome() {
 
       if (totals.status === 'fulfilled') setStats(totals.value);
       if (paid.status === 'fulfilled') setRecent(paid.value.data.slice(0, 6));
+      if (counts.status === 'fulfilled') setUnread(counts.value.notifications);
     });
 
     return () => controller.abort();
   }, [token, router, signOut]);
 
-  /* Each grid cell reads straight off the totals; `Kritike` has no source. */
+  /* Each grid cell reads straight off the totals. */
   const summaryValues = stats
-    ? [String(stats.paid), String(stats.unpaid), String(stats.overdue), '—']
+    ? [
+        String(stats.paid),
+        String(stats.unpaid),
+        String(stats.overdue),
+        String(stats.paid + stats.unpaid + stats.overdue),
+      ]
     : ['—', '—', '—', '—'];
 
   const open = (route: string) => {
@@ -150,7 +159,8 @@ export function FinancierHome() {
 
           <View style={styles.padded}>
             <HeaderBlock
-              club={user?.club || 'FC Prishtina'}
+              club={user?.club ?? '—'}
+              unread={unread}
               onBell={() => open('/njoftimet-financierit')}
               onSettings={() => open('/settings')}
             />
@@ -351,10 +361,12 @@ export function FinancierHome() {
 
 function HeaderBlock({
   club,
+  unread,
   onBell,
   onSettings,
 }: {
   club: string;
+  unread: number;
   onBell: () => void;
   onSettings: () => void;
 }) {
@@ -409,11 +421,13 @@ function HeaderBlock({
             color={C.text}
           />
 
-          <View style={styles.badge}>
-            <Text style={styles.badgeText}>
-              3
-            </Text>
-          </View>
+          {unread > 0 ? (
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>
+                {unread > 99 ? '99+' : unread}
+              </Text>
+            </View>
+          ) : null}
         </Pressable>
 
         {/* SETTINGS */}

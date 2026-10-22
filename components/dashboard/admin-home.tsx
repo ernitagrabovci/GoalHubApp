@@ -10,6 +10,7 @@ import { Fonts } from '@/constants/theme';
 import { dashboardStats } from '@/lib/api/dashboard';
 import { ApiError } from '@/lib/api/errors';
 import { listMatches } from '@/lib/api/matches';
+import { badges } from '@/lib/api/notifications';
 import { activityReport } from '@/lib/api/reports';
 import { listTeams, teamStats } from '@/lib/api/teams';
 import type {
@@ -135,6 +136,7 @@ export function AdminHome() {
   const [teams, setTeams] = useState<ApiTeam[] | null>(null);
   const [matches, setMatches] = useState<ApiMatch[] | null>(null);
   const [activity, setActivity] = useState<ActivityReport | null>(null);
+  const [unread, setUnread] = useState(0);
 
   // These dashboard reads are one-shots — fetched together, and a failure of one
   // simply leaves its section empty. An abort is indistinguishable from a
@@ -149,10 +151,11 @@ export function AdminHome() {
       listTeams(token, controller.signal),
       listMatches(token, { status: 'upcoming' }, controller.signal),
       activityReport(token, controller.signal),
-    ]).then(([dash, team, teamList, matchList, activityRes]) => {
+      badges(token, controller.signal),
+    ]).then(([dash, team, teamList, matchList, activityRes, badgeCounts]) => {
       if (controller.signal.aborted) return;
 
-      const failure = [dash, team, teamList, matchList, activityRes].find(
+      const failure = [dash, team, teamList, matchList, activityRes, badgeCounts].find(
         (r) => r.status === 'rejected',
       );
       if (
@@ -171,6 +174,7 @@ export function AdminHome() {
       if (teamList.status === 'fulfilled') setTeams(teamList.value.data);
       if (matchList.status === 'fulfilled') setMatches(matchList.value.data);
       if (activityRes.status === 'fulfilled') setActivity(activityRes.value);
+      if (badgeCounts.status === 'fulfilled') setUnread(badgeCounts.value.notifications);
     });
 
     return () => controller.abort();
@@ -197,6 +201,7 @@ export function AdminHome() {
           <View style={styles.padded}>
             <HeaderBlock
               clubName={data?.club.name ?? '—'}
+              unread={unread}
               onBell={() => router.push('/njoftimet')}
               onSettings={() => router.push('/settings')}
               onClub={() => router.push('/club-profile')}
@@ -426,11 +431,13 @@ export function AdminHome() {
 
 function HeaderBlock({
   clubName,
+  unread,
   onBell,
   onSettings,
   onClub,
 }: {
   clubName: string;
+  unread: number;
   onBell: () => void;
   onSettings: () => void;
   onClub: () => void;
@@ -456,9 +463,11 @@ function HeaderBlock({
       <View style={styles.headerRight}>
         <Pressable onPress={onBell} hitSlop={6} style={({ pressed }) => [styles.roundBtn, pressed && styles.pressed]}>
           <MaterialCommunityIcons name="bell-outline" size={I(20)} color={C.text} />
-          <View style={styles.badge}>
-            <Text style={styles.badgeText}>3</Text>
-          </View>
+          {unread > 0 ? (
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>{unread > 99 ? '99+' : unread}</Text>
+            </View>
+          ) : null}
         </Pressable>
         <Pressable
           onPress={onSettings}

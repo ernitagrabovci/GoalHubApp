@@ -77,9 +77,6 @@ const POSITION_OPTIONS: FilterOption[] = [
   ...POSITIONS.map((p) => ({ label: p.label, value: p.code })),
 ];
 
-/* The squad on show — also the team handed to the single-player page. */
-const TEAM = 'Ekipi i Parë';
-
 /* ── Squad table ───────────────────────────────────────────────────── */
 
 type Status = 'Aktiv' | 'I lënduar' | 'I pezulluar';
@@ -89,6 +86,7 @@ type Player = {
   nr: string;
   name: string;
   pos: string;
+  team: string;
   att: string;
   rating: string;
   status: Status;
@@ -127,6 +125,7 @@ function toRow(p: ApiPlayer): Player {
     nr: p.jersey_number != null ? String(p.jersey_number) : '—',
     name: p.name ?? '—',
     pos: positionLabel(p.position),
+    team: p.team?.name ?? '—',
     att: '—',
     rating: '—',
     status: statusOf(p.health_status),
@@ -178,6 +177,7 @@ export default function PlayerListScreen() {
   const router = useRouter();
   const { token, signOut } = useSession();
   const [rows, setRows] = useState<Player[]>([]);
+  const [total, setTotal] = useState<number | null>(null);
   const [teams, setTeams] = useState<ApiTeam[]>([]);
   const [stats, setStats] = useState<PlayerStats | null>(null);
   const [teamFilter, setTeamFilter] = useState('');
@@ -217,6 +217,7 @@ export default function PlayerListScreen() {
       .then((res) => {
         if (controller.signal.aborted) return;
         setRows(res.data.map(toRow));
+        setTotal(res.meta.total);
       })
       .catch((e) => {
         if (controller.signal.aborted) return;
@@ -251,6 +252,8 @@ export default function PlayerListScreen() {
     { label: 'Të gjitha ekipet', value: '' },
     ...teams.map((t) => ({ label: t.name, value: String(t.id) })),
   ];
+
+  const teamName = teams.find((t) => String(t.id) === teamFilter)?.name;
 
   /* Every number here is black — no tone colour, unlike the other squares.
      Rehabilitation counts as injured, the same way the table's status does. */
@@ -292,7 +295,9 @@ export default function PlayerListScreen() {
                   Lista e lojtarëve
                 </Text>
                 <Text style={styles.subtitle} numberOfLines={1}>
-                  {stats ? `Ekipi i parë · ${stats.total} lojtarë` : 'Ekipi i parë'}
+                  {stats
+                    ? `${teamName ?? 'Të gjithë lojtarët'} · ${total ?? rows.length} lojtarë`
+                    : 'Të gjithë lojtarët'}
                 </Text>
               </View>
             </View>
@@ -388,7 +393,7 @@ export default function PlayerListScreen() {
                               params: {
                                 id: String(p.id),
                                 name: p.name,
-                                team: TEAM,
+                                team: p.team,
                                 nr: p.nr,
                                 pos: p.pos,
                               },

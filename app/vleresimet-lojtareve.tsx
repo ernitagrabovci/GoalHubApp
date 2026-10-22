@@ -245,7 +245,7 @@ export default function PlayerRatingsScreen() {
                   Vlerësimet e lojtarëve
                 </Text>
                 <Text style={styles.subtitle} numberOfLines={1}>
-                  Ekipi i parë · 25 lojtarë
+                  Të gjithë lojtarët · {playerTotal ?? rows.length} lojtarë
                 </Text>
               </View>
             </View>
