@@ -51,12 +51,6 @@ type SettingsRow = {
 };
 
 const ROWS: SettingsRow[] = [
-  {
-    icon: 'view-dashboard-outline',
-    label: 'Paneli i administratorit',
-    route: '/admin',
-    roles: ['administrator'],
-  },
   { icon: 'account-cog-outline', label: 'Cilësimet e llogarisë', route: '/account-settings' },
   {
     icon: 'account-group-outline',
