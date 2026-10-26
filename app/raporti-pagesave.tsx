@@ -46,12 +46,12 @@ const C = {
   track: 'rgba(0,0,0,0.10)',
 };
 
-/** 1170 → "$1,170" — grouped thousands, no cents. */
+/** 1170 → "€1,170" — grouped thousands, no cents. */
 function usd(n: number) {
-  return `$${n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`;
+  return `€${n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`;
 }
 
-/** 16840 → "$16,840.00" — the long form the breakdown rows use. */
+/** 16840 → "€16,840.00" — the long form the breakdown rows use. */
 function usdFull(n: number) {
   return `${usd(n)}.00`;
 }

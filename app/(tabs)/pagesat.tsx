@@ -75,9 +75,9 @@ const SQ_GLOSS = [
 /** Thin specular rim on the top edge — reads as the thickness of the pane. */
 const SQ_SHEEN = ['rgba(245,245,245,0.55)', 'rgba(245,245,245,0.00)'] as const;
 
-/** 16840 → "$16,840" — grouped thousands, no cents. */
+/** 16840 → "€16,840" — grouped thousands, no cents. */
 function usd(n: number) {
-  return `$${Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`;
+  return `€${Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`;
 }
 
 /** One colour per payment status, reused by the table. */

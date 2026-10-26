@@ -59,9 +59,9 @@ const PAY_METHODS: { key: PayMethod; label: string }[] = [
   { key: 'card', label: 'Kartë bankare' },
 ];
 
-/** 16840 → "$16,840" — grouped thousands, no cents. */
+/** 16840 → "€16,840" — grouped thousands, no cents. */
 function usd(n: number) {
-  return `$${Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`;
+  return `€${Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`;
 }
 
 /** The dialog's three date boxes → the `YYYY-MM-DD` the API wants, or `null`. */

@@ -347,7 +347,7 @@ export default function ChildProfileScreen() {
                   <View style={styles.totalBox}>
                     <Text style={styles.totalLabel}>Totali i paguar</Text>
                     <Text style={styles.totalValue}>
-                      {summary ? usd(summary.fees.total_paid) : '$0'}
+                      {summary ? usd(summary.fees.total_paid) : '€0'}
                     </Text>
                   </View>
                 </View>

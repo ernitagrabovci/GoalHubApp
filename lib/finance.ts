@@ -45,9 +45,9 @@ const MONTHS = [
   'Dhjetor',
 ];
 
-/** 16840 → `$16,840` — grouped thousands, no cents. */
+/** 16840 → `€16,840` — grouped thousands, no cents. */
 export function usd(n: number): string {
-  return `$${Math.round(n)
+  return `€${Math.round(n)
     .toString()
     .replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`;
 }
