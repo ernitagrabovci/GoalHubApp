@@ -181,12 +181,7 @@ export function FinancierHome() {
              ================================================= */}
 
           <View style={styles.statsWrap}>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              bounces={false}
-              contentContainerStyle={styles.statsRow}
-            >
+            <View style={styles.statsRow}>
               <StatCard
                 labelTop="Totali"
                 labelBottom="paguar"
@@ -212,11 +207,11 @@ export function FinancierHome() {
                 labelBottom="Kritike"
                 value={stats ? String(stats.overdue) : '—'}
                 color={C.gold}
-                valueSize={24}
+                valueSize={20}
                 img={IMG.statCalc}
                 imgStyle={styles.statImgStat}
               />
-            </ScrollView>
+            </View>
           </View>
 
           {/* =================================================
@@ -490,11 +485,11 @@ function StatCard({
 
       {/* TEXT */}
 
-      <Text style={styles.statLabel} numberOfLines={1}>
+      <Text style={styles.statLabel} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
         {labelTop}
       </Text>
 
-      <Text style={styles.statLabel} numberOfLines={1}>
+      <Text style={styles.statLabel} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
         {labelBottom}
       </Text>
 
@@ -719,15 +714,17 @@ const styles = StyleSheet.create(scaled({
   },
 
   statsRow: {
-    paddingLeft: 24,
-    paddingRight: 24,
+    flexDirection: 'row',
 
-    gap: 7,
+    paddingLeft: 18,
+    paddingRight: 18,
+
+    gap: 6,
   },
 
   statCard: {
-    width: 118,
-    height: 100,
+    flex: 1,
+    height: 92,
 
     position: 'relative',
 
@@ -758,8 +755,8 @@ const styles = StyleSheet.create(scaled({
   statLabel: {
     fontFamily: Fonts.bodySemiBold,
 
-    fontSize: 10.5,
-    lineHeight: 13,
+    fontSize: 9.5,
+    lineHeight: 11.5,
 
     color: C.muted,
 

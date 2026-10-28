@@ -268,13 +268,8 @@ export default function TeamsScreen() {
         </View>
 
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
-          {/* ── Summary squares — one row, deliberately overflowing right ── */}
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.summaryRow}
-            bounces={false}
-          >
+          {/* ── Summary squares — one row; each card shrinks to fit ─────── */}
+          <View style={styles.summaryRow}>
             {summary.map((s) => (
               <View key={s.label} style={styles.sqShadow}>
                 <View style={styles.sq}>
@@ -302,7 +297,12 @@ export default function TeamsScreen() {
                   />
 
                   <View style={styles.sqBody}>
-                    <Text style={styles.sqLabel} numberOfLines={2}>
+                    <Text
+                      style={styles.sqLabel}
+                      numberOfLines={2}
+                      adjustsFontSizeToFit
+                      minimumFontScale={0.65}
+                    >
                       {s.label}
                     </Text>
                     <Text
@@ -320,7 +320,7 @@ export default function TeamsScreen() {
                 </View>
               </View>
             ))}
-          </ScrollView>
+          </View>
 
           <View style={styles.colPad}>
 
@@ -923,17 +923,18 @@ const styles = StyleSheet.create(
 
     /* ── Summary squares ─────────────────────────────────────── */
     summaryRow: {
-      paddingLeft: 27,
-      paddingRight: 27,
+      flexDirection: 'row',
+      paddingLeft: 14,
+      paddingRight: 14,
       paddingTop: 8,
-      gap: 8,
+      gap: 6,
     },
 
     /* Shadow lives on the wrapper: `overflow: hidden` on the pane itself would
        clip it away on iOS. */
     sqShadow: {
-      width: 100,
-      height: 122,
+      flex: 1,
+      height: 104,
       borderRadius: 8,
       /* Translucent so the frosted pane inside has a backdrop to blur. */
       backgroundColor: 'rgba(245,245,245,0.5)',
@@ -955,7 +956,7 @@ const styles = StyleSheet.create(
     /* Content rides above the frost and gloss overlays. */
     sqBody: {
       flex: 1,
-      padding: 11,
+      padding: 7,
     },
 
     sheen: {
@@ -968,28 +969,28 @@ const styles = StyleSheet.create(
 
     /* Fixed two-line block so all the values sit on the same line. */
     sqLabel: {
-      minHeight: 30,
+      minHeight: 26,
       fontFamily: Fonts.bodyBold,
-      fontSize: 12,
-      lineHeight: 15,
+      fontSize: 9.5,
+      lineHeight: 11.5,
       color: C.gray,
     },
 
     sqValue: {
       fontFamily: Fonts.bodyBold,
-      fontSize: 26,
-      lineHeight: 32,
+      fontSize: 17,
+      lineHeight: 21,
       letterSpacing: -0.5,
       color: C.text,
-      marginTop: 4,
+      marginTop: 2,
     },
 
     sqHint: {
       fontFamily: Fonts.body,
-      fontSize: 10.5,
-      lineHeight: 13,
+      fontSize: 9,
+      lineHeight: 11,
       color: C.gray,
-      marginTop: 4,
+      marginTop: 3,
     },
 
     /* ── + Ekipi i ri ────────────────────────────────────────── */

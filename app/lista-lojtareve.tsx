@@ -156,7 +156,12 @@ function SummarySquare({ square }: { square: Square }) {
         />
 
         <View style={styles.sqBody}>
-          <Text style={styles.sqLabel} numberOfLines={2}>
+          <Text
+            style={styles.sqLabel}
+            numberOfLines={2}
+            adjustsFontSizeToFit
+            minimumFontScale={0.7}
+          >
             {square.label}
           </Text>
           <Text
@@ -310,16 +315,11 @@ export default function PlayerListScreen() {
           contentContainerStyle={styles.scroll}
         >
           {/* ── Summary squares ─────────────────────────────────── */}
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            bounces={false}
-            contentContainerStyle={styles.summaryRow}
-          >
+          <View style={styles.summaryRow}>
             {summary.map((s) => (
               <SummarySquare key={s.label} square={s} />
             ))}
-          </ScrollView>
+          </View>
 
           <View style={styles.colPad}>
             {/* ── Filters ───────────────────────────────────────── */}
@@ -505,15 +505,16 @@ const styles = StyleSheet.create(
 
     /* ── Summary squares ─────────────────────────────────────── */
     summaryRow: {
+      flexDirection: 'row',
       paddingHorizontal: 27,
       paddingTop: 8,
-      gap: 8,
+      gap: 6,
     },
 
     /* Translucent so the frosted pane inside has a backdrop to blur. */
     sqShadow: {
-      width: 100,
-      height: 100,
+      flex: 1,
+      height: 92,
       borderRadius: 8,
       backgroundColor: 'rgba(245,245,245,0.5)',
       shadowColor: '#000000',
@@ -534,7 +535,7 @@ const styles = StyleSheet.create(
     /* Content rides above the frost and gloss overlays. */
     sqBody: {
       flex: 1,
-      padding: 11,
+      padding: 7,
     },
 
     sheen: {
@@ -546,20 +547,20 @@ const styles = StyleSheet.create(
     },
 
     sqLabel: {
-      minHeight: 28,
+      minHeight: 24,
       fontFamily: Fonts.bodyBold,
-      fontSize: 12,
-      lineHeight: 15,
+      fontSize: 9.5,
+      lineHeight: 11.5,
       color: C.gray,
     },
 
     sqValue: {
       fontFamily: Fonts.bodyBold,
-      fontSize: 25,
-      lineHeight: 30,
+      fontSize: 17,
+      lineHeight: 21,
       letterSpacing: -0.5,
       color: C.text,
-      marginTop: 3,
+      marginTop: 2,
     },
 
     /* ── Filters ─────────────────────────────────────────────── */

@@ -346,13 +346,8 @@ export default function TrainerMatchesScreen() {
           contentContainerStyle={styles.scroll}
         >
           {/* ── Season counts ───────────────────────────────────── */}
-          {/* Five cards don't fit one row, so they slide sideways. */}
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            bounces={false}
-            contentContainerStyle={styles.grid}
-          >
+          {/* Five cards share one row; each shrinks to fit the width. */}
+          <View style={styles.grid}>
             {summary.map((s) => (
               <View key={s.label} style={styles.sqShadow}>
                 <View style={styles.sq}>
@@ -384,7 +379,7 @@ export default function TrainerMatchesScreen() {
                       style={styles.sqLabel}
                       numberOfLines={2}
                       adjustsFontSizeToFit
-                      minimumFontScale={0.8}
+                      minimumFontScale={0.65}
                     >
                       {s.label}
                     </Text>
@@ -400,7 +395,7 @@ export default function TrainerMatchesScreen() {
                 </View>
               </View>
             ))}
-          </ScrollView>
+          </View>
 
           <View style={styles.colPad}>
             {/* ── Add a fixture ───────────────────────────────────── */}
@@ -937,8 +932,8 @@ const styles = StyleSheet.create(
     grid: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 8,
-      paddingHorizontal: 27,
+      gap: 6,
+      paddingHorizontal: 14,
       paddingTop: 8,
       paddingBottom: 4,
     },
@@ -946,8 +941,8 @@ const styles = StyleSheet.create(
     /* Shadow lives on the wrapper: `overflow: hidden` on the pane itself would
        clip it away on iOS. */
     sqShadow: {
-      width: 104,
-      height: 104,
+      flex: 1,
+      height: 88,
       borderRadius: 8,
       /* Translucent so the frosted pane inside has a backdrop to blur. */
       backgroundColor: 'rgba(245,245,245,0.5)',
@@ -969,7 +964,7 @@ const styles = StyleSheet.create(
     /* Content rides above the frost and gloss overlays. */
     sqBody: {
       flex: 1,
-      padding: 9,
+      padding: 6,
     },
 
     sheen: {
@@ -982,17 +977,17 @@ const styles = StyleSheet.create(
 
     /* Fixed two-line block so every value sits on the same line. */
     sqLabel: {
-      minHeight: 26,
+      minHeight: 22,
       fontFamily: Fonts.bodyBold,
-      fontSize: 10,
-      lineHeight: 12.5,
+      fontSize: 8.5,
+      lineHeight: 10.5,
       color: C.gray,
     },
 
     sqValue: {
       fontFamily: Fonts.bodyBold,
-      fontSize: 21,
-      lineHeight: 26,
+      fontSize: 16,
+      lineHeight: 19,
       letterSpacing: -0.5,
       marginTop: 3,
     },

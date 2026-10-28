@@ -333,24 +333,31 @@ export default function PlayersScreen() {
           contentContainerStyle={styles.scroll}
         >
           {/* ── Summary squares ─────────────────────────────────── */}
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            bounces={false}
-            contentContainerStyle={styles.summaryRow}
-          >
+          <View style={styles.summaryRow}>
             {summary.map((s) => (
               <View key={s.label} style={styles.sq}>
-                <Text style={styles.sqLabel} numberOfLines={2}>
+                <Text
+                  style={styles.sqLabel}
+                  numberOfLines={2}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.65}
+                >
                   {s.label}
                 </Text>
-                <Text style={[styles.sqValue, s.tone ? { color: s.tone } : null]}>{s.value}</Text>
-                <Text style={[styles.sqHint, s.tone ? { color: s.tone } : null]} numberOfLines={1}>
+                <Text
+                  style={[styles.sqValue, s.tone ? { color: s.tone } : null]}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.5}
+                >
+                  {s.value}
+                </Text>
+                <Text style={[styles.sqHint, s.tone ? { color: s.tone } : null]} numberOfLines={2}>
                   {s.hint}
                 </Text>
               </View>
             ))}
-          </ScrollView>
+          </View>
 
           <View style={styles.colPad}>
             {/* ── Lojtari i ri ──────────────────────────────────── */}
@@ -717,20 +724,21 @@ const styles = StyleSheet.create(
 
     /* ── Summary squares ─────────────────────────────────────── */
     summaryRow: {
-      paddingLeft: 27,
-      paddingRight: 27,
+      flexDirection: 'row',
+      paddingLeft: 14,
+      paddingRight: 14,
       paddingTop: 4,
-      gap: 8,
+      gap: 6,
     },
 
     sq: {
-      width: 100,
-      height: 122,
+      flex: 1,
+      height: 104,
       backgroundColor: '#F5F5F5',
       borderWidth: 1,
       borderColor: C.orange,
       borderRadius: 8,
-      padding: 11,
+      padding: 8,
       shadowColor: '#000000',
       shadowOffset: { width: 0, height: 2 },
       shadowOpacity: 0.04,
@@ -740,28 +748,28 @@ const styles = StyleSheet.create(
 
     /* Fixed two-line block so all four values sit on the same line. */
     sqLabel: {
-      minHeight: 30,
+      minHeight: 26,
       fontFamily: Fonts.bodyBold,
-      fontSize: 12,
-      lineHeight: 15,
+      fontSize: 9.5,
+      lineHeight: 11.5,
       color: C.gray,
     },
 
     sqValue: {
       fontFamily: Fonts.bodyBold,
-      fontSize: 26,
-      lineHeight: 32,
+      fontSize: 17,
+      lineHeight: 21,
       letterSpacing: -0.5,
       color: C.text,
-      marginTop: 4,
+      marginTop: 2,
     },
 
     sqHint: {
       fontFamily: Fonts.body,
-      fontSize: 10.5,
-      lineHeight: 13,
+      fontSize: 9,
+      lineHeight: 11,
       color: C.gray,
-      marginTop: 4,
+      marginTop: 3,
     },
 
     /* ── Lojtari i ri ────────────────────────────────────────── */

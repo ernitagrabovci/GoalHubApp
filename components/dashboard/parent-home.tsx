@@ -74,6 +74,7 @@ const IMG = {
   statPlayer: require('@/assets/dashboard/lojtaret.png'),
   statCalc: require('@/assets/dashboard/stat-calculator.png'),
   ball: require('@/assets/dashboard/ndeshjet.png'),
+  star: require('@/assets/dashboard/star.png'),
 };
 
 /* =========================================================
@@ -190,12 +191,7 @@ export function ParentHome() {
              ================================================= */}
 
           <View style={styles.statsWrap}>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              bounces={false}
-              contentContainerStyle={styles.statsRow}
-            >
+            <View style={styles.statsRow}>
               <StatCard
                 labelTop="Fëmijë të"
                 labelBottom="regjistruar"
@@ -225,8 +221,10 @@ export function ParentHome() {
                 labelTop="Vlerësimi"
                 labelBottom="i fundit"
                 value={children ? lastRating : '…'}
+                img={IMG.star}
+                imgStyle={styles.statImgStar}
               />
-            </ScrollView>
+            </View>
           </View>
 
           {/* =================================================
@@ -510,15 +508,15 @@ function StatCard({
 
       {/* TEXT */}
 
-      <Text style={styles.statLabel}>
+      <Text style={styles.statLabel} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
         {labelTop}
       </Text>
 
-      <Text style={styles.statLabel}>
+      <Text style={styles.statLabel} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
         {labelBottom}
       </Text>
 
-      <Text style={styles.statValue}>
+      <Text style={styles.statValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.5}>
         {value}
       </Text>
 
@@ -727,15 +725,17 @@ const styles = StyleSheet.create(scaled({
   },
 
   statsRow: {
-    paddingLeft: 28,
-    paddingRight: 28,
+    flexDirection: 'row',
 
-    gap: 7,
+    paddingLeft: 14,
+    paddingRight: 14,
+
+    gap: 6,
   },
 
   statCard: {
-    width: 118,
-    height: 104,
+    flex: 1,
+    height: 94,
 
     position: 'relative',
 
@@ -766,7 +766,7 @@ const styles = StyleSheet.create(scaled({
   statLabel: {
     fontFamily: Fonts.bodySemiBold,
 
-    fontSize: 10.5,
+    fontSize: 9.5,
     lineHeight: 11,
 
     color: C.muted,
@@ -777,8 +777,8 @@ const styles = StyleSheet.create(scaled({
   statValue: {
     fontFamily: Fonts.bodyBold,
 
-    fontSize: 24,
-    lineHeight: 26,
+    fontSize: 19,
+    lineHeight: 22,
 
     letterSpacing: -0.5,
 
@@ -796,10 +796,10 @@ const styles = StyleSheet.create(scaled({
   statImgPlayer: {
     position: 'absolute',
 
-    width: 80,
-    height: 100,
+    width: 64,
+    height: 80,
 
-    right: -50,
+    right: -40,
     bottom: -14,
 
     zIndex: 1,
@@ -808,11 +808,11 @@ const styles = StyleSheet.create(scaled({
   statImgCalc: {
     position: 'absolute',
 
-    width: 100,
-    height: 100,
+    width: 80,
+    height: 80,
 
-    right: -45,
-    bottom: -22,
+    right: -36,
+    bottom: -18,
 
     zIndex: 1,
   },
@@ -820,11 +820,23 @@ const styles = StyleSheet.create(scaled({
   statImgBall: {
     position: 'absolute',
 
-    width: 92,
-    height: 92,
+    width: 74,
+    height: 74,
 
-    right: -40,
-    bottom: -28,
+    right: -32,
+    bottom: -22,
+
+    zIndex: 1,
+  },
+
+  statImgStar: {
+    position: 'absolute',
+
+    width: 74,
+    height: 74,
+
+    right: -30,
+    bottom: -18,
 
     zIndex: 1,
   },

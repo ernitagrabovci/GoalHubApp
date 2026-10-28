@@ -13,7 +13,7 @@ import { useSession } from '@/lib/session';
 
 /**
  * Floating pill bottom navigation for the trainer dashboard.
- * Matches the reference: a centered floating container with three items —
+ * Matches the admin bar: a full-width floating container with three items —
  * Home (active, pale-green capsule), Chat and Profile.
  *
  * "Chat" is not a tab — tapping it opens the messages page as a full-screen
@@ -140,18 +140,18 @@ export function TrainerPillTabBar({ state, emitter, navigateToTab, insets }: Bot
 const styles = StyleSheet.create(scaled({
   area: {
     paddingTop: 8,
-    alignItems: 'center',
+    paddingHorizontal: 24,
   },
   pill: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     backgroundColor: C.pillBg,
     borderWidth: 1,
     borderColor: C.frame,
     borderRadius: 16,
-    paddingVertical: 9,
-    paddingHorizontal: 16,
-    gap: 18,
+    paddingVertical: 8,
+    paddingHorizontal: 6,
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.07,
@@ -159,15 +159,16 @@ const styles = StyleSheet.create(scaled({
     elevation: 3,
   },
   wrap: {
+    flex: 1,
     alignItems: 'center',
   },
   item: {
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 11,
-    paddingVertical: 7,
-    paddingHorizontal: 18,
-    gap: 3,
+    borderRadius: 12,
+    paddingVertical: 6,
+    paddingHorizontal: 7,
+    gap: 2,
   },
   itemActive: {
     backgroundColor: C.activeBg,

@@ -33,7 +33,7 @@ import { durationLabel, trainingDate, trainingTime, typeName } from '@/lib/train
  * - Uses the real supplied assets.
  * - Images are treated as decorative foreground elements.
  * - Cards use absolute image positioning and clipping.
- * - Stats are horizontally scrollable with a partially visible 4th card.
+ * - Stats share one row and shrink to fit the width.
  * - Main menu is a compact 2-column grid (6 items).
  * - Bottom Home / Chat navigation remains in the (tabs) layout.
  */
@@ -199,12 +199,7 @@ export function PlayerHome() {
              ================================================= */}
 
           <View style={styles.statsWrap}>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              bounces={false}
-              contentContainerStyle={styles.statsRow}
-            >
+            <View style={styles.statsRow}>
               <StatCard
                 labelTop="Numri i"
                 labelBottom="fanellës"
@@ -231,7 +226,7 @@ export function PlayerHome() {
                 imgStyle={styles.statImgStervitje}
                 imgCover
               />
-            </ScrollView>
+            </View>
           </View>
 
           {/* =================================================
@@ -598,15 +593,15 @@ function StatCard({
 
       {/* TEXT */}
 
-      <Text style={styles.statLabel}>
+      <Text style={styles.statLabel} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
         {labelTop}
       </Text>
 
-      <Text style={styles.statLabel}>
+      <Text style={styles.statLabel} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
         {labelBottom}
       </Text>
 
-      <Text style={styles.statValue}>
+      <Text style={styles.statValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.5}>
         {value}
       </Text>
 
@@ -815,15 +810,17 @@ const styles = StyleSheet.create(scaled({
   },
 
   statsRow: {
-    paddingLeft: 28,
-    paddingRight: 28,
+    flexDirection: 'row',
 
-    gap: 7,
+    paddingLeft: 18,
+    paddingRight: 18,
+
+    gap: 6,
   },
 
   statCard: {
-    width: 118,
-    height: 104,
+    flex: 1,
+    height: 94,
 
     position: 'relative',
 
@@ -854,8 +851,8 @@ const styles = StyleSheet.create(scaled({
   statLabel: {
     fontFamily: Fonts.bodySemiBold,
 
-    fontSize: 11,
-    lineHeight: 14,
+    fontSize: 9.5,
+    lineHeight: 12,
 
     color: C.muted,
 
@@ -865,8 +862,8 @@ const styles = StyleSheet.create(scaled({
   statValue: {
     fontFamily: Fonts.bodyBold,
 
-    fontSize: 25,
-    lineHeight: 28,
+    fontSize: 20,
+    lineHeight: 23,
 
     letterSpacing: -0.5,
 
@@ -884,10 +881,10 @@ const styles = StyleSheet.create(scaled({
   statImgPlayer: {
     position: 'absolute',
 
-    width: 100,
-    height: 100,
+    width: 80,
+    height: 80,
 
-    right: -50,
+    right: -40,
     bottom: -14,
 
     zIndex: 1,
@@ -896,10 +893,10 @@ const styles = StyleSheet.create(scaled({
   statImgDoctor: {
     position: 'absolute',
 
-    width: 100,
-    height: 120,
+    width: 80,
+    height: 96,
 
-    right: -50,
+    right: -40,
     bottom: 5,
 
     zIndex: 1,
@@ -908,10 +905,10 @@ const styles = StyleSheet.create(scaled({
   statImgStervitje: {
     position: 'absolute',
 
-    width: 100,
-    height: 120,
+    width: 80,
+    height: 96,
 
-    right: -50,
+    right: -40,
     bottom: -1,
 
     zIndex: 1,
@@ -920,10 +917,10 @@ const styles = StyleSheet.create(scaled({
   statImgPrezenca: {
     position: 'absolute',
 
-    width: 120,
-    height: 110,
+    width: 96,
+    height: 88,
 
-    right: -48,
+    right: -38,
     bottom: 2,
 
     zIndex: 1,

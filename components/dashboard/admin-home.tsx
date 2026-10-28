@@ -214,14 +214,9 @@ export function AdminHome() {
             </View>
           </View>
 
-          {/* Statistics carousel — intentionally overflows the right padding */}
+          {/* Statistics row — one row; each card shrinks to fit the width */}
           <View style={styles.statsWrap}>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.statsRow}
-              bounces={false}
-            >
+            <View style={styles.statsRow}>
               <StatCard
                 image={IMG.statPlayer}
                 imageStyle={styles.statImgPlayer}
@@ -262,6 +257,8 @@ export function AdminHome() {
               </StatCard>
 
               <StatCard
+                image={IMG.statGrupe}
+                imageStyle={styles.statImgGrupe}
                 labelTop="Trajnerët"
                 labelBottom="Aktivë"
                 value={count(teamData?.total_trainers)}
@@ -271,7 +268,7 @@ export function AdminHome() {
                   <Text style={styles.statSubValue}>{seasonName}</Text>
                 </View>
               </StatCard>
-            </ScrollView>
+            </View>
           </View>
 
           <View style={styles.padded}>
@@ -493,9 +490,15 @@ type StatCardProps = {
 function StatCard({ labelTop, labelBottom, value, image, imageStyle, children }: StatCardProps) {
   return (
     <View style={styles.statCard}>
-      <Text style={styles.statLabel}>{labelTop}</Text>
-      <Text style={styles.statLabel}>{labelBottom}</Text>
-      <Text style={styles.statValue}>{value}</Text>
+      <Text style={styles.statLabel} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
+        {labelTop}
+      </Text>
+      <Text style={styles.statLabel} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
+        {labelBottom}
+      </Text>
+      <Text style={styles.statValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.5}>
+        {value}
+      </Text>
       <View style={styles.statFoot}>{children}</View>
       {image ? <Image source={image} style={[styles.statImg, imageStyle]} resizeMode="contain" /> : null}
     </View>
@@ -643,19 +646,20 @@ const styles = StyleSheet.create(scaled({
     marginTop: 12,
   },
   statsRow: {
-    paddingLeft: 27,
-    paddingRight: 27,
-    gap: 8,
+    flexDirection: 'row',
+    paddingLeft: 14,
+    paddingRight: 14,
+    gap: 6,
   },
   statCard: {
-    width: 114,
-    height: 110,
+    flex: 1,
+    height: 96,
     backgroundColor: C.white,
     borderWidth: 1,
     /* Matches the orange rim on the headline squares of the detail pages. */
     borderColor: C.statBorder,
     borderRadius: 8,
-    padding: 11,
+    padding: 8,
     overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -665,44 +669,44 @@ const styles = StyleSheet.create(scaled({
   },
   statLabel: {
     fontFamily: Fonts.bodyBold,
-    fontSize: 12,
+    fontSize: 9.5,
     color: C.muted,
-    lineHeight: 15,
+    lineHeight: 11.5,
   },
   statValue: {
     fontFamily: Fonts.bodyBold,
-    fontSize: 26,
+    fontSize: 19,
     color: C.text,
     letterSpacing: -0.5,
-    marginTop: 4,
-    lineHeight: 32,
+    marginTop: 2,
+    lineHeight: 23,
   },
   statFoot: {
-    marginTop: 4,
+    marginTop: 2,
   },
   statDown: {
     fontFamily: Fonts.bodySemiBold,
-    fontSize: 11.5,
+    fontSize: 9.5,
     color: C.red,
-    lineHeight: 14,
+    lineHeight: 11.5,
   },
   statDownSub: {
     fontFamily: Fonts.body,
-    fontSize: 10.5,
+    fontSize: 9,
     color: '#C25454',
-    lineHeight: 13,
+    lineHeight: 11,
   },
   statSubLabel: {
     fontFamily: Fonts.body,
-    fontSize: 11,
+    fontSize: 9,
     color: C.muted,
-    lineHeight: 14,
+    lineHeight: 11,
   },
   statSubValue: {
     fontFamily: Fonts.bodyMedium,
-    fontSize: 12.5,
+    fontSize: 10,
     color: C.text2,
-    lineHeight: 16,
+    lineHeight: 13,
   },
   statImg: {
     position: 'absolute',

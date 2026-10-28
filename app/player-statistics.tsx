@@ -200,15 +200,15 @@ export default function PlayerStatisticsScreen() {
           contentContainerStyle={styles.scroll}
         >
           {/* ── Stat rectangles ─────────────────────────────────── */}
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            bounces={false}
-            contentContainerStyle={styles.rectRow}
-          >
+          <View style={styles.rectRow}>
             {stats.map((s) => (
               <View key={s.label} style={styles.rect}>
-                <Text style={styles.rectLabel} numberOfLines={2}>
+                <Text
+                  style={styles.rectLabel}
+                  numberOfLines={2}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.65}
+                >
                   {s.label}
                 </Text>
                 <Text
@@ -219,12 +219,12 @@ export default function PlayerStatisticsScreen() {
                 >
                   {s.value}
                 </Text>
-                <Text style={[styles.rectHint, s.tone ? { color: s.tone } : null]} numberOfLines={1}>
+                <Text style={[styles.rectHint, s.tone ? { color: s.tone } : null]} numberOfLines={2}>
                   {s.hint}
                 </Text>
               </View>
             ))}
-          </ScrollView>
+          </View>
 
           <View style={styles.colPad}>
             {/* ── Team filter ───────────────────────────────────── */}
@@ -408,20 +408,21 @@ const styles = StyleSheet.create(
 
     /* ── Stat rectangles ─────────────────────────────────────── */
     rectRow: {
-      paddingLeft: 27,
-      paddingRight: 27,
+      flexDirection: 'row',
+      paddingLeft: 14,
+      paddingRight: 14,
       paddingTop: 4,
-      gap: 8,
+      gap: 6,
     },
 
     rect: {
-      width: 100,
-      height: 122,
+      flex: 1,
+      height: 104,
       backgroundColor: '#F5F5F5',
       borderWidth: 1,
       borderColor: C.orange,
       borderRadius: 8,
-      padding: 11,
+      padding: 8,
       shadowColor: '#000000',
       shadowOffset: { width: 0, height: 2 },
       shadowOpacity: 0.04,
@@ -431,28 +432,28 @@ const styles = StyleSheet.create(
 
     /* Fixed two-line block so all four values sit on the same line. */
     rectLabel: {
-      minHeight: 30,
+      minHeight: 26,
       fontFamily: Fonts.bodySemiBold,
-      fontSize: 12,
-      lineHeight: 15,
+      fontSize: 9.5,
+      lineHeight: 11.5,
       color: C.gray,
     },
 
     rectValue: {
       fontFamily: Fonts.bodyBold,
-      fontSize: 26,
-      lineHeight: 32,
+      fontSize: 17,
+      lineHeight: 21,
       letterSpacing: -0.5,
       color: C.text,
-      marginTop: 4,
+      marginTop: 2,
     },
 
     rectHint: {
       fontFamily: Fonts.body,
-      fontSize: 10.5,
-      lineHeight: 13,
+      fontSize: 9,
+      lineHeight: 11,
       color: C.gray,
-      marginTop: 4,
+      marginTop: 3,
     },
 
     /* ── Team filter ─────────────────────────────────────────── */
