@@ -232,17 +232,30 @@ export default function TrainingListScreen() {
           contentContainerStyle={styles.scroll}
         >
           <View style={styles.colPad}>
-            {/* ── Add ──────────────────────────────────────────────── */}
-            <Pressable
-              onPress={() => setAdding(true)}
-              accessibilityRole="button"
-              accessibilityLabel="Shto stërvitje"
-              style={({ pressed }) => [styles.addBtn, pressed && styles.pressed]}
-            >
-              <Text style={styles.addBtnText} numberOfLines={1}>
-                + Shto stërvitje
-              </Text>
-            </Pressable>
+            {/* ── Add / history ───────────────────────────────────── */}
+            <View style={styles.actionRow}>
+              <Pressable
+                onPress={() => setAdding(true)}
+                accessibilityRole="button"
+                accessibilityLabel="Shto stërvitje"
+                style={({ pressed }) => [styles.addBtn, pressed && styles.pressed]}
+              >
+                <Text style={styles.addBtnText} numberOfLines={1}>
+                  + Shto stërvitje
+                </Text>
+              </Pressable>
+
+              <Pressable
+                onPress={() => router.push('/historiku-prezences-trajner')}
+                accessibilityRole="button"
+                accessibilityLabel="Hap historikun e prezencës"
+                style={({ pressed }) => [styles.historyBtn, pressed && styles.pressed]}
+              >
+                <Text style={styles.addBtnText} numberOfLines={1}>
+                  Historiku i prezencës
+                </Text>
+              </Pressable>
+            </View>
 
             {/* ── Filters ──────────────────────────────────────────── */}
             <View style={styles.filterRow}>
@@ -507,16 +520,34 @@ const styles = StyleSheet.create(
       paddingBottom: 24,
     },
 
-    /* ── Add ─────────────────────────────────────────────────── */
-    /* Small and hugging its label, rather than spanning the page. */
+    /* ── Add / history ───────────────────────────────────────── */
+    /* Both buttons hug their label, sitting on one row under the header. */
+    actionRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 7,
+      marginTop: 8,
+    },
+
     addBtn: {
       alignSelf: 'flex-start',
       height: 34,
-      marginTop: 8,
       paddingHorizontal: 14,
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: C.green20,
+      borderWidth: 1,
+      borderColor: C.frame,
+      borderRadius: 4,
+    },
+
+    historyBtn: {
+      alignSelf: 'flex-start',
+      height: 34,
+      paddingHorizontal: 14,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: C.blueSoft,
       borderWidth: 1,
       borderColor: C.frame,
       borderRadius: 4,

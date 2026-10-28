@@ -27,6 +27,37 @@ export function badges(token: string, signal?: AbortSignal) {
   return request<ApiBadges>('/badges', { token, signal });
 }
 
+/** Who a club-wide broadcast should reach. */
+export type BroadcastRole = 'player' | 'trainer' | 'parent';
+
+export type BroadcastInput = {
+  title: string;
+  body?: string | null;
+  /** `all` — every club member; `filtered` — the chosen teams/roles. */
+  target_type: 'all' | 'filtered';
+  team_ids?: number[];
+  roles?: BroadcastRole[];
+};
+
+export type BroadcastResponse = {
+  message: string;
+  sent: number;
+};
+
+/** An administrator's club-wide notice — only their own club's teams are valid. */
+export function sendNotification(
+  token: string,
+  input: BroadcastInput,
+  signal?: AbortSignal,
+) {
+  return request<BroadcastResponse>('/notifications', {
+    method: 'POST',
+    body: input,
+    token,
+    signal,
+  });
+}
+
 /** The signed-in user's platform-notification switches. */
 export function getNotificationPreferences(token: string, signal?: AbortSignal) {
   return request<NotificationPreferencesResponse>('/notifications/preferences', { token, signal });

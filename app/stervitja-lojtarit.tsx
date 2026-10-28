@@ -1,13 +1,18 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
+import { ApiError } from '@/lib/api/errors';
+import { cancelAbsence, getMyTraining, reportAbsence } from '@/lib/api/trainings';
+import type { ApiTraining } from '@/lib/api/types';
 import { I, scaled } from '@/lib/responsive';
-import { attendanceLabel } from '@/lib/trainings';
+import { useSession } from '@/lib/session';
+import { attendanceLabel, durationLabel, trainingDate, trainingTime, typeName } from '@/lib/trainings';
 
 /**
  * Stërvitja — one session in full, opened from the "Shiko" button on a row of
@@ -15,7 +20,8 @@ import { attendanceLabel } from '@/lib/trainings';
  *
  * The trainer's session page without the editing affordances: a player reads
  * the session, they don't change it. The session's facts as a two-by-two grid,
- * then the attendance card, which stays a note until the trainer settles it.
+ * then the attendance card, where the player can report — or take back — an
+ * absence before the session starts.
  */
 
 const C = {
@@ -31,12 +37,17 @@ const C = {
 
   /* The table ground is the palest blue. */
   card: '#F6FBFF',
+
+  blue: '#4E90D8',
+  danger: '#B03A2E',
 };
 
 export default function PlayerTrainingScreen() {
   const router = useRouter();
+  const { token, signOut } = useSession();
 
   const params = useLocalSearchParams<{
+    id?: string;
     date?: string;
     time?: string;
     field?: string;
@@ -45,15 +56,123 @@ export default function PlayerTrainingScreen() {
     attendance?: string;
   }>();
 
-  /* The session's own facts come from the list row they were opened on. */
-  const date = params.date ?? '—';
-  const time = params.time ?? '—';
-  const field = params.field ?? '—';
-  const type = params.type ?? '—';
-  const duration = params.duration ?? '—';
+  const trainingId = Number(params.id);
 
-  /* The caller's own status, set by the trainer's attendance sheet. */
-  const attendance = attendanceLabel(params.attendance);
+  /* The session's own facts come from the list row while the detail loads. */
+  const [session, setSession] = useState<ApiTraining | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  /* Whether the session already started — an absence can't be filed by then. */
+  const [past, setPast] = useState(false);
+
+  /* Reporting an absence: the inline form and its request state. */
+  const [reporting, setReporting] = useState(false);
+  const [reason, setReason] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!token || !Number.isFinite(trainingId) || trainingId <= 0) return;
+    const controller = new AbortController();
+
+    getMyTraining(token, trainingId, controller.signal)
+      .then((res) => {
+        if (controller.signal.aborted) return;
+        setSession(res.data);
+        setPast(
+          !!res.data.scheduled_at &&
+            new Date(res.data.scheduled_at).getTime() < Date.now(),
+        );
+        setLoadError(null);
+      })
+      .catch((err) => {
+        if (controller.signal.aborted) return;
+        if (err instanceof ApiError && err.status === 401) {
+          signOut();
+          router.replace('/login');
+          return;
+        }
+        setLoadError(
+          err instanceof ApiError && err.status === 0
+            ? 'Nuk mund të lidhemi me serverin. Kontrollo lidhjen.'
+            : 'Nuk mund të ngarkohet stërvitja.',
+        );
+      });
+
+    return () => controller.abort();
+  }, [token, trainingId, router, signOut]);
+
+  const date = session ? trainingDate(session.scheduled_at) : params.date ?? '—';
+  const time = session ? trainingTime(session.scheduled_at) : params.time ?? '—';
+  const field = session ? session.field ?? '—' : params.field ?? '—';
+  const type = session ? typeName(session.type) : params.type ?? '—';
+  const duration = session ? durationLabel(session.duration_minutes) : params.duration ?? '—';
+
+  const status = session?.my_attendance ?? params.attendance ?? null;
+  const attendance = attendanceLabel(status);
+  const absenceReason = session?.my_absence_reason ?? null;
+
+  const reported = status === 'absent' && !!absenceReason;
+  const canReport = !!session && !past && status !== 'present' && !reported;
+
+  function handleActionError(err: unknown) {
+    if (err instanceof ApiError && err.status === 401) {
+      signOut();
+      router.replace('/login');
+      return;
+    }
+    if (err instanceof ApiError && err.status === 0) {
+      setActionError('Nuk mund të lidhemi me serverin. Kontrollo lidhjen.');
+      return;
+    }
+    setActionError(err instanceof ApiError ? err.message : 'Veprimi nuk u krye.');
+  }
+
+  async function submitReport() {
+    if (!token || !session) return;
+
+    const text = reason.trim();
+    if (!text) {
+      setActionError('Shkruani një arsye për mungesën.');
+      return;
+    }
+
+    setSaving(true);
+    setActionError(null);
+    setNotice(null);
+
+    try {
+      const res = await reportAbsence(token, session.id, text);
+      setSession(res.data);
+      setReason('');
+      setReporting(false);
+      setNotice(res.message);
+    } catch (err) {
+      handleActionError(err);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function submitCancel() {
+    if (!token || !session) return;
+
+    setSaving(true);
+    setActionError(null);
+    setNotice(null);
+
+    try {
+      const res = await cancelAbsence(token, session.id);
+      setSession(res.data);
+      setReporting(false);
+      setReason('');
+      setNotice(res.message);
+    } catch (err) {
+      handleActionError(err);
+    } finally {
+      setSaving(false);
+    }
+  }
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
@@ -157,6 +276,92 @@ export default function PlayerTrainingScreen() {
                 <Text style={styles.noteText}>
                   {attendance === '—' ? 'Pa finalizuar nga trajneri' : attendance}
                 </Text>
+
+                {absenceReason ? (
+                  <Text style={styles.reasonText}>Arsyeja: {absenceReason}</Text>
+                ) : null}
+
+                {loadError ? <Text style={styles.errorText}>{loadError}</Text> : null}
+                {actionError ? <Text style={styles.errorText}>{actionError}</Text> : null}
+                {notice ? <Text style={styles.noticeText}>{notice}</Text> : null}
+
+                {reported ? (
+                  <Pressable
+                    onPress={submitCancel}
+                    disabled={saving}
+                    accessibilityRole="button"
+                    accessibilityLabel="Anulo lajmërimin e mungesës"
+                    style={({ pressed }) => [
+                      styles.ghostBtn,
+                      saving && styles.btnDisabled,
+                      pressed && styles.pressed,
+                    ]}
+                  >
+                    <Text style={styles.ghostBtnText}>
+                      {saving ? 'Duke anuluar…' : 'Anulo mungesën'}
+                    </Text>
+                  </Pressable>
+                ) : canReport && reporting ? (
+                  <View style={styles.reportForm}>
+                    <TextInput
+                      value={reason}
+                      onChangeText={setReason}
+                      placeholder="Arsyeja e mungesës"
+                      placeholderTextColor={C.gray}
+                      style={styles.reasonInput}
+                      maxLength={300}
+                      multiline
+                      editable={!saving}
+                    />
+                    <View style={styles.formActions}>
+                      <Pressable
+                        onPress={() => {
+                          setReporting(false);
+                          setReason('');
+                          setActionError(null);
+                        }}
+                        disabled={saving}
+                        accessibilityRole="button"
+                        style={({ pressed }) => [
+                          styles.ghostBtn,
+                          styles.formBtn,
+                          saving && styles.btnDisabled,
+                          pressed && styles.pressed,
+                        ]}
+                      >
+                        <Text style={styles.ghostBtnText}>Anulo</Text>
+                      </Pressable>
+                      <Pressable
+                        onPress={submitReport}
+                        disabled={saving}
+                        accessibilityRole="button"
+                        style={({ pressed }) => [
+                          styles.primaryBtn,
+                          styles.formBtn,
+                          saving && styles.btnDisabled,
+                          pressed && styles.pressed,
+                        ]}
+                      >
+                        <Text style={styles.primaryBtnText}>
+                          {saving ? 'Duke dërguar…' : 'Dërgo'}
+                        </Text>
+                      </Pressable>
+                    </View>
+                  </View>
+                ) : canReport ? (
+                  <Pressable
+                    onPress={() => {
+                      setReporting(true);
+                      setNotice(null);
+                      setActionError(null);
+                    }}
+                    accessibilityRole="button"
+                    accessibilityLabel="Raporto mungesë"
+                    style={({ pressed }) => [styles.primaryBtn, pressed && styles.pressed]}
+                  >
+                    <Text style={styles.primaryBtnText}>Raporto mungesë</Text>
+                  </Pressable>
+                ) : null}
               </View>
             </View>
           </View>
@@ -298,8 +503,9 @@ const styles = StyleSheet.create(
 
     /* ── Attendance ──────────────────────────────────────────── */
     noteBody: {
-      paddingHorizontal: 10,
+      paddingHorizontal: 12,
       paddingVertical: 12,
+      gap: 10,
     },
 
     noteText: {
@@ -308,6 +514,98 @@ const styles = StyleSheet.create(
       lineHeight: 15,
       color: C.hint,
       textAlign: 'center',
+    },
+
+    reasonText: {
+      fontFamily: Fonts.body,
+      fontSize: 11,
+      lineHeight: 15,
+      color: C.text,
+      textAlign: 'center',
+    },
+
+    errorText: {
+      fontFamily: Fonts.body,
+      fontSize: 11,
+      lineHeight: 15,
+      color: C.danger,
+      textAlign: 'center',
+    },
+
+    noticeText: {
+      fontFamily: Fonts.body,
+      fontSize: 11,
+      lineHeight: 15,
+      color: C.blue,
+      textAlign: 'center',
+    },
+
+    reportForm: {
+      gap: 8,
+    },
+
+    reasonInput: {
+      minHeight: 64,
+      borderWidth: 1,
+      borderColor: 'rgba(0,0,0,0.18)',
+      borderRadius: 5,
+      backgroundColor: '#FFFFFF',
+      paddingHorizontal: 10,
+      paddingVertical: 8,
+      fontFamily: Fonts.body,
+      fontSize: 12,
+      lineHeight: 16,
+      color: C.text,
+      textAlignVertical: 'top',
+    },
+
+    formActions: {
+      flexDirection: 'row',
+      justifyContent: 'flex-end',
+      gap: 8,
+    },
+
+    formBtn: {
+      minWidth: 92,
+    },
+
+    primaryBtn: {
+      alignSelf: 'center',
+      minWidth: 160,
+      height: 34,
+      paddingHorizontal: 16,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: C.blue,
+      borderRadius: 5,
+    },
+
+    primaryBtnText: {
+      fontFamily: Fonts.bodySemiBold,
+      fontSize: 12,
+      color: '#FFFFFF',
+    },
+
+    ghostBtn: {
+      alignSelf: 'center',
+      minWidth: 160,
+      height: 34,
+      paddingHorizontal: 16,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 1,
+      borderColor: C.frame,
+      borderRadius: 5,
+    },
+
+    ghostBtnText: {
+      fontFamily: Fonts.bodySemiBold,
+      fontSize: 12,
+      color: C.text,
+    },
+
+    btnDisabled: {
+      opacity: 0.5,
     },
 
     tr: {

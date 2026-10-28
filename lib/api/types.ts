@@ -334,11 +334,15 @@ export type ApiTraining = {
   /** Counts, present on the index; absent on the show endpoint. */
   attendances_count?: number;
   present_count?: number;
+  absent_count?: number;
+  total_count?: number;
   reported_absences_count?: number;
   /** Only present on the show endpoint. */
   attendances?: ApiTrainingAttendance[];
-  /** The caller's own status — only present on the player's own list. */
+  /** The caller's own status — only present on the player's own endpoints. */
   my_attendance?: string | null;
+  /** The absence note the caller reported, if any. */
+  my_absence_reason?: string | null;
 };
 
 /** A coaching-library item, from `GET /library` (paginated). */

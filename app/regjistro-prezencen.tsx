@@ -93,7 +93,11 @@ export default function RegisterAttendanceScreen() {
     field?: string;
     type?: string;
     duration?: string;
+    /** `1` when opened from the attendance history — re-save, not finalize. */
+    finalized?: string;
   }>();
+
+  const editingHistory = params.finalized === '1';
 
   const trainingId = params.id != null ? Number(params.id) : NaN;
   const validId = Number.isFinite(trainingId);
@@ -240,7 +244,7 @@ export default function RegisterAttendanceScreen() {
       };
     });
 
-    saveAttendance(token, trainingId, attendance)
+    saveAttendance(token, trainingId, attendance, !editingHistory)
       .then(() => router.back())
       .catch((err) => {
         if (err instanceof ApiError && err.status === 401) {
@@ -534,7 +538,7 @@ export default function RegisterAttendanceScreen() {
                 ]}
               >
                 <Text style={styles.saveBtnText} numberOfLines={1}>
-                  Ruaj prezencën
+                  {editingHistory ? 'Përditëso prezencën' : 'Ruaj prezencën'}
                 </Text>
               </Pressable>
             </View>

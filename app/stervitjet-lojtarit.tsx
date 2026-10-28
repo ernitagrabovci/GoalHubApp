@@ -1,7 +1,7 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -87,6 +87,20 @@ export default function PlayerTrainingsScreen() {
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [lastPage, setLastPage] = useState(1);
+  const [reloadKey, setReloadKey] = useState(0);
+  const firstFocus = useRef(true);
+
+  /* Re-read the list when the detail page is dismissed, so a just-reported
+     absence shows up without a manual refresh. */
+  useFocusEffect(
+    useCallback(() => {
+      if (firstFocus.current) {
+        firstFocus.current = false;
+        return;
+      }
+      setReloadKey((k) => k + 1);
+    }, []),
+  );
 
   useEffect(() => {
     if (!token) return;
@@ -114,7 +128,7 @@ export default function PlayerTrainingsScreen() {
       });
 
     return () => controller.abort();
-  }, [token, router, signOut, page]);
+  }, [token, router, signOut, page, reloadKey]);
 
   const rows = sessions ?? [];
   const current = Math.min(page, Math.max(1, lastPage));
@@ -204,6 +218,7 @@ export default function PlayerTrainingsScreen() {
                             router.push({
                               pathname: '/stervitja-lojtarit',
                               params: {
+                                id: String(s.id),
                                 date,
                                 time,
                                 field: s.where,

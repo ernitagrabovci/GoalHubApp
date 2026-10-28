@@ -63,6 +63,24 @@ export function getTraining(token: string, id: number, signal?: AbortSignal) {
   return request<TrainingResponse>(`/trainings/${id}`, { token, signal });
 }
 
+/** One of the player's own sessions, with their attendance status and reason. */
+export function getMyTraining(token: string, id: number, signal?: AbortSignal) {
+  return request<TrainingResponse>(`/my/trainings/${id}`, { token, signal });
+}
+
+/**
+ * The player's finalized sessions for their own team, with the present/absent
+ * tallies — the trainer's attendance-history list.
+ */
+export function attendanceHistory(
+  token: string,
+  params: { page?: number } = {},
+  signal?: AbortSignal,
+) {
+  const query = toQuery({ page: params.page });
+  return request<Paginated<ApiTraining>>(`/team/attendance-history${query}`, { token, signal });
+}
+
 /* ─────────────────────────────── Writes ─────────────────────────────── */
 
 /** Schedule a new session for the trainer's own team. */
@@ -92,6 +110,30 @@ export function updateTraining(
 
 export function deleteTraining(token: string, id: number, signal?: AbortSignal) {
   return request<MessageResponse>(`/trainings/${id}`, { method: 'DELETE', token, signal });
+}
+
+/** The player reports they will miss an upcoming session. */
+export function reportAbsence(
+  token: string,
+  id: number,
+  reason: string,
+  signal?: AbortSignal,
+) {
+  return request<MutationResponse<ApiTraining>>(`/my/trainings/${id}/absence`, {
+    method: 'POST',
+    body: { reason },
+    token,
+    signal,
+  });
+}
+
+/** The player takes back a reported absence before the session starts. */
+export function cancelAbsence(token: string, id: number, signal?: AbortSignal) {
+  return request<MutationResponse<ApiTraining>>(`/my/trainings/${id}/absence/cancel`, {
+    method: 'POST',
+    token,
+    signal,
+  });
 }
 
 /** One player's attendance line: `present`, `absent` or `unconfirmed`. */

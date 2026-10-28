@@ -426,6 +426,10 @@ function RootNavigator() {
           options={{ headerShown: false }}
         />
         <Stack.Screen
+          name="historiku-prezences-trajner"
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
           name="regjistro-prezencen"
           options={{ headerShown: false }}
         />

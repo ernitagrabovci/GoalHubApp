@@ -5,6 +5,7 @@ import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
 import {
+  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -17,7 +18,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
 import { ApiError } from '@/lib/api/errors';
-import { badges, listNotifications, markNotificationsRead } from '@/lib/api/notifications';
+import {
+  badges,
+  listNotifications,
+  markNotificationsRead,
+  sendNotification,
+  type BroadcastInput,
+  type BroadcastRole,
+} from '@/lib/api/notifications';
 import { listTeams } from '@/lib/api/teams';
 import type { ApiNotification, ApiTeam, Paginated } from '@/lib/api/types';
 import { I, scaled } from '@/lib/responsive';
@@ -65,7 +73,11 @@ const MO = {
   white: '#F5F5F5',
 };
 
-const FILTER_ROLES = ['Lojtarë', 'Trajner', 'Prindër'];
+const FILTER_ROLES: { label: string; value: BroadcastRole }[] = [
+  { label: 'Lojtarë', value: 'player' },
+  { label: 'Trajner', value: 'trainer' },
+  { label: 'Prindër', value: 'parent' },
+];
 
 type Target = 'all' | 'filter';
 
@@ -153,6 +165,7 @@ export default function NotificationsScreen() {
   const [composing, setComposing] = useState(false);
   const [markingRead, setMarkingRead] = useState(false);
   const [teams, setTeams] = useState<ApiTeam[]>([]);
+  const [reloadKey, setReloadKey] = useState(0);
 
   /* The filter's choices come from the club's teams, not a fixed list. */
   useEffect(() => {
@@ -194,7 +207,7 @@ export default function NotificationsScreen() {
       });
 
     return () => controller.abort();
-  }, [token, router, signOut]);
+  }, [token, router, signOut, reloadKey]);
 
   useEffect(() => {
     if (!token) return;
@@ -221,7 +234,7 @@ export default function NotificationsScreen() {
       });
 
     return () => controller.abort();
-  }, [token, page, router, signOut]);
+  }, [token, page, router, signOut, reloadKey]);
 
   const items = list?.data ?? [];
   const latest = items[0] ?? null;
@@ -272,6 +285,24 @@ export default function NotificationsScreen() {
         }
       })
       .finally(() => setMarkingRead(false));
+  };
+
+  /* The composer closes only once the club-wide notice has been delivered. */
+  const sendBroadcast = async (input: BroadcastInput) => {
+    if (!token) throw new ApiError('Sesioni ka skaduar.', 401);
+
+    try {
+      const res = await sendNotification(token, input);
+      setComposing(false);
+      setReloadKey((k) => k + 1);
+      Alert.alert('Njoftimi u dërgua', res.message);
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 401) {
+        signOut();
+        router.replace('/login');
+      }
+      throw err;
+    }
   };
 
   return (
@@ -572,8 +603,9 @@ export default function NotificationsScreen() {
             accessibilityLabel="Mbylle dritaren"
           />
           <NewNotificationModal
-            teamNames={teams.map((t) => t.name)}
+            teams={teams}
             onClose={() => setComposing(false)}
+            onSend={sendBroadcast}
           />
         </View>
       ) : null}
@@ -595,25 +627,72 @@ function Radio({ on }: { on: boolean }) {
  * while "Filtro" opens the team and role pickers underneath it.
  */
 function NewNotificationModal({
-  teamNames,
+  teams,
   onClose,
+  onSend,
 }: {
-  teamNames: string[];
+  teams: ApiTeam[];
   onClose: () => void;
+  /** Resolves with the delivery summary, or throws an `ApiError`. */
+  onSend: (input: BroadcastInput) => Promise<void>;
 }) {
   const { width, height } = useWindowDimensions();
   const cardW = Math.min(width - 24, 360);
   const maxBody = Math.max(260, height - 167);
 
   const [target, setTarget] = useState<Target>('all');
-  const [teams, setTeams] = useState<string[]>([]);
+  const [teamIds, setTeamIds] = useState<number[]>([]);
   /** Roles stack — one team can go out to parents *and* trainers *and* players. */
-  const [roles, setRoles] = useState<string[]>([]);
+  const [roles, setRoles] = useState<BroadcastRole[]>([]);
   const [title, setTitle] = useState('');
   const [message, setMessage] = useState('');
+  const [sending, setSending] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
-  const toggle = (list: string[], set: (v: string[]) => void, value: string) =>
+  function toggle<T>(list: T[], set: (v: T[]) => void, value: T) {
     set(list.includes(value) ? list.filter((x) => x !== value) : [...list, value]);
+  }
+
+  const submit = async () => {
+    if (sending) return;
+
+    const trimmedTitle = title.trim();
+    if (!trimmedTitle) {
+      setFormError('Shkruani një titull për njoftimin.');
+      return;
+    }
+
+    if (target === 'filter' && teamIds.length === 0) {
+      setFormError('Zgjidhni të paktën një ekip.');
+      return;
+    }
+
+    if (target === 'filter' && roles.length === 0) {
+      setFormError('Zgjidhni të paktën një rol.');
+      return;
+    }
+
+    setSending(true);
+    setFormError(null);
+
+    try {
+      await onSend({
+        title: trimmedTitle,
+        body: message.trim() || null,
+        target_type: target === 'all' ? 'all' : 'filtered',
+        ...(target === 'filter' ? { team_ids: teamIds, roles } : {}),
+      });
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 0) {
+        setFormError('Nuk mund të lidhemi me serverin. Kontrollo lidhjen.');
+      } else if (err instanceof ApiError) {
+        setFormError(err.message || 'Njoftimi nuk mund të dërgohet.');
+      } else {
+        setFormError('Njoftimi nuk mund të dërgohet.');
+      }
+      setSending(false);
+    }
+  };
 
   return (
     <View style={[styles.nmCard, { width: cardW }]}>
@@ -670,16 +749,16 @@ function NewNotificationModal({
         {target === 'filter' ? (
           <View style={styles.stepBox}>
             <Text style={styles.stepHead}>Hapi 2 - Zgjedh ekip(et)</Text>
-            {teamNames.map((t) => (
+            {teams.map((t) => (
               <Pressable
-                key={t}
-                onPress={() => toggle(teams, setTeams, t)}
+                key={t.id}
+                onPress={() => toggle(teamIds, setTeamIds, t.id)}
                 accessibilityRole="checkbox"
-                accessibilityState={{ checked: teams.includes(t) }}
+                accessibilityState={{ checked: teamIds.includes(t.id) }}
                 style={({ pressed }) => [styles.teamRow, pressed && styles.pressed]}
               >
-                <Radio on={teams.includes(t)} />
-                <Text style={styles.teamText}>{t}</Text>
+                <Radio on={teamIds.includes(t.id)} />
+                <Text style={styles.teamText}>{t.name}</Text>
               </Pressable>
             ))}
 
@@ -688,14 +767,14 @@ function NewNotificationModal({
             <View style={styles.roleRow}>
               {FILTER_ROLES.map((r) => (
                 <Pressable
-                  key={r}
-                  onPress={() => toggle(roles, setRoles, r)}
+                  key={r.value}
+                  onPress={() => toggle(roles, setRoles, r.value)}
                   accessibilityRole="checkbox"
-                  accessibilityState={{ checked: roles.includes(r) }}
+                  accessibilityState={{ checked: roles.includes(r.value) }}
                   style={({ pressed }) => [styles.roleChip, pressed && styles.pressed]}
                 >
-                  <Radio on={roles.includes(r)} />
-                  <Text style={styles.roleText}>{r}</Text>
+                  <Radio on={roles.includes(r.value)} />
+                  <Text style={styles.roleText}>{r.label}</Text>
                 </Pressable>
               ))}
             </View>
@@ -720,20 +799,38 @@ function NewNotificationModal({
           textAlignVertical="top"
         />
 
+        {formError ? (
+          <Text style={styles.nmError} numberOfLines={3}>
+            {formError}
+          </Text>
+        ) : null}
+
         <View style={styles.nmActions}>
           <Pressable
             onPress={onClose}
+            disabled={sending}
             accessibilityRole="button"
-            style={({ pressed }) => [styles.nmBtn, styles.nmBtnCancel, pressed && styles.pressed]}
+            style={({ pressed }) => [
+              styles.nmBtn,
+              styles.nmBtnCancel,
+              sending && styles.nmBtnOff,
+              pressed && styles.pressed,
+            ]}
           >
             <Text style={styles.nmBtnText}>Anulo</Text>
           </Pressable>
           <Pressable
-            onPress={onClose}
+            onPress={submit}
+            disabled={sending}
             accessibilityRole="button"
-            style={({ pressed }) => [styles.nmBtn, styles.nmBtnSave, pressed && styles.pressed]}
+            style={({ pressed }) => [
+              styles.nmBtn,
+              styles.nmBtnSave,
+              sending && styles.nmBtnOff,
+              pressed && styles.pressed,
+            ]}
           >
-            <Text style={styles.nmBtnText}>Krijo</Text>
+            <Text style={styles.nmBtnText}>{sending ? '…' : 'Krijo'}</Text>
           </Pressable>
         </View>
       </ScrollView>
@@ -1335,6 +1432,15 @@ const styles = StyleSheet.create(
       color: MO.text,
     },
 
+    nmError: {
+      marginTop: 12,
+      fontFamily: Fonts.body,
+      fontSize: 10.5,
+      lineHeight: 14,
+      color: MO.cancel,
+      textAlign: 'right',
+    },
+
     nmActions: {
       flexDirection: 'row',
       justifyContent: 'flex-end',
@@ -1357,6 +1463,10 @@ const styles = StyleSheet.create(
     nmBtnSave: {
       width: 74,
       backgroundColor: MO.create,
+    },
+
+    nmBtnOff: {
+      opacity: 0.5,
     },
 
     nmBtnText: {
