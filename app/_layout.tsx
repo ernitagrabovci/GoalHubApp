@@ -1,4 +1,3 @@
-import Constants from 'expo-constants';
 import { NavigationBar } from 'expo-navigation-bar';
 import { Stack, ThemeProvider as NavThemeProvider } from 'expo-router';
 import { useFonts } from 'expo-font';
@@ -6,7 +5,7 @@ import { StatusBar } from 'expo-status-bar';
 import * as SystemUI from 'expo-system-ui';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
-import { Platform, StatusBar as RNStatusBar } from 'react-native';
+import { Platform } from 'react-native';
 import 'react-native-reanimated';
 
 import {
@@ -448,15 +447,6 @@ function RootNavigator() {
         />
       </Stack>
       <StatusBar style={isDark ? 'light' : 'dark'} />
-      {/* Expo Go paints an opaque black status bar on older Android (no
-          edge-to-edge), and expo-status-bar lost the colour prop in SDK 57.
-          RN's StatusBar can still paint it there; real builds use the native
-          theme from plugins/with-system-bars instead. */}
-      {Platform.OS === 'android' &&
-        Constants.appOwnership === 'expo' &&
-        Number(Platform.Version) < 35 && (
-          <RNStatusBar backgroundColor="#F5F5F5" barStyle="dark-content" />
-        )}
     </>
   );
 }

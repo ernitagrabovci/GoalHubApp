@@ -2,7 +2,7 @@
 
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { ComponentProps } from 'react';
-import { OpaqueColorValue, type StyleProp, type TextStyle } from 'react-native';
+import { type ColorValue, type StyleProp, type TextStyle } from 'react-native';
 
 type MaterialIconName = ComponentProps<typeof MaterialIcons>['name'];
 export type IconSymbolName = keyof typeof MAPPING;
@@ -86,8 +86,11 @@ export function IconSymbol({
 }: {
   name: IconSymbolName;
   size?: number;
-  color: string | OpaqueColorValue;
+  color: ColorValue;
   style?: StyleProp<TextStyle>;
 }) {
-  return <MaterialIcons color={color} size={size} name={MAPPING[name]} style={style} />;
+  // Icon fonts only accept string or opaque color values; RN 0.88's ColorValue
+  // also allows a numeric color, which the font handler can't render.
+  const resolved = typeof color === 'number' ? undefined : color;
+  return <MaterialIcons color={resolved ?? undefined} size={size} name={MAPPING[name]} style={style} />;
 }

@@ -1,6 +1,6 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useRouter, type Href } from 'expo-router';
-import type { BottomTabBarProps } from 'expo-router/build/react-navigation/bottom-tabs';
+import type { BottomTabBarProps } from 'expo-router/js-tabs';
 import type { ComponentProps } from 'react';
 import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
@@ -40,7 +40,7 @@ const ITEMS: Item[] = [
   { name: 'profile', label: 'Profile', icon: 'account-outline' },
 ];
 
-export function TrainerPillTabBar({ state, navigation, insets }: BottomTabBarProps) {
+export function TrainerPillTabBar({ state, emitter, navigateToTab, insets }: BottomTabBarProps) {
   const router = useRouter();
   const { user, token } = useSession();
   const [unread, setUnread] = useState(0);
@@ -112,13 +112,13 @@ export function TrainerPillTabBar({ state, navigation, insets }: BottomTabBarPro
           const color = focused ? C.green : C.muted;
           const onPress = () => {
             if (!route) return;
-            const event = navigation.emit({
+            const event = emitter.emit({
               type: 'tabPress',
               target: route.key,
               canPreventDefault: true,
             });
             if (!focused && !event.defaultPrevented) {
-              navigation.navigate(route.name);
+              navigateToTab(route.key);
             }
           };
           return (

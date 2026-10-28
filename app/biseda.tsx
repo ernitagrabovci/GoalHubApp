@@ -12,6 +12,7 @@ import {
   StyleSheet,
   TextInput,
   View,
+  type ScrollViewInstance,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -143,7 +144,7 @@ function Conversation() {
   const polling = useRef(false);
   /* New messages only pull the thread down while it is already at the end. */
   const atBottom = useRef(true);
-  const threadRef = useRef<ScrollView>(null);
+  const threadRef = useRef<ScrollViewInstance>(null);
 
   /* Merges a polled batch: edits/deletes/reacts replace their bubbles, the
      partner's reads flip our ticks, and anything new is appended. */
