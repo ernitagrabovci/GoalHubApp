@@ -26,7 +26,6 @@ SplashScreen.preventAutoHideAsync();
 
 export const unstable_settings = {
   anchor: '(tabs)',
-  initialRouteName: 'intro',
 };
 
 export default function RootLayout() {

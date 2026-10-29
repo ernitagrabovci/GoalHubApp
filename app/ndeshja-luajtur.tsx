@@ -158,7 +158,7 @@ export default function PlayedMatchScreen() {
     min: p.minutes_played ?? 0,
     yellow: (p.yellow_cards ?? 0) > 0,
     red: (p.red_cards ?? 0) > 0,
-    nota: p.rating,
+    nota: p.rating == null ? '—' : Number(p.rating).toFixed(1),
   }));
 
   const starters = (match?.lineup ?? [])
@@ -349,7 +349,7 @@ export default function PlayedMatchScreen() {
                       {p.red ? <View style={[styles.cardSq, { backgroundColor: C.red }]} /> : null}
                     </View>
                     <Text style={[styles.td, styles.colNota]}>
-                      {p.nota == null ? '—' : p.nota.toFixed(1)}
+                      {p.nota}
                     </Text>
                   </View>
                 ))}

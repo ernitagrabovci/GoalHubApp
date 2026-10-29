@@ -66,7 +66,7 @@ export default function TabLayout() {
         <Tabs.Screen key={name} name={name} options={{ href: null }} />
       ))}
       {/* explore is a visible tab when signed out, hidden-but-reachable when signed in */}
-      {user ? <Tabs.Screen name="explore" options={{ href: null }} /> : null}
+      {user ? [<Tabs.Screen key="explore" name="explore" options={{ href: null }} />] : []}
     </Tabs>
   );
 }

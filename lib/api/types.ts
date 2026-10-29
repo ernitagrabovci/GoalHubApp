@@ -267,7 +267,8 @@ export type ApiMatchPlayerStat = {
   minutes_played: number | null;
   yellow_cards: number | null;
   red_cards: number | null;
-  rating: number | null;
+  /** Decimal column — Laravel serializes it as a string. */
+  rating: number | string | null;
 };
 
 /** A match, from `GET /matches` (paginated) and `GET /matches/{match}`. */
