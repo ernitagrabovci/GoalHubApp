@@ -467,7 +467,6 @@ const styles = StyleSheet.create(
     /* ── Session details ─────────────────────────────────────── */
     tblInner: {
       paddingHorizontal: 10,
-      paddingBottom: 10,
     },
 
     /* Two label/value cells on a row, shorter than the table's own rows. */

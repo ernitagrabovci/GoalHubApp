@@ -342,7 +342,6 @@ const styles = StyleSheet.create(
     /* Keeps the rules clear of the card's rim. */
     tblInner: {
       paddingHorizontal: 10,
-      paddingBottom: 8,
     },
 
     tr: {

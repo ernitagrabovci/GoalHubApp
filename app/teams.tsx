@@ -394,9 +394,9 @@ export default function TeamsScreen() {
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.tblInner}
+                contentContainerStyle={[styles.tblInner, styles.tblFill]}
               >
-                <View>
+                <View style={styles.tblFill}>
                   <View style={[styles.tr, styles.thRow]}>
                     {STAT_COLS.map((c) => (
                       <Text
@@ -1277,6 +1277,12 @@ const styles = StyleSheet.create(
     },
 
     tblInner: {
+      flexGrow: 1,
+    },
+
+    /* Stretches the rows to the card's width, so the rules run the full width
+       instead of stopping where the last column ends. */
+    tblFill: {
       flexGrow: 1,
     },
 

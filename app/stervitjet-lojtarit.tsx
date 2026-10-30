@@ -381,7 +381,6 @@ const styles = StyleSheet.create(
 
     tblInner: {
       paddingHorizontal: 10,
-      paddingBottom: 10,
     },
 
     /* Stretches the rows to the card's width, so the rules run the full width
@@ -441,6 +440,7 @@ const styles = StyleSheet.create(
     actions: {
       flexDirection: 'row',
       alignItems: 'center',
+      justifyContent: 'flex-end',
       gap: 8,
     },
 

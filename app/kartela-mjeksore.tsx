@@ -352,9 +352,9 @@ export default function MedicalCardScreen() {
                 horizontal
                 showsHorizontalScrollIndicator={false}
                 bounces={false}
-                contentContainerStyle={styles.tblInner}
+                contentContainerStyle={[styles.tblInner, styles.tblFill]}
               >
-                <View>
+                <View style={styles.tblFill}>
                   <View style={styles.tr}>
                     <Text style={[styles.th, styles.thLeft, { width: 110 }]}>Emri</Text>
                     <Text style={[styles.th, { width: 58 }]}>Ekipi</Text>
@@ -477,9 +477,9 @@ export default function MedicalCardScreen() {
                 horizontal
                 showsHorizontalScrollIndicator={false}
                 bounces={false}
-                contentContainerStyle={styles.tblInner}
+                contentContainerStyle={[styles.tblInner, styles.tblFill]}
               >
-                <View>
+                <View style={styles.tblFill}>
                   <View style={styles.tr}>
                     <Text style={[styles.th, styles.thLeft, { width: 96 }]}>Lojtari</Text>
                     <Text style={[styles.th, { width: 54 }]}>Ekipi</Text>
@@ -895,7 +895,12 @@ const styles = StyleSheet.create(
     tblInner: {
       paddingHorizontal: 4,
       paddingTop: 6,
-      paddingBottom: 4,
+    },
+
+    /* Stretches the rows to the card's width, so the rules run the full width
+       instead of stopping where the last column ends. */
+    tblFill: {
+      flexGrow: 1,
     },
 
     tr: {

@@ -172,9 +172,9 @@ export default function TrainerAttendanceHistoryScreen() {
                 horizontal
                 showsHorizontalScrollIndicator={false}
                 bounces={false}
-                contentContainerStyle={styles.tblInner}
+                contentContainerStyle={[styles.tblInner, styles.tblFill]}
               >
-                <View>
+                <View style={styles.tblFill}>
                   <View style={[styles.tr, styles.thRow]}>
                     {COLS.map((c) => (
                       <Text key={c.key} style={[styles.th, { width: c.width }]} numberOfLines={1}>
@@ -420,7 +420,12 @@ const styles = StyleSheet.create(
 
     tblInner: {
       paddingHorizontal: 10,
-      paddingBottom: 10,
+    },
+
+    /* Stretches the rows to the card's width, so the rules run the full width
+       instead of stopping where the last column ends. */
+    tblFill: {
+      flexGrow: 1,
     },
 
     thRow: {
@@ -470,6 +475,7 @@ const styles = StyleSheet.create(
     actions: {
       flexDirection: 'row',
       alignItems: 'center',
+      justifyContent: 'flex-end',
       gap: 6,
     },
 

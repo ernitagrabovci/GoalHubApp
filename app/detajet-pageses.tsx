@@ -1085,7 +1085,6 @@ const styles = StyleSheet.create(
        the gutter has to live inside `tr` for the line to reach the card edge. */
     tblInner: {
       paddingTop: 6,
-      paddingBottom: 4,
     },
 
     tr: {

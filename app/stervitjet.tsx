@@ -100,6 +100,8 @@ const COLS: { key: keyof TrainingRow; label: string; width: number }[] = [
 
 /* Wide enough for the three actions of an unregistered session. */
 const ACTION_W = 168;
+/* A settled session only shows "Shiko", so its column hugs that one button. */
+const ACTION_W_SETTLED = 56;
 
 export default function TrainingListScreen() {
   const router = useRouter();
@@ -111,6 +113,11 @@ export default function TrainingListScreen() {
   const [adding, setAdding] = useState(false);
   const [typeFilter, setTypeFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+
+  /* Only pending sessions need "Regjistro" and "Fshi" beside "Shiko". */
+  const actionWidth = trainings.some((t) => t.status === 'Pret regjistrim')
+    ? ACTION_W
+    : ACTION_W_SETTLED;
 
   const load = useCallback(
     (signal?: AbortSignal) =>
@@ -216,7 +223,7 @@ export default function TrainingListScreen() {
                   adjustsFontSizeToFit
                   minimumFontScale={0.7}
                 >
-                  Lista e lojtarëve
+                  Lista e stërvitjeve
                 </Text>
                 <Text style={styles.subtitle} numberOfLines={1}>
                   {trainings[0]?.team ?? TEAM}
@@ -292,11 +299,11 @@ export default function TrainingListScreen() {
                 horizontal
                 showsHorizontalScrollIndicator={false}
                 bounces={false}
-                contentContainerStyle={styles.tblInner}
+                contentContainerStyle={[styles.tblInner, styles.tblFill]}
               >
                 {/* One wrapper, so the header row and the rows below it stack
                     down the page instead of lining up across it. */}
-                <View>
+                <View style={styles.tblFill}>
                   <View style={[styles.tr, styles.thRow]}>
                     {COLS.map((c) => (
                       <Text key={c.key} style={[styles.th, { width: c.width }]} numberOfLines={1}>
@@ -304,7 +311,7 @@ export default function TrainingListScreen() {
                       </Text>
                     ))}
                     {/* Keeps the header rule exactly as wide as the rows below. */}
-                    <View style={{ width: ACTION_W }} />
+                    <View style={{ width: actionWidth }} />
                   </View>
 
                   {trainings.map((t, i) => (
@@ -367,7 +374,7 @@ export default function TrainingListScreen() {
 
                       {/* A settled session only needs to be opened; an
                           unregistered one can be filled in or dropped. */}
-                      <View style={[styles.actions, { width: ACTION_W }]}>
+                      <View style={[styles.actions, { width: actionWidth }]}>
                         <Pressable
                           onPress={() =>
                             router.push({
@@ -624,7 +631,12 @@ const styles = StyleSheet.create(
 
     tblInner: {
       paddingHorizontal: 10,
-      paddingBottom: 10,
+    },
+
+    /* Stretches the rows to the card's width, so the rules run the full width
+       instead of stopping where the last column ends. */
+    tblFill: {
+      flexGrow: 1,
     },
 
     thRow: {
@@ -678,6 +690,7 @@ const styles = StyleSheet.create(
     actions: {
       flexDirection: 'row',
       alignItems: 'center',
+      justifyContent: 'flex-end',
       gap: 6,
     },
 

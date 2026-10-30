@@ -352,9 +352,9 @@ export default function PlayerQuotaScreen() {
                 horizontal
                 showsHorizontalScrollIndicator={false}
                 bounces={false}
-                contentContainerStyle={styles.tblInner}
+                contentContainerStyle={[styles.tblInner, styles.tblFill]}
               >
-                <View>
+                <View style={styles.tblFill}>
                   <View style={styles.tr}>
                     <Text style={[styles.th, styles.thLeft, { width: COL_PERIOD }]}>Periudha</Text>
                     <Text style={[styles.th, { width: COL_AMOUNT }]}>Shuma</Text>
@@ -749,7 +749,12 @@ const styles = StyleSheet.create(
     tblInner: {
       paddingHorizontal: 4,
       paddingTop: 6,
-      paddingBottom: 4,
+    },
+
+    /* Stretches the rows to the card's width, so the rules run the full width
+       instead of stopping where the last column ends. */
+    tblFill: {
+      flexGrow: 1,
     },
 
     tr: {

@@ -672,7 +672,6 @@ const styles = StyleSheet.create(
     /* ── Month table ─────────────────────────────────────────── */
     tblInner: {
       paddingHorizontal: 10,
-      paddingBottom: 10,
     },
 
     thRow: {

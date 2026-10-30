@@ -1173,11 +1173,11 @@ export default function UsersListScreen() {
                 horizontal
                 showsHorizontalScrollIndicator={false}
                 bounces={false}
-                contentContainerStyle={styles.tblInner}
+                contentContainerStyle={[styles.tblInner, styles.tblFill]}
               >
                 {/* One wrapper, so the header row and the rows below it stack
                     down the page instead of lining up across it. */}
-                <View>
+                <View style={styles.tblFill}>
                   <View style={[styles.tr, styles.thRow]}>
                     {USER_COLS.map((c) => (
                       <Text key={c.key} style={[styles.th, { width: c.width }]} numberOfLines={1}>
@@ -1825,7 +1825,12 @@ const styles = StyleSheet.create(
     /* ── Users table ─────────────────────────────────────────── */
     tblInner: {
       paddingHorizontal: 10,
-      paddingBottom: 10,
+    },
+
+    /* Stretches the rows to the card's width, so the rules run the full width
+       instead of stopping where the last column ends. */
+    tblFill: {
+      flexGrow: 1,
     },
 
     thRow: {
@@ -1872,6 +1877,7 @@ const styles = StyleSheet.create(
     actions: {
       flexDirection: 'row',
       alignItems: 'center',
+      justifyContent: 'flex-end',
       gap: 8,
     },
 

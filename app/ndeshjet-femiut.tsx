@@ -359,7 +359,6 @@ const styles = StyleSheet.create(
 
     tblInner: {
       paddingHorizontal: 8,
-      paddingBottom: 6,
     },
 
     /* Stretches the rows to the card's width, so the rules run the full width

@@ -741,7 +741,6 @@ const styles = StyleSheet.create(
     /* ── Attendance sheet ────────────────────────────────────── */
     tblInner: {
       paddingHorizontal: 10,
-      paddingBottom: 10,
     },
 
     /* Stretches the rows to the card's width, so the rules run the full width

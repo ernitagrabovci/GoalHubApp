@@ -862,7 +862,6 @@ const styles = StyleSheet.create(
     /* ── Fixtures table ──────────────────────────────────────── */
     tblInner: {
       paddingHorizontal: 10,
-      paddingBottom: 10,
     },
 
     thRow: {
