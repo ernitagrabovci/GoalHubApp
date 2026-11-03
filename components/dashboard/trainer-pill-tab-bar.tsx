@@ -8,6 +8,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
 import { badges } from '@/lib/api/notifications';
+import { useLanguage } from '@/lib/i18n';
 import { I, scaled } from '@/lib/responsive';
 import { useSession } from '@/lib/session';
 
@@ -32,16 +33,17 @@ const C = {
 
 type MciName = ComponentProps<typeof MaterialCommunityIcons>['name'];
 
-type Item = { name: string; label: string; icon: MciName };
+type Item = { name: string; labelKey: string; icon: MciName };
 
 const ITEMS: Item[] = [
-  { name: 'index', label: 'Home', icon: 'home-variant' },
-  { name: 'chat', label: 'Chat', icon: 'chat-outline' },
-  { name: 'profile', label: 'Profile', icon: 'account-outline' },
+  { name: 'index', labelKey: 'tabs.index', icon: 'home-variant' },
+  { name: 'chat', labelKey: 'module.Messages', icon: 'chat-outline' },
+  { name: 'profile', labelKey: 'tabs.profile', icon: 'account-outline' },
 ];
 
 export function TrainerPillTabBar({ state, emitter, navigateToTab, insets }: BottomTabBarProps) {
   const router = useRouter();
+  const { t } = useLanguage();
   const { user, token } = useSession();
   const [unread, setUnread] = useState(0);
 
@@ -100,7 +102,7 @@ export function TrainerPillTabBar({ state, emitter, navigateToTab, insets }: Bot
                     ) : null}
                   </View>
                   <Text style={[styles.label, { color: C.muted }]} numberOfLines={1}>
-                    {item.label}
+                    {t(item.labelKey)}
                   </Text>
                 </View>
               </Pressable>
@@ -126,7 +128,7 @@ export function TrainerPillTabBar({ state, emitter, navigateToTab, insets }: Bot
               <View style={[styles.item, focused && styles.itemActive]}>
                 <MaterialCommunityIcons name={item.icon} size={I(22)} color={color} />
                 <Text style={[styles.label, { color }]} numberOfLines={1}>
-                  {item.label}
+                  {t(item.labelKey)}
                 </Text>
               </View>
             </Pressable>

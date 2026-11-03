@@ -1,6 +1,5 @@
-import { createContext, useContext, useMemo, type ReactNode } from 'react';
+import { createContext, useContext, useMemo, useState, type ReactNode } from 'react';
 
-import { usePersistedState } from '@/lib/storage';
 import { translations, type Lang } from '@/lib/translations';
 
 type I18nValue = {
@@ -11,9 +10,13 @@ type I18nValue = {
 
 const I18nContext = createContext<I18nValue | null>(null);
 
-/** Provides the current language + t(). Persists the choice across restarts. */
+/**
+ * Provides the current language + t(). Albanian-first: nothing in the UI sets
+ * a different language yet, so it is not persisted — a stale stored value from
+ * older builds would otherwise keep overriding the default.
+ */
 export function LanguageProvider({ children }: { children: ReactNode }) {
-  const [lang, setLang] = usePersistedState<Lang>('settings:lang', 'en');
+  const [lang, setLang] = useState<Lang>('sq');
 
   const value = useMemo<I18nValue>(
     () => ({

@@ -1,4 +1,6 @@
-import { useRouter } from 'expo-router';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import Constants from 'expo-constants';
+import { useRouter, type Href } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
@@ -13,7 +15,7 @@ import type { ApiChild } from '@/lib/api/types';
 import { positionLabel } from '@/lib/player-position';
 import { statusLabel } from '@/lib/player-status';
 import { useLanguage } from '@/lib/i18n';
-import { scaled } from '@/lib/responsive';
+import { I, scaled } from '@/lib/responsive';
 import { useSession } from '@/lib/session';
 
 const C = {
@@ -29,6 +31,7 @@ const C = {
   green: '#159447',
   greenDeep: '#14734F',
   greenDark: '#0C6C36',
+  greenLine: '#69C994',
   lightGreen: '#DDF6E7',
   veryLightGreen: '#F1FBF5',
 
@@ -59,6 +62,57 @@ function initials(name: string | null): string {
       .toUpperCase() || '—'
   );
 }
+
+/** Settings rows — each gets its own pastel chip, like the dashboard menu cards. */
+const SETTINGS: {
+  icon: IconSymbolName;
+  labelKey: string;
+  captionKey: string;
+  chip: string;
+  tint: string;
+  route: Href;
+}[] = [
+  {
+    icon: 'person.fill',
+    labelKey: 'profile.accountSettings',
+    captionKey: 'profile.accountCaption',
+    chip: '#E8F3FF',
+    tint: '#3D82D8',
+    route: '/account-settings',
+  },
+  {
+    icon: 'lock',
+    labelKey: 'profile.security',
+    captionKey: 'profile.securityCaption',
+    chip: '#E9F7EF',
+    tint: C.green,
+    route: '/security-settings',
+  },
+  {
+    icon: 'notifications',
+    labelKey: 'profile.notifications',
+    captionKey: 'profile.notificationsCaption',
+    chip: '#FDF1E3',
+    tint: C.amber,
+    route: '/notification-settings',
+  },
+  {
+    icon: 'verified-user',
+    labelKey: 'profile.subscription',
+    captionKey: 'profile.subscriptionCaption',
+    chip: '#FDECF2',
+    tint: '#D6455D',
+    route: '/subscription-settings',
+  },
+  {
+    icon: 'gearshape.fill',
+    labelKey: 'profile.appSettings',
+    captionKey: 'profile.appCaption',
+    chip: '#EEEFFB',
+    tint: '#5B5BD6',
+    route: '/settings',
+  },
+];
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -94,17 +148,13 @@ export default function ProfileScreen() {
     return () => controller.abort();
   }, [token, isParent, router, signOut]);
 
-  const handleSignOut = () => {
-    signOut();
-    router.replace('/login');
-  };
-
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar style="dark" />
 
       <View style={styles.header}>
         <Text style={styles.title}>{t('profile.title')}</Text>
+        <Text style={styles.subtitle}>{t('profile.subtitle')}</Text>
       </View>
 
       {!user ? (
@@ -117,7 +167,7 @@ export default function ProfileScreen() {
         </View>
       ) : (
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-          {/* Identity — the signed-in user's card, in the dashboard's green. */}
+          {/* Identity — soft mint card; account editing lives in the settings list. */}
           <View style={styles.hero}>
             <Text style={styles.heroDeco} numberOfLines={1}>
               {user.initials}
@@ -140,6 +190,7 @@ export default function ProfileScreen() {
                   <Text style={styles.rolePillText}>{t(`role.${user.role}`)}</Text>
                 </View>
               </View>
+
             </View>
           </View>
 
@@ -215,7 +266,7 @@ export default function ProfileScreen() {
                             </View>
                           </View>
 
-                          <IconSymbol name="chevron.right" size={18} color={C.muted} />
+                          <IconSymbol name="chevron.right" size={I(17)} color={C.muted} />
                         </View>
 
                         <View style={styles.childStats}>
@@ -246,46 +297,34 @@ export default function ProfileScreen() {
           {/* Everything account-related lives on the settings sub-pages. */}
           <Text style={styles.sectionLabel}>{t('profile.settings')}</Text>
           <View style={styles.card}>
-            <SettingRow
-              icon="person.fill"
-              label={t('profile.accountSettings')}
-              onPress={() => router.push('/account-settings')}
-            />
-            <View style={styles.divider} />
-            <SettingRow
-              icon="lock"
-              label={t('profile.security')}
-              onPress={() => router.push('/security-settings')}
-            />
-            <View style={styles.divider} />
-            <SettingRow
-              icon="notifications"
-              label={t('profile.notifications')}
-              onPress={() => router.push('/notification-settings')}
-            />
-            <View style={styles.divider} />
-            <SettingRow
-              icon="verified-user"
-              label={t('profile.subscription')}
-              onPress={() => router.push('/subscription-settings')}
-            />
-            <View style={styles.divider} />
-            <SettingRow
-              icon="gearshape.fill"
-              label={t('profile.appSettings')}
-              onPress={() => router.push('/settings')}
-            />
+            {SETTINGS.map((item, i) => (
+              <View key={item.labelKey}>
+                {i > 0 ? <View style={styles.divider} /> : null}
+                <SettingRow
+                  icon={item.icon}
+                  label={t(item.labelKey)}
+                  caption={t(item.captionKey)}
+                  chip={item.chip}
+                  tint={item.tint}
+                  onPress={() => router.push(item.route)}
+                />
+              </View>
+            ))}
           </View>
 
-          {/* Sign out */}
-          <Pressable
-            style={({ pressed }) => [styles.signOut, pressed && styles.pressed]}
-            onPress={handleSignOut}
-          >
-            <IconSymbol name="logout" size={18} color={C.red} />
-            <Text style={styles.signOutText}>{t('profile.signOut')}</Text>
-          </Pressable>
-          <Text style={styles.footnote}>{t('profile.footnote')}</Text>
+          {/* App identity — a compact branded footer. */}
+          <Text style={styles.sectionLabel}>{t('profile.about')}</Text>
+          <View style={styles.aboutCard}>
+            <View style={styles.aboutLogo}>
+              <MaterialCommunityIcons name="soccer" size={I(22)} color={C.white} />
+            </View>
+            <View style={styles.aboutBody}>
+              <Text style={styles.aboutName}>GoalHub</Text>
+              <Text style={styles.aboutVersion}>
+                {t('profile.version')} {Constants.expoConfig?.version ?? '—'}
+              </Text>
+            </View>
+          </View>
         </ScrollView>
       )}
     </SafeAreaView>
@@ -299,10 +338,16 @@ export default function ProfileScreen() {
 function SettingRow({
   icon,
   label,
+  caption,
+  chip,
+  tint,
   onPress,
 }: {
   icon: IconSymbolName;
   label: string;
+  caption: string;
+  chip: string;
+  tint: string;
   onPress: () => void;
 }) {
   return (
@@ -310,14 +355,22 @@ function SettingRow({
       style={({ pressed }) => [styles.row, pressed && styles.pressed]}
       onPress={onPress}
       accessibilityRole="button"
+      accessibilityLabel={label}
     >
-      <View style={styles.rowIcon}>
-        <IconSymbol name={icon} size={18} color={C.green} />
+      <View style={[styles.rowIcon, { backgroundColor: chip }]}>
+        <IconSymbol name={icon} size={I(18)} color={tint} />
       </View>
-      <Text style={styles.rowLabel} numberOfLines={1}>
-        {label}
-      </Text>
-      <IconSymbol name="chevron.right" size={16} color={C.muted} />
+
+      <View style={styles.rowBody}>
+        <Text style={styles.rowLabel} numberOfLines={1}>
+          {label}
+        </Text>
+        <Text style={styles.rowCaption} numberOfLines={1}>
+          {caption}
+        </Text>
+      </View>
+
+      <IconSymbol name="chevron.right" size={I(16)} color={C.muted} />
     </Pressable>
   );
 }
@@ -352,39 +405,47 @@ const styles = StyleSheet.create(
     },
     header: {
       paddingHorizontal: 27,
-      paddingTop: 2,
-      paddingBottom: 4,
+      paddingTop: 4,
     },
     title: {
       fontFamily: Fonts.bodyBold,
-      fontSize: 24,
-      lineHeight: 28,
-      letterSpacing: -0.5,
+      fontSize: 26,
+      lineHeight: 31,
+      letterSpacing: -0.6,
       color: C.text,
+    },
+    subtitle: {
+      marginTop: 2,
+      fontFamily: Fonts.body,
+      fontSize: 12.5,
+      lineHeight: 17,
+      color: C.muted,
     },
     content: {
       paddingHorizontal: 27,
+      paddingTop: 14,
       paddingBottom: 46,
     },
 
     /* ── Identity card ───────────────────────────────────────── */
     hero: {
       position: 'relative',
-      marginTop: 8,
       padding: 16,
-      backgroundColor: C.greenDeep,
+      backgroundColor: C.veryLightGreen,
+      borderWidth: 1,
+      borderColor: C.greenLine,
       borderRadius: 16,
       overflow: 'hidden',
     },
     heroDeco: {
       position: 'absolute',
-      right: -8,
-      bottom: -34,
+      right: -14,
+      bottom: -52,
       fontFamily: Fonts.bodyBlack,
       fontSize: 132,
       lineHeight: 140,
       letterSpacing: -8,
-      color: 'rgba(190,235,215,0.14)',
+      color: 'rgba(21,148,71,0.08)',
     },
     heroTop: {
       flexDirection: 'row',
@@ -393,18 +454,18 @@ const styles = StyleSheet.create(
       zIndex: 2,
     },
     heroAvatar: {
-      width: 64,
-      height: 64,
-      borderRadius: 16,
+      width: 60,
+      height: 60,
+      borderRadius: 30,
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: 'rgba(245,245,245,0.14)',
-      borderWidth: 1,
-      borderColor: 'rgba(245,245,245,0.35)',
+      backgroundColor: C.green,
+      borderWidth: 3,
+      borderColor: 'rgba(255,255,255,0.85)',
     },
     heroInitials: {
       fontFamily: Fonts.bodyBold,
-      fontSize: 22,
+      fontSize: 21,
       color: C.white,
     },
     heroBody: {
@@ -413,16 +474,16 @@ const styles = StyleSheet.create(
     },
     heroName: {
       fontFamily: Fonts.bodyBold,
-      fontSize: 21,
-      lineHeight: 25,
+      fontSize: 20,
+      lineHeight: 24,
       letterSpacing: -0.4,
-      color: C.white,
+      color: C.text,
     },
     heroMeta: {
       fontFamily: Fonts.body,
-      fontSize: 12,
+      fontSize: 12.5,
       lineHeight: 16,
-      color: 'rgba(245,245,245,0.72)',
+      color: C.gray,
     },
     rolePill: {
       marginTop: 4,
@@ -439,7 +500,7 @@ const styles = StyleSheet.create(
       width: 5,
       height: 5,
       borderRadius: 3,
-      backgroundColor: C.greenDark,
+      backgroundColor: C.green,
     },
     rolePillText: {
       fontFamily: Fonts.bodySemiBold,
@@ -465,8 +526,8 @@ const styles = StyleSheet.create(
       backgroundColor: C.card,
       borderWidth: 1,
       borderColor: C.cardBorder,
-      borderRadius: 12,
-      paddingHorizontal: 14,
+      borderRadius: 14,
+      paddingHorizontal: 12,
       overflow: 'hidden',
     },
     emptyCard: {
@@ -484,29 +545,73 @@ const styles = StyleSheet.create(
     row: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 11,
-      minHeight: 56,
+      gap: 12,
+      minHeight: 62,
       paddingVertical: 9,
     },
     rowIcon: {
-      width: 34,
-      height: 34,
-      borderRadius: 10,
+      width: 38,
+      height: 38,
+      borderRadius: 11,
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: C.veryLightGreen,
+    },
+    rowBody: {
+      flex: 1,
+      gap: 1,
     },
     rowLabel: {
-      flex: 1,
       fontFamily: Fonts.bodySemiBold,
       fontSize: 14.5,
       lineHeight: 19,
       color: C.text,
     },
+    rowCaption: {
+      fontFamily: Fonts.body,
+      fontSize: 11.5,
+      lineHeight: 15,
+      color: C.muted,
+    },
     divider: {
       height: 1,
       backgroundColor: C.divider,
-      marginLeft: 45,
+      marginLeft: 50,
+    },
+
+    /* ── About ───────────────────────────────────────────────── */
+    aboutCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      backgroundColor: C.card,
+      borderWidth: 1,
+      borderColor: C.cardBorder,
+      borderRadius: 14,
+      padding: 14,
+    },
+    aboutLogo: {
+      width: 42,
+      height: 42,
+      borderRadius: 12,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: C.greenDeep,
+    },
+    aboutBody: {
+      flex: 1,
+    },
+    aboutName: {
+      fontFamily: Fonts.bodyBold,
+      fontSize: 15.5,
+      lineHeight: 20,
+      color: C.text,
+    },
+    aboutVersion: {
+      marginTop: 1,
+      fontFamily: Fonts.body,
+      fontSize: 11.5,
+      lineHeight: 15,
+      color: C.muted,
     },
 
     /* ── Child cards ─────────────────────────────────────────── */
@@ -517,7 +622,7 @@ const styles = StyleSheet.create(
       backgroundColor: C.card,
       borderWidth: 1,
       borderColor: C.cardBorder,
-      borderRadius: 12,
+      borderRadius: 14,
       padding: 14,
     },
     childHead: {
@@ -599,34 +704,6 @@ const styles = StyleSheet.create(
       width: 1,
       height: 26,
       backgroundColor: C.divider,
-    },
-
-    /* ── Sign out ────────────────────────────────────────────── */
-    signOut: {
-      marginTop: 22,
-      height: 52,
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: 9,
-      backgroundColor: C.redSoft,
-      borderWidth: 1,
-      borderColor: 'rgba(224,49,49,0.35)',
-      borderRadius: 12,
-    },
-    signOutText: {
-      fontFamily: Fonts.bodyBold,
-      fontSize: 15,
-      lineHeight: 19,
-      color: C.red,
-    },
-    footnote: {
-      marginTop: 12,
-      fontFamily: Fonts.body,
-      fontSize: 11.5,
-      lineHeight: 15,
-      color: C.muted,
-      textAlign: 'center',
     },
 
     /* ── Signed out ──────────────────────────────────────────── */

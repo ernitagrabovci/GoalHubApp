@@ -35,7 +35,7 @@ type MciName = ComponentProps<typeof MaterialCommunityIcons>['name'];
 type Item = { name: string; label: string; icon: MciName };
 
 const ITEMS: Item[] = [
-  { name: 'index', label: 'Home', icon: 'home-variant' },
+  { name: 'index', label: 'Kryesorja', icon: 'home-variant' },
   { name: 'users', label: 'Përdoruesit', icon: 'account-group-outline' },
   { name: 'pagesat', label: 'Pagesat', icon: 'cash-multiple' },
   { name: 'chat', label: 'Mesazhet', icon: 'chat-outline' },

@@ -177,7 +177,7 @@ export function ParentHome() {
 
             <View style={styles.welcome}>
               <Text style={styles.welcomeTitle}>
-                Dashboard!
+                Paneli
               </Text>
 
               <Text style={styles.welcomeSub} numberOfLines={1}>

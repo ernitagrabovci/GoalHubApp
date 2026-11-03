@@ -12,6 +12,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
+import { useLanguage } from '@/lib/i18n';
 import { I, scaled } from '@/lib/responsive';
 import { useSession, type Role } from '@/lib/session';
 
@@ -40,7 +41,7 @@ type IconName = ComponentProps<typeof MaterialCommunityIcons>['name'];
 
 type SettingsRow = {
   icon: IconName;
-  label: string;
+  labelKey: string;
   /** Destination route — leave unset until the settings sub-page exists. */
   route?: string;
   /**
@@ -51,48 +52,49 @@ type SettingsRow = {
 };
 
 const ROWS: SettingsRow[] = [
-  { icon: 'account-cog-outline', label: 'Cilësimet e llogarisë', route: '/account-settings' },
+  { icon: 'account-cog-outline', labelKey: 'settings.account', route: '/account-settings' },
   {
     icon: 'account-group-outline',
-    label: 'Cilësimet e klubit',
+    labelKey: 'settings.club',
     route: '/club-settings',
     roles: ['administrator'],
   },
   {
     icon: 'calendar-month-outline',
-    label: 'Cilësimet e sezonit',
+    labelKey: 'settings.season',
     route: '/season-settings',
     roles: ['administrator'],
   },
   {
     icon: 'bell-outline',
-    label: 'Cilësimet e njoftimeve',
+    labelKey: 'settings.notifications',
     route: '/notification-settings',
     roles: ['administrator'],
   },
   {
     icon: 'lock-outline',
-    label: 'Siguria',
+    labelKey: 'settings.security',
     route: '/security-settings',
     roles: ['administrator'],
   },
   {
     icon: 'credit-card-outline',
-    label: 'Abonimi',
+    labelKey: 'settings.subscription',
     route: '/subscription-settings',
     roles: ['administrator'],
   },
-  { icon: 'shield-account-outline', label: 'Privacy Policy', route: '/privacy-policy' },
+  { icon: 'shield-account-outline', labelKey: 'settings.privacy', route: '/privacy-policy' },
   {
     icon: 'file-document-outline',
-    label: 'Terms and Conditions',
+    labelKey: 'settings.terms',
     route: '/terms-conditions',
   },
-  { icon: 'cookie-outline', label: 'Cookies Policy', route: '/cookies-policy' },
+  { icon: 'cookie-outline', labelKey: 'settings.cookies', route: '/cookies-policy' },
 ];
 
 export default function SettingsScreen() {
   const router = useRouter();
+  const { t } = useLanguage();
   const { user, signOut } = useSession();
 
   const rows = ROWS.filter((row) => !row.roles || (!!user && row.roles.includes(user.role)));
@@ -118,14 +120,14 @@ export default function SettingsScreen() {
               onPress={() => router.back()}
               hitSlop={12}
               accessibilityRole="button"
-              accessibilityLabel="Kthehu prapa"
+              accessibilityLabel={t('common.back')}
               style={({ pressed }) => [styles.backBtn, pressed && styles.pressed]}
             >
               <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.text} />
             </Pressable>
             <View style={styles.headerText}>
               <Text style={styles.title} numberOfLines={1}>
-                Settings
+                {t('settings.title')}
               </Text>
             </View>
           </View>
@@ -142,7 +144,7 @@ export default function SettingsScreen() {
           <View style={styles.card}>
             {rows.map((row, index) => (
               <Pressable
-                key={row.label}
+                key={row.labelKey}
                 onPress={() => go(row.route)}
                 style={({ pressed }) => [
                   styles.row,
@@ -156,7 +158,7 @@ export default function SettingsScreen() {
                   color={C.text}
                   style={styles.rowIcon}
                 />
-                <Text style={styles.rowText}>{row.label}</Text>
+                <Text style={styles.rowText}>{t(row.labelKey)}</Text>
               </Pressable>
             ))}
           </View>
@@ -168,11 +170,11 @@ export default function SettingsScreen() {
         <Pressable
           onPress={logOut}
           accessibilityRole="button"
-          accessibilityLabel="Log out"
+          accessibilityLabel={t('settings.logOut')}
           style={({ pressed }) => [styles.logOut, pressed && styles.pressed]}
         >
           <MaterialCommunityIcons name="logout" size={I(20)} color="#F5F5F5" />
-          <Text style={styles.logOutText}>Log out</Text>
+          <Text style={styles.logOutText}>{t('settings.logOut')}</Text>
         </Pressable>
       </View>
     </SafeAreaView>

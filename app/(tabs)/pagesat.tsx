@@ -26,6 +26,7 @@ import type {
   FinanceStats,
   Paginated,
 } from '@/lib/api/types';
+import { STATUS_LABEL, STATUS_TONE } from '@/lib/finance';
 import { I, scaled } from '@/lib/responsive';
 import { useSession } from '@/lib/session';
 
@@ -79,20 +80,6 @@ const SQ_SHEEN = ['rgba(245,245,245,0.55)', 'rgba(245,245,245,0.00)'] as const;
 function usd(n: number) {
   return `€${Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`;
 }
-
-/** One colour per payment status, reused by the table. */
-const STATUS_TONE: Record<string, string> = {
-  Paguar: C.green,
-  Papaguar: C.orange,
-  Skaduar: C.red,
-};
-
-/** Backend fee status → the Albanian label the tones are keyed on. */
-const STATUS_LABEL: Record<string, string> = {
-  paid: 'Paguar',
-  unpaid: 'Papaguar',
-  overdue: 'Skaduar',
-};
 
 /* Table columns — fixed widths so nothing gets squeezed; the frame scrolls. */
 const COL_NAME = 104;

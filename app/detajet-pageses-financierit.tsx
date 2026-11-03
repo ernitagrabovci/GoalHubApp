@@ -10,7 +10,7 @@ import { Fonts } from '@/constants/theme';
 import { ApiError } from '@/lib/api/errors';
 import { getFee } from '@/lib/api/finance';
 import type { ApiFee } from '@/lib/api/types';
-import { dmy, monthLabel, payMethod, statusLabel, usd } from '@/lib/finance';
+import { dmy, monthLabel, payMethod, STATUS_TONE, statusLabel, usd } from '@/lib/finance';
 import { I, scaled } from '@/lib/responsive';
 import { useSession } from '@/lib/session';
 
@@ -40,12 +40,6 @@ const C = {
   green: '#159447',
   red: '#E03131',
   orange: '#E4A000',
-};
-
-const STATUS_TONE: Record<string, string> = {
-  Paguar: C.green,
-  Papaguar: C.orange,
-  Skaduar: C.red,
 };
 
 export default function FinancierPaymentDetailScreen() {

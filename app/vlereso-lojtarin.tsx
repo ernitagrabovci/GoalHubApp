@@ -162,7 +162,7 @@ export default function RatePlayerScreen() {
     team?: string;
     nr?: string;
   }>();
-  const name = params.name ?? 'Narti Cerkini';
+  const name = params.name ?? '—';
 
   const [scores, setScores] = useState<number[]>(() => CATEGORIES.map(() => START));
   const [day, setDay] = useState('');

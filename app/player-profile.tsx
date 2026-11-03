@@ -227,7 +227,7 @@ export default function PlayerProfileScreen() {
     });
   };
 
-  const name = player?.name ?? params.name ?? 'Narti Cerkini';
+  const name = player?.name ?? params.name ?? '—';
   const team = player?.team?.name ?? params.team ?? '—';
   const nr =
     player?.jersey_number != null ? String(player.jersey_number) : params.nr ?? '1';

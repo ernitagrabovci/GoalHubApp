@@ -455,7 +455,7 @@ export function RegisterPaymentModal({
             </View>
           </Pressable>
           <Text style={styles.pmFileHint} numberOfLines={1}>
-            {doc?.name ?? 'Choose file'}
+            {doc?.name ?? 'Zgjidh dokumentin'}
           </Text>
         </View>
 

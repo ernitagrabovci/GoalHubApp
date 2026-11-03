@@ -17,11 +17,14 @@ export const ADMIN_TABS: TabDef[] = [
 ];
 
 /**
- * Every non-admin signed-in role's bar — just Home. Chat and profile are
- * full-screen root routes drawn by TrainerPillTabBar.
+ * Every non-admin signed-in role's bar — Home plus Profile. Profile is a real
+ * tab (the bar draws its own pill for it); Chat is a full-screen root route.
+ * Keeping profile visible matters: hidden tabs are dropped from the state the
+ * custom bar receives, which made its pill unclickable.
  */
 export const PILL_TABS: TabDef[] = [
   { name: 'index', title: 'Home', icon: 'house.fill' },
+  { name: 'profile', title: 'Profile', icon: 'person.fill' },
 ];
 
 /** Shown in the tab bar when nobody is signed in (transient state). */

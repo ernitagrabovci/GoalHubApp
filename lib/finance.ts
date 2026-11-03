@@ -9,6 +9,8 @@
 export const STATUS_TONE: Record<string, string> = {
   Paguar: '#159447',
   Papaguar: '#E4A000',
+  'Me vonesë': '#E67E22',
+  Kritike: '#E03131',
   Skaduar: '#E03131',
 };
 
@@ -16,6 +18,8 @@ export const STATUS_TONE: Record<string, string> = {
 export const STATUS_LABEL: Record<string, string> = {
   paid: 'Paguar',
   unpaid: 'Papaguar',
+  delayed: 'Me vonesë',
+  critical: 'Kritike',
   overdue: 'Skaduar',
 };
 

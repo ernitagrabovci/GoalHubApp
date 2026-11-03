@@ -501,7 +501,7 @@ export default function PaymentDetailScreen() {
                     </View>
                   </Pressable>
                   <Text style={styles.fileHint} numberOfLines={1}>
-                    {doc?.name ?? 'Choose file'}
+                    {doc?.name ?? 'Zgjidh dokumentin'}
                   </Text>
                 </View>
 

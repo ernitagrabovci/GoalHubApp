@@ -17,6 +17,7 @@ import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
 import * as auth from '@/lib/api/auth';
 import { ApiError } from '@/lib/api/errors';
+import { useLanguage } from '@/lib/i18n';
 import { scaled } from '@/lib/responsive';
 import { useSession } from '@/lib/session';
 
@@ -46,16 +47,17 @@ const IMG_PLAYER = require('@/assets/dashboard/lojtaret.png');
 const IMG_BALL = require('@/assets/dashboard/ndeshjet.png');
 const IMG_TEAM = require('@/assets/dashboard/grupet.png');
 
-function errorMessage(error: unknown): string {
+function errorMessage(error: unknown, t: (key: string) => string): string {
   if (error instanceof ApiError) {
-    if (error.status === 429) return 'Too many attempts. Please wait a minute and try again.';
+    if (error.status === 429) return t('login.errorTooMany');
     return error.message;
   }
-  return 'Something went wrong. Please try again.';
+  return t('login.errorGeneric');
 }
 
 export default function LoginScreen() {
   const router = useRouter();
+  const { t } = useLanguage();
   const { user, completeSignIn } = useSession();
 
   const [email, setEmail] = useState('');
@@ -72,7 +74,7 @@ export default function LoginScreen() {
     if (busy) return;
     const trimmed = email.trim();
     if (!trimmed || !password) {
-      setError('Enter your email and password.');
+      setError(t('login.errorRequired'));
       return;
     }
 
@@ -95,7 +97,7 @@ export default function LoginScreen() {
       await completeSignIn(result);
       router.replace('/');
     } catch (err) {
-      setError(errorMessage(err));
+      setError(errorMessage(err, t));
       setBusy(false);
     }
   };
@@ -124,7 +126,7 @@ export default function LoginScreen() {
                 GOALHUB
               </Text>
               <Text style={styles.heroSubtitle} numberOfLines={1}>
-                Log in to your account
+                {t('login.subtitle')}
               </Text>
             </View>
           </View>
@@ -132,7 +134,7 @@ export default function LoginScreen() {
           {/* Fields */}
           <TextInput
             style={styles.field}
-            placeholder="Email"
+            placeholder={t('login.email')}
             placeholderTextColor={C.gray}
             value={email}
             onChangeText={setEmail}
@@ -144,7 +146,7 @@ export default function LoginScreen() {
 
           <TextInput
             style={styles.field}
-            placeholder="Password"
+            placeholder={t('login.password')}
             placeholderTextColor={C.gray}
             value={password}
             onChangeText={setPassword}
@@ -167,7 +169,7 @@ export default function LoginScreen() {
             onPress={() => router.push('/forgot-password')}
             accessibilityRole="button"
           >
-            <Text style={styles.forgot}>Forgot your password</Text>
+            <Text style={styles.forgot}>{t('login.forgot')}</Text>
           </Pressable>
 
           <Pressable
@@ -178,18 +180,18 @@ export default function LoginScreen() {
             {busy ? (
               <ActivityIndicator color={C.green} />
             ) : (
-              <Text style={styles.primaryText}>Log in</Text>
+              <Text style={styles.primaryText}>{t('login.submit')}</Text>
             )}
           </Pressable>
 
           <View style={styles.signupRow}>
-            <Text style={styles.signupText}>{"Don't have an account? "}</Text>
+            <Text style={styles.signupText}>{t('login.noAccount')}</Text>
             <Pressable
               onPress={() => router.push('/signup')}
               hitSlop={8}
               accessibilityRole="link"
             >
-              <Text style={styles.signupLink}>Sign up</Text>
+              <Text style={styles.signupLink}>{t('login.signup')}</Text>
             </Pressable>
           </View>
 

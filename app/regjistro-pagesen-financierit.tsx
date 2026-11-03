@@ -279,7 +279,7 @@ export default function RegisterPaymentScreen() {
                   </Pressable>
 
                   <Text style={styles.fileHint} numberOfLines={1}>
-                    {doc?.name ?? 'Choose file'}
+                    {doc?.name ?? 'Zgjidh dokumentin'}
                   </Text>
                 </View>
 
@@ -293,14 +293,14 @@ export default function RegisterPaymentScreen() {
                   onPress={save}
                   disabled={saving}
                   accessibilityRole="button"
-                  accessibilityLabel="Ruaj cilësimet"
+                  accessibilityLabel="Regjistro pagesën"
                   style={({ pressed }) => [
                     styles.saveBtn,
                     saving && styles.saveBtnOff,
                     pressed && styles.pressed,
                   ]}
                 >
-                  <Text style={styles.saveBtnText}>Ruaj cilësimet</Text>
+                  <Text style={styles.saveBtnText}>Regjistro pagesën</Text>
                 </Pressable>
               </View>
             </View>
