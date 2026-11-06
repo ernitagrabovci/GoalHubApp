@@ -941,6 +941,7 @@ const styles = StyleSheet.create(
       borderColor: C.ghostLine,
       borderRadius: 4,
       paddingHorizontal: 9,
+      paddingVertical: 0,
       fontFamily: Fonts.body,
       fontSize: 12,
       color: C.text,

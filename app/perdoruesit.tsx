@@ -1752,6 +1752,7 @@ const styles = StyleSheet.create(
       flex: 1,
       height: 38,
       paddingHorizontal: 10,
+      paddingVertical: 0,
       backgroundColor: '#F5F5F5',
       borderWidth: 1,
       borderColor: C.frame,

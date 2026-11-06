@@ -1008,6 +1008,7 @@ const styles = StyleSheet.create(
       borderColor: '#000000',
       borderRadius: 4,
       paddingHorizontal: 9,
+      paddingVertical: 0,
       fontFamily: Fonts.body,
       fontSize: 12,
       lineHeight: 15,
