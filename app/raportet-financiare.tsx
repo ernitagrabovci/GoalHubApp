@@ -57,9 +57,6 @@ const SQ_GLOSS = [
   'rgba(245,245,245,0.80)',
 ] as const;
 
-/** Thin specular rim on the top edge — reads as the thickness of the pane. */
-const SQ_SHEEN = ['rgba(245,245,245,0.55)', 'rgba(245,245,245,0.00)'] as const;
-
 /* ── Headline squares ──────────────────────────────────────────────── */
 
 type Square = { value: string; label: string; tone: string };
@@ -259,46 +256,71 @@ export default function FinancialReportsScreen() {
           <View style={styles.colPad}>
             {/* ── Headline squares ──────────────────────────────── */}
             <View style={styles.grid}>
-              {squares.map((s) => (
-                <View key={s.label} style={styles.sqShadow}>
-                  <View style={styles.sq}>
-                    {/* Frost the canvas grid, then lay a gloss sweep over it. */}
-                    <BlurView
-                      pointerEvents="none"
-                      intensity={50}
-                      tint="light"
-                      style={StyleSheet.absoluteFill}
-                    />
-                    <LinearGradient
-                      pointerEvents="none"
-                      style={StyleSheet.absoluteFill}
-                      colors={SQ_GLOSS}
-                      locations={[0, 0.55, 1]}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 1 }}
-                    />
-                    <LinearGradient
-                      pointerEvents="none"
-                      style={styles.sheen}
-                      colors={SQ_SHEEN}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 0, y: 1 }}
-                    />
+              {[squares.slice(0, 2), squares.slice(2)].map((row) => (
+                <View key={row[0].label} style={styles.statsCard}>
+                  {/* One pane per row: frost, base gloss, then two specular
+                      sweeps so the surface reads as glass. */}
+                  <BlurView
+                    pointerEvents="none"
+                    intensity={55}
+                    tint="light"
+                    experimentalBlurMethod="dimezisBlurView"
+                    style={StyleSheet.absoluteFill}
+                  />
+                  <LinearGradient
+                    pointerEvents="none"
+                    style={StyleSheet.absoluteFill}
+                    colors={SQ_GLOSS}
+                    locations={[0, 0.55, 1]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                  />
+                  <LinearGradient
+                    pointerEvents="none"
+                    style={styles.statsGloss}
+                    colors={[
+                      'rgba(255,255,255,0)',
+                      'rgba(255,255,255,0.78)',
+                      'rgba(255,255,255,0.55)',
+                      'rgba(255,255,255,0)',
+                    ]}
+                    locations={[0, 0.38, 0.62, 1]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                  />
+                  <LinearGradient
+                    pointerEvents="none"
+                    style={styles.statsGloss2}
+                    colors={[
+                      'rgba(255,255,255,0)',
+                      'rgba(255,255,255,0.55)',
+                      'rgba(255,255,255,0)',
+                    ]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                  />
+                  <View pointerEvents="none" style={styles.statsSheen} />
 
-                    <View style={styles.sqBody}>
-                      <Text
-                        style={[styles.sqValue, { color: s.tone }]}
-                        numberOfLines={1}
-                        adjustsFontSizeToFit
-                        minimumFontScale={0.5}
-                      >
-                        {s.value}
-                      </Text>
-                      <Text style={styles.sqLabel} numberOfLines={2}>
-                        {s.label}
-                      </Text>
+                  {row.map((s, i) => (
+                    <View key={s.label} style={styles.statItem}>
+                      {i > 0 ? (
+                        <View pointerEvents="none" style={styles.statDivider} />
+                      ) : null}
+                      <View style={styles.sqBody}>
+                        <Text
+                          style={[styles.sqValue, { color: s.tone }]}
+                          numberOfLines={1}
+                          adjustsFontSizeToFit
+                          minimumFontScale={0.5}
+                        >
+                          {s.value}
+                        </Text>
+                        <Text style={styles.sqLabel} numberOfLines={2}>
+                          {s.label}
+                        </Text>
+                      </View>
                     </View>
-                  </View>
+                  ))}
                 </View>
               ))}
             </View>
@@ -583,36 +605,71 @@ const styles = StyleSheet.create(
     },
 
     /* ── Headline squares ────────────────────────────────────── */
-    /* Two by two, so each square is a wide rectangle rather than a plate. */
+    /* Two by two, merged into one pane per row so each square stays a wide
+       rectangle rather than a plate. */
     grid: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      justifyContent: 'space-between',
       marginTop: 12,
-      rowGap: 10,
+      gap: 10,
     },
 
-    /* Shadow lives on the wrapper: `overflow: hidden` on the pane itself would
-       clip it away on iOS. */
-    sqShadow: {
-      width: '48.5%',
+    statsCard: {
+      flexDirection: 'row',
+      alignItems: 'stretch',
+      width: '100%',
       height: 88,
-      borderRadius: 8,
-      /* Translucent so the frosted pane inside has a backdrop to blur. */
-      backgroundColor: 'rgba(245,245,245,0.5)',
-      shadowColor: '#000000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.04,
-      shadowRadius: 5,
-      elevation: 1,
-    },
-
-    sq: {
-      flex: 1,
+      borderRadius: 16,
       borderWidth: 1,
       borderColor: C.orange,
-      borderRadius: 8,
+      backgroundColor: 'rgba(255,255,255,0.12)',
       overflow: 'hidden',
+      shadowColor: '#0B3B33',
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: 0.18,
+      shadowRadius: 14,
+      elevation: 5,
+    },
+
+    statsGloss: {
+      position: 'absolute',
+      top: -130,
+      left: -150,
+      right: -150,
+      height: 340,
+      transform: [{ rotate: '-16deg' }],
+    },
+
+    statsGloss2: {
+      position: 'absolute',
+      top: 48,
+      left: 30,
+      right: -170,
+      height: 80,
+      transform: [{ rotate: '-16deg' }],
+    },
+
+    statsSheen: {
+      position: 'absolute',
+      top: 1.5,
+      left: 10,
+      right: 10,
+      height: 1.5,
+      borderRadius: 1,
+      backgroundColor: 'rgba(255,255,255,0.95)',
+    },
+
+    statItem: {
+      flex: 1,
+      minWidth: 0,
+      overflow: 'hidden',
+    },
+
+    statDivider: {
+      position: 'absolute',
+      left: 0,
+      top: 10,
+      bottom: 10,
+      width: StyleSheet.hairlineWidth,
+      backgroundColor: 'rgba(16,51,38,0.18)',
     },
 
     /* Content rides above the frost and gloss overlays. */
@@ -620,14 +677,6 @@ const styles = StyleSheet.create(
       flex: 1,
       justifyContent: 'center',
       paddingHorizontal: 11,
-    },
-
-    sheen: {
-      position: 'absolute',
-      top: 0,
-      left: 0,
-      right: 0,
-      height: '14%',
     },
 
     /* The amount leads, so it takes the heavier weight and size. */
