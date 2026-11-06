@@ -72,9 +72,6 @@ const SQ_GLOSS = [
   'rgba(245,245,245,0.80)',
 ] as const;
 
-/** Thin specular rim on the top edge — reads as the thickness of the pane. */
-const SQ_SHEEN = ['rgba(245,245,245,0.55)', 'rgba(245,245,245,0.00)'] as const;
-
 /** One colour per medical status, reused by both tables. */
 const STATUS_TONE: Record<string, string> = {
   'I lënduar': C.red,
@@ -294,32 +291,53 @@ export default function MedicalCardScreen() {
           {/* ── Headline counts ─────────────────────────────────── */}
           {/* Only three, so they share the row instead of scrolling. */}
           <View style={styles.summaryRow}>
-            {summary.map((s) => (
-              <View key={s.label} style={styles.sqShadow}>
-                <View style={styles.sq}>
-                  {/* Frost the canvas grid, then lay a gloss sweep over it. */}
-                  <BlurView
-                    pointerEvents="none"
-                    intensity={50}
-                    tint="light"
-                    style={StyleSheet.absoluteFill}
-                  />
-                  <LinearGradient
-                    pointerEvents="none"
-                    style={StyleSheet.absoluteFill}
-                    colors={SQ_GLOSS}
-                    locations={[0, 0.55, 1]}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                  />
-                  <LinearGradient
-                    pointerEvents="none"
-                    style={styles.sheen}
-                    colors={SQ_SHEEN}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 0, y: 1 }}
-                  />
+            <View style={styles.statsCard}>
+              {/* One pane for the whole row: frost, base gloss, then two
+                  specular sweeps so the surface reads as glass. */}
+              <BlurView
+                pointerEvents="none"
+                intensity={55}
+                tint="light"
+                experimentalBlurMethod="dimezisBlurView"
+                style={StyleSheet.absoluteFill}
+              />
+              <LinearGradient
+                pointerEvents="none"
+                style={StyleSheet.absoluteFill}
+                colors={SQ_GLOSS}
+                locations={[0, 0.55, 1]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+              />
+              <LinearGradient
+                pointerEvents="none"
+                style={styles.statsGloss}
+                colors={[
+                  'rgba(255,255,255,0)',
+                  'rgba(255,255,255,0.78)',
+                  'rgba(255,255,255,0.55)',
+                  'rgba(255,255,255,0)',
+                ]}
+                locations={[0, 0.38, 0.62, 1]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+              />
+              <LinearGradient
+                pointerEvents="none"
+                style={styles.statsGloss2}
+                colors={[
+                  'rgba(255,255,255,0)',
+                  'rgba(255,255,255,0.55)',
+                  'rgba(255,255,255,0)',
+                ]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+              />
+              <View pointerEvents="none" style={styles.statsSheen} />
 
+              {summary.map((s, i) => (
+                <View key={s.label} style={styles.statItem}>
+                  {i > 0 ? <View pointerEvents="none" style={styles.statDivider} /> : null}
                   <View style={styles.sqBody}>
                     <Text
                       style={styles.sqLabel}
@@ -335,8 +353,8 @@ export default function MedicalCardScreen() {
                     </Text>
                   </View>
                 </View>
-              </View>
-            ))}
+              ))}
+            </View>
           </View>
 
           <View style={styles.colPad}>
@@ -687,45 +705,73 @@ const styles = StyleSheet.create(
       paddingLeft: 27,
       paddingRight: 27,
       paddingTop: 4,
-      gap: 8,
     },
 
-    /* Shadow lives on the wrapper: `overflow: hidden` on the pane itself would
-       clip it away on iOS. */
-    sqShadow: {
-      /* Three cards share the row, so each grows to a third of it. */
+    /* One shared glass pane for the whole row, with an orange rim. */
+    statsCard: {
       flex: 1,
+      flexDirection: 'row',
+      alignItems: 'stretch',
       height: 122,
-      borderRadius: 8,
-      /* Translucent so the frosted pane inside has a backdrop to blur. */
-      backgroundColor: 'rgba(245,245,245,0.5)',
-      shadowColor: '#000000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.04,
-      shadowRadius: 5,
-      elevation: 1,
-    },
-
-    sq: {
-      flex: 1,
+      borderRadius: 16,
       borderWidth: 1,
       borderColor: C.orange,
-      borderRadius: 8,
+      backgroundColor: 'rgba(255,255,255,0.12)',
       overflow: 'hidden',
+      shadowColor: '#0B3B33',
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: 0.18,
+      shadowRadius: 14,
+      elevation: 5,
+    },
+
+    statsGloss: {
+      position: 'absolute',
+      top: -130,
+      left: -150,
+      right: -150,
+      height: 340,
+      transform: [{ rotate: '-16deg' }],
+    },
+
+    statsGloss2: {
+      position: 'absolute',
+      top: 67,
+      left: 30,
+      right: -170,
+      height: 80,
+      transform: [{ rotate: '-16deg' }],
+    },
+
+    statsSheen: {
+      position: 'absolute',
+      top: 1.5,
+      left: 10,
+      right: 10,
+      height: 1.5,
+      borderRadius: 1,
+      backgroundColor: 'rgba(255,255,255,0.95)',
+    },
+
+    statItem: {
+      flex: 1,
+      minWidth: 0,
+      overflow: 'hidden',
+    },
+
+    statDivider: {
+      position: 'absolute',
+      left: 0,
+      top: 10,
+      bottom: 10,
+      width: StyleSheet.hairlineWidth,
+      backgroundColor: 'rgba(16,51,38,0.18)',
     },
 
     /* Content rides above the frost and gloss overlays. */
     sqBody: {
       flex: 1,
       padding: 11,
-    },
-
-    sheen: {
-      position: 'absolute',
-      top: 0,
-      left: 0,
-      right: 0,
-      height: '14%',
     },
 
     /* Fixed two-line block so all three values sit on the same line. */

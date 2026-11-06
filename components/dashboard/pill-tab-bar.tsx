@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { Text } from '@/components/dashboard/dashboard-text';
+import { HomeBackdrop } from '@/components/dashboard/home-backdrop';
 import { Fonts } from '@/constants/theme';
 import { badges } from '@/lib/api/notifications';
 import { I, scaled } from '@/lib/responsive';
@@ -53,6 +54,7 @@ export function PillTabBar({ state, emitter, navigateToTab, insets }: BottomTabB
   const router = useRouter();
   const { token } = useSession();
   const [unread, setUnread] = useState(0);
+  const onHome = state.routes[state.index]?.name === 'index';
 
   /* Keeps the Chat pill's counter current without opening the messages page. */
   useEffect(() => {
@@ -80,6 +82,12 @@ export function PillTabBar({ state, emitter, navigateToTab, insets }: BottomTabB
 
   return (
     <View style={[styles.area, { paddingBottom: Math.max(insets.bottom, 14) }]}>
+      {onHome ? (
+        <View pointerEvents="none" style={styles.backdrop}>
+          {/* Same flat green as the home scene. */}
+          <HomeBackdrop />
+        </View>
+      ) : null}
       <View style={styles.pill}>
         {ITEMS.map((item) => {
           // "Profili" and "Mesazhet" open full-screen pages of their own
@@ -146,7 +154,15 @@ export function PillTabBar({ state, emitter, navigateToTab, insets }: BottomTabB
 const styles = StyleSheet.create(scaled({
   area: {
     paddingTop: 8,
-    paddingHorizontal: 24,
+    paddingHorizontal: 27,
+  },
+  backdrop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    overflow: 'hidden',
   },
   pill: {
     flexDirection: 'row',

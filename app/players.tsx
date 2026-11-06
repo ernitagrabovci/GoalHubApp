@@ -1,4 +1,6 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import { BlurView } from 'expo-blur';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
@@ -334,29 +336,78 @@ export default function PlayersScreen() {
         >
           {/* ── Summary squares ─────────────────────────────────── */}
           <View style={styles.summaryRow}>
-            {summary.map((s) => (
-              <View key={s.label} style={styles.sq}>
-                <Text
-                  style={styles.sqLabel}
-                  numberOfLines={2}
-                  adjustsFontSizeToFit
-                  minimumFontScale={0.65}
-                >
-                  {s.label}
-                </Text>
-                <Text
-                  style={[styles.sqValue, s.tone ? { color: s.tone } : null]}
-                  numberOfLines={1}
-                  adjustsFontSizeToFit
-                  minimumFontScale={0.5}
-                >
-                  {s.value}
-                </Text>
-                <Text style={[styles.sqHint, s.tone ? { color: s.tone } : null]} numberOfLines={2}>
-                  {s.hint}
-                </Text>
-              </View>
-            ))}
+            <View style={styles.statsCard}>
+              {/* One pane for the whole row: frost, base gloss, then two
+                  specular sweeps so the surface reads as glass. */}
+              <BlurView
+                pointerEvents="none"
+                intensity={55}
+                tint="light"
+                experimentalBlurMethod="dimezisBlurView"
+                style={StyleSheet.absoluteFill}
+              />
+              <LinearGradient
+                pointerEvents="none"
+                style={StyleSheet.absoluteFill}
+                colors={[
+                  'rgba(255,255,255,0.38)',
+                  'rgba(255,255,255,0.04)',
+                  'rgba(255,255,255,0.24)',
+                ]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+              />
+              <LinearGradient
+                pointerEvents="none"
+                style={styles.statsGloss}
+                colors={[
+                  'rgba(255,255,255,0)',
+                  'rgba(255,255,255,0.78)',
+                  'rgba(255,255,255,0.55)',
+                  'rgba(255,255,255,0)',
+                ]}
+                locations={[0, 0.38, 0.62, 1]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+              />
+              <LinearGradient
+                pointerEvents="none"
+                style={styles.statsGloss2}
+                colors={[
+                  'rgba(255,255,255,0)',
+                  'rgba(255,255,255,0.55)',
+                  'rgba(255,255,255,0)',
+                ]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+              />
+              <View pointerEvents="none" style={styles.statsSheen} />
+
+              {summary.map((s, i) => (
+                <View key={s.label} style={styles.statItem}>
+                  {i > 0 ? <View pointerEvents="none" style={styles.statDivider} /> : null}
+                  <Text
+                    style={styles.sqLabel}
+                    numberOfLines={2}
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.65}
+                  >
+                    {s.label}
+                  </Text>
+                  <Text
+                    style={[styles.sqValue, s.tone ? { color: s.tone } : null]}
+                    numberOfLines={1}
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.5}
+                  >
+                    {s.value}
+                  </Text>
+                  <Text style={[styles.sqHint, s.tone ? { color: s.tone } : null]} numberOfLines={2}>
+                    {s.hint}
+                  </Text>
+                </View>
+              ))}
+            </View>
           </View>
 
           <View style={styles.colPad}>
@@ -728,22 +779,68 @@ const styles = StyleSheet.create(
       paddingLeft: 14,
       paddingRight: 14,
       paddingTop: 4,
-      gap: 6,
     },
 
-    sq: {
+    /* One shared glass pane for the whole row, with an orange rim. */
+    statsCard: {
       flex: 1,
+      flexDirection: 'row',
+      alignItems: 'stretch',
       height: 104,
-      backgroundColor: '#F5F5F5',
+      borderRadius: 16,
       borderWidth: 1,
       borderColor: C.orange,
-      borderRadius: 8,
+      backgroundColor: 'rgba(255,255,255,0.12)',
+      overflow: 'hidden',
+      shadowColor: '#0B3B33',
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: 0.18,
+      shadowRadius: 14,
+      elevation: 5,
+    },
+
+    statsGloss: {
+      position: 'absolute',
+      top: -130,
+      left: -150,
+      right: -150,
+      height: 340,
+      transform: [{ rotate: '-16deg' }],
+    },
+
+    statsGloss2: {
+      position: 'absolute',
+      top: 57,
+      left: 30,
+      right: -170,
+      height: 80,
+      transform: [{ rotate: '-16deg' }],
+    },
+
+    statsSheen: {
+      position: 'absolute',
+      top: 1.5,
+      left: 10,
+      right: 10,
+      height: 1.5,
+      borderRadius: 1,
+      backgroundColor: 'rgba(255,255,255,0.95)',
+    },
+
+    statItem: {
+      flex: 1,
+      minWidth: 0,
       padding: 8,
-      shadowColor: '#000000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.04,
-      shadowRadius: 5,
-      elevation: 1,
+      overflow: 'hidden',
+    },
+
+    statDivider: {
+      position: 'absolute',
+      left: 0,
+      top: 10,
+      bottom: 10,
+      width: StyleSheet.hairlineWidth,
+      backgroundColor: 'rgba(16,51,38,0.18)',
     },
 
     /* Fixed two-line block so all four values sit on the same line. */

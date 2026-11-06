@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { Text } from '@/components/dashboard/dashboard-text';
+import { HomeBackdrop } from '@/components/dashboard/home-backdrop';
 import { Fonts } from '@/constants/theme';
 import { badges } from '@/lib/api/notifications';
 import { useLanguage } from '@/lib/i18n';
@@ -46,6 +47,7 @@ export function TrainerPillTabBar({ state, emitter, navigateToTab, insets }: Bot
   const { t } = useLanguage();
   const { user, token } = useSession();
   const [unread, setUnread] = useState(0);
+  const onHome = state.routes[state.index]?.name === 'index';
 
   /* Keeps the Chat pill's counter current without opening the messages page. */
   useEffect(() => {
@@ -74,8 +76,21 @@ export function TrainerPillTabBar({ state, emitter, navigateToTab, insets }: Bot
     ...(user?.role === 'player' ? { profile: { path: '/profili-lojtarit', label: 'Profili' } } : {}),
   };
 
+  /* Aligns the pill with each dashboard's own horizontal page inset. */
+  const sidePad = user?.role === 'financier' ? 24 : 28;
+
   return (
-    <View style={[styles.area, { paddingBottom: Math.max(insets.bottom, 18) }]}>
+    <View
+      style={[
+        styles.area,
+        { paddingBottom: Math.max(insets.bottom, 18), paddingHorizontal: sidePad },
+      ]}>
+      {onHome ? (
+        <View pointerEvents="none" style={styles.backdrop}>
+          {/* Same flat green as the home scene. */}
+          <HomeBackdrop />
+        </View>
+      ) : null}
       <View style={styles.pill}>
         {ITEMS.map((item) => {
           // "Chat" opens the messages page of its own instead of switching to
@@ -142,7 +157,14 @@ export function TrainerPillTabBar({ state, emitter, navigateToTab, insets }: Bot
 const styles = StyleSheet.create(scaled({
   area: {
     paddingTop: 8,
-    paddingHorizontal: 24,
+  },
+  backdrop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    overflow: 'hidden',
   },
   pill: {
     flexDirection: 'row',

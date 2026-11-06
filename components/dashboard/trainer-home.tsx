@@ -1,6 +1,7 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import { BlurView } from 'expo-blur';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
 import {
   Image,
@@ -12,6 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
+import { DashboardHero } from '@/components/dashboard/dashboard-hero';
 import { Fonts } from '@/constants/theme';
 import { ApiError } from '@/lib/api/errors';
 import { badges } from '@/lib/api/notifications';
@@ -145,14 +147,14 @@ export function TrainerHome() {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      <StatusBar style="dark" />
-
       <ScrollView
         showsVerticalScrollIndicator={false}
         bounces={false}
         contentContainerStyle={styles.scroll}
       >
         <View style={styles.content}>
+
+          <DashboardHero>
 
           {/* =================================================
               HEADER + GREETING
@@ -182,7 +184,43 @@ export function TrainerHome() {
              ================================================= */}
 
           <View style={styles.statsWrap}>
-            <View style={styles.statsRow}>
+            <View style={styles.statsCard}>
+              <BlurView
+                intensity={55}
+                tint="light"
+                experimentalBlurMethod="dimezisBlurView"
+                style={StyleSheet.absoluteFill}
+                pointerEvents="none"
+              />
+              <LinearGradient
+                colors={['rgba(255,255,255,0.38)', 'rgba(255,255,255,0.04)', 'rgba(255,255,255,0.24)']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={StyleSheet.absoluteFill}
+                pointerEvents="none"
+              />
+              <LinearGradient
+                colors={[
+                  'rgba(255,255,255,0)',
+                  'rgba(255,255,255,0.78)',
+                  'rgba(255,255,255,0.55)',
+                  'rgba(255,255,255,0)',
+                ]}
+                locations={[0, 0.38, 0.62, 1]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.statsGloss}
+                pointerEvents="none"
+              />
+              <LinearGradient
+                colors={['rgba(255,255,255,0)', 'rgba(255,255,255,0.55)', 'rgba(255,255,255,0)']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.statsGloss2}
+                pointerEvents="none"
+              />
+              <View pointerEvents="none" style={styles.statsSheen} />
+
               <StatCard
                 labelTop="Lojtarë"
                 labelBottom="Aktivë"
@@ -191,6 +229,8 @@ export function TrainerHome() {
                 imgStyle={styles.statImgPlayer}
                 imgCover
               />
+
+              <View style={styles.statDivider} />
 
               <StatCard
                 labelTop="Të"
@@ -201,6 +241,8 @@ export function TrainerHome() {
                 imgCover
               />
 
+              <View style={styles.statDivider} />
+
               <StatCard
                 labelTop="Shërvitje"
                 labelBottom="(muaj)"
@@ -209,6 +251,8 @@ export function TrainerHome() {
                 imgStyle={styles.statImgStervitje}
                 imgCover
               />
+
+              <View style={styles.statDivider} />
 
               <StatCard
                 labelTop="Prani"
@@ -224,6 +268,7 @@ export function TrainerHome() {
               />
             </View>
           </View>
+          </DashboardHero>
 
           {/* =================================================
               EVENT + MENU
@@ -421,7 +466,7 @@ function HeaderBlock({
           <MaterialCommunityIcons
             name="chevron-down"
             size={I(12)}
-            color={C.muted}
+            color="rgba(12,37,27,0.65)"
           />
         </View>
       </View>
@@ -499,7 +544,7 @@ function StatCard({
   imgCover,
 }: StatCardProps) {
   return (
-    <View style={styles.statCard}>
+    <View style={styles.statItem}>
 
       {/* IMAGE */}
 
@@ -594,7 +639,7 @@ const styles = StyleSheet.create(scaled({
 
     letterSpacing: -0.35,
 
-    color: C.text,
+    color: '#0C251B',
   },
 
   clubRow: {
@@ -610,7 +655,7 @@ const styles = StyleSheet.create(scaled({
 
     lineHeight: 16,
 
-    color: C.gray,
+    color: 'rgba(12,37,27,0.65)',
   },
 
   headerRight: {
@@ -707,7 +752,7 @@ const styles = StyleSheet.create(scaled({
 
     letterSpacing: -0.45,
 
-    color: C.text,
+    color: '#0C251B',
   },
 
   welcomeSub: {
@@ -716,7 +761,7 @@ const styles = StyleSheet.create(scaled({
     fontSize: 12,
     lineHeight: 16,
 
-    color: C.muted,
+    color: 'rgba(12,37,27,0.7)',
 
     marginTop: 1,
   },
@@ -729,43 +774,79 @@ const styles = StyleSheet.create(scaled({
     marginTop: 13,
   },
 
-  statsRow: {
+  statsCard: {
     flexDirection: 'row',
+    alignItems: 'stretch',
 
-    paddingLeft: 14,
-    paddingRight: 14,
+    marginLeft: 28,
+    marginRight: 28,
 
-    gap: 6,
-  },
-
-  statCard: {
-    flex: 1,
-    height: 94,
-
-    position: 'relative',
-
-    backgroundColor: C.white,
-
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: '#BC6C25',
 
-    borderRadius: 8,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+
+    overflow: 'hidden',
+
+    shadowColor: '#0B3B33',
+    shadowOffset: {
+      width: 0,
+      height: 6,
+    },
+    shadowOpacity: 0.18,
+    shadowRadius: 14,
+
+    elevation: 5,
+  },
+
+  statItem: {
+    flex: 1,
+    minWidth: 0,
+    height: 94,
+
+    position: 'relative',
 
     paddingTop: 9,
     paddingLeft: 10,
     paddingRight: 8,
 
     overflow: 'hidden',
+  },
 
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.035,
-    shadowRadius: 3,
+  statDivider: {
+    width: StyleSheet.hairlineWidth,
+    alignSelf: 'stretch',
+    marginVertical: 12,
+    backgroundColor: 'rgba(16,51,38,0.18)',
+  },
 
-    elevation: 1,
+  statsGloss: {
+    position: 'absolute',
+    top: -130,
+    left: -150,
+    right: -150,
+    height: 340,
+    transform: [{ rotate: '-16deg' }],
+  },
+
+  statsGloss2: {
+    position: 'absolute',
+    top: 62,
+    left: 30,
+    right: -170,
+    height: 80,
+    transform: [{ rotate: '-16deg' }],
+  },
+
+  statsSheen: {
+    position: 'absolute',
+    top: 1.5,
+    left: 10,
+    right: 10,
+    height: 1.5,
+    borderRadius: 1,
+    backgroundColor: 'rgba(255,255,255,0.95)',
   },
 
   statLabel: {
@@ -774,7 +855,7 @@ const styles = StyleSheet.create(scaled({
     fontSize: 9.5,
     lineHeight: 12,
 
-    color: C.muted,
+    color: '#5B6663',
 
     zIndex: 3,
   },

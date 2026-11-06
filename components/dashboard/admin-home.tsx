@@ -1,11 +1,13 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import { BlurView } from 'expo-blur';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
 import { type ReactNode, useEffect, useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
+import { DashboardHero } from '@/components/dashboard/dashboard-hero';
 import { Fonts } from '@/constants/theme';
 import { dashboardStats } from '@/lib/api/dashboard';
 import { ApiError } from '@/lib/api/errors';
@@ -191,13 +193,13 @@ export function AdminHome() {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      <StatusBar style="dark" />
       <ScrollView
         contentContainerStyle={styles.scroll}
         showsVerticalScrollIndicator={false}
         bounces={false}
       >
         <View style={styles.content}>
+          <DashboardHero>
           <View style={styles.padded}>
             <HeaderBlock
               clubName={data?.club.name ?? '—'}
@@ -214,9 +216,45 @@ export function AdminHome() {
             </View>
           </View>
 
-          {/* Statistics row — one row; each card shrinks to fit the width */}
+          {/* Statistics — one unified card with hairline dividers */}
           <View style={styles.statsWrap}>
-            <View style={styles.statsRow}>
+            <View style={styles.statsCard}>
+              <BlurView
+                intensity={55}
+                tint="light"
+                experimentalBlurMethod="dimezisBlurView"
+                style={StyleSheet.absoluteFill}
+                pointerEvents="none"
+              />
+              <LinearGradient
+                colors={['rgba(255,255,255,0.38)', 'rgba(255,255,255,0.04)', 'rgba(255,255,255,0.24)']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={StyleSheet.absoluteFill}
+                pointerEvents="none"
+              />
+              <LinearGradient
+                colors={[
+                  'rgba(255,255,255,0)',
+                  'rgba(255,255,255,0.78)',
+                  'rgba(255,255,255,0.55)',
+                  'rgba(255,255,255,0)',
+                ]}
+                locations={[0, 0.38, 0.62, 1]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.statsGloss}
+                pointerEvents="none"
+              />
+              <LinearGradient
+                colors={['rgba(255,255,255,0)', 'rgba(255,255,255,0.55)', 'rgba(255,255,255,0)']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.statsGloss2}
+                pointerEvents="none"
+              />
+              <View pointerEvents="none" style={styles.statsSheen} />
+
               <StatCard
                 image={IMG.statPlayer}
                 imageStyle={styles.statImgPlayer}
@@ -229,6 +267,8 @@ export function AdminHome() {
                   <Text style={styles.statSubLabel}>të lënduar</Text>
                 </View>
               </StatCard>
+
+              <View style={styles.statDivider} />
 
               <StatCard
                 image={IMG.statGrupe}
@@ -243,6 +283,8 @@ export function AdminHome() {
                 </View>
               </StatCard>
 
+              <View style={styles.statDivider} />
+
               <StatCard
                 image={IMG.calc}
                 imageStyle={styles.statImgCalc}
@@ -255,6 +297,8 @@ export function AdminHome() {
                   <Text style={styles.statDownSub}>të vonuara</Text>
                 </View>
               </StatCard>
+
+              <View style={styles.statDivider} />
 
               <StatCard
                 image={IMG.statGrupe}
@@ -270,6 +314,7 @@ export function AdminHome() {
               </StatCard>
             </View>
           </View>
+          </DashboardHero>
 
           <View style={styles.padded}>
             {/* Today's matches */}
@@ -454,7 +499,7 @@ function HeaderBlock({
           <Text style={styles.clubName} numberOfLines={1}>
             {clubName}
           </Text>
-          <MaterialCommunityIcons name="chevron-down" size={I(12)} color={C.muted} />
+          <MaterialCommunityIcons name="chevron-down" size={I(12)} color="rgba(12,37,27,0.65)" />
         </View>
       </View>
       <View style={styles.headerRight}>
@@ -489,7 +534,7 @@ type StatCardProps = {
 
 function StatCard({ labelTop, labelBottom, value, image, imageStyle, children }: StatCardProps) {
   return (
-    <View style={styles.statCard}>
+    <View style={styles.statItem}>
       <Text style={styles.statLabel} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
         {labelTop}
       </Text>
@@ -560,7 +605,7 @@ const styles = StyleSheet.create(scaled({
     fontFamily: Fonts.bodyBold,
     fontSize: 17,
     letterSpacing: -0.3,
-    color: C.text,
+    color: '#0C251B',
     lineHeight: 20,
   },
   clubRow: {
@@ -571,7 +616,7 @@ const styles = StyleSheet.create(scaled({
   clubName: {
     fontFamily: Fonts.bodyMedium,
     fontSize: 13,
-    color: C.text2,
+    color: 'rgba(12,37,27,0.65)',
   },
   headerRight: {
     flex: 1,
@@ -631,52 +676,84 @@ const styles = StyleSheet.create(scaled({
     fontFamily: Fonts.bodyBold,
     fontSize: 22,
     letterSpacing: -0.5,
-    color: C.text,
+    color: '#0C251B',
     lineHeight: 28,
   },
   welcomeSub: {
     fontFamily: Fonts.body,
     fontSize: 13.5,
-    color: C.muted,
+    color: 'rgba(12,37,27,0.7)',
     marginTop: 3,
   },
 
-  /* Stats carousel */
+  /* Statistics — one unified card */
   statsWrap: {
     marginTop: 12,
   },
-  statsRow: {
+  statsCard: {
     flexDirection: 'row',
-    paddingLeft: 14,
-    paddingRight: 14,
-    gap: 6,
-  },
-  statCard: {
-    flex: 1,
-    height: 96,
-    backgroundColor: C.white,
+    alignItems: 'stretch',
+    marginHorizontal: 27,
+    borderRadius: 16,
     borderWidth: 1,
-    /* Matches the orange rim on the headline squares of the detail pages. */
+    /* Matches the orange rim the individual stat cards used to have. */
     borderColor: C.statBorder,
-    borderRadius: 8,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    overflow: 'hidden',
+    shadowColor: '#0B3B33',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.18,
+    shadowRadius: 14,
+    elevation: 5,
+  },
+  statsGloss: {
+    position: 'absolute',
+    top: -130,
+    left: -150,
+    right: -150,
+    height: 340,
+    transform: [{ rotate: '-16deg' }],
+  },
+  statsGloss2: {
+    position: 'absolute',
+    top: 62,
+    left: 30,
+    right: -170,
+    height: 80,
+    transform: [{ rotate: '-16deg' }],
+  },
+  statsSheen: {
+    position: 'absolute',
+    top: 1.5,
+    left: 10,
+    right: 10,
+    height: 1.5,
+    borderRadius: 1,
+    backgroundColor: 'rgba(255,255,255,0.95)',
+  },
+  statItem: {
+    flex: 1,
+    minWidth: 0,
+    height: 96,
     padding: 8,
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 5,
-    elevation: 1,
+  },
+  statDivider: {
+    width: StyleSheet.hairlineWidth,
+    alignSelf: 'stretch',
+    marginVertical: 12,
+    backgroundColor: 'rgba(16,51,38,0.18)',
   },
   statLabel: {
     fontFamily: Fonts.bodyBold,
     fontSize: 9.5,
-    color: C.muted,
+    color: '#3F5A50',
     lineHeight: 11.5,
   },
   statValue: {
     fontFamily: Fonts.bodyBold,
     fontSize: 19,
-    color: C.text,
+    color: '#0C251B',
     letterSpacing: -0.5,
     marginTop: 2,
     lineHeight: 23,
@@ -699,13 +776,13 @@ const styles = StyleSheet.create(scaled({
   statSubLabel: {
     fontFamily: Fonts.body,
     fontSize: 9,
-    color: C.muted,
+    color: '#4E6A5F',
     lineHeight: 11,
   },
   statSubValue: {
     fontFamily: Fonts.bodyMedium,
     fontSize: 10,
-    color: C.text2,
+    color: '#2A5040',
     lineHeight: 13,
   },
   statImg: {
@@ -743,12 +820,12 @@ const styles = StyleSheet.create(scaled({
     fontFamily: Fonts.bodyBold,
     fontSize: 16.5,
     letterSpacing: -0.2,
-    color: C.text,
+    color: '#0C251B',
   },
   seeAll: {
     fontFamily: Fonts.bodySemiBold,
     fontSize: 13.5,
-    color: C.green,
+    color: '#1F6B4F',
   },
 
   /* Matches */

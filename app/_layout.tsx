@@ -1,5 +1,5 @@
 import { NavigationBar } from 'expo-navigation-bar';
-import { Stack, ThemeProvider as NavThemeProvider } from 'expo-router';
+import { Stack, ThemeProvider as NavThemeProvider, usePathname } from 'expo-router';
 import { useFonts } from 'expo-font';
 import { StatusBar } from 'expo-status-bar';
 import * as SystemUI from 'expo-system-ui';
@@ -64,6 +64,7 @@ function RootContent() {
 function RootNavigator() {
   const { isDark } = useTheme();
   const { user, status } = useSession();
+  const pathname = usePathname();
 
   // Keep the splash up until the stored token has been checked, so neither the
   // login screen nor the tabs flash before we know which one the user belongs on.
@@ -81,6 +82,9 @@ function RootNavigator() {
   // behind the tabs the same tone so no native background (gray on iOS,
   // different on Android) shows through at the screen edges.
   const pillLight = user ? PILL_ROLES.includes(user.role) : false;
+  // The signed-in home paints a pale mint canvas under the status bar, so its
+  // icons must stay dark even when the rest of the app is on the dark theme.
+  const onMintHome = !!user && pathname === '/';
 
   return (
     <>
@@ -445,7 +449,7 @@ function RootNavigator() {
           }}
         />
       </Stack>
-      <StatusBar style={isDark ? 'light' : 'dark'} />
+      <StatusBar style={onMintHome ? 'dark' : isDark ? 'light' : 'dark'} />
     </>
   );
 }

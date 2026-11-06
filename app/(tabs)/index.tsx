@@ -1,9 +1,9 @@
 import { useRouter } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AdminHome } from '@/components/dashboard/admin-home';
+import { HomeBackdrop } from '@/components/dashboard/home-backdrop';
 import { FinancierHome } from '@/components/dashboard/financier-home';
 import { ParentHome } from '@/components/dashboard/parent-home';
 import { PlayerHome } from '@/components/dashboard/player-home';
@@ -18,13 +18,12 @@ export default function HomeScreen() {
   const router = useRouter();
   const { user } = useSession();
   const { t } = useLanguage();
-  const { colors, isDark } = useTheme();
+  const { colors } = useTheme();
   const styles = useThemedStyles(createStyles);
 
   if (!user) {
     return (
       <SafeAreaView style={styles.safe} edges={['top']}>
-        <StatusBar style={isDark ? 'light' : 'dark'} />
         <View style={styles.signedOut}>
           <Image
             source={require('@/assets/images/goalhub-logo.png')}
@@ -45,21 +44,36 @@ export default function HomeScreen() {
   }
 
   // Every signed-in role gets its own dedicated light-only dashboard.
-  switch (user.role) {
-    case 'administrator':
-      return <AdminHome />;
-    case 'trainer':
-      return <TrainerHome />;
-    case 'player':
-      return <PlayerHome />;
-    case 'parent':
-      return <ParentHome />;
-    case 'financier':
-      return <FinancierHome />;
-  }
+  const Dashboard =
+    user.role === 'administrator' ? AdminHome
+    : user.role === 'trainer' ? TrainerHome
+    : user.role === 'player' ? PlayerHome
+    : user.role === 'parent' ? ParentHome
+    : FinancierHome;
+
+  return (
+    <View style={styles.home}>
+      {/* The scene and the tab bar strip both paint this same flat colour. */}
+      <View pointerEvents="none" style={styles.backdrop}>
+        <HomeBackdrop />
+      </View>
+      <Dashboard />
+    </View>
+  );
 }
 
 const createStyles = (colors: ThemeColors) => StyleSheet.create({
+  home: {
+    flex: 1,
+  },
+  backdrop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    overflow: 'hidden',
+  },
   safe: {
     flex: 1,
     backgroundColor: 'transparent',

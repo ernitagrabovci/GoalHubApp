@@ -19,7 +19,7 @@ const TILE_RATIO = 2160 / 3049;
 const TILE_SCALE = 1.45;
 
 /** 1 draws the artwork exactly as it is; lower fades it into the page. */
-const OPACITY = 0.06;
+const OPACITY = 0.12;
 
 /** Colour behind the artwork — the artwork's own background field. */
 const FIELD = '#F5F5F5';
