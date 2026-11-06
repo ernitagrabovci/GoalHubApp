@@ -87,6 +87,9 @@ const SQ_GLOSS = [
   'rgba(245,245,245,0.80)',
 ] as const;
 
+/** Thin specular rim on the top edge — reads as the thickness of the pane. */
+const SQ_SHEEN = ['rgba(245,245,245,0.55)', 'rgba(245,245,245,0.00)'] as const;
+
 type Square = { label: string; value: string; hint: string; tone: string; tall?: boolean };
 
 const TRAINER_ROLES = new Set(['trainer', 'assistant_trainer', 'technical_staff']);
@@ -275,27 +278,49 @@ const TEAMS = ['Ekipi i Parë', 'U21', 'U19', 'U17', 'U15', 'U13'];
 
 const STATUSES: User['status'][] = ['Aktiv', 'Joaktiv'];
 
-/** One cell of a shared summary pane — the tall top pair, then the short plates. */
+/** A square of the summary grid — the tall top pair, then the short plates. */
 function SummarySquare({ square, tall }: { square: Square; tall?: boolean }) {
   return (
-    <View style={styles.sqBody}>
-      <Text style={[styles.sqLabel, tall ? null : styles.sqLabelShort]} numberOfLines={2}>
-        {square.label}
-      </Text>
-      <Text
-        style={[styles.sqValue, tall ? null : styles.sqValueShort, { color: square.tone }]}
-        numberOfLines={1}
-        adjustsFontSizeToFit
-        minimumFontScale={0.5}
-      >
-        {square.value}
-      </Text>
-      <Text
-        style={[styles.sqHint, tall ? null : styles.sqHintShort, { color: square.tone }]}
-        numberOfLines={2}
-      >
-        {square.hint}
-      </Text>
+    <View style={[styles.sqShadow, tall ? styles.sqTall : styles.sqShort]}>
+      <View style={styles.sq}>
+        {/* Frost the canvas grid, then lay a gloss sweep over it. */}
+        <BlurView pointerEvents="none" intensity={50} tint="light" style={StyleSheet.absoluteFill} />
+        <LinearGradient
+          pointerEvents="none"
+          style={StyleSheet.absoluteFill}
+          colors={SQ_GLOSS}
+          locations={[0, 0.55, 1]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+        />
+        <LinearGradient
+          pointerEvents="none"
+          style={styles.sheen}
+          colors={SQ_SHEEN}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 0, y: 1 }}
+        />
+
+        <View style={styles.sqBody}>
+          <Text style={[styles.sqLabel, tall ? null : styles.sqLabelShort]} numberOfLines={2}>
+            {square.label}
+          </Text>
+          <Text
+            style={[styles.sqValue, tall ? null : styles.sqValueShort, { color: square.tone }]}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.5}
+          >
+            {square.value}
+          </Text>
+          <Text
+            style={[styles.sqHint, tall ? null : styles.sqHintShort, { color: square.tone }]}
+            numberOfLines={2}
+          >
+            {square.hint}
+          </Text>
+        </View>
+      </View>
     </View>
   );
 }
@@ -1050,65 +1075,9 @@ export default function UsersListScreen() {
             <View style={styles.sqGrid}>
               {summaryRows(allUsers).map((row) => (
                 <View key={row[0].label} style={styles.sqRow}>
-                  <View
-                    style={[
-                      styles.statsCard,
-                      row[0].tall ? styles.statsTall : styles.statsShort,
-                      row.length < 3 && styles.statsNarrow,
-                    ]}
-                  >
-                    {/* One pane per row: frost, base gloss, then two
-                        specular sweeps so the surface reads as glass. */}
-                    <BlurView
-                      pointerEvents="none"
-                      intensity={55}
-                      tint="light"
-                      experimentalBlurMethod="dimezisBlurView"
-                      style={StyleSheet.absoluteFill}
-                    />
-                    <LinearGradient
-                      pointerEvents="none"
-                      style={StyleSheet.absoluteFill}
-                      colors={SQ_GLOSS}
-                      locations={[0, 0.55, 1]}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 1 }}
-                    />
-                    <LinearGradient
-                      pointerEvents="none"
-                      style={styles.statsGloss}
-                      colors={[
-                        'rgba(255,255,255,0)',
-                        'rgba(255,255,255,0.78)',
-                        'rgba(255,255,255,0.55)',
-                        'rgba(255,255,255,0)',
-                      ]}
-                      locations={[0, 0.38, 0.62, 1]}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 0 }}
-                    />
-                    <LinearGradient
-                      pointerEvents="none"
-                      style={styles.statsGloss2}
-                      colors={[
-                        'rgba(255,255,255,0)',
-                        'rgba(255,255,255,0.55)',
-                        'rgba(255,255,255,0)',
-                      ]}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 0 }}
-                    />
-                    <View pointerEvents="none" style={styles.statsSheen} />
-
-                    {row.map((s, i) => (
-                      <View key={s.label} style={styles.statItem}>
-                        {i > 0 ? (
-                          <View pointerEvents="none" style={styles.statDivider} />
-                        ) : null}
-                        <SummarySquare square={s} tall={s.tall} />
-                      </View>
-                    ))}
-                  </View>
+                  {row.map((s) => (
+                    <SummarySquare key={s.label} square={s} tall={s.tall} />
+                  ))}
                 </View>
               ))}
             </View>
@@ -1623,88 +1592,52 @@ const styles = StyleSheet.create(
 
     sqRow: {
       flexDirection: 'row',
+      gap: 8,
     },
 
-    /* One shared glass pane per row, sized to that row so the ragged ends
-       stay open. */
-    statsCard: {
-      flexDirection: 'row',
-      alignItems: 'stretch',
-      alignSelf: 'flex-start',
-      width: '100%',
-      borderRadius: 16,
-      borderWidth: 1,
-      borderColor: '#E4A000',
-      backgroundColor: 'rgba(255,255,255,0.12)',
-      overflow: 'hidden',
-      shadowColor: '#0B3B33',
-      shadowOffset: { width: 0, height: 6 },
-      shadowOpacity: 0.18,
-      shadowRadius: 14,
-      elevation: 5,
+    /* Shadow lives on the wrapper: `overflow: hidden` on the pane itself would
+       clip it away on iOS. */
+    sqShadow: {
+      width: '31.5%',
+      borderRadius: 8,
+      /* Translucent so the frosted pane inside has a backdrop to blur. */
+      backgroundColor: 'rgba(245,245,245,0.5)',
+      shadowColor: '#000000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.04,
+      shadowRadius: 5,
+      elevation: 1,
     },
 
     /* The headline pair stands taller; the rest are wide plates. */
-    statsTall: {
+    sqTall: {
       height: 112,
     },
 
-    statsShort: {
+    sqShort: {
       height: 90,
     },
 
-    /* Two-cell rows keep the width they had before the merge. */
-    statsNarrow: {
-      width: '65%',
-    },
-
-    statsGloss: {
-      position: 'absolute',
-      top: -130,
-      left: -150,
-      right: -150,
-      height: 340,
-      transform: [{ rotate: '-16deg' }],
-    },
-
-    statsGloss2: {
-      position: 'absolute',
-      top: 55,
-      left: 30,
-      right: -170,
-      height: 80,
-      transform: [{ rotate: '-16deg' }],
-    },
-
-    statsSheen: {
-      position: 'absolute',
-      top: 1.5,
-      left: 10,
-      right: 10,
-      height: 1.5,
-      borderRadius: 1,
-      backgroundColor: 'rgba(255,255,255,0.95)',
-    },
-
-    statItem: {
+    sq: {
       flex: 1,
-      minWidth: 0,
+      borderWidth: 1,
+      borderColor: '#E4A000',
+      borderRadius: 8,
       overflow: 'hidden',
-    },
-
-    statDivider: {
-      position: 'absolute',
-      left: 0,
-      top: 10,
-      bottom: 10,
-      width: StyleSheet.hairlineWidth,
-      backgroundColor: 'rgba(16,51,38,0.18)',
     },
 
     /* Content rides above the frost and gloss overlays. */
     sqBody: {
       flex: 1,
       padding: 9,
+    },
+
+    sheen: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      height: '14%',
     },
 
     /* Fixed two-line block so the values sit on the same line. */
