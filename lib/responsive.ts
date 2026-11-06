@@ -12,9 +12,16 @@ import { Dimensions } from 'react-native';
  */
 export const DESIGN_WIDTH = 440;
 
+/**
+ * Global size boost. The authored sizes read small on a phone, so every
+ * length — text, buttons, padding, icons — is nudged up uniformly on top of
+ * the width fit. Change this single number to resize the whole app.
+ */
+const SIZE_BOOST = 1.1;
+
 const { width: WINDOW_WIDTH } = Dimensions.get('window');
 
-export const SCALE = WINDOW_WIDTH / DESIGN_WIDTH;
+export const SCALE = (WINDOW_WIDTH / DESIGN_WIDTH) * SIZE_BOOST;
 
 // Numeric style values that are NOT lengths and must stay unscaled.
 const NO_SCALE = new Set([
