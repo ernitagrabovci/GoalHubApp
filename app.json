@@ -55,6 +55,20 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {
+        "asyncRoutes": {
+          "web": true
+        }
+      },
+      "expo-navigation-bar": {
+        "enforceContrast": false
+      },
+      "eas": {
+        "projectId": "70c963be-8372-4546-baba-55b254318922"
+      }
+    },
+    "owner": "ernitaa"
   }
 }

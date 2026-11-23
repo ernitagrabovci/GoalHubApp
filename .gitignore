@@ -41,3 +41,14 @@ app-example
 # generated native folders
 /ios
 /android
+
+# local build signing credentials (never commit)
+/credentials/
+/credentials.json
+
+# local dev artifacts
+/metro.log
+/fs.png
+/s.png
+/docs/ui-redesign/ui.xml
+.claude/settings.local.json
