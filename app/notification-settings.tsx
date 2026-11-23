@@ -17,23 +17,25 @@ import { getNotificationPreferences, updateNotificationPreferences } from '@/lib
 import type { ApiNotificationPreferences } from '@/lib/api/types';
 import { I, scaled } from '@/lib/responsive';
 import { useSession } from '@/lib/session';
+import { useAppColors, usePaletteStyles, type AppColorsOf } from '@/lib/app-theme';
 
 /**
  * Cilësimet e njoftimeve — the fourth settings sub-page.
  *
- * Same light #FAFBFA canvas. Three compact stacked cards: platform switches,
+ * Same light #F7F9F8 canvas. Three compact stacked cards: platform switches,
  * email statuses and the automation schedule. Dense admin sizing throughout —
  * the rows are ~37px with 8px titles, the switches are 38×17.
  */
 
-const C = {
-  page: '#FAFBFA',
+const C_LIGHT = {
+  white: '#FFFFFF',
+  page: '#F7F9F8',
   line: 'rgba(0,0,0,0.025)',
 
-  text: '#111111',
-  gray: '#8A8A8A',
+  text: '#17251E',
+  gray: '#52645A',
 
-  card: '#F6FBFF',
+  card: '#F7F9F8',
   cardBorder: 'rgba(100,140,190,0.30)',
   rowLine: 'rgba(100,140,190,0.22)',
   headLine: 'rgba(100,140,190,0.25)',
@@ -105,18 +107,20 @@ const EMAIL_ROWS: EmailRow[] = [
 
 type Automation = { title: string; time: string; dot: string };
 
-const AUTOMATIONS: Automation[] = [
+const AUTOMATIONS = (C: AppColorsOf<typeof C_LIGHT>): Automation[] => ([
   { title: 'Përditëso statusin e kuotave', time: 'Çdo ditë – 00:01', dot: C.dotGreen },
   { title: 'Njoftime kuota kritike', time: 'Çdo e hënë – 09:00', dot: C.dotYellow },
   { title: 'Pastro njoftimet e vjetra', time: 'Çdo e hënë – 09:00', dot: C.dotGray },
   { title: 'Backup i të dhënave', time: 'Çdo natë – 02:00', dot: C.dotBlue },
-];
+]);
 
 /* ------------------------------------------------------------------ */
 /* Small pieces                                                        */
 /* ------------------------------------------------------------------ */
 
 function Card({ title, children }: { title: string; children: ReactNode }) {
+  const C = useAppColors(C_LIGHT);
+  const styles = usePaletteStyles(createStyles, C);
   return (
     <View style={styles.card}>
       <View style={styles.cardHead}>
@@ -128,10 +132,12 @@ function Card({ title, children }: { title: string; children: ReactNode }) {
 }
 
 function Toggle({ on, onPress }: { on: boolean; onPress: () => void }) {
+  const C = useAppColors(C_LIGHT);
+  const styles = usePaletteStyles(createStyles, C);
   return (
     <Pressable
       onPress={onPress}
-      hitSlop={8}
+      hitSlop={10}
       accessibilityRole="switch"
       accessibilityState={{ checked: on }}
       style={({ pressed }) => [
@@ -158,6 +164,8 @@ function NotificationRow({
   onToggle: () => void;
   last: boolean;
 }) {
+  const C = useAppColors(C_LIGHT);
+  const styles = usePaletteStyles(createStyles, C);
   return (
     <View style={[styles.row, last && styles.rowLast]}>
       <View style={styles.rowText}>
@@ -180,6 +188,8 @@ function StatusRow({
   active: boolean;
   last: boolean;
 }) {
+  const C = useAppColors(C_LIGHT);
+  const styles = usePaletteStyles(createStyles, C);
   return (
     <View style={[styles.row, last && styles.rowLast]}>
       <View style={styles.rowText}>
@@ -204,6 +214,8 @@ function AutomationRow({
   dot: string;
   last: boolean;
 }) {
+  const C = useAppColors(C_LIGHT);
+  const styles = usePaletteStyles(createStyles, C);
   return (
     <View style={[styles.row, styles.autoRow, last && styles.rowLast]}>
       <View style={styles.autoLeft}>
@@ -222,6 +234,8 @@ function AutomationRow({
 /* ------------------------------------------------------------------ */
 
 export default function NotificationSettingsScreen() {
+  const C = useAppColors(C_LIGHT);
+  const styles = usePaletteStyles(createStyles, C);
   const router = useRouter();
   const { token, signOut } = useSession();
 
@@ -306,7 +320,7 @@ export default function NotificationSettingsScreen() {
                 accessibilityLabel="Kthehu prapa"
                 style={({ pressed }) => [styles.backBtn, pressed && styles.pressed]}
               >
-                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.text} />
+                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.textText} />
               </Pressable>
               <View style={styles.headerText}>
                 <Text style={styles.title}>Cilësimet e njoftimeve</Text>
@@ -381,13 +395,13 @@ export default function NotificationSettingsScreen() {
               <Text style={styles.cardDesc}>Detyrat automatike që ekzekutohen nga sistemi.</Text>
 
               <View style={styles.rows}>
-                {AUTOMATIONS.map((a, i) => (
+                {AUTOMATIONS(C).map((a, i) => (
                   <AutomationRow
                     key={a.title}
                     title={a.title}
                     time={a.time}
                     dot={a.dot}
-                    last={i === AUTOMATIONS.length - 1}
+                    last={i === AUTOMATIONS(C).length - 1}
                   />
                 ))}
               </View>
@@ -403,7 +417,7 @@ export default function NotificationSettingsScreen() {
 /* Styles                                                              */
 /* ------------------------------------------------------------------ */
 
-const styles = StyleSheet.create(
+const createStyles = (C: AppColorsOf<typeof C_LIGHT>) => StyleSheet.create(
   scaled({
     safe: {
       flex: 1,
@@ -448,14 +462,14 @@ const styles = StyleSheet.create(
       fontSize: 20,
       lineHeight: 24,
       letterSpacing: -0.3,
-      color: C.text,
+      color: C.textText,
     },
 
     subtitle: {
       fontFamily: Fonts.body,
       fontSize: 12,
       lineHeight: 16,
-      color: C.gray,
+      color: C.grayText,
       marginTop: 1,
     },
 
@@ -466,9 +480,9 @@ const styles = StyleSheet.create(
     /* ── Card ────────────────────────────────────────────────── */
     card: {
       marginTop: 12,
-      backgroundColor: C.card,
+      backgroundColor: C.cardFill,
       borderWidth: 2,
-      borderColor: C.cardBorder,
+      borderColor: C.cardBorderBorder,
       borderRadius: 8,
     },
 
@@ -478,7 +492,7 @@ const styles = StyleSheet.create(
       paddingHorizontal: 12,
       paddingVertical: 11,
       borderBottomWidth: 1,
-      borderBottomColor: C.headLine,
+      borderBottomColor: C.headLineBorder,
     },
 
     cardHeadText: {
@@ -486,7 +500,7 @@ const styles = StyleSheet.create(
       fontSize: 16,
       lineHeight: 20,
       letterSpacing: -0.2,
-      color: C.text,
+      color: C.textText,
     },
 
     cardDesc: {
@@ -495,7 +509,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 12,
       lineHeight: 16,
-      color: C.gray,
+      color: C.grayText,
     },
 
     /* ── Rows ────────────────────────────────────────────────── */
@@ -509,7 +523,7 @@ const styles = StyleSheet.create(
       minHeight: 58,
       paddingVertical: 10,
       borderBottomWidth: 1,
-      borderBottomColor: C.rowLine,
+      borderBottomColor: C.rowLineBorder,
     },
 
     rowLast: {
@@ -526,14 +540,14 @@ const styles = StyleSheet.create(
       fontSize: 14,
       lineHeight: 18,
       letterSpacing: -0.2,
-      color: C.text,
+      color: C.textText,
     },
 
     rowDesc: {
       fontFamily: Fonts.body,
       fontSize: 12,
       lineHeight: 16,
-      color: C.gray,
+      color: C.grayText,
       marginTop: 1,
     },
 
@@ -551,7 +565,7 @@ const styles = StyleSheet.create(
       width: 18,
       height: 18,
       borderRadius: 999,
-      backgroundColor: '#F5F5F5',
+      backgroundColor: C.whiteFill,
       shadowColor: '#000000',
       shadowOffset: { width: 0, height: 1 },
       shadowOpacity: 0.2,
@@ -580,7 +594,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodySemiBold,
       fontSize: 11,
       lineHeight: 13,
-      color: '#F5F5F5',
+      color: '#FFFFFF',
     },
 
     /* ── Automation row ──────────────────────────────────────── */
@@ -607,14 +621,14 @@ const styles = StyleSheet.create(
       fontSize: 14,
       lineHeight: 18,
       letterSpacing: -0.2,
-      color: C.text,
+      color: C.textText,
     },
 
     autoTime: {
       fontFamily: Fonts.body,
       fontSize: 13,
       lineHeight: 17,
-      color: C.gray,
+      color: C.grayText,
     },
 
     /* ── Save button ─────────────────────────────────────────── */
@@ -625,11 +639,11 @@ const styles = StyleSheet.create(
     },
 
     saveBtn: {
-      height: 40,
+      height: 44,
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: C.on,
-      borderRadius: 3,
+      backgroundColor: C.onFill,
+      borderRadius: 10,
     },
 
     saveBtnDisabled: {
@@ -641,7 +655,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 12,
       lineHeight: 16,
-      color: C.on,
+      color: C.onText,
     },
 
     saveError: {
@@ -649,14 +663,14 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 12,
       lineHeight: 16,
-      color: C.error,
+      color: C.errorText,
     },
 
     saveBtnText: {
       fontFamily: Fonts.bodySemiBold,
       fontSize: 14,
       lineHeight: 17,
-      color: '#F5F5F5',
+      color: '#FFFFFF',
     },
 
     pressed: {

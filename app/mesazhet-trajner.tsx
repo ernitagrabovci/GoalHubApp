@@ -2,7 +2,7 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { BlurView } from 'expo-blur';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, TextInput, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -13,6 +13,7 @@ import { createGroup, listConversations } from '@/lib/api/messages';
 import type { ApiConversation, ApiContact } from '@/lib/api/types';
 import { I, scaled } from '@/lib/responsive';
 import { useSession } from '@/lib/session';
+import { useAppColors, type AppColorsOf } from '@/lib/app-theme';
 
 /**
  * Mesazhet — the trainer's own copy of the admin messages page, opened from
@@ -22,37 +23,37 @@ import { useSession } from '@/lib/session';
  * it, then every conversation in one framed list.
  */
 
-const C = {
-  page: '#FAFBFA',
+const C_LIGHT = {
+  page: '#F7F9F8',
   line: 'rgba(0,0,0,0.025)',
 
-  text: '#111111',
-  gray: '#8A8A8A',
+  text: '#17251E',
+  gray: '#52645A',
   ghost: '#A8A8A8',
 
-  frame: '#000000',
+  frame: '#DCE5DF',
   cardBg: '#EFF6FF',
   /* Inset rule between two chats — dark enough to read, never full width. */
   divider: 'rgba(0,0,0,0.30)',
 
   blue: '#2F80ED',
   blueBtn: '#86BCFD',
-  green: '#159447',
-  white: '#F5F5F5',
+  green: '#2E7D5B',
+  white: '#FFFFFF',
 };
 
 /** Popup palette — the same white card and green rim the other dialogs use. */
-const MO = {
-  border: '#159B63',
-  divider: '#55B88B',
+const MO_LIGHT = {
+  border: '#B5DCC6',
+  divider: '#D9EEE2',
   title: '#080808',
-  text: '#111111',
+  text: '#17251E',
   sub: '#666666',
   inputBorder: '#777777',
   inputBg: '#FAFCFC',
-  cancel: '#ED5050',
-  create: '#16A51D',
-  white: '#F5F5F5',
+  cancel: '#B91C1C',
+  create: '#2E7D5B',
+  white: '#FFFFFF',
 };
 
 function errorText(error: unknown): string {
@@ -64,12 +65,15 @@ function errorText(error: unknown): string {
 }
 
 /** Read = blue double tick; still in flight = the same shape, greyed. */
-const TICKS = {
-  read: { icon: 'check-all' as const, color: C.blue },
+const TICKS = (C: AppColorsOf<typeof C_LIGHT>) => ({
+  read: { icon: 'check-all' as const, color: C.blueText },
   delivered: { icon: 'check-all' as const, color: '#B4B4B4' },
-};
+});
 
 export default function MessagesScreen() {
+  const C = useAppColors(C_LIGHT);
+  const MO = useAppColors(MO_LIGHT);
+  const styles = useMemo(() => createStyles(C, MO), [C, MO]);
   const router = useRouter();
   const { token, signOut } = useSession();
 
@@ -166,7 +170,7 @@ export default function MessagesScreen() {
                 accessibilityLabel="Kthehu prapa"
                 style={({ pressed }) => [styles.backBtn, pressed && styles.pressed]}
               >
-                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.text} />
+                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.textText} />
               </Pressable>
               <View style={styles.headerText}>
                 <Text style={styles.title}>Mesazhet</Text>
@@ -193,19 +197,20 @@ export default function MessagesScreen() {
                 <TextInput
                   style={styles.searchInput}
                   placeholder="Kërko..."
-                  placeholderTextColor={C.ghost}
+                  placeholderTextColor={C.ghostText}
                   value={query}
                   onChangeText={setQuery}
                 />
-                <MaterialCommunityIcons name="magnify" size={I(20)} color={C.gray} />
+                <MaterialCommunityIcons name="magnify" size={I(20)} color={C.grayText} />
               </View>
               <Pressable
                 onPress={() => setComposing(true)}
                 accessibilityRole="button"
                 accessibilityLabel="Bisedë e re"
+                hitSlop={3}
                 style={({ pressed }) => [styles.newBtn, pressed && styles.pressed]}
               >
-                <MaterialCommunityIcons name="plus" size={I(21)} color={C.white} />
+                <MaterialCommunityIcons name="plus" size={I(21)} color={C.whiteText} />
               </Pressable>
             </View>
 
@@ -224,8 +229,8 @@ export default function MessagesScreen() {
                 /* The tick belongs to the last message, and only when it is yours. */
                 const tick = chat.last_mine
                   ? chat.last_read
-                    ? TICKS.read
-                    : TICKS.delivered
+                    ? TICKS(C).read
+                    : TICKS(C).delivered
                   : null;
 
                 return (
@@ -317,7 +322,7 @@ export default function MessagesScreen() {
                         <MaterialCommunityIcons
                           name="message-plus-outline"
                           size={I(19)}
-                          color={C.gray}
+                          color={C.grayText}
                         />
                       </Pressable>
                     </View>
@@ -364,6 +369,9 @@ export default function MessagesScreen() {
 
 /** The ring stays black throughout; only the fill turns green once picked. */
 function Radio({ on }: { on: boolean }) {
+  const C = useAppColors(C_LIGHT);
+  const MO = useAppColors(MO_LIGHT);
+  const styles = useMemo(() => createStyles(C, MO), [C, MO]);
   return <View style={[styles.radio, on && styles.radioOn]} />;
 }
 
@@ -382,6 +390,9 @@ function ComposeModal({
   onStartDm: (contact: ApiContact) => void;
   onExpired: () => void;
 }) {
+  const C = useAppColors(C_LIGHT);
+  const MO = useAppColors(MO_LIGHT);
+  const styles = useMemo(() => createStyles(C, MO), [C, MO]);
   const { width, height } = useWindowDimensions();
   const cardW = Math.min(width - 24, 360);
   /* Capped so a long roster scrolls inside the card instead of growing it. */
@@ -478,7 +489,7 @@ function ComposeModal({
             value={contactQuery}
             onChangeText={setContactQuery}
             placeholder="Kërko kontakte..."
-            placeholderTextColor={C.ghost}
+            placeholderTextColor={C.ghostText}
             allowFontScaling={false}
             style={styles.nmSearch}
           />
@@ -599,7 +610,7 @@ function ComposeModal({
 /* Styles                                                              */
 /* ------------------------------------------------------------------ */
 
-const styles = StyleSheet.create(
+const createStyles = (C: AppColorsOf<typeof C_LIGHT>, MO: AppColorsOf<typeof MO_LIGHT>) => StyleSheet.create(
   scaled({
     safe: {
       flex: 1,
@@ -644,14 +655,14 @@ const styles = StyleSheet.create(
       fontSize: 20,
       lineHeight: 24,
       letterSpacing: -0.3,
-      color: C.text,
+      color: C.textText,
     },
 
     subtitle: {
       fontFamily: Fonts.body,
       fontSize: 12,
       lineHeight: 16,
-      color: C.gray,
+      color: C.grayText,
       marginTop: 1,
     },
 
@@ -675,7 +686,7 @@ const styles = StyleSheet.create(
       gap: 8,
       height: 40,
       borderWidth: 1,
-      borderColor: C.frame,
+      borderColor: C.frameBorder,
       borderRadius: 20,
       paddingHorizontal: 16,
     },
@@ -684,16 +695,16 @@ const styles = StyleSheet.create(
       flex: 1,
       fontFamily: Fonts.body,
       fontSize: 13,
-      color: C.text,
+      color: C.textText,
     },
 
     newBtn: {
       width: 38,
       height: 38,
       borderRadius: 19,
-      backgroundColor: C.blueBtn,
+      backgroundColor: C.blueBtnFill,
       borderWidth: 1,
-      borderColor: C.frame,
+      borderColor: C.frameBorder,
       alignItems: 'center',
       justifyContent: 'center',
     },
@@ -701,9 +712,9 @@ const styles = StyleSheet.create(
     /* ── Conversations ───────────────────────────────────────── */
     listCard: {
       marginTop: 16,
-      backgroundColor: C.cardBg,
+      backgroundColor: C.cardBgFill,
       borderWidth: 1,
-      borderColor: C.frame,
+      borderColor: C.frameBorder,
       borderRadius: 14,
       overflow: 'hidden',
       paddingVertical: 10,
@@ -724,14 +735,14 @@ const styles = StyleSheet.create(
       height: 1,
       marginLeft: 67,
       marginRight: 17,
-      backgroundColor: C.divider,
+      backgroundColor: C.dividerFill,
     },
 
     avatar: {
       width: 40,
       height: 40,
       borderRadius: 20,
-      backgroundColor: C.green,
+      backgroundColor: C.greenFill,
       alignItems: 'center',
       justifyContent: 'center',
     },
@@ -740,7 +751,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodyBold,
       fontSize: 14,
       letterSpacing: 0.4,
-      color: C.white,
+      color: C.whiteText,
     },
 
     rowBody: {
@@ -752,7 +763,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodyBold,
       fontSize: 14,
       lineHeight: 17,
-      color: C.text,
+      color: C.textText,
     },
 
     previewRow: {
@@ -766,7 +777,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 12,
       lineHeight: 15,
-      color: C.gray,
+      color: C.grayText,
     },
 
     /* Time above the unread pill, both hugging the right edge. */
@@ -779,7 +790,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodyBold,
       fontSize: 11.5,
       lineHeight: 15,
-      color: C.gray,
+      color: C.grayText,
     },
 
     unreadBadge: {
@@ -787,7 +798,7 @@ const styles = StyleSheet.create(
       height: 18,
       borderRadius: 9,
       paddingHorizontal: 5,
-      backgroundColor: C.green,
+      backgroundColor: C.greenFill,
       alignItems: 'center',
       justifyContent: 'center',
     },
@@ -796,14 +807,14 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodyBold,
       fontSize: 10.5,
       lineHeight: 13,
-      color: C.white,
+      color: C.whiteText,
     },
 
     emptyText: {
       fontFamily: Fonts.body,
       fontSize: 11.5,
       lineHeight: 16,
-      color: C.gray,
+      color: C.grayText,
       textAlign: 'center',
       paddingHorizontal: 17,
       paddingVertical: 10,
@@ -817,7 +828,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodySemiBold,
       fontSize: 10.5,
       lineHeight: 14,
-      color: C.gray,
+      color: C.grayText,
       marginBottom: 6,
       marginLeft: 4,
     },
@@ -852,9 +863,9 @@ const styles = StyleSheet.create(
     nmCard: {
       marginTop: 118,
       alignSelf: 'center',
-      backgroundColor: MO.white,
+      backgroundColor: MO.whiteFill,
       borderWidth: 1,
-      borderColor: MO.border,
+      borderColor: MO.borderBorder,
       borderRadius: 5,
       overflow: 'hidden',
       shadowColor: '#000000',
@@ -876,12 +887,12 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodyBold,
       fontSize: 20,
       lineHeight: 24,
-      color: MO.title,
+      color: MO.titleText,
     },
 
     nmDivider: {
       height: 1,
-      backgroundColor: MO.divider,
+      backgroundColor: MO.dividerFill,
     },
 
     /* "Mesazh" / "Grup" switch above the popup body. */
@@ -893,6 +904,7 @@ const styles = StyleSheet.create(
 
     tab: {
       flex: 1,
+      minHeight: 44,
       alignItems: 'center',
       paddingTop: 8,
     },
@@ -901,11 +913,11 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodySemiBold,
       fontSize: 11.5,
       lineHeight: 15,
-      color: MO.sub,
+      color: MO.subText,
     },
 
     tabTextOn: {
-      color: MO.create,
+      color: MO.createText,
     },
 
     tabBar: {
@@ -913,21 +925,21 @@ const styles = StyleSheet.create(
       height: 2,
       marginTop: 5,
       borderRadius: 1,
-      backgroundColor: MO.create,
+      backgroundColor: MO.createFill,
     },
 
     nmSearch: {
-      height: 31,
+      height: 44,
       marginBottom: 9,
-      backgroundColor: MO.inputBg,
+      backgroundColor: MO.inputBgFill,
       borderWidth: 1,
-      borderColor: MO.inputBorder,
-      borderRadius: 16,
-      paddingHorizontal: 11,
+      borderColor: MO.inputBorderBorder,
+      borderRadius: 22,
+      paddingHorizontal: 14,
       paddingVertical: 0,
       fontFamily: Fonts.body,
-      fontSize: 11.5,
-      color: MO.text,
+      fontSize: 13,
+      color: MO.textText,
     },
 
     /* Keep the rounded avatar and two text lines roomy inside the roster. */
@@ -947,7 +959,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodyBold,
       fontSize: 9.5,
       letterSpacing: 0.2,
-      color: MO.white,
+      color: MO.whiteText,
     },
 
     contactBody: {
@@ -959,14 +971,14 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodySemiBold,
       fontSize: 11.5,
       lineHeight: 14,
-      color: MO.text,
+      color: MO.textText,
     },
 
     contactRole: {
       fontFamily: Fonts.body,
       fontSize: 9.5,
       lineHeight: 12,
-      color: MO.sub,
+      color: MO.subText,
     },
 
     nmContent: {
@@ -979,7 +991,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodySemiBold,
       fontSize: 9.5,
       lineHeight: 12,
-      color: MO.sub,
+      color: MO.subText,
       marginBottom: 5,
     },
 
@@ -988,16 +1000,16 @@ const styles = StyleSheet.create(
     },
 
     nmInput: {
-      height: 31,
-      backgroundColor: MO.inputBg,
+      height: 44,
+      backgroundColor: MO.inputBgFill,
       borderWidth: 1,
-      borderColor: MO.inputBorder,
-      borderRadius: 1,
-      paddingHorizontal: 8,
+      borderColor: MO.inputBorderBorder,
+      borderRadius: 8,
+      paddingHorizontal: 12,
       paddingVertical: 0,
-      fontSize: 11.5,
+      fontSize: 13,
       fontFamily: Fonts.body,
-      color: MO.text,
+      color: MO.textText,
     },
 
     /* ── Roster ──────────────────────────────────────────────── */
@@ -1005,7 +1017,7 @@ const styles = StyleSheet.create(
       paddingHorizontal: 9,
       paddingVertical: 6,
       borderWidth: 1,
-      borderColor: '#000000',
+      borderColor: C.frameBorder,
       borderRadius: 4,
     },
 
@@ -1029,20 +1041,20 @@ const styles = StyleSheet.create(
       left: 0,
       right: 0,
       borderRadius: 1.5,
-      backgroundColor: C.frame,
+      backgroundColor: C.frameFill,
     },
 
     personRow: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 8,
-      minHeight: 28,
+      minHeight: 44,
     },
 
     personText: {
       fontFamily: Fonts.body,
       fontSize: 11,
-      color: MO.text,
+      color: MO.textText,
     },
 
     radio: {
@@ -1050,12 +1062,12 @@ const styles = StyleSheet.create(
       height: 15,
       borderRadius: 8,
       borderWidth: 1.5,
-      borderColor: '#000000',
+      borderColor: C.frameBorder,
       backgroundColor: 'transparent',
     },
 
     radioOn: {
-      backgroundColor: MO.create,
+      backgroundColor: MO.createFill,
     },
 
     nmActions: {
@@ -1066,20 +1078,20 @@ const styles = StyleSheet.create(
     },
 
     nmBtn: {
-      height: 28,
+      height: 44,
       alignItems: 'center',
       justifyContent: 'center',
-      borderRadius: 2,
+      borderRadius: 10,
     },
 
     nmBtnCancel: {
       width: 74,
-      backgroundColor: MO.cancel,
+      backgroundColor: MO.cancelFill,
     },
 
     nmBtnSave: {
       width: 74,
-      backgroundColor: MO.create,
+      backgroundColor: MO.createFill,
     },
 
     nmBtnBusy: {
@@ -1090,14 +1102,15 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 9.5,
       lineHeight: 13,
-      color: '#C90000',
+      color: '#B91C1C',
       marginTop: 10,
     },
 
     nmBtnText: {
       fontFamily: Fonts.bodyMedium,
-      fontSize: 10.5,
-      color: MO.white,
+      fontSize: 13,
+      lineHeight: 18,
+      color: MO.whiteText,
     },
 
     pressed: {

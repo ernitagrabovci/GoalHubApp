@@ -13,6 +13,7 @@ import type { ApiFee } from '@/lib/api/types';
 import { dmy, monthLabel, payMethod, STATUS_TONE, statusLabel, usd } from '@/lib/finance';
 import { I, scaled } from '@/lib/responsive';
 import { useSession } from '@/lib/session';
+import { useAppColors, usePaletteStyles, type AppColorsOf } from '@/lib/app-theme';
 
 /**
  * One membership quota — opened from "Shiko" on the financier's Kuotat e
@@ -23,26 +24,28 @@ import { useSession } from '@/lib/session';
  * completed payment.
  */
 
-const C = {
-  page: '#FAFBFA',
+const C_LIGHT = {
+  page: '#F7F9F8',
   line: 'rgba(0,0,0,0.025)',
 
-  text: '#111111',
-  gray: '#8A8A8A',
+  text: '#17251E',
+  gray: '#52645A',
   hint: '#6E6E6E',
 
   /* Cards are two-tone: a lighter title strip over a deeper body. */
   cardBg: '#E3EEFB',
-  headBg: '#F6FBFF',
-  frame: '#000000',
+  headBg: '#F7F9F8',
+  frame: '#DCE5DF',
   headLine: 'rgba(30,40,35,0.10)',
 
-  green: '#159447',
-  red: '#E03131',
-  orange: '#E4A000',
+  green: '#2E7D5B',
+  red: '#B91C1C',
+  orange: '#B45309',
 };
 
 export default function FinancierPaymentDetailScreen() {
+  const C = useAppColors(C_LIGHT);
+  const styles = usePaletteStyles(createStyles, C);
   const router = useRouter();
   const { token, signOut } = useSession();
 
@@ -122,7 +125,7 @@ export default function FinancierPaymentDetailScreen() {
                 accessibilityLabel="Kthehu prapa"
                 style={({ pressed }) => [styles.backBtn, pressed && styles.pressed]}
               >
-                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.text} />
+                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.textText} />
               </Pressable>
               <View style={styles.headerText}>
                 <Text
@@ -192,7 +195,7 @@ export default function FinancierPaymentDetailScreen() {
             {/* ── Payment settled ───────────────────────────────── */}
             <View style={styles.doneCard}>
               <View style={styles.doneCircle}>
-                <MaterialCommunityIcons name="check-bold" size={I(30)} color="#F5F5F5" />
+                <MaterialCommunityIcons name="check-bold" size={I(30)} color="#FFFFFF" />
               </View>
 
               <Text style={[styles.doneStatus, { color: tone }]} numberOfLines={1}>
@@ -214,7 +217,7 @@ export default function FinancierPaymentDetailScreen() {
 /* Styles                                                              */
 /* ------------------------------------------------------------------ */
 
-const styles = StyleSheet.create(
+const createStyles = (C: AppColorsOf<typeof C_LIGHT>) => StyleSheet.create(
   scaled({
     safe: {
       flex: 1,
@@ -259,14 +262,14 @@ const styles = StyleSheet.create(
       fontSize: 20,
       lineHeight: 24,
       letterSpacing: -0.3,
-      color: C.text,
+      color: C.textText,
     },
 
     subtitle: {
       fontFamily: Fonts.body,
       fontSize: 12,
       lineHeight: 16,
-      color: C.gray,
+      color: C.grayText,
       marginTop: 1,
     },
 
@@ -277,16 +280,16 @@ const styles = StyleSheet.create(
     /* ── Card shell ──────────────────────────────────────────── */
     card: {
       marginTop: 14,
-      backgroundColor: C.cardBg,
+      backgroundColor: C.cardBgFill,
       borderWidth: 1,
-      borderColor: C.frame,
+      borderColor: C.frameBorder,
       borderRadius: 7,
       overflow: 'hidden',
     },
 
     /* Lighter than the card body, so the title reads as its own strip. */
     head: {
-      backgroundColor: C.headBg,
+      backgroundColor: C.headBgFill,
       alignItems: 'center',
       justifyContent: 'center',
       paddingHorizontal: 8,
@@ -298,12 +301,12 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodyBold,
       fontSize: 14,
       lineHeight: 18,
-      color: C.text,
+      color: C.textText,
     },
 
     headLine: {
       height: 1,
-      backgroundColor: C.headLine,
+      backgroundColor: C.headLineFill,
     },
 
     /* ── Detail rows ─────────────────────────────────────────── */
@@ -325,7 +328,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 11,
       lineHeight: 14,
-      color: C.hint,
+      color: C.hintText,
     },
 
     dValue: {
@@ -334,7 +337,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodyBold,
       fontSize: 11,
       lineHeight: 14,
-      color: C.text,
+      color: C.textText,
     },
 
     /* ── Settled ─────────────────────────────────────────────── */
@@ -342,9 +345,9 @@ const styles = StyleSheet.create(
     doneCard: {
       marginTop: 14,
       paddingVertical: 18,
-      backgroundColor: C.cardBg,
+      backgroundColor: C.cardBgFill,
       borderWidth: 1,
-      borderColor: C.frame,
+      borderColor: C.frameBorder,
       borderRadius: 7,
       alignItems: 'center',
       justifyContent: 'center',
@@ -354,7 +357,7 @@ const styles = StyleSheet.create(
       width: 56,
       height: 56,
       borderRadius: 28,
-      backgroundColor: C.green,
+      backgroundColor: C.greenFill,
       alignItems: 'center',
       justifyContent: 'center',
     },
@@ -373,7 +376,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 12,
       lineHeight: 16,
-      color: C.text,
+      color: C.textText,
     },
 
     pressed: {

@@ -12,21 +12,23 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
+import { useAppColors, usePaletteStyles, type AppColorsOf } from '@/lib/app-theme';
 import { I, scaled } from '@/lib/responsive';
 
 /**
  * Shared shell for the three legal pages (Privacy Policy, Terms of Service,
- * Cookies Policy). Same light #FAFBFA canvas as the other settings sub-pages:
+ * Cookies Policy). Same light #F7F9F8 canvas as the other settings sub-pages:
  * pinned back-arrow + title header, then numbered sections laid straight on
  * the background — bold heading, normal-weight body.
  */
 
-const C = {
-  page: '#FAFBFA',
+const C_LIGHT = {
+  page: '#F7F9F8',
   line: 'rgba(0,0,0,0.025)',
 
-  text: '#111111',
+  text: '#17251E',
   body: '#333333',
+  white: '#FFFFFF',
 };
 
 export type LegalSection = {
@@ -41,6 +43,8 @@ type LegalPageProps = {
 };
 
 export function LegalPage({ title, sections, footer }: LegalPageProps) {
+  const C = useAppColors(C_LIGHT);
+  const styles = usePaletteStyles(createStyles, C);
   const router = useRouter();
 
   return (
@@ -59,7 +63,7 @@ export function LegalPage({ title, sections, footer }: LegalPageProps) {
                 accessibilityLabel="Kthehu prapa"
                 style={({ pressed }) => [styles.backBtn, pressed && styles.pressed]}
               >
-                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.text} />
+                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.textText} />
               </Pressable>
               <View style={styles.headerText}>
                 <Text style={styles.title}>{title}</Text>
@@ -89,7 +93,7 @@ export function LegalPage({ title, sections, footer }: LegalPageProps) {
   );
 }
 
-const styles = StyleSheet.create(
+const createStyles = (C: AppColorsOf<typeof C_LIGHT>) => StyleSheet.create(
   scaled({
     safe: {
       flex: 1,
@@ -133,7 +137,7 @@ const styles = StyleSheet.create(
       fontSize: 20,
       lineHeight: 24,
       letterSpacing: -0.3,
-      color: C.text,
+      color: C.textText,
     },
 
     scroll: {
@@ -150,14 +154,14 @@ const styles = StyleSheet.create(
       fontSize: 15,
       lineHeight: 20,
       letterSpacing: -0.2,
-      color: C.text,
+      color: C.textText,
     },
 
     paragraph: {
       fontFamily: Fonts.body,
       fontSize: 13.5,
       lineHeight: 20,
-      color: C.body,
+      color: C.bodyText,
       marginTop: 6,
     },
 

@@ -31,6 +31,8 @@ import {
 import type { ApiMessage } from '@/lib/api/types';
 import { I, scaled } from '@/lib/responsive';
 import { useSession } from '@/lib/session';
+import { useAppColors, usePaletteStyles, type AppColorsOf } from '@/lib/app-theme';
+import { useGlass } from '@/lib/glass';
 
 /**
  * A single conversation — opened by tapping a row on the Mesazhet page.
@@ -41,30 +43,31 @@ import { useSession } from '@/lib/session';
  * the way WhatsApp does — no modal.
  */
 
-const C = {
-  page: '#FAFBFA',
+const C_LIGHT = {
+  glassVeil: 'rgba(245,245,245,0.30)',
+  page: '#F7F9F8',
   line: 'rgba(0,0,0,0.025)',
 
-  text: '#111111',
-  gray: '#8A8A8A',
+  text: '#17251E',
+  gray: '#52645A',
   ghost: '#A8A8A8',
 
-  frame: '#000000',
+  frame: '#DCE5DF',
   cardBg: '#EFF6FF',
 
   blue: '#2F80ED',
-  green: '#159447',
-  red: '#E03131',
-  white: '#F5F5F5',
+  green: '#2E7D5B',
+  red: '#B91C1C',
+  white: '#FFFFFF',
 };
 
 /** Read = blue double tick; still in flight = the same shape, greyed. */
-const TICKS = {
-  read: { icon: 'check-all' as const, color: C.blue },
+const TICKS = (C: AppColorsOf<typeof C_LIGHT>) => ({
+  read: { icon: 'check-all' as const, color: C.blueText },
   delivered: { icon: 'check-all' as const, color: '#B4B4B4' },
-};
+});
 
-type Status = keyof typeof TICKS;
+type Status = keyof ReturnType<typeof TICKS>;
 
 type Msg = {
   id: string;
@@ -104,8 +107,11 @@ const DELETED_TEXT = 'Ky mesazh është fshirë';
  * Sits below it in the stack, so the tapped bubble stays crisp on top.
  */
 function Veil() {
+  const glass = useGlass();
+  const C = useAppColors(C_LIGHT);
+  const styles = usePaletteStyles(createStyles, C);
   return (
-    <BlurView pointerEvents="none" intensity={14} tint="light" style={styles.veil} />
+    <BlurView pointerEvents="none" intensity={14} tint={glass.tint} style={styles.veil} />
   );
 }
 
@@ -116,6 +122,8 @@ export default function ConversationScreen() {
 }
 
 function Conversation() {
+  const C = useAppColors(C_LIGHT);
+  const styles = usePaletteStyles(createStyles, C);
   const router = useRouter();
   const { token, signOut } = useSession();
 
@@ -372,7 +380,7 @@ function Conversation() {
                 accessibilityLabel="Kthehu prapa"
                 style={({ pressed }) => [styles.backBtn, pressed && styles.pressed]}
               >
-                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.text} />
+                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.textText} />
               </Pressable>
 
               <View style={styles.peer}>
@@ -408,7 +416,7 @@ function Conversation() {
               }}
             >
               {msgs.map((msg) => {
-                const tick = msg.status ? TICKS[msg.status] : null;
+                const tick = msg.status ? TICKS(C)[msg.status] : null;
                 const isSelected = selected === msg.id;
 
                 return (
@@ -445,7 +453,7 @@ function Conversation() {
                               onPress={cancelEdit}
                               accessibilityRole="button"
                               accessibilityLabel="Anulo ndryshimin"
-                              hitSlop={6}
+                              hitSlop={10}
                             >
                               <Text style={styles.barBtnText}>Anulo</Text>
                             </Pressable>
@@ -453,7 +461,7 @@ function Conversation() {
                               onPress={saveEdit}
                               accessibilityRole="button"
                               accessibilityLabel="Ruaj ndryshimin"
-                              hitSlop={6}
+                              hitSlop={10}
                             >
                               <Text style={[styles.barBtnText, styles.barBtnSave]}>Ruaj</Text>
                             </Pressable>
@@ -497,6 +505,7 @@ function Conversation() {
                               onPress={() => pickReaction(msg, emoji)}
                               accessibilityRole="button"
                               accessibilityLabel={`Reagim ${emoji}`}
+                              hitSlop={{ top: 4, bottom: 4 }}
                               style={({ pressed }) => [styles.emojiBtn, pressed && styles.pressed]}
                             >
                               <Text style={styles.emoji}>{emoji}</Text>
@@ -510,6 +519,7 @@ function Conversation() {
                               onPress={() => startEdit(msg)}
                               accessibilityRole="button"
                               accessibilityLabel="Ndrysho mesazhin"
+                              hitSlop={{ top: 7, bottom: 7 }}
                               style={({ pressed }) => [styles.barBtn, pressed && styles.pressed]}
                             >
                               <Text style={styles.barBtnText}>Ndrysho</Text>
@@ -518,6 +528,7 @@ function Conversation() {
                               onPress={() => removeMsg(msg)}
                               accessibilityRole="button"
                               accessibilityLabel="Fshij mesazhin"
+                              hitSlop={{ top: 7, bottom: 7 }}
                               style={({ pressed }) => [styles.barBtn, pressed && styles.pressed]}
                             >
                               <Text style={[styles.barBtnText, styles.barBtnDanger]}>Fshij</Text>
@@ -548,7 +559,7 @@ function Conversation() {
             <TextInput
               style={styles.input}
               placeholder="Sheno mesazhin ..."
-              placeholderTextColor={C.ghost}
+              placeholderTextColor={C.ghostText}
               value={composer}
               onChangeText={setComposer}
             />
@@ -563,7 +574,7 @@ function Conversation() {
                 pressed && styles.pressed,
               ]}
             >
-              <MaterialCommunityIcons name="arrow-right" size={I(21)} color={C.white} />
+              <MaterialCommunityIcons name="arrow-right" size={I(21)} color={C.whiteText} />
             </Pressable>
 
             {selected ? <Veil /> : null}
@@ -578,7 +589,7 @@ function Conversation() {
 /* Styles                                                              */
 /* ------------------------------------------------------------------ */
 
-const styles = StyleSheet.create(
+const createStyles = (C: AppColorsOf<typeof C_LIGHT>) => StyleSheet.create(
   scaled({
     safe: {
       flex: 1,
@@ -630,7 +641,7 @@ const styles = StyleSheet.create(
       width: 40,
       height: 40,
       borderRadius: 20,
-      backgroundColor: C.green,
+      backgroundColor: C.greenFill,
       alignItems: 'center',
       justifyContent: 'center',
     },
@@ -639,7 +650,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodyBold,
       fontSize: 13,
       letterSpacing: 0.4,
-      color: C.white,
+      color: C.whiteText,
     },
 
     peerName: {
@@ -647,7 +658,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodyBold,
       fontSize: 15,
       lineHeight: 19,
-      color: C.text,
+      color: C.textText,
     },
 
     /* ── Thread ──────────────────────────────────────────────── */
@@ -655,9 +666,9 @@ const styles = StyleSheet.create(
     thread: {
       flex: 1,
       marginBottom: 4,
-      backgroundColor: C.cardBg,
+      backgroundColor: C.cardBgFill,
       borderWidth: 1,
-      borderColor: C.frame,
+      borderColor: C.frameBorder,
       borderRadius: 14,
       overflow: 'hidden',
     },
@@ -679,7 +690,7 @@ const styles = StyleSheet.create(
       right: 0,
       bottom: 0,
       zIndex: 2,
-      backgroundColor: 'rgba(245,245,245,0.30)',
+      backgroundColor: C.glassVeilFill,
     },
 
     /* Above the veil, so the tapped bubble stays sharp. */
@@ -706,9 +717,9 @@ const styles = StyleSheet.create(
     /* White bubble, hairline rim, and one squared-off bottom corner on the
        sender's side so the tail reads as coming from them. */
     bubble: {
-      backgroundColor: C.white,
+      backgroundColor: C.whiteFill,
       borderWidth: 1,
-      borderColor: C.frame,
+      borderColor: C.frameBorder,
       borderRadius: 14,
       paddingHorizontal: 11,
       paddingVertical: 7,
@@ -737,7 +748,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 13,
       lineHeight: 18,
-      color: C.text,
+      color: C.textText,
     },
 
     /* Names the writer above a group bubble, the way chat apps do. */
@@ -745,7 +756,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodyBold,
       fontSize: 10.5,
       lineHeight: 14,
-      color: C.green,
+      color: C.greenText,
       marginBottom: 1,
     },
 
@@ -753,7 +764,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 13,
       lineHeight: 18,
-      color: C.gray,
+      color: C.grayText,
     },
 
     editInput: {
@@ -761,7 +772,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 13,
       lineHeight: 18,
-      color: C.text,
+      color: C.textText,
       padding: 0,
     },
 
@@ -775,9 +786,9 @@ const styles = StyleSheet.create(
     reaction: {
       position: 'absolute',
       bottom: -10,
-      backgroundColor: C.white,
+      backgroundColor: C.whiteFill,
       borderWidth: 1,
-      borderColor: C.frame,
+      borderColor: C.frameBorder,
       borderRadius: 10,
       paddingHorizontal: 5,
       paddingVertical: 1,
@@ -805,18 +816,18 @@ const styles = StyleSheet.create(
     pickerRow: {
       flexDirection: 'row',
       gap: 3,
-      backgroundColor: C.white,
+      backgroundColor: C.whiteFill,
       borderWidth: 1,
-      borderColor: C.frame,
+      borderColor: C.frameBorder,
       borderRadius: 20,
       paddingHorizontal: 5,
       paddingVertical: 4,
     },
 
     emojiBtn: {
-      width: 30,
-      height: 30,
-      borderRadius: 15,
+      width: 36,
+      height: 36,
+      borderRadius: 18,
       alignItems: 'center',
       justifyContent: 'center',
     },
@@ -834,27 +845,28 @@ const styles = StyleSheet.create(
     },
 
     barBtn: {
-      height: 26,
+      height: 30,
       paddingHorizontal: 10,
       alignItems: 'center',
       justifyContent: 'center',
       borderWidth: 1,
-      borderColor: C.frame,
-      borderRadius: 4,
+      borderColor: C.frameBorder,
+      borderRadius: 6,
     },
 
     barBtnText: {
       fontFamily: Fonts.bodySemiBold,
-      fontSize: 11,
-      color: C.text,
+      fontSize: 11.5,
+      lineHeight: 15,
+      color: C.textText,
     },
 
     barBtnDanger: {
-      color: C.red,
+      color: C.redText,
     },
 
     barBtnSave: {
-      color: C.green,
+      color: C.greenText,
     },
 
     meta: {
@@ -873,7 +885,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 10.5,
       lineHeight: 13,
-      color: C.gray,
+      color: C.grayText,
     },
 
     /* ── Composer ────────────────────────────────────────────── */
@@ -890,19 +902,19 @@ const styles = StyleSheet.create(
       flex: 1,
       height: 44,
       borderWidth: 1,
-      borderColor: C.frame,
+      borderColor: C.frameBorder,
       borderRadius: 8,
       paddingHorizontal: 14,
       fontFamily: Fonts.body,
       fontSize: 13,
-      color: C.text,
+      color: C.textText,
     },
 
     sendBtn: {
       width: 44,
       height: 44,
       borderRadius: 8,
-      backgroundColor: C.green,
+      backgroundColor: C.greenFill,
       alignItems: 'center',
       justifyContent: 'center',
     },

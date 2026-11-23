@@ -14,6 +14,7 @@ import { listTeams } from '@/lib/api/teams';
 import type { ApiTeam, PlayerRatingRow } from '@/lib/api/types';
 import { I, scaled } from '@/lib/responsive';
 import { useSession } from '@/lib/session';
+import { useAppColors, usePaletteStyles, type AppColorsOf } from '@/lib/app-theme';
 
 /**
  * Vlerësimi i trajnerit — opened from the "Vlerësimet" card on the players
@@ -21,22 +22,26 @@ import { useSession } from '@/lib/session';
  * five category bars, then the verdict.
  */
 
-const C = {
-  page: '#FAFBFA',
+const C_LIGHT = {
+  white: '#FFFFFF',
+  frame: '#DCE5DF',
+  page: '#F7F9F8',
   line: 'rgba(0,0,0,0.025)',
 
-  text: '#111111',
-  gray: '#8A8A8A',
+  text: '#17251E',
+  gray: '#52645A',
   hint: '#6E6E6E',
   hintSoft: '#E2E2E2',
+  /* Black rules that invert on the dark page. */
+  ink: '#000000',
 
-  card: '#F6FBFF',
+  card: '#F7F9F8',
   border: 'rgba(100,140,190,0.30)',
 
   blueSoft: '#E3EEFB',
 
-  green: '#159447',
-  red: '#E03131',
+  green: '#2E7D5B',
+  red: '#B91C1C',
 };
 
 const CATEGORIES = ['Teknika', 'Fiziku', 'Taktikat', 'Stabiliteti', 'Punë ekipore'];
@@ -72,9 +77,11 @@ const toRatedPlayer = (row: PlayerRatingRow): RatedPlayer => ({
 });
 
 /** Anything below seven is flagged red, everything else green. */
-const tone = (score: number) => (score >= 7 ? C.green : C.red);
+const tone = (score: number, C: AppColorsOf<typeof C_LIGHT>) => (score >= 7 ? C.green : C.red);
 
 export default function CoachRatingsScreen() {
+  const C = useAppColors(C_LIGHT);
+  const styles = usePaletteStyles(createStyles, C);
   const router = useRouter();
   const { token, signOut } = useSession();
   const [rows, setRows] = useState<PlayerRatingRow[]>([]);
@@ -143,7 +150,7 @@ export default function CoachRatingsScreen() {
                 accessibilityLabel="Kthehu prapa"
                 style={({ pressed }) => [styles.backBtn, pressed && styles.pressed]}
               >
-                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.text} />
+                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.textText} />
               </Pressable>
               <View style={styles.headerText}>
                 <Text style={styles.title} numberOfLines={1}>
@@ -178,7 +185,7 @@ export default function CoachRatingsScreen() {
               {rows.map((row) => {
                 const player = toRatedPlayer(row);
                 const overall = player.overall ?? 0;
-                const overallTone = player.overall != null ? tone(player.overall) : C.hint;
+                const overallTone = player.overall != null ? tone(player.overall, C) : C.hint;
 
                 return (
                   <View key={player.id} style={styles.card}>
@@ -200,7 +207,7 @@ export default function CoachRatingsScreen() {
 
                     {CATEGORIES.map((category, i) => {
                       const value = player.scores[i];
-                      const valueTone = value != null ? tone(value) : C.hint;
+                      const valueTone = value != null ? tone(value, C) : C.hint;
 
                       return (
                         <View key={category} style={styles.catRow}>
@@ -239,6 +246,7 @@ export default function CoachRatingsScreen() {
                       }
                       accessibilityRole="button"
                       accessibilityLabel={`Hap profilin e ${player.name}`}
+                      hitSlop={{ top: 7, bottom: 7, left: 4, right: 4 }}
                       style={({ pressed }) => [styles.verdict, pressed && styles.pressed]}
                     >
                       <Text style={styles.verdictText}>
@@ -260,7 +268,7 @@ export default function CoachRatingsScreen() {
 /* Styles                                                              */
 /* ------------------------------------------------------------------ */
 
-const styles = StyleSheet.create(
+const createStyles = (C: AppColorsOf<typeof C_LIGHT>) => StyleSheet.create(
   scaled({
     safe: {
       flex: 1,
@@ -305,14 +313,14 @@ const styles = StyleSheet.create(
       fontSize: 20,
       lineHeight: 24,
       letterSpacing: -0.3,
-      color: C.text,
+      color: C.textText,
     },
 
     subtitle: {
       fontFamily: Fonts.body,
       fontSize: 12,
       lineHeight: 16,
-      color: C.gray,
+      color: C.grayText,
       marginTop: 1,
     },
 
@@ -328,16 +336,16 @@ const styles = StyleSheet.create(
       gap: 10,
       height: 36,
       paddingHorizontal: 12,
-      backgroundColor: C.blueSoft,
+      backgroundColor: C.blueSoftFill,
       borderWidth: 1,
-      borderColor: '#000000',
+      borderColor: C.frameBorder,
       borderRadius: 4,
     },
 
     teamBtnText: {
       fontFamily: Fonts.body,
       fontSize: 12,
-      color: C.text,
+      color: C.textText,
     },
 
     /* ── Rating cards ────────────────────────────────────────── */
@@ -350,9 +358,9 @@ const styles = StyleSheet.create(
 
     card: {
       width: '48%',
-      backgroundColor: C.card,
+      backgroundColor: C.cardFill,
       borderWidth: 1,
-      borderColor: '#000000',
+      borderColor: C.frameBorder,
       borderRadius: 7,
       paddingHorizontal: 10,
       paddingTop: 9,
@@ -373,14 +381,14 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodyBold,
       fontSize: 11.5,
       lineHeight: 15,
-      color: C.text,
+      color: C.textText,
     },
 
     teamText: {
       fontFamily: Fonts.body,
       fontSize: 9.5,
       lineHeight: 13,
-      color: C.hint,
+      color: C.hintText,
       marginTop: 1,
     },
 
@@ -395,7 +403,7 @@ const styles = StyleSheet.create(
     divider: {
       height: 1,
       marginHorizontal: -10,
-      backgroundColor: '#000000',
+      backgroundColor: C.inkFill,
       marginTop: 7,
       marginBottom: 7,
     },
@@ -413,14 +421,14 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 9.5,
       lineHeight: 13,
-      color: C.hint,
+      color: C.hintText,
     },
 
     barTrack: {
       flex: 1,
       height: 4,
       borderRadius: 2,
-      backgroundColor: C.hintSoft,
+      backgroundColor: C.hintSoftFill,
       overflow: 'hidden',
     },
 
@@ -439,20 +447,21 @@ const styles = StyleSheet.create(
 
     /* ── Verdict ─────────────────────────────────────────────── */
     verdict: {
-      height: 26,
+      height: 30,
       marginTop: 6,
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: '#F5F5F5',
+      backgroundColor: C.whiteFill,
       borderWidth: 1,
-      borderColor: '#000000',
-      borderRadius: 4,
+      borderColor: C.frameBorder,
+      borderRadius: 6,
     },
 
     verdictText: {
       fontFamily: Fonts.body,
-      fontSize: 10,
-      color: C.hint,
+      fontSize: 11.5,
+      lineHeight: 15,
+      color: C.hintText,
     },
 
     pressed: {

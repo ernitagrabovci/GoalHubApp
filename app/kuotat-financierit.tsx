@@ -3,6 +3,7 @@ import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -13,12 +14,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
-import { ApiError } from '@/lib/api/errors';
+import { ApiError, loadErrorMessage } from '@/lib/api/errors';
 import { listFees } from '@/lib/api/finance';
 import type { ApiFee, Paginated } from '@/lib/api/types';
 import { dmy, monthLabel, statusLabel, statusRank, STATUS_TONE, usd } from '@/lib/finance';
 import { I, scaled } from '@/lib/responsive';
 import { useSession } from '@/lib/session';
+import { useAppColors, usePaletteStyles, type AppColorsOf } from '@/lib/app-theme';
 
 /**
  * Kuotat e anëtarësisë — the whole club's membership fees, opened from
@@ -29,25 +31,26 @@ import { useSession } from '@/lib/session';
  * "Regjistro pagesën", a settled one only "Shiko".
  */
 
-const C = {
-  page: '#FAFBFA',
+const C_LIGHT = {
+  white: '#FFFFFF',
+  page: '#F7F9F8',
   line: 'rgba(0,0,0,0.025)',
 
-  text: '#111111',
-  gray: '#8A8A8A',
+  text: '#17251E',
+  gray: '#52645A',
   hint: '#6E6E6E',
 
-  frame: '#000000',
+  frame: '#DCE5DF',
   headLine: 'rgba(30,40,35,0.10)',
   rowLine: 'rgba(100,140,190,0.22)',
 
   blue1: '#E3EEFB',
-  blue2: '#F6FBFF',
+  blue2: '#F7F9F8',
   blueBtn: '#86BCFD',
 
-  green: '#159447',
-  red: '#E03131',
-  orange: '#E4A000',
+  green: '#2E7D5B',
+  red: '#B91C1C',
+  orange: '#B45309',
 };
 
 /* Table columns — fixed widths so nothing gets squeezed; the frame scrolls. */
@@ -60,6 +63,8 @@ const COL_STATUS = 66;
 const COL_ACTION = 88;
 
 export default function MembershipFeesScreen() {
+  const C = useAppColors(C_LIGHT);
+  const styles = usePaletteStyles(createStyles, C);
   const router = useRouter();
   const { token, signOut } = useSession();
 
@@ -72,6 +77,7 @@ export default function MembershipFeesScreen() {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [error, setError] = useState<string | null>(null);
+  const [reload, setReload] = useState(0);
 
   useEffect(() => {
     if (!token) return;
@@ -102,15 +108,18 @@ export default function MembershipFeesScreen() {
           router.replace('/login');
           return;
         }
-        setError(
-          err instanceof ApiError && err.status === 0
-            ? 'Nuk mund të lidhemi me serverin. Kontrollo lidhjen.'
-            : 'Nuk mund të ngarkohen kuotat.',
-        );
+        setError(loadErrorMessage(err, 'Nuk mund të ngarkohen kuotat.'));
       });
 
     return () => controller.abort();
-  }, [token, page, teamId, search, router, signOut]);
+  }, [token, page, teamId, search, router, signOut, reload]);
+
+  /* Refetch from the error box; the effect cannot reset state synchronously. */
+  const retry = () => {
+    setFees(null);
+    setError(null);
+    setReload((value) => value + 1);
+  };
 
   /* Unpaid first, then the overdue, then the settled — the design's order. */
   const rows = (fees?.data ?? [])
@@ -159,7 +168,7 @@ export default function MembershipFeesScreen() {
                 accessibilityLabel="Kthehu prapa"
                 style={({ pressed }) => [styles.backBtn, pressed && styles.pressed]}
               >
-                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.text} />
+                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.textText} />
               </Pressable>
               <View style={styles.headerText}>
                 <Text
@@ -198,7 +207,7 @@ export default function MembershipFeesScreen() {
                   <Text style={styles.pickText} numberOfLines={1}>
                     {selectedTeam}
                   </Text>
-                  <MaterialCommunityIcons name="chevron-down" size={I(14)} color={C.text} />
+                  <MaterialCommunityIcons name="chevron-down" size={I(14)} color={C.textText} />
                 </Pressable>
 
                 {teamOpen ? (
@@ -246,7 +255,7 @@ export default function MembershipFeesScreen() {
                 <TextInput
                   style={styles.searchInput}
                   placeholder="Kërko anëtar..."
-                  placeholderTextColor={C.gray}
+                  placeholderTextColor={C.grayText}
                   accessibilityLabel="Kërko anëtar"
                   value={query}
                   onChangeText={setQuery}
@@ -254,7 +263,7 @@ export default function MembershipFeesScreen() {
                   returnKeyType="search"
                   autoCorrect={false}
                 />
-                <MaterialCommunityIcons name="magnify" size={I(17)} color={C.text} />
+                <MaterialCommunityIcons name="magnify" size={I(17)} color={C.textText} />
               </View>
 
               <Pressable
@@ -268,6 +277,11 @@ export default function MembershipFeesScreen() {
             </View>
 
             {/* ── List ──────────────────────────────────────────── */}
+            <View style={styles.scrollHint} accessibilityElementsHidden importantForAccessibility="no">
+              <MaterialCommunityIcons name="gesture-swipe-horizontal" size={I(14)} color={C.grayText} />
+              <Text style={styles.scrollHintText}>Rrëshqit anash për më shumë kolona</Text>
+            </View>
+
             <View style={styles.card}>
               <View style={styles.head}>
                 <Text
@@ -300,12 +314,21 @@ export default function MembershipFeesScreen() {
                   </View>
 
                   {error ? (
-                    <View style={styles.tr}>
-                      <Text style={[styles.td, styles.thLeft]}>{error}</Text>
+                    <View style={[styles.tr, styles.stateTr]}>
+                      <Text style={styles.td}>{error}</Text>
+                      <Pressable
+                        onPress={retry}
+                        accessibilityRole="button"
+                        accessibilityLabel="Provo përsëri"
+                        style={({ pressed }) => [styles.stateRetry, pressed && styles.pressed]}
+                      >
+                        <Text style={styles.stateRetryText}>Provo përsëri</Text>
+                      </Pressable>
                     </View>
                   ) : fees === null ? (
-                    <View style={styles.tr}>
-                      <Text style={[styles.td, styles.thLeft]}>…</Text>
+                    <View style={[styles.tr, styles.stateTr]}>
+                      <ActivityIndicator color={C.greenText} />
+                      <Text style={styles.td}>Duke ngarkuar kuotat…</Text>
                     </View>
                   ) : rows.length === 0 ? (
                     <View style={styles.tr}>
@@ -371,6 +394,7 @@ export default function MembershipFeesScreen() {
                               }
                               accessibilityRole="button"
                               accessibilityLabel={`Regjistro pagesën e ${r.name}`}
+                              hitSlop={{ top: 7, bottom: 7, left: 3, right: 3 }}
                               style={({ pressed }) => [styles.actReg, pressed && styles.pressed]}
                             >
                               <Text
@@ -401,6 +425,7 @@ export default function MembershipFeesScreen() {
                               }
                               accessibilityRole="button"
                               accessibilityLabel={`Shiko ${r.name}`}
+                              hitSlop={{ top: 7, bottom: 7, left: 3, right: 3 }}
                               style={({ pressed }) => [styles.actShiko, pressed && styles.pressed]}
                             >
                               <Text style={styles.actShikoText}>Shiko</Text>
@@ -429,7 +454,7 @@ export default function MembershipFeesScreen() {
                     pressed && styles.pressed,
                   ]}
                 >
-                  <MaterialCommunityIcons name="chevron-left" size={I(22)} color={C.text} />
+                  <MaterialCommunityIcons name="chevron-left" size={I(22)} color={C.textText} />
                 </Pressable>
 
                 {pages.map((p) => (
@@ -460,7 +485,7 @@ export default function MembershipFeesScreen() {
                     pressed && styles.pressed,
                   ]}
                 >
-                  <MaterialCommunityIcons name="chevron-right" size={I(22)} color={C.text} />
+                  <MaterialCommunityIcons name="chevron-right" size={I(22)} color={C.textText} />
                 </Pressable>
               </View>
             ) : null}
@@ -475,7 +500,7 @@ export default function MembershipFeesScreen() {
 /* Styles                                                              */
 /* ------------------------------------------------------------------ */
 
-const styles = StyleSheet.create(
+const createStyles = (C: AppColorsOf<typeof C_LIGHT>) => StyleSheet.create(
   scaled({
     safe: {
       flex: 1,
@@ -520,14 +545,14 @@ const styles = StyleSheet.create(
       fontSize: 20,
       lineHeight: 24,
       letterSpacing: -0.3,
-      color: C.text,
+      color: C.textText,
     },
 
     subtitle: {
       fontFamily: Fonts.body,
       fontSize: 12,
       lineHeight: 16,
-      color: C.gray,
+      color: C.grayText,
       marginTop: 1,
     },
 
@@ -552,38 +577,38 @@ const styles = StyleSheet.create(
     },
 
     pickBox: {
-      height: 34,
+      height: 44,
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
       gap: 6,
-      paddingHorizontal: 9,
-      backgroundColor: C.blue1,
+      paddingHorizontal: 10,
+      backgroundColor: C.blue1Fill,
       borderWidth: 1,
-      borderColor: C.frame,
-      borderRadius: 4,
+      borderColor: C.frameBorder,
+      borderRadius: 10,
     },
 
     pickText: {
       flex: 1,
       fontFamily: Fonts.bodySemiBold,
-      fontSize: 11,
-      lineHeight: 14,
-      color: C.text,
+      fontSize: 12.5,
+      lineHeight: 16,
+      color: C.textText,
     },
 
     /* Floats over the table so opening it moves nothing. */
     pickOpts: {
       position: 'absolute',
-      top: 37,
+      top: 47,
       left: 0,
       right: 0,
       zIndex: 40,
       elevation: 12,
-      backgroundColor: '#F5F5F5',
+      backgroundColor: C.whiteFill,
       borderWidth: 1,
-      borderColor: C.frame,
-      borderRadius: 4,
+      borderColor: C.frameBorder,
+      borderRadius: 8,
       overflow: 'hidden',
       shadowColor: '#000000',
       shadowOffset: { width: 0, height: 3 },
@@ -592,24 +617,24 @@ const styles = StyleSheet.create(
     },
 
     pickOpt: {
-      height: 30,
+      minHeight: 40,
       alignItems: 'center',
       justifyContent: 'center',
     },
 
     pickOptActive: {
-      backgroundColor: C.blue1,
+      backgroundColor: C.blue1Fill,
     },
 
     pickOptText: {
       fontFamily: Fonts.body,
-      fontSize: 11,
-      color: C.text,
+      fontSize: 12.5,
+      color: C.textText,
     },
 
     pickOptTextActive: {
       fontFamily: Fonts.bodyBold,
-      color: C.blueBtn,
+      color: C.blueBtnText,
     },
 
     /* ── Search ──────────────────────────────────────────────── */
@@ -623,15 +648,15 @@ const styles = StyleSheet.create(
     /* The field wears the magnifier on its right edge. */
     searchBar: {
       flex: 1,
-      height: 34,
+      height: 44,
       flexDirection: 'row',
       alignItems: 'center',
       gap: 6,
-      paddingHorizontal: 9,
-      backgroundColor: '#F5F5F5',
+      paddingHorizontal: 10,
+      backgroundColor: C.whiteFill,
       borderWidth: 1,
-      borderColor: C.frame,
-      borderRadius: 4,
+      borderColor: C.frameBorder,
+      borderRadius: 10,
     },
 
     searchInput: {
@@ -639,33 +664,47 @@ const styles = StyleSheet.create(
       paddingHorizontal: 0,
       paddingVertical: 0,
       fontFamily: Fonts.body,
-      fontSize: 11,
-      color: C.text,
+      fontSize: 14,
+      color: C.textText,
     },
 
     searchBtn: {
-      height: 34,
-      paddingHorizontal: 14,
+      height: 44,
+      paddingHorizontal: 16,
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: C.blue1,
+      backgroundColor: C.blue1Fill,
       borderWidth: 1,
-      borderColor: C.frame,
-      borderRadius: 4,
+      borderColor: C.frameBorder,
+      borderRadius: 10,
     },
 
     searchBtnText: {
       fontFamily: Fonts.bodySemiBold,
       fontSize: 12,
-      color: C.text,
+      color: C.textText,
     },
 
     /* ── Card ────────────────────────────────────────────────── */
+    scrollHint: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 5,
+      marginTop: 12,
+    },
+
+    scrollHintText: {
+      fontFamily: Fonts.body,
+      fontSize: 11.5,
+      lineHeight: 15,
+      color: C.grayText,
+    },
+
     card: {
       marginTop: 14,
-      backgroundColor: C.blue2,
+      backgroundColor: C.blue2Fill,
       borderWidth: 2,
-      borderColor: C.rowLine,
+      borderColor: C.rowLineBorder,
       borderRadius: 7,
       overflow: 'hidden',
     },
@@ -682,12 +721,12 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodyBold,
       fontSize: 15,
       lineHeight: 19,
-      color: C.text,
+      color: C.textText,
     },
 
     headLine: {
       height: 1,
-      backgroundColor: C.headLine,
+      backgroundColor: C.headLineFill,
     },
 
     /* ── Table ───────────────────────────────────────────────── */
@@ -706,12 +745,12 @@ const styles = StyleSheet.create(
       flexDirection: 'row',
       alignItems: 'center',
       gap: 6,
-      minHeight: 34,
+      minHeight: 44,
     },
 
     trBorder: {
       borderTopWidth: 1,
-      borderTopColor: C.rowLine,
+      borderTopColor: C.rowLineBorder,
     },
 
     colAction: {
@@ -722,7 +761,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodySemiBold,
       fontSize: 10.5,
       lineHeight: 13,
-      color: C.gray,
+      color: C.grayText,
       textAlign: 'center',
     },
 
@@ -734,14 +773,39 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 10.5,
       lineHeight: 13,
-      color: C.text,
+      color: C.textText,
+    },
+
+    stateTr: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 10,
+      minHeight: 96,
+      paddingHorizontal: 16,
+      paddingVertical: 18,
+    },
+
+    stateRetry: {
+      minHeight: 44,
+      justifyContent: 'center',
+      paddingHorizontal: 18,
+      borderWidth: 1,
+      borderColor: C.greenBorder,
+      borderRadius: 10,
+    },
+
+    stateRetryText: {
+      fontFamily: Fonts.bodySemiBold,
+      fontSize: 13,
+      color: C.greenText,
     },
 
     td: {
       fontFamily: Fonts.body,
       fontSize: 10.5,
       lineHeight: 13,
-      color: C.hint,
+      color: C.hintText,
       textAlign: 'center',
     },
 
@@ -752,37 +816,38 @@ const styles = StyleSheet.create(
     /* The dropdown's fill and rim — the row's one action while the fee is
        still owed. */
     actReg: {
-      height: 22,
-      paddingHorizontal: 6,
+      height: 30,
+      paddingHorizontal: 8,
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: C.blue1,
+      backgroundColor: C.blue1Fill,
       borderWidth: 1,
-      borderColor: C.frame,
-      borderRadius: 4,
+      borderColor: C.frameBorder,
+      borderRadius: 6,
     },
 
     actRegText: {
       fontFamily: Fonts.bodySemiBold,
-      fontSize: 8.5,
-      color: C.text,
+      fontSize: 9.5,
+      color: C.textText,
     },
 
     /* Clear fill, black rim and black label — the settled row's one action. */
     actShiko: {
-      height: 22,
-      paddingHorizontal: 8,
+      height: 30,
+      paddingHorizontal: 10,
       alignItems: 'center',
       justifyContent: 'center',
       borderWidth: 1,
-      borderColor: C.frame,
-      borderRadius: 4,
+      borderColor: C.frameBorder,
+      borderRadius: 6,
     },
 
     actShikoText: {
       fontFamily: Fonts.bodySemiBold,
-      fontSize: 10,
-      color: C.frame,
+      fontSize: 11.5,
+      lineHeight: 15,
+      color: C.textText,
     },
 
     /* ── Pager ───────────────────────────────────────────────── */
@@ -804,10 +869,10 @@ const styles = StyleSheet.create(
     },
 
     pageSq: {
-      width: 34,
-      height: 34,
-      borderRadius: 5,
-      backgroundColor: C.blueBtn,
+      width: 44,
+      height: 44,
+      borderRadius: 10,
+      backgroundColor: C.blueBtnFill,
       alignItems: 'center',
       justifyContent: 'center',
     },
@@ -819,7 +884,7 @@ const styles = StyleSheet.create(
     pageSqText: {
       fontFamily: Fonts.bodySemiBold,
       fontSize: 14,
-      color: '#F5F5F5',
+      color: '#FFFFFF',
     },
 
     pressed: {

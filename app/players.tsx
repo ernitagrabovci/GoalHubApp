@@ -25,6 +25,8 @@ import { POSITIONS, positionLabel } from '@/lib/player-position';
 import { statusLabel } from '@/lib/player-status';
 import { I, scaled } from '@/lib/responsive';
 import { useSession } from '@/lib/session';
+import { useAppColors, usePaletteStyles, type AppColorsOf } from '@/lib/app-theme';
+import { useGlass } from '@/lib/glass';
 
 /**
  * Lojtarët — opened from the "Lojtarët" card on the admin dashboard.
@@ -38,26 +40,37 @@ import { useSession } from '@/lib/session';
  * `account_status` filters back the four filter boxes.
  */
 
-const C = {
-  page: '#FAFBFA',
+const C_LIGHT = {
+  white: '#FFFFFF',
+  frame: '#DCE5DF',
+  glassBase: 'rgba(255,255,255,0.12)',
+  glassEdge: 'rgba(255,255,255,0.95)',
+  glassDivider: 'rgba(16,51,38,0.18)',
+  page: '#F7F9F8',
   line: 'rgba(0,0,0,0.025)',
 
-  text: '#111111',
-  gray: '#8A8A8A',
+  text: '#17251E',
+  gray: '#52645A',
 
-  card: '#F6FBFF',
+  card: '#F7F9F8',
   border: 'rgba(100,140,190,0.30)',
   rowLine: 'rgba(100,140,190,0.22)',
   headLine: 'rgba(30,40,35,0.10)',
 
-  orange: '#E4A000',
-  red: '#E03131',
+  orange: '#B45309',
+  red: '#B91C1C',
 
   blueBtn: '#86BCFD',
   blueSoft: '#E3EEFB',
 
   ghost: '#9E9E9E',
   ghostLine: '#D6D6D6',
+
+  /* Pastel promo tiles and their rims. */
+  promoStatsBg: '#E8F3FF',
+  promoStatsBorder: '#C6E0FA',
+  promoRatingsBg: '#F8EBD8',
+  promoRatingsBorder: '#F0D9AE',
 };
 
 const IMG = {
@@ -151,6 +164,9 @@ const COLS: Col[] = [
 const ACTIONS_W = 96;
 
 export default function PlayersScreen() {
+  const glass = useGlass();
+  const C = useAppColors(C_LIGHT);
+  const styles = usePaletteStyles(createStyles, C);
   const router = useRouter();
   const { token, signOut } = useSession();
 
@@ -317,7 +333,7 @@ export default function PlayersScreen() {
                 accessibilityLabel="Kthehu prapa"
                 style={({ pressed }) => [styles.backBtn, pressed && styles.pressed]}
               >
-                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.text} />
+                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.textText} />
               </Pressable>
               <View style={styles.headerText}>
                 <Text style={styles.title}>Lojtarët</Text>
@@ -342,30 +358,21 @@ export default function PlayersScreen() {
               <BlurView
                 pointerEvents="none"
                 intensity={55}
-                tint="light"
+                tint={glass.tint}
                 experimentalBlurMethod="dimezisBlurView"
                 style={StyleSheet.absoluteFill}
               />
               <LinearGradient
                 pointerEvents="none"
                 style={StyleSheet.absoluteFill}
-                colors={[
-                  'rgba(255,255,255,0.38)',
-                  'rgba(255,255,255,0.04)',
-                  'rgba(255,255,255,0.24)',
-                ]}
+                colors={glass.highlight}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
               />
               <LinearGradient
                 pointerEvents="none"
                 style={styles.statsGloss}
-                colors={[
-                  'rgba(255,255,255,0)',
-                  'rgba(255,255,255,0.78)',
-                  'rgba(255,255,255,0.55)',
-                  'rgba(255,255,255,0)',
-                ]}
+                colors={glass.sweep}
                 locations={[0, 0.38, 0.62, 1]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
@@ -373,11 +380,7 @@ export default function PlayersScreen() {
               <LinearGradient
                 pointerEvents="none"
                 style={styles.statsGloss2}
-                colors={[
-                  'rgba(255,255,255,0)',
-                  'rgba(255,255,255,0.55)',
-                  'rgba(255,255,255,0)',
-                ]}
+                colors={glass.sweepSoft}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
               />
@@ -419,7 +422,7 @@ export default function PlayersScreen() {
               style={({ pressed }) => [styles.newPlayer, pressed && styles.pressed]}
             >
               <View style={styles.newPlayerPlus}>
-                <MaterialCommunityIcons name="plus" size={I(15)} color="#F5F5F5" />
+                <MaterialCommunityIcons name="plus" size={I(15)} color="#FFFFFF" />
               </View>
               <Text style={styles.newPlayerText}>Lojtari i ri</Text>
             </Pressable>
@@ -440,7 +443,7 @@ export default function PlayersScreen() {
                 <TextInput
                   style={styles.searchBox}
                   placeholder="Shkruaj emrin"
-                  placeholderTextColor={C.ghost}
+                  placeholderTextColor={C.ghostText}
                   value={searchInput}
                   onChangeText={(text) => {
                     setSearchInput(text);
@@ -467,7 +470,7 @@ export default function PlayersScreen() {
                     <MaterialCommunityIcons
                       name={openFilter === key ? 'chevron-up' : 'chevron-down'}
                       size={I(14)}
-                      color={C.gray}
+                      color={C.grayText}
                     />
                   </Pressable>
                 ))}
@@ -490,6 +493,7 @@ export default function PlayersScreen() {
                         onPress={() => applyFilter(openFilter, item.value)}
                         accessibilityRole="button"
                         accessibilityLabel={item.label}
+                        hitSlop={{ top: 4, bottom: 4, left: 2, right: 2 }}
                         style={({ pressed }) => [
                           styles.filterChip,
                           active && styles.filterChipActive,
@@ -571,6 +575,7 @@ export default function PlayersScreen() {
                             }
                             accessibilityRole="button"
                             accessibilityLabel={`Shiko ${p.name ?? 'lojtarin'}`}
+                            hitSlop={{ top: 7, bottom: 7, left: 3, right: 3 }}
                             style={({ pressed }) => [styles.rowBtn, pressed && styles.pressed]}
                           >
                             <Text style={styles.rowBtnText}>Shiko</Text>
@@ -584,6 +589,7 @@ export default function PlayersScreen() {
                             }
                             accessibilityRole="button"
                             accessibilityLabel="Edito"
+                            hitSlop={{ top: 7, bottom: 7, left: 3, right: 3 }}
                             style={({ pressed }) => [styles.rowBtn, pressed && styles.pressed]}
                           >
                             <Text style={styles.rowBtnText}>Edito</Text>
@@ -611,7 +617,7 @@ export default function PlayersScreen() {
                 </View>
               ) : listLoading && players.length === 0 ? (
                 <View style={styles.stateRow}>
-                  <ActivityIndicator color={C.blueBtn} />
+                  <ActivityIndicator color={C.blueBtnText} />
                 </View>
               ) : players.length === 0 ? (
                 <View style={styles.stateRow}>
@@ -628,14 +634,14 @@ export default function PlayersScreen() {
                   disabled={current <= 1}
                   accessibilityRole="button"
                   accessibilityLabel="Faqja e mëparshme"
-                  hitSlop={8}
+                  hitSlop={11}
                   style={({ pressed }) => [
                     styles.pagerArrow,
                     current <= 1 && styles.pagerDisabled,
                     pressed && styles.pressed,
                   ]}
                 >
-                  <MaterialCommunityIcons name="chevron-left" size={I(22)} color={C.text} />
+                  <MaterialCommunityIcons name="chevron-left" size={I(22)} color={C.textText} />
                 </Pressable>
 
                 {pages.map((p) => (
@@ -658,14 +664,14 @@ export default function PlayersScreen() {
                   disabled={current >= lastPage}
                   accessibilityRole="button"
                   accessibilityLabel="Faqja tjetër"
-                  hitSlop={8}
+                  hitSlop={11}
                   style={({ pressed }) => [
                     styles.pagerArrow,
                     current >= lastPage && styles.pagerDisabled,
                     pressed && styles.pressed,
                   ]}
                 >
-                  <MaterialCommunityIcons name="chevron-right" size={I(22)} color={C.text} />
+                  <MaterialCommunityIcons name="chevron-right" size={I(22)} color={C.textText} />
                 </Pressable>
               </View>
             ) : null}
@@ -713,7 +719,7 @@ export default function PlayersScreen() {
 /* Styles                                                              */
 /* ------------------------------------------------------------------ */
 
-const styles = StyleSheet.create(
+const createStyles = (C: AppColorsOf<typeof C_LIGHT>) => StyleSheet.create(
   scaled({
     safe: {
       flex: 1,
@@ -758,14 +764,14 @@ const styles = StyleSheet.create(
       fontSize: 20,
       lineHeight: 24,
       letterSpacing: -0.3,
-      color: C.text,
+      color: C.textText,
     },
 
     subtitle: {
       fontFamily: Fonts.body,
       fontSize: 12,
       lineHeight: 16,
-      color: C.gray,
+      color: C.grayText,
       marginTop: 1,
     },
 
@@ -789,8 +795,8 @@ const styles = StyleSheet.create(
       height: 104,
       borderRadius: 16,
       borderWidth: 1,
-      borderColor: C.orange,
-      backgroundColor: 'rgba(255,255,255,0.12)',
+      borderColor: C.orangeBorder,
+      backgroundColor: C.glassBaseFill,
       overflow: 'hidden',
       shadowColor: '#0B3B33',
       shadowOffset: { width: 0, height: 6 },
@@ -824,7 +830,7 @@ const styles = StyleSheet.create(
       right: 10,
       height: 1.5,
       borderRadius: 1,
-      backgroundColor: 'rgba(255,255,255,0.95)',
+      backgroundColor: C.glassEdgeFill,
     },
 
     statItem: {
@@ -840,7 +846,7 @@ const styles = StyleSheet.create(
       top: 10,
       bottom: 10,
       width: StyleSheet.hairlineWidth,
-      backgroundColor: 'rgba(16,51,38,0.18)',
+      backgroundColor: C.glassDividerFill,
     },
 
     /* Fixed two-line block so all four values sit on the same line. */
@@ -849,7 +855,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodyBold,
       fontSize: 9.5,
       lineHeight: 11.5,
-      color: C.gray,
+      color: C.grayText,
     },
 
     sqValue: {
@@ -857,7 +863,7 @@ const styles = StyleSheet.create(
       fontSize: 17,
       lineHeight: 21,
       letterSpacing: -0.5,
-      color: C.text,
+      color: C.textText,
       marginTop: 2,
     },
 
@@ -865,7 +871,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 9,
       lineHeight: 11,
-      color: C.gray,
+      color: C.grayText,
       marginTop: 3,
     },
 
@@ -876,36 +882,37 @@ const styles = StyleSheet.create(
       alignItems: 'center',
       gap: 8,
       marginTop: 14,
-      height: 36,
-      paddingLeft: 5,
-      paddingRight: 14,
-      backgroundColor: C.blueSoft,
+      height: 44,
+      paddingLeft: 9,
+      paddingRight: 16,
+      backgroundColor: C.blueSoftFill,
       borderWidth: 1,
-      borderColor: '#000000',
-      borderRadius: 4,
+      borderColor: C.frameBorder,
+      borderRadius: 10,
     },
 
     newPlayerPlus: {
       width: 25,
       height: 25,
       borderRadius: 13,
-      backgroundColor: C.blueBtn,
+      backgroundColor: C.blueBtnFill,
       alignItems: 'center',
       justifyContent: 'center',
     },
 
     newPlayerText: {
       fontFamily: Fonts.bodySemiBold,
-      fontSize: 12.5,
-      color: '#000000',
+      fontSize: 13,
+      lineHeight: 18,
+      color: C.textText,
     },
 
     /* ── Të gjithë lojtarët card ─────────────────────────────── */
     card: {
       marginTop: 14,
-      backgroundColor: C.card,
+      backgroundColor: C.cardFill,
       borderWidth: 2,
-      borderColor: C.border,
+      borderColor: C.borderBorder,
       borderRadius: 7,
       overflow: 'hidden',
     },
@@ -916,14 +923,14 @@ const styles = StyleSheet.create(
       paddingHorizontal: 12,
       paddingVertical: 11,
       borderBottomWidth: 1,
-      borderBottomColor: C.headLine,
+      borderBottomColor: C.headLineBorder,
     },
 
     cardHeadText: {
       fontFamily: Fonts.bodyBold,
       fontSize: 16,
       lineHeight: 20,
-      color: C.text,
+      color: C.textText,
     },
 
     /* ── Filters ─────────────────────────────────────────────── */
@@ -935,37 +942,38 @@ const styles = StyleSheet.create(
     },
 
     searchBox: {
-      width: 128,
-      height: 32,
+      width: 132,
+      height: 44,
       borderWidth: 1,
-      borderColor: C.ghostLine,
-      borderRadius: 4,
-      paddingHorizontal: 9,
+      borderColor: C.ghostLineBorder,
+      borderRadius: 10,
+      paddingHorizontal: 11,
       paddingVertical: 0,
       fontFamily: Fonts.body,
-      fontSize: 12,
-      color: C.text,
+      fontSize: 14,
+      color: C.textText,
     },
 
     filterBox: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 6,
-      height: 32,
-      paddingHorizontal: 9,
+      height: 44,
+      paddingHorizontal: 11,
       borderWidth: 1,
-      borderColor: C.ghostLine,
-      borderRadius: 4,
+      borderColor: C.ghostLineBorder,
+      borderRadius: 10,
     },
 
     filterText: {
       fontFamily: Fonts.body,
-      fontSize: 12,
-      color: C.gray,
+      fontSize: 12.5,
+      lineHeight: 16,
+      color: C.grayText,
     },
 
     filterBoxOpen: {
-      borderColor: C.orange,
+      borderColor: C.orangeBorder,
     },
 
     /* ── Filter options (inline strip under an open filter) ───── */
@@ -976,24 +984,25 @@ const styles = StyleSheet.create(
     },
 
     filterChip: {
-      height: 28,
+      height: 36,
       justifyContent: 'center',
-      paddingHorizontal: 11,
-      borderRadius: 14,
+      paddingHorizontal: 13,
+      borderRadius: 18,
       borderWidth: 1,
-      borderColor: C.ghostLine,
-      backgroundColor: '#FFFFFF',
+      borderColor: C.ghostLineBorder,
+      backgroundColor: C.whiteFill,
     },
 
     filterChipActive: {
-      backgroundColor: C.blueBtn,
-      borderColor: C.blueBtn,
+      backgroundColor: C.blueBtnFill,
+      borderColor: C.blueBtnBorder,
     },
 
     filterChipText: {
       fontFamily: Fonts.body,
-      fontSize: 11.5,
-      color: C.gray,
+      fontSize: 12,
+      lineHeight: 16,
+      color: C.grayText,
     },
 
     filterChipTextActive: {
@@ -1014,26 +1023,26 @@ const styles = StyleSheet.create(
 
     thRow: {
       borderTopWidth: 1,
-      borderTopColor: C.headLine,
+      borderTopColor: C.headLineBorder,
     },
 
     tr: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 6,
-      minHeight: 36,
+      minHeight: 44,
     },
 
     trBorder: {
       borderTopWidth: 1,
-      borderTopColor: C.rowLine,
+      borderTopColor: C.rowLineBorder,
     },
 
     th: {
       fontFamily: Fonts.bodySemiBold,
       fontSize: 13,
       lineHeight: 16,
-      color: C.gray,
+      color: C.grayText,
       textAlign: 'center',
     },
 
@@ -1041,7 +1050,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 12,
       lineHeight: 16,
-      color: C.text,
+      color: C.textText,
       textAlign: 'center',
     },
 
@@ -1052,19 +1061,20 @@ const styles = StyleSheet.create(
     },
 
     rowBtn: {
-      height: 24,
-      paddingHorizontal: 8,
+      height: 30,
+      paddingHorizontal: 9,
       alignItems: 'center',
       justifyContent: 'center',
       borderWidth: 1,
-      borderColor: C.ghostLine,
-      borderRadius: 4,
+      borderColor: C.ghostLineBorder,
+      borderRadius: 6,
     },
 
     rowBtnText: {
       fontFamily: Fonts.bodySemiBold,
-      fontSize: 10.5,
-      color: C.ghost,
+      fontSize: 11.5,
+      lineHeight: 15,
+      color: C.ghostText,
     },
 
     /* ── Loading / empty / error ─────────────────────────────── */
@@ -1079,24 +1089,25 @@ const styles = StyleSheet.create(
     stateText: {
       fontFamily: Fonts.body,
       fontSize: 12.5,
-      color: C.gray,
+      color: C.grayText,
       textAlign: 'center',
     },
 
     retryBtn: {
-      height: 30,
-      paddingHorizontal: 14,
+      height: 44,
+      paddingHorizontal: 18,
       alignItems: 'center',
       justifyContent: 'center',
       borderWidth: 1,
-      borderColor: C.ghostLine,
-      borderRadius: 4,
+      borderColor: C.ghostLineBorder,
+      borderRadius: 10,
     },
 
     retryText: {
       fontFamily: Fonts.bodySemiBold,
-      fontSize: 11.5,
-      color: C.text,
+      fontSize: 13,
+      lineHeight: 18,
+      color: C.textText,
     },
 
     /* ── Pager ───────────────────────────────────────────────── */
@@ -1118,18 +1129,18 @@ const styles = StyleSheet.create(
     },
 
     pageSq: {
-      width: 34,
-      height: 34,
-      borderRadius: 5,
-      backgroundColor: C.blueBtn,
+      width: 44,
+      height: 44,
+      borderRadius: 10,
+      backgroundColor: C.blueBtnFill,
       alignItems: 'center',
       justifyContent: 'center',
     },
 
     pageSqActive: {
-      width: 34,
-      height: 34,
-      borderRadius: 5,
+      width: 44,
+      height: 44,
+      borderRadius: 10,
       backgroundColor: '#4E90D8',
       alignItems: 'center',
       justifyContent: 'center',
@@ -1138,7 +1149,7 @@ const styles = StyleSheet.create(
     pageSqText: {
       fontFamily: Fonts.bodySemiBold,
       fontSize: 14,
-      color: '#F5F5F5',
+      color: '#FFFFFF',
     },
 
     /* ── Statistikat / Vlerësimet ────────────────────────────── */
@@ -1158,13 +1169,13 @@ const styles = StyleSheet.create(
     },
 
     promoStats: {
-      backgroundColor: '#E8F3FF',
-      borderColor: '#C6E0FA',
+      backgroundColor: C.promoStatsBgFill,
+      borderColor: C.promoStatsBorderBorder,
     },
 
     promoRatings: {
-      backgroundColor: '#F8EBD8',
-      borderColor: '#F0D9AE',
+      backgroundColor: C.promoRatingsBgFill,
+      borderColor: C.promoRatingsBorderBorder,
     },
 
     promoTitle: {
@@ -1176,7 +1187,7 @@ const styles = StyleSheet.create(
       fontSize: 22,
       lineHeight: 22,
       letterSpacing: 0.5,
-      color: C.text,
+      color: C.textText,
       zIndex: 3,
     },
 
@@ -1215,7 +1226,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodySemiBold,
       fontSize: 11,
       lineHeight: 14,
-      color: '#F5F5F5',
+      color: '#FFFFFF',
     },
 
     pressed: {

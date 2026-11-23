@@ -13,33 +13,37 @@ import type { ApiTeamDetail } from '@/lib/api/types';
 import { statusLabel } from '@/lib/player-status';
 import { I, scaled } from '@/lib/responsive';
 import { useSession } from '@/lib/session';
+import { useAppColors, usePaletteStyles, type AppColorsOf } from '@/lib/app-theme';
 
 /**
  * Ekipa — opened from a team card's "Ekipa" button on "Lista e ekipeve",
  * carrying the team id in the URL.
  *
- * Same light #FAFBFA canvas. Two blue cards inside a thin green frame (the
+ * Same light #F7F9F8 canvas. Two blue cards inside a thin green frame (the
  * squad summary + the season record, their black dividers level with each
  * other), then the Lojtarët table, whose rows scroll when the squad is longer
  * than the space below the cards.
  */
 
-const C = {
-  page: '#FAFBFA',
+const C_LIGHT = {
+  frame: '#DCE5DF',
+  page: '#F7F9F8',
   line: 'rgba(0,0,0,0.025)',
 
-  text: '#111111',
-  gray: '#8A8A8A',
+  text: '#17251E',
+  gray: '#52645A',
+  /* Black rules that invert on the dark page. */
+  ink: '#000000',
 
-  card: '#F6FBFF',
+  card: '#F7F9F8',
   border: 'rgba(100,140,190,0.30)',
   thBg: '#E7F1F8',
   rowLine: 'rgba(100,140,190,0.22)',
   headLine: 'rgba(30,40,35,0.10)',
 
-  green: '#159447',
+  green: '#2E7D5B',
   greenLine: '#7DCB9E',
-  red: '#E03131',
+  red: '#B91C1C',
   blue: '#1749B8',
 };
 
@@ -61,6 +65,8 @@ function errorText(error: unknown): string {
 }
 
 export default function EkipaScreen() {
+  const C = useAppColors(C_LIGHT);
+  const styles = usePaletteStyles(createStyles, C);
   const router = useRouter();
   const { token, signOut } = useSession();
   const params = useLocalSearchParams<{ id?: string }>();
@@ -112,7 +118,7 @@ export default function EkipaScreen() {
                 accessibilityLabel="Kthehu prapa"
                 style={({ pressed }) => [styles.backBtn, pressed && styles.pressed]}
               >
-                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.text} />
+                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.textText} />
               </Pressable>
               <View style={styles.headerText}>
                 <Text style={styles.title}>{team?.name ?? '—'}</Text>
@@ -151,19 +157,19 @@ export default function EkipaScreen() {
                 <View style={styles.cardHeadBlock}>
                   <View style={styles.miniRow}>
                     <View style={styles.miniCol}>
-                      <Text style={[styles.miniNum, { color: C.text }]}>
+                      <Text style={[styles.miniNum, { color: C.textText }]}>
                         {record ? String(record.played) : '—'}
                       </Text>
                       <Text style={styles.miniSub}>Ndeshje</Text>
                     </View>
                     <View style={styles.miniCol}>
-                      <Text style={[styles.miniNum, { color: C.green }]}>
+                      <Text style={[styles.miniNum, { color: C.greenText }]}>
                         {record ? String(record.wins) : '—'}
                       </Text>
                       <Text style={styles.miniSub}>Fitore</Text>
                     </View>
                     <View style={styles.miniCol}>
-                      <Text style={[styles.miniNum, { color: C.blue }]}>
+                      <Text style={[styles.miniNum, { color: C.blueText }]}>
                         {record ? String(record.goals_for) : '—'}
                       </Text>
                       <Text style={styles.miniSub}>Gola +</Text>
@@ -175,19 +181,19 @@ export default function EkipaScreen() {
 
                 <View style={styles.miniRow}>
                   <View style={styles.miniCol}>
-                    <Text style={[styles.miniNum, { color: C.red }]}>
+                    <Text style={[styles.miniNum, { color: C.redText }]}>
                       {record ? String(record.losses) : '—'}
                     </Text>
                     <Text style={styles.miniSub}>Humbje</Text>
                   </View>
                   <View style={styles.miniCol}>
-                    <Text style={[styles.miniNum, { color: C.text }]}>
+                    <Text style={[styles.miniNum, { color: C.textText }]}>
                       {record ? String(record.draws) : '—'}
                     </Text>
                     <Text style={styles.miniSub}>Barazim</Text>
                   </View>
                   <View style={styles.miniCol}>
-                    <Text style={[styles.miniNum, { color: C.red }]}>
+                    <Text style={[styles.miniNum, { color: C.redText }]}>
                       {record ? String(record.goals_against) : '—'}
                     </Text>
                     <Text style={styles.miniSub}>Gola -</Text>
@@ -229,7 +235,7 @@ export default function EkipaScreen() {
                     </View>
                   ) : team === null ? (
                     <View style={styles.stateRow}>
-                      <ActivityIndicator color={C.blue} />
+                      <ActivityIndicator color={C.blueText} />
                     </View>
                   ) : team.players.length === 0 ? (
                     <View style={styles.stateRow}>
@@ -276,7 +282,7 @@ export default function EkipaScreen() {
 /* Styles                                                              */
 /* ------------------------------------------------------------------ */
 
-const styles = StyleSheet.create(
+const createStyles = (C: AppColorsOf<typeof C_LIGHT>) => StyleSheet.create(
   scaled({
     safe: {
       flex: 1,
@@ -321,7 +327,7 @@ const styles = StyleSheet.create(
       fontSize: 20,
       lineHeight: 24,
       letterSpacing: -0.3,
-      color: C.text,
+      color: C.textText,
     },
 
     /* Page body — fills the screen, so the page never scrolls vertically. */
@@ -341,16 +347,16 @@ const styles = StyleSheet.create(
       gap: 8,
       marginTop: 8,
       borderWidth: 1,
-      borderColor: C.greenLine,
+      borderColor: C.greenLineBorder,
       borderRadius: 8,
       padding: 8,
     },
 
     cardHalf: {
       flex: 1,
-      backgroundColor: C.card,
+      backgroundColor: C.cardFill,
       borderWidth: 1,
-      borderColor: '#000000',
+      borderColor: C.frameBorder,
       borderRadius: 6,
       paddingHorizontal: 10,
       paddingTop: 8,
@@ -367,14 +373,14 @@ const styles = StyleSheet.create(
       fontSize: 15,
       lineHeight: 18,
       letterSpacing: -0.3,
-      color: C.text,
+      color: C.textText,
     },
 
     cardSub: {
       fontFamily: Fonts.body,
       fontSize: 10.5,
       lineHeight: 13,
-      color: C.gray,
+      color: C.grayText,
       marginTop: 1,
     },
 
@@ -383,7 +389,7 @@ const styles = StyleSheet.create(
     cardDivider: {
       width: '100%',
       height: 1,
-      backgroundColor: '#000000',
+      backgroundColor: C.inkFill,
       marginTop: 6,
       marginBottom: 6,
     },
@@ -400,7 +406,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 10.5,
       lineHeight: 13,
-      color: C.gray,
+      color: C.grayText,
     },
 
     kvValue: {
@@ -408,7 +414,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodyBold,
       fontSize: 12.5,
       lineHeight: 15,
-      color: C.text,
+      color: C.textText,
       textAlign: 'right',
     },
 
@@ -434,7 +440,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 9.5,
       lineHeight: 12,
-      color: C.gray,
+      color: C.grayText,
       marginTop: 1,
     },
 
@@ -443,9 +449,9 @@ const styles = StyleSheet.create(
       flex: 1,
       minHeight: 0,
       marginTop: 14,
-      backgroundColor: C.card,
+      backgroundColor: C.cardFill,
       borderWidth: 2,
-      borderColor: C.border,
+      borderColor: C.borderBorder,
       borderRadius: 7,
       overflow: 'hidden',
     },
@@ -456,14 +462,14 @@ const styles = StyleSheet.create(
       paddingHorizontal: 12,
       paddingVertical: 11,
       borderBottomWidth: 1,
-      borderBottomColor: C.headLine,
+      borderBottomColor: C.headLineBorder,
     },
 
     cardHeadText: {
       fontFamily: Fonts.bodyBold,
       fontSize: 16,
       lineHeight: 20,
-      color: C.text,
+      color: C.textText,
     },
 
     /* Rows area — the scroll view fills it, so a long squad scrolls. */
@@ -484,14 +490,14 @@ const styles = StyleSheet.create(
 
     trBorder: {
       borderTopWidth: 1,
-      borderTopColor: C.rowLine,
+      borderTopColor: C.rowLineBorder,
     },
 
     th: {
       fontFamily: Fonts.bodySemiBold,
       fontSize: 11.5,
       lineHeight: 14,
-      color: C.gray,
+      color: C.grayText,
       textAlign: 'center',
     },
 
@@ -499,7 +505,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 11.5,
       lineHeight: 14,
-      color: C.text,
+      color: C.textText,
       textAlign: 'center',
     },
 
@@ -526,7 +532,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 12.5,
       lineHeight: 16,
-      color: C.gray,
+      color: C.grayText,
       textAlign: 'center',
     },
 

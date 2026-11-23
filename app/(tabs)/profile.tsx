@@ -3,7 +3,7 @@ import Constants from 'expo-constants';
 import { useRouter, type Href } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
@@ -17,25 +17,27 @@ import { statusLabel } from '@/lib/player-status';
 import { useLanguage } from '@/lib/i18n';
 import { I, scaled } from '@/lib/responsive';
 import { useSession } from '@/lib/session';
+import { useAppColors, usePaletteStyles, type AppColorsOf } from '@/lib/app-theme';
 
-const C = {
-  text: '#111111',
+const C_LIGHT = {
+  glassRim: 'rgba(255,255,255,0.85)',
+  text: '#17251E',
   gray: '#666666',
-  muted: '#8A8A8A',
+  muted: '#52645A',
 
-  white: '#F5F5F5',
+  white: '#FFFFFF',
   card: '#FFFFFF',
   cardBorder: '#D9DEDB',
   divider: '#E7EEE9',
 
-  green: '#159447',
+  green: '#2E7D5B',
   greenDeep: '#14734F',
   greenDark: '#0C6C36',
   greenLine: '#69C994',
   lightGreen: '#DDF6E7',
   veryLightGreen: '#F1FBF5',
 
-  red: '#E03131',
+  red: '#B91C1C',
   redDark: '#9E1B1B',
   redSoft: 'rgba(224,49,49,0.08)',
 
@@ -43,12 +45,12 @@ const C = {
 };
 
 /** Health status → the child card's status pill. */
-const STATUS_TONE: Record<string, string> = {
+const STATUS_TONE = (C: AppColorsOf<typeof C_LIGHT>): Record<string, string> => ({
   active: C.green,
   injured: C.red,
   rehabilitation: C.amber,
   suspended: C.redDark,
-};
+});
 
 /** First letters of a name, capped at two, for the child tile. */
 function initials(name: string | null): string {
@@ -64,14 +66,14 @@ function initials(name: string | null): string {
 }
 
 /** Settings rows — each gets its own pastel chip, like the dashboard menu cards. */
-const SETTINGS: {
+const SETTINGS = (C: AppColorsOf<typeof C_LIGHT>): {
   icon: IconSymbolName;
   labelKey: string;
   captionKey: string;
   chip: string;
   tint: string;
   route: Href;
-}[] = [
+}[] => ([
   {
     icon: 'person.fill',
     labelKey: 'profile.accountSettings',
@@ -112,14 +114,17 @@ const SETTINGS: {
     tint: '#5B5BD6',
     route: '/settings',
   },
-];
+]);
 
 export default function ProfileScreen() {
+  const C = useAppColors(C_LIGHT);
+  const styles = usePaletteStyles(createStyles, C);
   const router = useRouter();
   const { user, token, signOut } = useSession();
   const { t } = useLanguage();
   const [children, setChildren] = useState<ApiChild[] | null>(null);
   const [childrenError, setChildrenError] = useState(false);
+  const [reload, setReload] = useState(0);
 
   const isParent = user?.role === 'parent';
 
@@ -146,7 +151,14 @@ export default function ProfileScreen() {
       });
 
     return () => controller.abort();
-  }, [token, isParent, router, signOut]);
+  }, [token, isParent, router, signOut, reload]);
+
+  /* Refetch from the error card; the effect cannot reset state synchronously. */
+  const retryChildren = () => {
+    setChildren(null);
+    setChildrenError(false);
+    setReload((value) => value + 1);
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -200,12 +212,21 @@ export default function ProfileScreen() {
               <Text style={styles.sectionLabel}>{t('profile.myChildren')}</Text>
 
               {childrenError ? (
-                <View style={[styles.card, styles.emptyCard]}>
+                <View style={[styles.card, styles.emptyCard, styles.stateCard]}>
                   <Text style={styles.emptyText}>{t('profile.childrenError')}</Text>
+                  <Pressable
+                    onPress={retryChildren}
+                    accessibilityRole="button"
+                    accessibilityLabel={t('common.retry')}
+                    style={({ pressed }) => [styles.stateRetry, pressed && styles.pressed]}
+                  >
+                    <Text style={styles.stateRetryText}>{t('common.retry')}</Text>
+                  </Pressable>
                 </View>
               ) : children === null ? (
-                <View style={[styles.card, styles.emptyCard]}>
-                  <Text style={styles.emptyText}>…</Text>
+                <View style={[styles.card, styles.emptyCard, styles.stateCardInline]}>
+                  <ActivityIndicator color={C.greenText} />
+                  <Text style={styles.emptyText}>{t('profile.loadingChildren')}</Text>
                 </View>
               ) : children.length === 0 ? (
                 <View style={[styles.card, styles.emptyCard]}>
@@ -257,7 +278,7 @@ export default function ProfileScreen() {
                             <View
                               style={[
                                 styles.statusPill,
-                                { backgroundColor: STATUS_TONE[child.health_status] ?? C.green },
+                                { backgroundColor: STATUS_TONE(C)[child.health_status] ?? C.green },
                               ]}
                             >
                               <Text style={styles.statusText}>
@@ -266,7 +287,7 @@ export default function ProfileScreen() {
                             </View>
                           </View>
 
-                          <IconSymbol name="chevron.right" size={I(17)} color={C.muted} />
+                          <IconSymbol name="chevron.right" size={I(17)} color={C.mutedText} />
                         </View>
 
                         <View style={styles.childStats}>
@@ -297,7 +318,7 @@ export default function ProfileScreen() {
           {/* Everything account-related lives on the settings sub-pages. */}
           <Text style={styles.sectionLabel}>{t('profile.settings')}</Text>
           <View style={styles.card}>
-            {SETTINGS.map((item, i) => (
+            {SETTINGS(C).map((item, i) => (
               <View key={item.labelKey}>
                 {i > 0 ? <View style={styles.divider} /> : null}
                 <SettingRow
@@ -316,7 +337,7 @@ export default function ProfileScreen() {
           <Text style={styles.sectionLabel}>{t('profile.about')}</Text>
           <View style={styles.aboutCard}>
             <View style={styles.aboutLogo}>
-              <MaterialCommunityIcons name="soccer" size={I(22)} color={C.white} />
+              <MaterialCommunityIcons name="soccer" size={I(22)} color={C.whiteText} />
             </View>
             <View style={styles.aboutBody}>
               <Text style={styles.aboutName}>GoalHub</Text>
@@ -350,6 +371,8 @@ function SettingRow({
   tint: string;
   onPress: () => void;
 }) {
+  const C = useAppColors(C_LIGHT);
+  const styles = usePaletteStyles(createStyles, C);
   return (
     <Pressable
       style={({ pressed }) => [styles.row, pressed && styles.pressed]}
@@ -370,7 +393,7 @@ function SettingRow({
         </Text>
       </View>
 
-      <IconSymbol name="chevron.right" size={I(16)} color={C.muted} />
+      <IconSymbol name="chevron.right" size={I(16)} color={C.mutedText} />
     </Pressable>
   );
 }
@@ -384,6 +407,8 @@ function ChildStat({
   value: string;
   tone?: string;
 }) {
+  const C = useAppColors(C_LIGHT);
+  const styles = usePaletteStyles(createStyles, C);
   return (
     <View style={styles.childStat}>
       <Text style={[styles.childStatValue, tone ? { color: tone } : null]}>{value}</Text>
@@ -398,7 +423,7 @@ function ChildStat({
 /* Styles                                                              */
 /* ------------------------------------------------------------------ */
 
-const styles = StyleSheet.create(
+const createStyles = (C: AppColorsOf<typeof C_LIGHT>) => StyleSheet.create(
   scaled({
     container: {
       flex: 1,
@@ -412,14 +437,14 @@ const styles = StyleSheet.create(
       fontSize: 26,
       lineHeight: 31,
       letterSpacing: -0.6,
-      color: C.text,
+      color: C.textText,
     },
     subtitle: {
       marginTop: 2,
       fontFamily: Fonts.body,
       fontSize: 12.5,
       lineHeight: 17,
-      color: C.muted,
+      color: C.mutedText,
     },
     content: {
       paddingHorizontal: 27,
@@ -431,9 +456,9 @@ const styles = StyleSheet.create(
     hero: {
       position: 'relative',
       padding: 16,
-      backgroundColor: C.veryLightGreen,
+      backgroundColor: C.veryLightGreenFill,
       borderWidth: 1,
-      borderColor: C.greenLine,
+      borderColor: C.greenLineBorder,
       borderRadius: 16,
       overflow: 'hidden',
     },
@@ -459,14 +484,14 @@ const styles = StyleSheet.create(
       borderRadius: 30,
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: C.green,
+      backgroundColor: C.greenFill,
       borderWidth: 3,
-      borderColor: 'rgba(255,255,255,0.85)',
+      borderColor: C.glassRimBorder,
     },
     heroInitials: {
       fontFamily: Fonts.bodyBold,
       fontSize: 21,
-      color: C.white,
+      color: C.whiteText,
     },
     heroBody: {
       flex: 1,
@@ -477,13 +502,13 @@ const styles = StyleSheet.create(
       fontSize: 20,
       lineHeight: 24,
       letterSpacing: -0.4,
-      color: C.text,
+      color: C.textText,
     },
     heroMeta: {
       fontFamily: Fonts.body,
       fontSize: 12.5,
       lineHeight: 16,
-      color: C.gray,
+      color: C.grayText,
     },
     rolePill: {
       marginTop: 4,
@@ -491,7 +516,7 @@ const styles = StyleSheet.create(
       flexDirection: 'row',
       alignItems: 'center',
       gap: 5,
-      backgroundColor: C.lightGreen,
+      backgroundColor: C.lightGreenFill,
       borderRadius: 999,
       paddingHorizontal: 10,
       paddingVertical: 3,
@@ -500,7 +525,7 @@ const styles = StyleSheet.create(
       width: 5,
       height: 5,
       borderRadius: 3,
-      backgroundColor: C.green,
+      backgroundColor: C.greenFill,
     },
     rolePillText: {
       fontFamily: Fonts.bodySemiBold,
@@ -508,7 +533,7 @@ const styles = StyleSheet.create(
       lineHeight: 12,
       letterSpacing: 0.5,
       textTransform: 'uppercase',
-      color: C.greenDark,
+      color: C.greenDarkText,
     },
 
     /* ── Sections ────────────────────────────────────────────── */
@@ -520,12 +545,12 @@ const styles = StyleSheet.create(
       fontSize: 10.5,
       letterSpacing: 1.1,
       textTransform: 'uppercase',
-      color: C.green,
+      color: C.greenText,
     },
     card: {
-      backgroundColor: C.card,
+      backgroundColor: C.cardFill,
       borderWidth: 1,
-      borderColor: C.cardBorder,
+      borderColor: C.cardBorderBorder,
       borderRadius: 14,
       paddingHorizontal: 12,
       overflow: 'hidden',
@@ -534,11 +559,33 @@ const styles = StyleSheet.create(
       paddingVertical: 18,
       paddingHorizontal: 16,
     },
+    stateCard: {
+      gap: 10,
+    },
+    stateCardInline: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+    },
+    stateRetry: {
+      minHeight: 44,
+      alignSelf: 'flex-start',
+      justifyContent: 'center',
+      paddingHorizontal: 18,
+      borderWidth: 1,
+      borderColor: C.greenBorder,
+      borderRadius: 10,
+    },
+    stateRetryText: {
+      fontFamily: Fonts.bodySemiBold,
+      fontSize: 13,
+      color: C.greenText,
+    },
     emptyText: {
       fontFamily: Fonts.body,
       fontSize: 12.5,
       lineHeight: 17,
-      color: C.muted,
+      color: C.mutedText,
     },
 
     /* ── Setting rows ────────────────────────────────────────── */
@@ -564,17 +611,17 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodySemiBold,
       fontSize: 14.5,
       lineHeight: 19,
-      color: C.text,
+      color: C.textText,
     },
     rowCaption: {
       fontFamily: Fonts.body,
       fontSize: 11.5,
       lineHeight: 15,
-      color: C.muted,
+      color: C.mutedText,
     },
     divider: {
       height: 1,
-      backgroundColor: C.divider,
+      backgroundColor: C.dividerFill,
       marginLeft: 50,
     },
 
@@ -583,9 +630,9 @@ const styles = StyleSheet.create(
       flexDirection: 'row',
       alignItems: 'center',
       gap: 12,
-      backgroundColor: C.card,
+      backgroundColor: C.cardFill,
       borderWidth: 1,
-      borderColor: C.cardBorder,
+      borderColor: C.cardBorderBorder,
       borderRadius: 14,
       padding: 14,
     },
@@ -595,7 +642,7 @@ const styles = StyleSheet.create(
       borderRadius: 12,
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: C.greenDeep,
+      backgroundColor: C.greenDeepFill,
     },
     aboutBody: {
       flex: 1,
@@ -604,14 +651,14 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodyBold,
       fontSize: 15.5,
       lineHeight: 20,
-      color: C.text,
+      color: C.textText,
     },
     aboutVersion: {
       marginTop: 1,
       fontFamily: Fonts.body,
       fontSize: 11.5,
       lineHeight: 15,
-      color: C.muted,
+      color: C.mutedText,
     },
 
     /* ── Child cards ─────────────────────────────────────────── */
@@ -619,9 +666,9 @@ const styles = StyleSheet.create(
       gap: 10,
     },
     childCard: {
-      backgroundColor: C.card,
+      backgroundColor: C.cardFill,
       borderWidth: 1,
-      borderColor: C.cardBorder,
+      borderColor: C.cardBorderBorder,
       borderRadius: 14,
       padding: 14,
     },
@@ -636,14 +683,14 @@ const styles = StyleSheet.create(
       borderRadius: 12,
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: C.veryLightGreen,
+      backgroundColor: C.veryLightGreenFill,
       borderWidth: 1,
-      borderColor: C.lightGreen,
+      borderColor: C.lightGreenBorder,
     },
     childInitials: {
       fontFamily: Fonts.bodyBold,
       fontSize: 14,
-      color: C.greenDark,
+      color: C.greenDarkText,
     },
     childBody: {
       flex: 1,
@@ -653,13 +700,13 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodySemiBold,
       fontSize: 15.5,
       lineHeight: 20,
-      color: C.text,
+      color: C.textText,
     },
     childMeta: {
       fontFamily: Fonts.body,
       fontSize: 11.5,
       lineHeight: 15,
-      color: C.muted,
+      color: C.mutedText,
     },
     statusPill: {
       marginTop: 3,
@@ -673,7 +720,7 @@ const styles = StyleSheet.create(
       fontSize: 9,
       lineHeight: 12,
       letterSpacing: 0.3,
-      color: C.white,
+      color: C.whiteText,
     },
     childStats: {
       flexDirection: 'row',
@@ -681,7 +728,7 @@ const styles = StyleSheet.create(
       marginTop: 12,
       paddingTop: 10,
       borderTopWidth: 1,
-      borderTopColor: C.divider,
+      borderTopColor: C.dividerBorder,
     },
     childStat: {
       flex: 1,
@@ -691,19 +738,19 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodyBold,
       fontSize: 16,
       lineHeight: 20,
-      color: C.text,
+      color: C.textText,
     },
     childStatLabel: {
       marginTop: 1,
       fontFamily: Fonts.body,
       fontSize: 9.5,
       lineHeight: 12,
-      color: C.muted,
+      color: C.mutedText,
     },
     statDivider: {
       width: 1,
       height: 26,
-      backgroundColor: C.divider,
+      backgroundColor: C.dividerFill,
     },
 
     /* ── Signed out ──────────────────────────────────────────── */
@@ -718,14 +765,14 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodyBold,
       fontSize: 22,
       lineHeight: 27,
-      color: C.text,
+      color: C.textText,
       textTransform: 'lowercase',
     },
     signedOutSub: {
       fontFamily: Fonts.body,
       fontSize: 14,
       lineHeight: 19,
-      color: C.muted,
+      color: C.mutedText,
       textAlign: 'center',
     },
     primary: {
@@ -734,13 +781,13 @@ const styles = StyleSheet.create(
       alignItems: 'center',
       justifyContent: 'center',
       paddingHorizontal: 24,
-      backgroundColor: C.greenDark,
+      backgroundColor: C.greenDarkFill,
       borderRadius: 10,
     },
     primaryText: {
       fontFamily: Fonts.bodySemiBold,
       fontSize: 15,
-      color: C.white,
+      color: C.whiteText,
     },
 
     pressed: {

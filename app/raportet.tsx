@@ -7,13 +7,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
-import { ApiError } from '@/lib/api/errors';
+import { ApiError, loadErrorMessage } from '@/lib/api/errors';
 import { playersReport } from '@/lib/api/reports';
 import { listTeams } from '@/lib/api/teams';
 import type { ApiTeam, PlayerReportRow, PlayersReport } from '@/lib/api/types';
 import { POSITIONS, positionLabel } from '@/lib/player-position';
 import { I, scaled } from '@/lib/responsive';
 import { useSession } from '@/lib/session';
+import { useAppColors, usePaletteStyles, type AppColorsOf } from '@/lib/app-theme';
 
 /**
  * Raportet — opened from the "Shiko të gjithë" footer of the Raportet card
@@ -23,29 +24,36 @@ import { useSession } from '@/lib/session';
  * pager, then the attendance and goals-by-position breakdowns.
  */
 
-const C = {
-  page: '#FAFBFA',
+const C_LIGHT = {
+  white: '#FFFFFF',
+  page: '#F7F9F8',
   line: 'rgba(0,0,0,0.025)',
 
-  text: '#111111',
-  gray: '#8A8A8A',
+  text: '#17251E',
+  gray: '#52645A',
   hint: '#6E6E6E',
   ghost: '#A8A8A8',
 
   cardBg: '#E3EEFB',
-  headBg: '#F6FBFF',
-  frame: '#000000',
+  headBg: '#F7F9F8',
+  frame: '#DCE5DF',
   headLine: 'rgba(30,40,35,0.10)',
   rowLine: 'rgba(100,140,190,0.22)',
 
   blueSoft: '#E3EEFB',
   blue: '#2F80ED',
-  green: '#159447',
-  orange: '#E4A000',
-  red: '#E03131',
+  green: '#2E7D5B',
+  orange: '#B45309',
+  red: '#B91C1C',
 
   /* Unfilled part of every progress rail. */
   track: 'rgba(0,0,0,0.10)',
+
+  /* Pastel promo tiles and their rims. */
+  promoMatchesBg: '#FDEBEB',
+  promoMatchesBorder: '#F2C2C2',
+  promoPaymentsBg: '#FBF0DC',
+  promoPaymentsBorder: '#EFD6A6',
 };
 
 const IMG = {
@@ -85,11 +93,11 @@ const COLS: Col[] = [
 ];
 
 /** The three columns that carry a tone; everything else stays plain. */
-const TD_TONE: Partial<Record<ColKey, string>> = {
+const TD_TONE = (C: AppColorsOf<typeof C_LIGHT>): Partial<Record<ColKey, string>> => ({
   gola: C.green,
   kv: C.orange,
   kk: C.red,
-};
+});
 
 type Row = {
   name: string;
@@ -124,12 +132,12 @@ const POSITION_GROUP: Record<string, string> = {
 };
 
 /** Fixed order and colour for the goal bars, so the card is stable at zero. */
-const GOAL_GROUPS = [
-  { pos: 'Sulmues', color: C.orange },
-  { pos: 'Mesfushorë', color: C.blue },
-  { pos: 'Mbrojtës', color: C.green },
-  { pos: 'Portier', color: C.track },
-];
+const GOAL_GROUPS = (C: AppColorsOf<typeof C_LIGHT>) => ([
+  { pos: 'Sulmues', color: C.orangeText },
+  { pos: 'Mesfushorë', color: C.blueText },
+  { pos: 'Mbrojtës', color: C.greenText },
+  { pos: 'Portier', color: C.trackText },
+]);
 
 type FilterKey = 'team' | 'position';
 
@@ -161,6 +169,8 @@ function pageWindow(current: number, last: number, span = 4): number[] {
 
 /** A hint rail with its filled share laid over it. */
 function MiniBar({ pct, color, width }: { pct: number; color: string; width: number }) {
+  const C = useAppColors(C_LIGHT);
+  const styles = usePaletteStyles(createStyles, C);
   return (
     <View style={[styles.bar, { width }]}>
       <View style={[styles.barFill, { width: `${pct}%`, backgroundColor: color }]} />
@@ -169,6 +179,8 @@ function MiniBar({ pct, color, width }: { pct: number; color: string; width: num
 }
 
 export default function ReportsScreen() {
+  const C = useAppColors(C_LIGHT);
+  const styles = usePaletteStyles(createStyles, C);
   const router = useRouter();
   const { token, signOut } = useSession();
 
@@ -181,6 +193,7 @@ export default function ReportsScreen() {
   const [openFilter, setOpenFilter] = useState<FilterKey | null>(null);
   const [page, setPage] = useState(1);
   const [error, setError] = useState<string | null>(null);
+  const [reload, setReload] = useState(0);
 
   const filterKey = `${filters.team}|${filters.position}`;
 
@@ -222,14 +235,17 @@ export default function ReportsScreen() {
           router.replace('/login');
           return;
         }
-        setError(
-          err instanceof ApiError && err.status === 0
-            ? 'Nuk mund të lidhemi me serverin. Kontrollo lidhjen.'
-            : 'Nuk mund të ngarkohen raportet.',
-        );
+        setError(loadErrorMessage(err, 'Nuk mund të ngarkohen raportet. Kontrollo lidhjen.'));
       });
     return () => controller.abort();
-  }, [token, filterKey, filters.team, filters.position, signOut, router]);
+  }, [token, filterKey, filters.team, filters.position, signOut, router, reload]);
+
+  /* Refetch from the error box — the effect cannot reset state synchronously. */
+  const retry = () => {
+    setReport(null);
+    setError(null);
+    setReload((value) => value + 1);
+  };
 
   const rows = (report?.players ?? []).map(toRow);
   const lastPage = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
@@ -251,7 +267,7 @@ export default function ReportsScreen() {
     const group = POSITION_GROUP[p.position ?? ''] ?? 'Mesfushorë';
     goalTotals[group] = (goalTotals[group] ?? 0) + p.goals;
   }
-  const goals = GOAL_GROUPS.map((g) => ({ ...g, total: goalTotals[g.pos] ?? 0 }));
+  const goals = GOAL_GROUPS(C).map((g) => ({ ...g, total: goalTotals[g.pos] ?? 0 }));
   const goalsMax = Math.max(1, ...goals.map((g) => g.total));
 
   const applyFilter = (key: FilterKey, value: string | number) => {
@@ -301,7 +317,7 @@ export default function ReportsScreen() {
                 accessibilityLabel="Kthehu prapa"
                 style={({ pressed }) => [styles.backBtn, pressed && styles.pressed]}
               >
-                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.text} />
+                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.textText} />
               </Pressable>
               <View style={styles.headerText}>
                 <Text style={styles.title} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
@@ -333,7 +349,7 @@ export default function ReportsScreen() {
                   Raportet e ndeshjeve
                 </Text>
                 <Image source={IMG.ndeshjet} style={styles.promoImgMatches} resizeMode="contain" />
-                <View style={[styles.promoBtn, { backgroundColor: C.red }]}>
+                <View style={[styles.promoBtn, { backgroundColor: C.redFill }]}>
                   <Text style={styles.promoBtnText}>Vazhdo</Text>
                 </View>
               </Pressable>
@@ -348,7 +364,7 @@ export default function ReportsScreen() {
                   Raportet e pagesave
                 </Text>
                 <Image source={IMG.pagesat} style={styles.promoImgPayments} resizeMode="contain" />
-                <View style={[styles.promoBtn, { backgroundColor: C.orange }]}>
+                <View style={[styles.promoBtn, { backgroundColor: C.orangeFill }]}>
                   <Text style={styles.promoBtnText}>Vazhdo</Text>
                 </View>
               </Pressable>
@@ -374,7 +390,7 @@ export default function ReportsScreen() {
                   <MaterialCommunityIcons
                     name={openFilter === key ? 'chevron-up' : 'chevron-down'}
                     size={I(14)}
-                    color={C.text}
+                    color={C.textText}
                   />
                 </Pressable>
               ))}
@@ -397,6 +413,7 @@ export default function ReportsScreen() {
                       onPress={() => applyFilter(openFilter, item.value)}
                       accessibilityRole="button"
                       accessibilityLabel={item.label}
+                      hitSlop={{ top: 4, bottom: 4, left: 2, right: 2 }}
                       style={({ pressed }) => [
                         styles.filterChip,
                         active && styles.filterChipActive,
@@ -416,6 +433,11 @@ export default function ReportsScreen() {
             ) : null}
 
             {/* ── Individual player report ──────────────────────── */}
+            <View style={styles.scrollHint} accessibilityElementsHidden importantForAccessibility="no">
+              <MaterialCommunityIcons name="gesture-swipe-horizontal" size={I(14)} color={C.grayText} />
+              <Text style={styles.scrollHintText}>Rrëshqit anash për më shumë kolona</Text>
+            </View>
+
             <View style={styles.card}>
               <View style={styles.head}>
                 <Text style={styles.headText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
@@ -436,7 +458,7 @@ export default function ReportsScreen() {
                     {COLS.map((c) => (
                       <Text
                         key={c.key}
-                        style={[styles.th, { width: c.width }, TD_TONE[c.key] ? { color: TD_TONE[c.key] } : null]}
+                        style={[styles.th, { width: c.width }, TD_TONE(C)[c.key] ? { color: TD_TONE(C)[c.key] } : null]}
                         numberOfLines={1}
                       >
                         {c.label}
@@ -461,12 +483,12 @@ export default function ReportsScreen() {
                         if (c.key === 'prani') {
                           return (
                             <View key={c.key} style={[styles.tdBar, { width: c.width }]}>
-                              <MiniBar pct={r.prani} color={C.green} width={46} />
+                              <MiniBar pct={r.prani} color={C.greenText} width={46} />
                               <Text style={styles.barLabel}>{r.prani}%</Text>
                             </View>
                           );
                         }
-                        const tone = TD_TONE[c.key];
+                        const tone = TD_TONE(C)[c.key];
                         return (
                           <Text
                             key={c.key}
@@ -487,10 +509,19 @@ export default function ReportsScreen() {
               {error ? (
                 <View style={styles.stateRow}>
                   <Text style={styles.stateText}>{error}</Text>
+                  <Pressable
+                    onPress={retry}
+                    accessibilityRole="button"
+                    accessibilityLabel="Provo përsëri"
+                    style={({ pressed }) => [styles.stateRetry, pressed && styles.pressed]}
+                  >
+                    <Text style={styles.stateRetryText}>Provo përsëri</Text>
+                  </Pressable>
                 </View>
               ) : report === null ? (
                 <View style={styles.stateRow}>
-                  <ActivityIndicator color={C.blue} />
+                  <ActivityIndicator color={C.blueText} />
+                  <Text style={styles.stateText}>Duke përgatitur raportin…</Text>
                 </View>
               ) : rows.length === 0 ? (
                 <View style={styles.stateRow}>
@@ -507,14 +538,14 @@ export default function ReportsScreen() {
                   disabled={current <= 1}
                   accessibilityRole="button"
                   accessibilityLabel="Faqja e mëparshme"
-                  hitSlop={8}
+                  hitSlop={11}
                   style={({ pressed }) => [
                     styles.pagerArrow,
                     current <= 1 && styles.pagerDisabled,
                     pressed && styles.pressed,
                   ]}
                 >
-                  <MaterialCommunityIcons name="chevron-left" size={I(22)} color={C.text} />
+                  <MaterialCommunityIcons name="chevron-left" size={I(22)} color={C.textText} />
                 </Pressable>
 
                 {pageWindow(current, lastPage).map((p) => (
@@ -537,14 +568,14 @@ export default function ReportsScreen() {
                   disabled={current >= lastPage}
                   accessibilityRole="button"
                   accessibilityLabel="Faqja tjetër"
-                  hitSlop={8}
+                  hitSlop={11}
                   style={({ pressed }) => [
                     styles.pagerArrow,
                     current >= lastPage && styles.pagerDisabled,
                     pressed && styles.pressed,
                   ]}
                 >
-                  <MaterialCommunityIcons name="chevron-right" size={I(22)} color={C.text} />
+                  <MaterialCommunityIcons name="chevron-right" size={I(22)} color={C.textText} />
                 </Pressable>
               </View>
             ) : null}
@@ -577,20 +608,20 @@ export default function ReportsScreen() {
                         <View
                           style={[
                             styles.splitFill,
-                            { flex: Math.max(a.present, 0.001), backgroundColor: C.green },
+                            { flex: Math.max(a.present, 0.001), backgroundColor: C.greenFill },
                           ]}
                         />
                         <View
                           style={[
                             styles.splitFill,
-                            { flex: Math.max(a.absent, 0.001), backgroundColor: C.red },
+                            { flex: Math.max(a.absent, 0.001), backgroundColor: C.redFill },
                           ]}
                         />
                       </View>
 
                       <View style={styles.statFoot}>
-                        <Text style={[styles.footText, { color: C.green }]}>{a.present} prezent</Text>
-                        <Text style={[styles.footText, { color: C.red }]}>{a.absent} mungesë</Text>
+                        <Text style={[styles.footText, { color: C.greenText }]}>{a.present} prezent</Text>
+                        <Text style={[styles.footText, { color: C.redText }]}>{a.absent} mungesë</Text>
                       </View>
                     </View>
                   ))
@@ -644,7 +675,7 @@ export default function ReportsScreen() {
 /* Styles                                                              */
 /* ------------------------------------------------------------------ */
 
-const styles = StyleSheet.create(
+const createStyles = (C: AppColorsOf<typeof C_LIGHT>) => StyleSheet.create(
   scaled({
     safe: {
       flex: 1,
@@ -689,14 +720,14 @@ const styles = StyleSheet.create(
       fontSize: 20,
       lineHeight: 24,
       letterSpacing: -0.3,
-      color: C.text,
+      color: C.textText,
     },
 
     subtitle: {
       fontFamily: Fonts.body,
       fontSize: 12,
       lineHeight: 16,
-      color: C.gray,
+      color: C.grayText,
       marginTop: 1,
     },
 
@@ -721,13 +752,13 @@ const styles = StyleSheet.create(
     },
 
     promoMatches: {
-      backgroundColor: '#FDEBEB',
-      borderColor: '#F2C2C2',
+      backgroundColor: C.promoMatchesBgFill,
+      borderColor: C.promoMatchesBorderBorder,
     },
 
     promoPayments: {
-      backgroundColor: '#FBF0DC',
-      borderColor: '#EFD6A6',
+      backgroundColor: C.promoPaymentsBgFill,
+      borderColor: C.promoPaymentsBorderBorder,
     },
 
     promoTitle: {
@@ -739,7 +770,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodyBold,
       fontSize: 22,
       lineHeight: 22,
-      color: C.text,
+      color: C.textText,
       zIndex: 3,
     },
 
@@ -778,7 +809,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodySemiBold,
       fontSize: 11,
       lineHeight: 14,
-      color: '#F5F5F5',
+      color: '#FFFFFF',
     },
 
     /* ── Filters ─────────────────────────────────────────────── */
@@ -793,22 +824,22 @@ const styles = StyleSheet.create(
       flexDirection: 'row',
       alignItems: 'center',
       gap: 6,
-      height: 32,
-      paddingHorizontal: 9,
-      backgroundColor: C.blueSoft,
+      height: 44,
+      paddingHorizontal: 12,
+      backgroundColor: C.blueSoftFill,
       borderWidth: 1,
-      borderColor: C.frame,
-      borderRadius: 4,
+      borderColor: C.frameBorder,
+      borderRadius: 10,
     },
 
     filterText: {
       fontFamily: Fonts.bodyBold,
       fontSize: 12.5,
-      color: C.text,
+      color: C.textText,
     },
 
     filterBoxOpen: {
-      borderColor: C.orange,
+      borderColor: C.orangeBorder,
     },
 
     /* ── Filter options (inline strip under an open filter) ──── */
@@ -818,35 +849,38 @@ const styles = StyleSheet.create(
     },
 
     filterChip: {
-      height: 28,
+      height: 36,
       justifyContent: 'center',
-      paddingHorizontal: 11,
-      borderRadius: 14,
+      paddingHorizontal: 13,
+      borderRadius: 18,
       borderWidth: 1,
       borderColor: 'rgba(0,0,0,0.15)',
-      backgroundColor: '#FFFFFF',
+      backgroundColor: C.whiteFill,
     },
 
     filterChipActive: {
-      backgroundColor: C.blueSoft,
-      borderColor: C.frame,
+      backgroundColor: C.blueSoftFill,
+      borderColor: C.frameBorder,
     },
 
     filterChipText: {
       fontFamily: Fonts.body,
-      fontSize: 11.5,
-      color: C.hint,
+      fontSize: 12,
+      lineHeight: 16,
+      color: C.hintText,
     },
 
     filterChipTextActive: {
       fontFamily: Fonts.bodySemiBold,
-      color: C.text,
+      color: C.textText,
     },
 
     /* ── Loading / empty / error ─────────────────────────────── */
     stateRow: {
       alignItems: 'center',
       justifyContent: 'center',
+      gap: 10,
+      minHeight: 96,
       paddingHorizontal: 12,
       paddingVertical: 18,
     },
@@ -854,16 +888,46 @@ const styles = StyleSheet.create(
     stateText: {
       fontFamily: Fonts.body,
       fontSize: 12.5,
-      color: C.hint,
+      lineHeight: 18,
+      color: C.hintText,
       textAlign: 'center',
+    },
+
+    stateRetry: {
+      minHeight: 44,
+      justifyContent: 'center',
+      paddingHorizontal: 18,
+      borderWidth: 1,
+      borderColor: C.blueBorder,
+      borderRadius: 10,
+    },
+
+    stateRetryText: {
+      fontFamily: Fonts.bodySemiBold,
+      fontSize: 13,
+      color: C.blueText,
+    },
+
+    scrollHint: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 5,
+      marginTop: 12,
+    },
+
+    scrollHintText: {
+      fontFamily: Fonts.body,
+      fontSize: 11.5,
+      lineHeight: 15,
+      color: C.grayText,
     },
 
     /* ── Tables ──────────────────────────────────────────────── */
     card: {
       marginTop: 14,
-      backgroundColor: C.cardBg,
+      backgroundColor: C.cardBgFill,
       borderWidth: 1,
-      borderColor: C.frame,
+      borderColor: C.frameBorder,
       borderRadius: 7,
       overflow: 'hidden',
     },
@@ -877,7 +941,7 @@ const styles = StyleSheet.create(
       justifyContent: 'center',
       paddingHorizontal: 12,
       paddingVertical: 11,
-      backgroundColor: C.headBg,
+      backgroundColor: C.headBgFill,
     },
 
     headRow: {
@@ -887,26 +951,26 @@ const styles = StyleSheet.create(
       gap: 10,
       paddingHorizontal: 12,
       paddingVertical: 11,
-      backgroundColor: C.headBg,
+      backgroundColor: C.headBgFill,
     },
 
     headText: {
       fontFamily: Fonts.bodyBold,
       fontSize: 15,
       lineHeight: 19,
-      color: C.text,
+      color: C.textText,
     },
 
     headHint: {
       fontFamily: Fonts.body,
       fontSize: 11,
       lineHeight: 14,
-      color: C.gray,
+      color: C.grayText,
     },
 
     headLine: {
       height: 1,
-      backgroundColor: C.headLine,
+      backgroundColor: C.headLineFill,
     },
 
     /* ── Individual report table ─────────────────────────────── */
@@ -923,7 +987,7 @@ const styles = StyleSheet.create(
     thRow: {
       paddingTop: 9,
       borderBottomWidth: 1,
-      borderBottomColor: C.headLine,
+      borderBottomColor: C.headLineBorder,
     },
 
     tr: {
@@ -935,14 +999,14 @@ const styles = StyleSheet.create(
 
     trBorder: {
       borderTopWidth: 1,
-      borderTopColor: C.rowLine,
+      borderTopColor: C.rowLineBorder,
     },
 
     th: {
       fontFamily: Fonts.bodySemiBold,
       fontSize: 12,
       lineHeight: 15,
-      color: C.gray,
+      color: C.grayText,
       textAlign: 'center',
     },
 
@@ -950,7 +1014,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 12,
       lineHeight: 15,
-      color: C.text,
+      color: C.textText,
       textAlign: 'center',
     },
 
@@ -968,7 +1032,7 @@ const styles = StyleSheet.create(
     bar: {
       height: 5,
       borderRadius: 3,
-      backgroundColor: C.track,
+      backgroundColor: C.trackFill,
       overflow: 'hidden',
     },
 
@@ -981,7 +1045,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 10,
       lineHeight: 12,
-      color: C.gray,
+      color: C.grayText,
     },
 
     /* ── Pager ───────────────────────────────────────────────── */
@@ -1003,18 +1067,18 @@ const styles = StyleSheet.create(
     },
 
     pageSq: {
-      width: 34,
-      height: 34,
-      borderRadius: 5,
+      width: 44,
+      height: 44,
+      borderRadius: 10,
       backgroundColor: '#86BCFD',
       alignItems: 'center',
       justifyContent: 'center',
     },
 
     pageSqActive: {
-      width: 34,
-      height: 34,
-      borderRadius: 5,
+      width: 44,
+      height: 44,
+      borderRadius: 10,
       backgroundColor: '#4E90D8',
       alignItems: 'center',
       justifyContent: 'center',
@@ -1023,7 +1087,7 @@ const styles = StyleSheet.create(
     pageSqText: {
       fontFamily: Fonts.bodySemiBold,
       fontSize: 14,
-      color: '#F5F5F5',
+      color: '#FFFFFF',
     },
 
     /* ── Statistic breakdowns ────────────────────────────────── */
@@ -1050,14 +1114,14 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodySemiBold,
       fontSize: 12.5,
       lineHeight: 16,
-      color: C.text,
+      color: C.textText,
     },
 
     statValue: {
       fontFamily: Fonts.bodyBold,
       fontSize: 13,
       lineHeight: 16,
-      color: C.text,
+      color: C.textText,
     },
 
     splitBar: {
@@ -1065,7 +1129,7 @@ const styles = StyleSheet.create(
       height: 7,
       borderRadius: 4,
       overflow: 'hidden',
-      backgroundColor: C.track,
+      backgroundColor: C.trackFill,
     },
 
     splitFill: {
@@ -1088,7 +1152,7 @@ const styles = StyleSheet.create(
     goalBar: {
       height: 7,
       borderRadius: 4,
-      backgroundColor: C.track,
+      backgroundColor: C.trackFill,
       overflow: 'hidden',
     },
 

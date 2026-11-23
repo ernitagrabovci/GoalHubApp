@@ -38,6 +38,7 @@ const en: Record<string, string> = {
 
   // Shared components
   'common.back': 'back',
+  'common.retry': 'Retry',
   'common.comingSoon': '{label} — coming soon',
 
   // Login
@@ -52,9 +53,31 @@ const en: Record<string, string> = {
   'login.errorTooMany': 'Too many attempts. Please wait a minute and try again.',
   'login.errorGeneric': 'Something went wrong. Please try again.',
 
+  // Signup
+  'signup.subtitle': 'Create your club account',
+  'signup.name': 'Full name',
+  'signup.clubName': 'Club name',
+  'signup.email': 'Email',
+  'signup.password': 'Password',
+  'signup.confirm': 'Confirm password',
+  'signup.trial': 'Your club starts on a 14-day free trial.',
+  'signup.submit': 'Create account',
+  'signup.haveAccount': 'Already have an account? ',
+  'signup.login': 'Log in',
+  'signup.errRequired': 'Fill in your name, club name and email.',
+  'signup.errEmail': 'Enter a valid email address.',
+  'signup.errPassword': 'Use at least 8 characters for your password.',
+  'signup.errMismatch': 'The passwords do not match.',
+  'signup.errTooMany': 'Too many attempts. Please wait a minute and try again.',
+  'signup.errGeneric': 'Something went wrong. Please try again.',
+
+  // Forgot password
+  'forgot.send': 'Send link',
+
   // Settings menu
   'settings.title': 'Settings',
   'settings.account': 'Account settings',
+  'settings.administration': 'Administration',
   'settings.club': 'Club settings',
   'settings.season': 'Season settings',
   'settings.notifications': 'Notification settings',
@@ -63,6 +86,9 @@ const en: Record<string, string> = {
   'settings.privacy': 'Privacy Policy',
   'settings.terms': 'Terms and Conditions',
   'settings.cookies': 'Cookies Policy',
+  'settings.appearance': 'Appearance',
+  'settings.light': 'Light',
+  'settings.dark': 'Dark',
   'settings.logOut': 'Log out',
 
   // Profile
@@ -74,6 +100,7 @@ const en: Record<string, string> = {
   'profile.rating': 'rating',
   'profile.noChildren': 'No children linked yet.',
   'profile.childrenError': 'Could not load your children. Check your connection.',
+  'profile.loadingChildren': 'Loading your children…',
   'profile.subtitle': 'Account and personal settings',
   'profile.settings': 'Settings',
   'profile.accountCaption': 'Name, email, photo',
@@ -214,6 +241,7 @@ const sq: Record<string, string> = {
 
   // Shared components
   'common.back': 'Kthehu',
+  'common.retry': 'Provo përsëri',
   'common.comingSoon': '{label} — së shpejti',
 
   // Login
@@ -228,9 +256,31 @@ const sq: Record<string, string> = {
   'login.errorTooMany': 'Shumë përpjekje. Prit një minutë dhe provo përsëri.',
   'login.errorGeneric': 'Diçka shkoi keq. Provo përsëri.',
 
+  // Signup
+  'signup.subtitle': 'Krijo llogarinë e klubit tënd',
+  'signup.name': 'Emri i plotë',
+  'signup.clubName': 'Emri i klubit',
+  'signup.email': 'Emaili',
+  'signup.password': 'Fjalëkalimi',
+  'signup.confirm': 'Konfirmo fjalëkalimin',
+  'signup.trial': 'Klubi yt nis me 14 ditë provë falas.',
+  'signup.submit': 'Krijo llogarinë',
+  'signup.haveAccount': 'Ke llogari? ',
+  'signup.login': 'Hyr',
+  'signup.errRequired': 'Plotëso emrin, emrin e klubit dhe emailin.',
+  'signup.errEmail': 'Shkruaj një email të vlefshëm.',
+  'signup.errPassword': 'Përdor të paktën 8 karaktere për fjalëkalimin.',
+  'signup.errMismatch': 'Fjalëkalimet nuk përputhen.',
+  'signup.errTooMany': 'Shumë përpjekje. Prit një minutë dhe provo përsëri.',
+  'signup.errGeneric': 'Diçka shkoi keq. Provo përsëri.',
+
+  // Forgot password
+  'forgot.send': 'Dërgo linkun',
+
   // Settings menu
   'settings.title': 'Cilësimet',
   'settings.account': 'Cilësimet e llogarisë',
+  'settings.administration': 'Administrimi',
   'settings.club': 'Cilësimet e klubit',
   'settings.season': 'Cilësimet e sezonit',
   'settings.notifications': 'Cilësimet e njoftimeve',
@@ -239,6 +289,9 @@ const sq: Record<string, string> = {
   'settings.privacy': 'Politika e privatësisë',
   'settings.terms': 'Kushtet dhe termat',
   'settings.cookies': 'Politika e cookies',
+  'settings.appearance': 'Pamja',
+  'settings.light': 'Ndriçuar',
+  'settings.dark': 'Errët',
   'settings.logOut': 'Dil',
 
   // Profile
@@ -250,6 +303,7 @@ const sq: Record<string, string> = {
   'profile.rating': 'vlerësimi',
   'profile.noChildren': 'Nuk ka fëmijë të lidhur.',
   'profile.childrenError': 'Nuk mund të ngarkohen fëmijët. Kontrollo lidhjen.',
+  'profile.loadingChildren': 'Duke ngarkuar fëmijët…',
   'profile.subtitle': 'Llogaria dhe cilësimet personale',
   'profile.settings': 'Cilësimet',
   'profile.accountCaption': 'Emri, emaili, fotografia',

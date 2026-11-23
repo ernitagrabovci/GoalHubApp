@@ -20,6 +20,7 @@ import { ApiError } from '@/lib/api/errors';
 import type { ApiClubProfile } from '@/lib/api/types';
 import { I, scaled } from '@/lib/responsive';
 import { useSession } from '@/lib/session';
+import { useAppColors, usePaletteStyles, type AppColorsOf } from '@/lib/app-theme';
 
 /**
  * Profil i klubit — the club's single profile-editing page (admin).
@@ -30,38 +31,38 @@ import { useSession } from '@/lib/session';
  * Fushat e stërvitjes → Kontaktet zyrtare → Rrjetet sociale →
  * Historia e klubit — scroll under it. No bottom navigation.
  *
- * Same visual language as the main admin dashboard: #FAFBFA canvas with
+ * Same visual language as the main admin dashboard: #F7F9F8 canvas with
  * faint vertical lines, 27px side gutters, white/pale cards with thin
  * borders and green accents.
  */
 
-const C = {
-  page: '#FAFBFA',
+const C_LIGHT = {
+  page: '#F7F9F8',
   line: 'rgba(0,0,0,0.025)',
 
-  card: '#F5F5F5',
+  card: '#FFFFFF',
   border: 'rgba(100,140,190,0.30)', // white info-card outline (dashboard style)
-  fill: '#F6FBFF', // opaque light-blue interior (D4EDFF @ 20% over white — no bg shows through)
+  fill: '#F7F9F8', // opaque light-blue interior (D4EDFF @ 20% over white — no bg shows through)
   headLine: 'rgba(30,40,35,0.10)', // card / row divider (dashboard DIVIDER)
 
   input: '#F4F7F5',
-  inputBorder: '#000000',
+  inputBorder: '#DCE5DF',
   placeholder: '#A8A8A8',
 
-  text: '#111111',
-  gray: '#8A8A8A',
+  text: '#17251E',
+  gray: '#52645A',
 
-  green: '#159447',
-  greenBright: '#159447',
-  red: '#ED5050',
+  green: '#2E7D5B',
+  greenBright: '#2E7D5B',
+  red: '#B91C1C',
 
   greenCard: '#DDF6E7',
   greenBorder: '#69C994',
-  greenBtn: '#159447',
+  greenBtn: '#2E7D5B',
 
   q1Bg: '#F2FBF5',
   q1Line: '#69C994',
-  q1Btn: '#159447',
+  q1Btn: '#2E7D5B',
 
   q2Bg: '#F7EBD8',
   q2Line: '#E2C89B',
@@ -104,6 +105,8 @@ function Field({
   autoCapitalize = 'sentences',
   multiline,
 }: FieldProps) {
+  const C = useAppColors(C_LIGHT);
+  const styles = usePaletteStyles(createStyles, C);
   return (
     <View style={[styles.fieldWrap, flex && styles.fieldFlex, containerStyle]}>
       {label ? <Text style={styles.label}>{label}</Text> : null}
@@ -111,7 +114,7 @@ function Field({
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
-        placeholderTextColor={C.placeholder}
+        placeholderTextColor={C.placeholderText}
         style={[styles.input, multiline && styles.textarea]}
         keyboardType={keyboardType}
         autoCapitalize={autoCapitalize}
@@ -135,6 +138,8 @@ type SelectFieldProps = {
 };
 
 function SelectField({ id, label, value, onChange, options, open, onToggle, flex }: SelectFieldProps) {
+  const C = useAppColors(C_LIGHT);
+  const styles = usePaletteStyles(createStyles, C);
   return (
     <View style={[styles.fieldWrap, flex && styles.fieldFlex]}>
       <Text style={styles.label}>{label}</Text>
@@ -149,7 +154,7 @@ function SelectField({ id, label, value, onChange, options, open, onToggle, flex
         >
           {value || 'Zgjidh…'}
         </Text>
-        <MaterialCommunityIcons name="chevron-down" size={I(16)} color={C.gray} />
+        <MaterialCommunityIcons name="chevron-down" size={I(16)} color={C.grayText} />
       </Pressable>
       {open ? (
         <View style={styles.optBox}>
@@ -253,6 +258,8 @@ function toForm(club: ApiClubProfile): Form {
 }
 
 export default function ClubProfileScreen() {
+  const C = useAppColors(C_LIGHT);
+  const styles = usePaletteStyles(createStyles, C);
   const router = useRouter();
   const { token, signOut } = useSession();
 
@@ -367,7 +374,7 @@ export default function ClubProfileScreen() {
                 <MaterialCommunityIcons
                   name="chevron-left"
                   size={I(24)}
-                  color={C.text}
+                  color={C.textText}
                 />
               </Pressable>
               <View style={styles.headerText}>
@@ -393,7 +400,7 @@ export default function ClubProfileScreen() {
               </View>
             ) : loading ? (
               <View style={styles.stateRow}>
-                <ActivityIndicator color={C.greenBright} />
+                <ActivityIndicator color={C.greenBrightText} />
               </View>
             ) : saved ? (
               <View style={styles.stateRow}>
@@ -422,7 +429,7 @@ export default function ClubProfileScreen() {
                         <MaterialCommunityIcons
                           name="cloud-upload-outline"
                           size={I(13)}
-                          color="#F5F5F5"
+                          color="#FFFFFF"
                         />
                       </View>
                     </View>
@@ -431,7 +438,7 @@ export default function ClubProfileScreen() {
                       <MaterialCommunityIcons
                         name="cloud-upload-outline"
                         size={I(24)}
-                        color="#F5F5F5"
+                        color="#FFFFFF"
                       />
                     </View>
                   )}
@@ -443,8 +450,8 @@ export default function ClubProfileScreen() {
               <View style={styles.colors}>
                 <Text style={styles.colorsLabel}>Ngjyrat Zyrtare</Text>
                 <View style={styles.swatches}>
-                  <ColorSwatch label="Home" color={C.green} />
-                  <ColorSwatch label="Away" color={C.swatchAway} />
+                  <ColorSwatch label="Home" color={C.greenText} />
+                  <ColorSwatch label="Away" color={C.swatchAwayText} />
                   <ColorSwatch label="Third" color="#000000" />
                 </View>
               </View>
@@ -490,7 +497,7 @@ export default function ClubProfileScreen() {
               >
                 <Image source={IMG_PLAYERS} style={styles.quickImgPlayers} resizeMode="contain" />
                 <Text style={styles.quickTitle}>Kompeticionet</Text>
-                <GoButton color={C.q1Btn} onPress={() => router.push('/competitions')} />
+                <GoButton color={C.q1BtnText} onPress={() => router.push('/competitions')} />
               </Pressable>
               <Pressable
                 onPress={() => router.push('/sezoni')}
@@ -504,7 +511,7 @@ export default function ClubProfileScreen() {
               >
                 <Image source={IMG_BALL} style={styles.quickImgBall} resizeMode="contain" />
                 <Text style={styles.quickTitle}>Sezoni</Text>
-                <GoButton color={C.q2Btn} onPress={() => router.push('/sezoni')} />
+                <GoButton color={C.q2BtnText} onPress={() => router.push('/sezoni')} />
               </Pressable>
             </View>
 
@@ -521,7 +528,7 @@ export default function ClubProfileScreen() {
             >
               <Image source={IMG_TRAINING} style={styles.trainingImg} resizeMode="cover" />
               <Text style={styles.trainingTitle}>Fushat e stërvitjes</Text>
-              <GoButton color={C.greenBtn} onPress={() => router.push('/fushat')} />
+              <GoButton color={C.greenBtnText} onPress={() => router.push('/fushat')} />
             </Pressable>
 
             {/* ── Kontaktet zyrtare ────────────────────────────── */}
@@ -593,7 +600,7 @@ export default function ClubProfileScreen() {
                 ]}
               >
                 {saving ? (
-                  <ActivityIndicator color="#F5F5F5" />
+                  <ActivityIndicator color="#FFFFFF" />
                 ) : (
                   <Text style={styles.btnText}>Ruaj ndryshimet</Text>
                 )}
@@ -611,6 +618,8 @@ export default function ClubProfileScreen() {
 /* ------------------------------------------------------------------ */
 
 function ColorSwatch({ label, color }: { label: string; color: string }) {
+  const C = useAppColors(C_LIGHT);
+  const styles = usePaletteStyles(createStyles, C);
   return (
     <View style={styles.swatchCol}>
       <View style={styles.swatchOuter}>
@@ -622,6 +631,8 @@ function ColorSwatch({ label, color }: { label: string; color: string }) {
 }
 
 function GoButton({ color, onPress }: { color: string; onPress?: () => void }) {
+  const C = useAppColors(C_LIGHT);
+  const styles = usePaletteStyles(createStyles, C);
   return (
     <Pressable
       accessibilityRole="button"
@@ -638,7 +649,7 @@ function GoButton({ color, onPress }: { color: string; onPress?: () => void }) {
 /* Styles                                                              */
 /* ------------------------------------------------------------------ */
 
-const styles = StyleSheet.create(
+const createStyles = (C: AppColorsOf<typeof C_LIGHT>) => StyleSheet.create(
   scaled({
     safe: {
       flex: 1,
@@ -686,14 +697,14 @@ const styles = StyleSheet.create(
       fontSize: 20,
       lineHeight: 24,
       letterSpacing: -0.3,
-      color: C.text,
+      color: C.textText,
     },
 
     subtitle: {
       fontFamily: Fonts.body,
       fontSize: 12,
       lineHeight: 16,
-      color: C.gray,
+      color: C.grayText,
       marginTop: 1,
     },
 
@@ -703,9 +714,9 @@ const styles = StyleSheet.create(
 
     /* Generic info card */
     card: {
-      backgroundColor: C.fill,
+      backgroundColor: C.fillFill,
       borderWidth: 2,
-      borderColor: C.border,
+      borderColor: C.borderBorder,
       borderRadius: 7,
     },
 
@@ -722,7 +733,7 @@ const styles = StyleSheet.create(
       paddingTop: 9,
       paddingBottom: 8,
       borderBottomWidth: 1,
-      borderBottomColor: C.headLine,
+      borderBottomColor: C.headLineBorder,
       borderTopLeftRadius: 6,
       borderTopRightRadius: 6,
     },
@@ -730,7 +741,7 @@ const styles = StyleSheet.create(
     cardHeadText: {
       fontFamily: Fonts.bodyBold,
       fontSize: 15,
-      color: C.text,
+      color: C.textText,
     },
 
     cardBody: {
@@ -743,9 +754,9 @@ const styles = StyleSheet.create(
       height: 120,
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: C.fill,
+      backgroundColor: C.fillFill,
       borderBottomWidth: 1,
-      borderBottomColor: C.headLine,
+      borderBottomColor: C.headLineBorder,
     },
 
     logoButton: {
@@ -756,7 +767,7 @@ const styles = StyleSheet.create(
       width: 55,
       height: 55,
       borderRadius: 24,
-      backgroundColor: C.greenBright,
+      backgroundColor: C.greenBrightFill,
       alignItems: 'center',
       justifyContent: 'center',
     },
@@ -767,10 +778,10 @@ const styles = StyleSheet.create(
       height: 54,
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: '#F5F5F5',
+      backgroundColor: C.cardFill,
       borderRadius: 27,
       borderWidth: 1,
-      borderColor: C.border,
+      borderColor: C.borderBorder,
     },
 
     crest: {
@@ -785,17 +796,17 @@ const styles = StyleSheet.create(
       width: 20,
       height: 20,
       borderRadius: 10,
-      backgroundColor: C.greenBright,
+      backgroundColor: C.greenBrightFill,
       alignItems: 'center',
       justifyContent: 'center',
       borderWidth: 2,
-      borderColor: '#F5F5F5',
+      borderColor: '#FFFFFF',
     },
 
     logoHint: {
       fontFamily: Fonts.body,
       fontSize: 12,
-      color: C.gray,
+      color: C.grayText,
       marginTop: 8,
     },
 
@@ -812,7 +823,7 @@ const styles = StyleSheet.create(
     colorsLabel: {
       fontFamily: Fonts.bodyBold,
       fontSize: 13.5,
-      color: C.text,
+      color: C.textText,
     },
 
     swatches: {
@@ -829,7 +840,7 @@ const styles = StyleSheet.create(
       width: 34,
       height: 34,
       borderRadius: 17,
-      backgroundColor: '#F5F5F5',
+      backgroundColor: C.cardFill,
       borderWidth: 1,
       borderColor: 'rgba(0,0,0,0.16)',
       alignItems: 'center',
@@ -847,7 +858,7 @@ const styles = StyleSheet.create(
     swatchLabel: {
       fontFamily: Fonts.body,
       fontSize: 10,
-      color: C.gray,
+      color: C.grayText,
       marginTop: 2,
     },
 
@@ -869,22 +880,22 @@ const styles = StyleSheet.create(
     label: {
       fontFamily: Fonts.body,
       fontSize: 12,
-      color: C.gray,
+      color: C.grayText,
       marginBottom: 3,
     },
 
     input: {
-      height: 28,
-      backgroundColor: C.input,
+      height: 44,
+      backgroundColor: C.inputFill,
       borderWidth: 0.5,
-      borderColor: C.inputBorder,
-      borderRadius: 2,
-      paddingHorizontal: 9,
+      borderColor: C.inputBorderBorder,
+      borderRadius: 8,
+      paddingHorizontal: 12,
       paddingVertical: 0,
-      fontSize: 12,
-      lineHeight: 16,
+      fontSize: 13.5,
+      lineHeight: 18,
       fontFamily: Fonts.body,
-      color: C.text,
+      color: C.textText,
     },
 
     textarea: {
@@ -899,9 +910,9 @@ const styles = StyleSheet.create(
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      backgroundColor: C.input,
+      backgroundColor: C.inputFill,
       borderWidth: 0.5,
-      borderColor: C.inputBorder,
+      borderColor: C.inputBorderBorder,
       borderRadius: 2,
       paddingHorizontal: 9,
     },
@@ -909,19 +920,19 @@ const styles = StyleSheet.create(
     selectText: {
       fontFamily: Fonts.body,
       fontSize: 12,
-      color: C.text,
+      color: C.textText,
       flex: 1,
     },
 
     placeholderText: {
-      color: C.placeholder,
+      color: C.placeholderText,
     },
 
     optBox: {
       marginTop: 3,
-      backgroundColor: '#F5F5F5',
+      backgroundColor: C.cardFill,
       borderWidth: 0.5,
-      borderColor: C.inputBorder,
+      borderColor: C.inputBorderBorder,
       borderRadius: 3,
       overflow: 'hidden',
     },
@@ -931,9 +942,9 @@ const styles = StyleSheet.create(
     },
 
     opt: {
-      height: 30,
+      minHeight: 40,
       justifyContent: 'center',
-      paddingHorizontal: 9,
+      paddingHorizontal: 12,
     },
 
     optActive: {
@@ -942,13 +953,13 @@ const styles = StyleSheet.create(
 
     optText: {
       fontFamily: Fonts.body,
-      fontSize: 12,
-      color: C.text,
+      fontSize: 12.5,
+      color: C.textText,
     },
 
     optTextActive: {
       fontFamily: Fonts.bodyBold,
-      color: C.green,
+      color: C.greenText,
     },
 
     /* Kompeticionet | Sezoni */
@@ -963,19 +974,19 @@ const styles = StyleSheet.create(
       height: 100,
       borderRadius: 6,
       borderWidth: 1,
-      borderColor: C.border,
-      backgroundColor: C.card,
+      borderColor: C.borderBorder,
+      backgroundColor: C.cardFill,
       overflow: 'hidden',
     },
 
     quickCardA: {
-      backgroundColor: C.q1Bg,
-      borderColor: C.q1Line,
+      backgroundColor: C.q1BgFill,
+      borderColor: C.q1LineBorder,
     },
 
     quickCardB: {
-      backgroundColor: C.q2Bg,
-      borderColor: C.q2Line,
+      backgroundColor: C.q2BgFill,
+      borderColor: C.q2LineBorder,
     },
 
     quickImgPlayers: {
@@ -1005,7 +1016,7 @@ const styles = StyleSheet.create(
       fontSize: 20,
       lineHeight: 23,
       letterSpacing: -0.4,
-      color: C.text,
+      color: C.textText,
     },
 
     goBtn: {
@@ -1014,11 +1025,11 @@ const styles = StyleSheet.create(
       bottom: 8,
       zIndex: 2,
       minWidth: 64,
-      height: 25,
-      borderRadius: 3,
+      height: 32,
+      borderRadius: 6,
       alignItems: 'center',
       justifyContent: 'center',
-      paddingHorizontal: 6,
+      paddingHorizontal: 8,
     },
 
     goPressed: {
@@ -1027,8 +1038,9 @@ const styles = StyleSheet.create(
 
     goBtnText: {
       fontFamily: Fonts.bodySemiBold,
-      fontSize: 11,
-      color: '#F5F5F5',
+      fontSize: 12,
+      lineHeight: 16,
+      color: '#FFFFFF',
     },
 
     /* Fushat e stërvitjes */
@@ -1036,8 +1048,8 @@ const styles = StyleSheet.create(
       height: 100,
       borderRadius: 6,
       borderWidth: 1,
-      borderColor: C.greenBorder,
-      backgroundColor: C.greenCard,
+      borderColor: C.greenBorderBorder,
+      backgroundColor: C.greenCardFill,
       overflow: 'hidden',
     },
 
@@ -1059,7 +1071,7 @@ const styles = StyleSheet.create(
       fontSize: 21,
       lineHeight: 25,
       letterSpacing: -0.5,
-      color: C.text,
+      color: C.textText,
     },
 
     pressed: {
@@ -1078,7 +1090,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 12.5,
       lineHeight: 16,
-      color: C.red,
+      color: C.redText,
       textAlign: 'center',
     },
 
@@ -1086,7 +1098,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 12.5,
       lineHeight: 16,
-      color: C.green,
+      color: C.greenText,
       textAlign: 'center',
     },
 
@@ -1099,20 +1111,20 @@ const styles = StyleSheet.create(
     },
 
     btn: {
-      height: 40,
+      height: 44,
       minWidth: 84,
-      borderRadius: 3,
+      borderRadius: 10,
       alignItems: 'center',
       justifyContent: 'center',
       paddingHorizontal: 18,
     },
 
     btnCancel: {
-      backgroundColor: C.red,
+      backgroundColor: C.redFill,
     },
 
     btnSave: {
-      backgroundColor: C.green,
+      backgroundColor: C.greenFill,
     },
 
     btnDisabled: {
@@ -1122,7 +1134,8 @@ const styles = StyleSheet.create(
     btnText: {
       fontFamily: Fonts.bodySemiBold,
       fontSize: 13,
-      color: '#F5F5F5',
+      lineHeight: 18,
+      color: '#FFFFFF',
     },
   }),
 );

@@ -13,6 +13,7 @@ import type { ApiTraining } from '@/lib/api/types';
 import { I, scaled } from '@/lib/responsive';
 import { useSession } from '@/lib/session';
 import { attendanceLabel, trainingDate, trainingTime, typeName } from '@/lib/trainings';
+import { useAppColors, usePaletteStyles, type AppColorsOf } from '@/lib/app-theme';
 
 /**
  * Stërvitjet — the child's training schedule, opened from the "Stërvitjet"
@@ -22,31 +23,31 @@ import { attendanceLabel, trainingDate, trainingTime, typeName } from '@/lib/tra
  * up. Four columns are wider than the screen, so the table scrolls sideways.
  */
 
-const C = {
-  page: '#FAFBFA',
+const C_LIGHT = {
+  page: '#F7F9F8',
   line: 'rgba(0,0,0,0.025)',
 
-  text: '#111111',
-  gray: '#8A8A8A',
+  text: '#17251E',
+  gray: '#52645A',
 
   /* The card's pale blue wash and its blue rim. */
-  blue2: '#F6FBFF',
+  blue2: '#F7F9F8',
   border: 'rgba(100,140,190,0.30)',
   rowLine: 'rgba(100,140,190,0.22)',
   headLine: 'rgba(30,40,35,0.10)',
 
-  green: '#159447',
-  red: '#E03131',
+  green: '#2E7D5B',
+  red: '#B91C1C',
 
   /* The pager's squares. */
   blue: '#86BCFD',
 };
 
 /* How a session was attended, each reading in its own colour. */
-const TONE: Record<string, string> = {
+const TONE = (C: AppColorsOf<typeof C_LIGHT>): Record<string, string> => ({
   Prezent: C.green,
   Mungesë: C.red,
-};
+});
 
 type Session = {
   id: number;
@@ -83,6 +84,8 @@ const COLS: { key: keyof Session; label: string; width: number; strong?: boolean
 ];
 
 export default function ChildTrainingsScreen() {
+  const C = useAppColors(C_LIGHT);
+  const styles = usePaletteStyles(createStyles, C);
   const router = useRouter();
   const { token, signOut } = useSession();
 
@@ -142,7 +145,7 @@ export default function ChildTrainingsScreen() {
                 accessibilityLabel="Kthehu prapa"
                 style={({ pressed }) => [styles.backBtn, pressed && styles.pressed]}
               >
-                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.text} />
+                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.textText} />
               </Pressable>
               <View style={styles.headerText}>
                 <Text
@@ -194,7 +197,7 @@ export default function ChildTrainingsScreen() {
                           style={[
                             styles.td,
                             c.strong && styles.tdStrong,
-                            c.key === 'attendance' && { color: TONE[s.attendance] ?? C.text },
+                            c.key === 'attendance' && { color: TONE(C)[s.attendance] ?? C.text },
                             { width: c.width },
                           ]}
                           numberOfLines={1}
@@ -233,7 +236,7 @@ export default function ChildTrainingsScreen() {
                     pressed && styles.pressed,
                   ]}
                 >
-                  <MaterialCommunityIcons name="chevron-left" size={I(22)} color={C.text} />
+                  <MaterialCommunityIcons name="chevron-left" size={I(22)} color={C.textText} />
                 </Pressable>
 
                 {pageWindow(current, lastPage).map((p) => (
@@ -263,7 +266,7 @@ export default function ChildTrainingsScreen() {
                     pressed && styles.pressed,
                   ]}
                 >
-                  <MaterialCommunityIcons name="chevron-right" size={I(22)} color={C.text} />
+                  <MaterialCommunityIcons name="chevron-right" size={I(22)} color={C.textText} />
                 </Pressable>
               </View>
             ) : null}
@@ -278,7 +281,7 @@ export default function ChildTrainingsScreen() {
 /* Styles                                                              */
 /* ------------------------------------------------------------------ */
 
-const styles = StyleSheet.create(
+const createStyles = (C: AppColorsOf<typeof C_LIGHT>) => StyleSheet.create(
   scaled({
     safe: {
       flex: 1,
@@ -323,14 +326,14 @@ const styles = StyleSheet.create(
       fontSize: 20,
       lineHeight: 24,
       letterSpacing: -0.3,
-      color: C.text,
+      color: C.textText,
     },
 
     subtitle: {
       fontFamily: Fonts.body,
       fontSize: 12,
       lineHeight: 16,
-      color: C.gray,
+      color: C.grayText,
       marginTop: 1,
     },
 
@@ -341,9 +344,9 @@ const styles = StyleSheet.create(
     /* ── Table ───────────────────────────────────────────────── */
     card: {
       marginTop: 14,
-      backgroundColor: C.blue2,
+      backgroundColor: C.blue2Fill,
       borderWidth: 2,
-      borderColor: C.border,
+      borderColor: C.borderBorder,
       borderRadius: 7,
       overflow: 'hidden',
     },
@@ -370,19 +373,19 @@ const styles = StyleSheet.create(
       paddingTop: 9,
       paddingBottom: 7,
       borderBottomWidth: 1,
-      borderBottomColor: C.headLine,
+      borderBottomColor: C.headLineBorder,
     },
 
     trBorder: {
       borderTopWidth: 1,
-      borderTopColor: C.rowLine,
+      borderTopColor: C.rowLineBorder,
     },
 
     th: {
       fontFamily: Fonts.bodySemiBold,
       fontSize: 9,
       lineHeight: 12,
-      color: C.gray,
+      color: C.grayText,
       textAlign: 'center',
     },
 
@@ -390,13 +393,13 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 9.5,
       lineHeight: 12,
-      color: C.gray,
+      color: C.grayText,
       textAlign: 'center',
     },
 
     tdStrong: {
       fontFamily: Fonts.bodyBold,
-      color: C.text,
+      color: C.textText,
     },
 
     /* The load error / empty-list line, spanning the row. */
@@ -405,7 +408,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 9.5,
       lineHeight: 13,
-      color: C.gray,
+      color: C.grayText,
       textAlign: 'left',
     },
 
@@ -428,18 +431,18 @@ const styles = StyleSheet.create(
     },
 
     pageSq: {
-      width: 34,
-      height: 34,
-      borderRadius: 5,
-      backgroundColor: C.blue,
+      width: 44,
+      height: 44,
+      borderRadius: 10,
+      backgroundColor: C.blueFill,
       alignItems: 'center',
       justifyContent: 'center',
     },
 
     pageSqActive: {
-      width: 34,
-      height: 34,
-      borderRadius: 5,
+      width: 44,
+      height: 44,
+      borderRadius: 10,
       backgroundColor: '#4E90D8',
       alignItems: 'center',
       justifyContent: 'center',
@@ -448,7 +451,7 @@ const styles = StyleSheet.create(
     pageSqText: {
       fontFamily: Fonts.bodySemiBold,
       fontSize: 14,
-      color: '#F5F5F5',
+      color: '#FFFFFF',
     },
 
     pressed: {

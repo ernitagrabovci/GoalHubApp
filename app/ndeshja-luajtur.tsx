@@ -12,6 +12,7 @@ import { deleteMatch, getMatch } from '@/lib/api/matches';
 import type { ApiMatch } from '@/lib/api/types';
 import { I, scaled } from '@/lib/responsive';
 import { useSession } from '@/lib/session';
+import { useAppColors, usePaletteStyles, type AppColorsOf } from '@/lib/app-theme';
 
 /**
  * A played match — opened from "Shiko" on the results table in ndeshjet. Shows
@@ -19,24 +20,27 @@ import { useSession } from '@/lib/session';
  * the match is over, the player statistics and the starting eleven.
  */
 
-const C = {
-  page: '#FAFBFA',
+const C_LIGHT = {
+  frame: '#DCE5DF',
+  page: '#F7F9F8',
   line: 'rgba(0,0,0,0.025)',
 
-  text: '#111111',
-  gray: '#8A8A8A',
+  text: '#17251E',
+  gray: '#52645A',
   hint: '#6E6E6E',
+  /* Black rules that invert on the dark page. */
+  ink: '#000000',
 
   /* blue1 = the deeper blue of the buttons; blue2 = the pale card blue. */
   blue1: '#E3EEFB',
-  blue2: '#F6FBFF',
+  blue2: '#F7F9F8',
 
   border: 'rgba(100,140,190,0.30)',
   rowLine: 'rgba(100,140,190,0.22)',
   headLine: 'rgba(30,40,35,0.10)',
 
-  green: '#159447',
-  red: '#E03131',
+  green: '#2E7D5B',
+  red: '#B91C1C',
   yellow: '#FFC800',
 
   /* The starting-eleven cards. */
@@ -82,13 +86,15 @@ function staticOutcome(atHome: boolean, score: string): 'F' | 'H' | 'B' {
   return (atHome ? h > a : a > h) ? 'F' : 'H';
 }
 
-const RESULT = {
-  F: { label: 'Fitore', color: C.green },
-  H: { label: 'Humbje', color: C.red },
-  B: { label: 'Barazim', color: C.gray },
-};
+const RESULT = (C: AppColorsOf<typeof C_LIGHT>) => ({
+  F: { label: 'Fitore', color: C.greenText },
+  H: { label: 'Humbje', color: C.redText },
+  B: { label: 'Barazim', color: C.grayText },
+});
 
 export default function PlayedMatchScreen() {
+  const C = useAppColors(C_LIGHT);
+  const styles = usePaletteStyles(createStyles, C);
   const router = useRouter();
   const { token, signOut } = useSession();
 
@@ -135,7 +141,7 @@ export default function PlayedMatchScreen() {
     : params.score ?? '';
 
   /* With live data the club is always the home side, so its own goal count decides. */
-  const result = RESULT[
+  const result = RESULT(C)[
     match?.goals_for != null && match?.goals_against != null
       ? verdict(match.goals_for, match.goals_against)
       : staticOutcome(home.includes('Prishtina'), score)
@@ -206,7 +212,7 @@ export default function PlayedMatchScreen() {
                 accessibilityLabel="Kthehu prapa"
                 style={({ pressed }) => [styles.backBtn, pressed && styles.pressed]}
               >
-                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.text} />
+                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.textText} />
               </Pressable>
               <View style={styles.headerText}>
                 <Text
@@ -318,10 +324,10 @@ export default function PlayedMatchScreen() {
                   <Text style={[styles.th, styles.colStat]}>Asiste</Text>
                   <Text style={[styles.th, styles.colStat]}>Min</Text>
                   <View style={styles.colCard}>
-                    <View style={[styles.cardSq, { backgroundColor: C.yellow }]} />
+                    <View style={[styles.cardSq, { backgroundColor: C.yellowFill }]} />
                   </View>
                   <View style={styles.colCard}>
-                    <View style={[styles.cardSq, { backgroundColor: C.red }]} />
+                    <View style={[styles.cardSq, { backgroundColor: C.redFill }]} />
                   </View>
                   <Text style={[styles.th, styles.colNota]}>Nota</Text>
                 </View>
@@ -343,10 +349,10 @@ export default function PlayedMatchScreen() {
                     <Text style={[styles.td, styles.colStat]}>{p.assists}</Text>
                     <Text style={[styles.td, styles.colStat]}>{p.min}</Text>
                     <View style={styles.colCard}>
-                      {p.yellow ? <View style={[styles.cardSq, { backgroundColor: C.yellow }]} /> : null}
+                      {p.yellow ? <View style={[styles.cardSq, { backgroundColor: C.yellowFill }]} /> : null}
                     </View>
                     <View style={styles.colCard}>
-                      {p.red ? <View style={[styles.cardSq, { backgroundColor: C.red }]} /> : null}
+                      {p.red ? <View style={[styles.cardSq, { backgroundColor: C.redFill }]} /> : null}
                     </View>
                     <Text style={[styles.td, styles.colNota]}>
                       {p.nota}
@@ -393,7 +399,7 @@ export default function PlayedMatchScreen() {
 /* Styles                                                              */
 /* ------------------------------------------------------------------ */
 
-const styles = StyleSheet.create(
+const createStyles = (C: AppColorsOf<typeof C_LIGHT>) => StyleSheet.create(
   scaled({
     safe: {
       flex: 1,
@@ -438,7 +444,7 @@ const styles = StyleSheet.create(
       fontSize: 20,
       lineHeight: 24,
       letterSpacing: -0.3,
-      color: C.text,
+      color: C.textText,
     },
 
     scroll: {
@@ -455,38 +461,39 @@ const styles = StyleSheet.create(
 
     /* Black border and black label on both; only the fill tells them apart. */
     editBtn: {
-      height: 30,
-      paddingHorizontal: 14,
+      height: 44,
+      paddingHorizontal: 16,
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: C.blue1,
+      backgroundColor: C.blue1Fill,
       borderWidth: 1,
-      borderColor: '#000000',
-      borderRadius: 4,
+      borderColor: C.frameBorder,
+      borderRadius: 10,
     },
 
     deleteBtn: {
-      height: 30,
-      paddingHorizontal: 14,
+      height: 44,
+      paddingHorizontal: 16,
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: 'rgba(224,49,49,0.20)',
       borderWidth: 1,
-      borderColor: '#000000',
-      borderRadius: 4,
+      borderColor: C.frameBorder,
+      borderRadius: 10,
     },
 
     actionText: {
       fontFamily: Fonts.bodySemiBold,
-      fontSize: 11.5,
-      color: '#000000',
+      fontSize: 13,
+      lineHeight: 18,
+      color: C.textText,
     },
 
     /* ── Cards ───────────────────────────────────────────────── */
     card: {
-      backgroundColor: C.blue2,
+      backgroundColor: C.blue2Fill,
       borderWidth: 2,
-      borderColor: C.border,
+      borderColor: C.borderBorder,
       borderRadius: 7,
       overflow: 'hidden',
     },
@@ -514,19 +521,19 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodyBold,
       fontSize: 14,
       lineHeight: 18,
-      color: C.text,
+      color: C.textText,
     },
 
     headTextGreen: {
       fontFamily: Fonts.bodyBold,
       fontSize: 14,
       lineHeight: 18,
-      color: C.green,
+      color: C.greenText,
     },
 
     headLine: {
       height: 1,
-      backgroundColor: C.headLine,
+      backgroundColor: C.headLineFill,
     },
 
     /* ── Informacioni body ───────────────────────────────────── */
@@ -552,7 +559,7 @@ const styles = StyleSheet.create(
       width: 1,
       marginVertical: 6,
       marginHorizontal: 8,
-      backgroundColor: '#000000',
+      backgroundColor: C.inkFill,
     },
 
     valuesCol: {
@@ -574,14 +581,14 @@ const styles = StyleSheet.create(
 
     cellBorder: {
       borderTopWidth: 1,
-      borderTopColor: C.rowLine,
+      borderTopColor: C.rowLineBorder,
     },
 
     cellLabel: {
       fontFamily: Fonts.body,
       fontSize: 11,
       lineHeight: 14,
-      color: C.hint,
+      color: C.hintText,
     },
 
     cellValue: {
@@ -589,7 +596,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodyBold,
       fontSize: 11,
       lineHeight: 14,
-      color: C.text,
+      color: C.textText,
     },
 
     resultScore: {
@@ -597,7 +604,7 @@ const styles = StyleSheet.create(
       fontSize: 34,
       lineHeight: 38,
       letterSpacing: -0.6,
-      color: C.text,
+      color: C.textText,
     },
 
     resultLabel: {
@@ -620,7 +627,7 @@ const styles = StyleSheet.create(
 
     trBorder: {
       borderTopWidth: 1,
-      borderTopColor: C.rowLine,
+      borderTopColor: C.rowLineBorder,
     },
 
     colName: {
@@ -647,21 +654,21 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodySemiBold,
       fontSize: 9.5,
       lineHeight: 12,
-      color: C.gray,
+      color: C.grayText,
     },
 
     tdName: {
       fontFamily: Fonts.body,
       fontSize: 10.5,
       lineHeight: 13,
-      color: C.text,
+      color: C.textText,
     },
 
     td: {
       fontFamily: Fonts.body,
       fontSize: 10.5,
       lineHeight: 13,
-      color: C.hint,
+      color: C.hintText,
     },
 
     cardSq: {
@@ -674,7 +681,7 @@ const styles = StyleSheet.create(
       alignItems: 'center',
       paddingVertical: 8,
       borderTopWidth: 1,
-      borderTopColor: C.rowLine,
+      borderTopColor: C.rowLineBorder,
     },
 
     note: {
@@ -682,7 +689,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 10,
       lineHeight: 14,
-      color: C.gray,
+      color: C.grayText,
     },
 
     /* ── Formacioni ──────────────────────────────────────────── */
@@ -697,14 +704,14 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 11,
       lineHeight: 15,
-      color: C.gray,
+      color: C.grayText,
     },
 
     sectionLabel: {
       fontFamily: Fonts.bodyBold,
       fontSize: 12,
       lineHeight: 16,
-      color: C.text,
+      color: C.textText,
       paddingHorizontal: 10,
       paddingTop: 10,
     },
@@ -725,9 +732,9 @@ const styles = StyleSheet.create(
       justifyContent: 'center',
       paddingHorizontal: 7,
       paddingVertical: 7,
-      backgroundColor: C.cardGreen,
+      backgroundColor: C.cardGreenFill,
       borderWidth: 1,
-      borderColor: '#000000',
+      borderColor: C.frameBorder,
       borderRadius: 4,
     },
 
@@ -735,7 +742,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodyBold,
       fontSize: 11.5,
       lineHeight: 14,
-      color: '#000000',
+      color: C.textText,
     },
 
     playerPosition: {
@@ -743,7 +750,7 @@ const styles = StyleSheet.create(
       fontSize: 9,
       lineHeight: 12,
       marginTop: 1,
-      color: '#000000',
+      color: C.textText,
     },
 
     pressed: {

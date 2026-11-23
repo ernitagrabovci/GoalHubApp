@@ -26,6 +26,7 @@ import {
   type AttendanceRow,
   type AttendanceStatus,
 } from '@/lib/trainings';
+import { useAppColors, usePaletteStyles, type AppColorsOf } from '@/lib/app-theme';
 
 /**
  * Stërvitja — one session in full, opened from the "Shiko" button on a row of
@@ -35,33 +36,33 @@ import {
  * two-by-two grid, then the attendance table for that session.
  */
 
-const C = {
-  page: '#FAFBFA',
+const C_LIGHT = {
+  page: '#F7F9F8',
   line: 'rgba(0,0,0,0.025)',
 
-  text: '#111111',
-  gray: '#8A8A8A',
+  text: '#17251E',
+  gray: '#52645A',
   hint: '#6E6E6E',
 
-  frame: '#000000',
+  frame: '#DCE5DF',
   headLine: 'rgba(30,40,35,0.10)',
   rowLine: 'rgba(100,140,190,0.22)',
 
   /* The table ground is the palest blue; the edit button one step deeper. */
-  card: '#F6FBFF',
+  card: '#F7F9F8',
   blueSoft: '#E3EEFB',
 
-  green: '#159447',
-  red: '#E03131',
+  green: '#2E7D5B',
+  red: '#B91C1C',
 };
 
 /* ── Attendance ────────────────────────────────────────────────────── */
 
-const ATTENDANCE_TONE: Record<AttendanceStatus, string> = {
+const ATTENDANCE_TONE = (C: AppColorsOf<typeof C_LIGHT>): Record<AttendanceStatus, string> => ({
   Prezent: C.green,
   Mungon: C.red,
   Papërcaktuar: C.hint,
-};
+});
 
 /* The last column is sized so "Prezent" and "Mungon" set at full size. */
 const COLS: { key: keyof AttendanceRow; label: string; width: number }[] = [
@@ -72,6 +73,8 @@ const COLS: { key: keyof AttendanceRow; label: string; width: number }[] = [
 ];
 
 export default function TrainingScreen() {
+  const C = useAppColors(C_LIGHT);
+  const styles = usePaletteStyles(createStyles, C);
   const router = useRouter();
   const { token, signOut } = useSession();
 
@@ -167,7 +170,7 @@ export default function TrainingScreen() {
                 accessibilityLabel="Kthehu prapa"
                 style={({ pressed }) => [styles.backBtn, pressed && styles.pressed]}
               >
-                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.text} />
+                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.textText} />
               </Pressable>
               <View style={styles.headerText}>
                 <Text
@@ -199,7 +202,7 @@ export default function TrainingScreen() {
               accessibilityLabel="Edito stërvitjen"
               style={({ pressed }) => [styles.editBtn, pressed && styles.pressed]}
             >
-              <MaterialCommunityIcons name="pencil" size={I(14)} color={C.text} />
+              <MaterialCommunityIcons name="pencil" size={I(14)} color={C.textText} />
               <Text style={styles.editBtnText} numberOfLines={1}>
                 Edito stërvitjen
               </Text>
@@ -276,9 +279,10 @@ export default function TrainingScreen() {
                   }
                   accessibilityRole="button"
                   accessibilityLabel="Edito prezencën"
+                  hitSlop={{ top: 7, bottom: 7, left: 4, right: 4 }}
                   style={({ pressed }) => [styles.editSmall, pressed && styles.pressed]}
                 >
-                  <MaterialCommunityIcons name="pencil" size={I(12)} color={C.text} />
+                  <MaterialCommunityIcons name="pencil" size={I(12)} color={C.textText} />
                   <Text style={styles.editSmallText}>Edito</Text>
                 </Pressable>
               </View>
@@ -312,7 +316,7 @@ export default function TrainingScreen() {
                               styles.td,
                               c.key === 'name' ? styles.tdName : null,
                               isStatus
-                                ? [styles.tdStrong, { color: ATTENDANCE_TONE[p.status] }]
+                                ? [styles.tdStrong, { color: ATTENDANCE_TONE(C)[p.status] }]
                                 : null,
                               { width: c.width },
                             ]}
@@ -359,7 +363,7 @@ export default function TrainingScreen() {
 /* Styles                                                              */
 /* ------------------------------------------------------------------ */
 
-const styles = StyleSheet.create(
+const createStyles = (C: AppColorsOf<typeof C_LIGHT>) => StyleSheet.create(
   scaled({
     safe: {
       flex: 1,
@@ -404,14 +408,14 @@ const styles = StyleSheet.create(
       fontSize: 20,
       lineHeight: 24,
       letterSpacing: -0.3,
-      color: C.text,
+      color: C.textText,
     },
 
     subtitle: {
       fontFamily: Fonts.body,
       fontSize: 12,
       lineHeight: 16,
-      color: C.gray,
+      color: C.grayText,
       marginTop: 1,
     },
 
@@ -425,13 +429,13 @@ const styles = StyleSheet.create(
       flexDirection: 'row',
       alignItems: 'center',
       gap: 6,
-      height: 32,
+      height: 44,
       marginTop: 8,
-      paddingHorizontal: 12,
-      backgroundColor: C.blueSoft,
+      paddingHorizontal: 14,
+      backgroundColor: C.blueSoftFill,
       borderWidth: 1,
-      borderColor: C.frame,
-      borderRadius: 4,
+      borderColor: C.frameBorder,
+      borderRadius: 10,
     },
 
     /* The whole phrase reads as a link, icon included. */
@@ -439,16 +443,16 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodySemiBold,
       fontSize: 11.5,
       lineHeight: 15,
-      color: C.text,
+      color: C.textText,
       textDecorationLine: 'underline',
     },
 
     /* ── Cards ───────────────────────────────────────────────── */
     card: {
       marginTop: 14,
-      backgroundColor: C.card,
+      backgroundColor: C.cardFill,
       borderWidth: 1,
-      borderColor: C.frame,
+      borderColor: C.frameBorder,
       borderRadius: 5,
       overflow: 'hidden',
     },
@@ -463,7 +467,7 @@ const styles = StyleSheet.create(
       paddingTop: 10,
       paddingBottom: 9,
       borderBottomWidth: 1,
-      borderBottomColor: C.headLine,
+      borderBottomColor: C.headLineBorder,
     },
 
     cardTitle: {
@@ -471,7 +475,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodyBold,
       fontSize: 12.5,
       lineHeight: 16,
-      color: C.text,
+      color: C.textText,
     },
 
     /* ── Session details ─────────────────────────────────────── */
@@ -490,14 +494,14 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 10.5,
       lineHeight: 13,
-      color: C.hint,
+      color: C.hintText,
     },
 
     detailValue: {
       fontFamily: Fonts.bodyBold,
       fontSize: 11.5,
       lineHeight: 16,
-      color: C.text,
+      color: C.textText,
       marginTop: 2,
     },
 
@@ -506,17 +510,18 @@ const styles = StyleSheet.create(
       flexDirection: 'row',
       alignItems: 'center',
       gap: 5,
-      height: 24,
-      paddingHorizontal: 9,
+      height: 30,
+      paddingHorizontal: 10,
       borderWidth: 1,
-      borderColor: C.frame,
-      borderRadius: 4,
+      borderColor: C.frameBorder,
+      borderRadius: 6,
     },
 
     editSmallText: {
       fontFamily: Fonts.bodySemiBold,
-      fontSize: 10.5,
-      color: C.text,
+      fontSize: 11.5,
+      lineHeight: 15,
+      color: C.textText,
     },
 
     tblInner: {
@@ -533,7 +538,7 @@ const styles = StyleSheet.create(
       paddingTop: 10,
       paddingBottom: 8,
       borderBottomWidth: 1,
-      borderBottomColor: C.headLine,
+      borderBottomColor: C.headLineBorder,
     },
 
     tr: {
@@ -544,21 +549,21 @@ const styles = StyleSheet.create(
 
     trBorder: {
       borderTopWidth: 1,
-      borderTopColor: C.rowLine,
+      borderTopColor: C.rowLineBorder,
     },
 
     th: {
       fontFamily: Fonts.bodySemiBold,
       fontSize: 10.5,
       lineHeight: 13,
-      color: C.gray,
+      color: C.grayText,
     },
 
     td: {
       fontFamily: Fonts.body,
       fontSize: 11,
       lineHeight: 14,
-      color: C.text,
+      color: C.textText,
     },
 
     tdName: {

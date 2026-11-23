@@ -1,11 +1,13 @@
 import { NavigationBar } from 'expo-navigation-bar';
-import { Stack, ThemeProvider as NavThemeProvider, usePathname } from 'expo-router';
+import { Stack, ThemeProvider as NavThemeProvider } from 'expo-router';
 import { useFonts } from 'expo-font';
+import * as ScreenOrientation from 'expo-screen-orientation';
 import { StatusBar } from 'expo-status-bar';
 import * as SystemUI from 'expo-system-ui';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import { Platform } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import 'react-native-reanimated';
 
 import {
@@ -37,14 +39,25 @@ export default function RootLayout() {
     Outfit_900Black,
   });
 
+  // The app is portrait by design (app.json is set to "default" only so the
+  // tactical board can rotate). Pin portrait here; the board screen locks
+  // landscape for itself and restores this on exit.
+  useEffect(() => {
+    ScreenOrientation.lockAsync(
+      ScreenOrientation.OrientationLock.PORTRAIT_UP,
+    ).catch(() => {});
+  }, []);
+
   if (!loaded && !error) {
     return null;
   }
 
   return (
-    <ThemeProvider>
-      <RootContent />
-    </ThemeProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <ThemeProvider>
+        <RootContent />
+      </ThemeProvider>
+    </GestureHandlerRootView>
   );
 }
 
@@ -63,8 +76,7 @@ function RootContent() {
 
 function RootNavigator() {
   const { isDark } = useTheme();
-  const { user, status } = useSession();
-  const pathname = usePathname();
+  const { status } = useSession();
 
   // Keep the splash up until the stored token has been checked, so neither the
   // login screen nor the tabs flash before we know which one the user belongs on.
@@ -78,18 +90,10 @@ function RootNavigator() {
     return null;
   }
 
-  // Pill-role dashboards are light-only (#FAFBFA). Paint the native screen
-  // behind the tabs the same tone so no native background (gray on iOS,
-  // different on Android) shows through at the screen edges.
-  const pillLight = user ? PILL_ROLES.includes(user.role) : false;
-  // The signed-in home paints a pale mint canvas under the status bar, so its
-  // icons must stay dark even when the rest of the app is on the dark theme.
-  const onMintHome = !!user && pathname === '/';
-
   return (
     <>
       <AppBackground />
-      <SystemBars pillLight={pillLight} />
+      <SystemBars />
       {/* Every screen paints its own background transparent so the app
           wallpaper shows through; the scenes must be transparent too. */}
       <Stack screenOptions={{ contentStyle: { backgroundColor: 'transparent' } }}>
@@ -111,6 +115,10 @@ function RootNavigator() {
           options={{ headerShown: false }}
         />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen
+          name="admin"
+          options={{ headerShown: false }}
+        />
         <Stack.Screen
           name="settings"
           options={{ headerShown: false }}
@@ -270,6 +278,15 @@ function RootNavigator() {
         <Stack.Screen
           name="ushtrimet-trajner"
           options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="taktik-bord-trajner"
+          options={{
+            headerShown: false,
+            // The board owns every pan/tap on the pitch; swipe-back would
+            // steal drags and pop the screen mid-drill.
+            gestureEnabled: false,
+          }}
         />
         <Stack.Screen
           name="profili-lojtarit"
@@ -449,29 +466,26 @@ function RootNavigator() {
           }}
         />
       </Stack>
-      <StatusBar style={onMintHome ? 'dark' : isDark ? 'light' : 'dark'} />
+      <StatusBar style={isDark ? 'light' : 'dark'} />
     </>
   );
 }
 
-const PILL_ROLES = ['administrator', 'trainer', 'player', 'parent', 'financier'];
-
 /**
- * Keeps Android's system navigation bar tinted to match the active screens.
- * Pill-role dashboards are light-only (#FAFBFA), so they force a light bar
- * (dark icons); everything else follows the theme. No-op on iOS/web.
+ * Keeps the system status/navigation bars tinted to match the active theme.
+ * No-op on iOS/web.
  */
-function SystemBars({ pillLight }: { pillLight: boolean }) {
+function SystemBars() {
   const { isDark } = useTheme();
 
   // Android paints the strip behind its transparent system bars with the root
   // view color. Screens are transparent so the wallpaper shows through, which
-  // makes this color visible behind it — it has to be the near-white page tone
-  // every screen is designed against, not the theme background.
+  // makes this color visible behind it — match the page tone the screens are
+  // designed against (near-white in light, near-black mint in dark).
   useEffect(() => {
     if (Platform.OS !== 'android') return;
-    SystemUI.setBackgroundColorAsync('#FAFBFA').catch(() => {});
-  }, []);
+    SystemUI.setBackgroundColorAsync(isDark ? '#0A1512' : '#F7F9F8').catch(() => {});
+  }, [isDark]);
 
-  return <NavigationBar style={pillLight || !isDark ? 'light' : 'dark'} />;
+  return <NavigationBar style={isDark ? 'dark' : 'light'} />;
 }

@@ -17,6 +17,8 @@ import type { ApiInjury, ApiTeam, Paginated, PlayerStats } from '@/lib/api/types
 import { injuryStatusLabel, occurredLabel } from '@/lib/injury-status';
 import { I, scaled } from '@/lib/responsive';
 import { useSession } from '@/lib/session';
+import { useAppColors, usePaletteStyles, type AppColorsOf } from '@/lib/app-theme';
+import { useGlass } from '@/lib/glass';
 
 /**
  * Kartela mjekësore — opened from the medical card on the admin dashboard.
@@ -29,25 +31,30 @@ import { useSession } from '@/lib/session';
  * the recovered ones, so it doesn't move when the log is filtered.
  */
 
-const C = {
-  page: '#FAFBFA',
+const C_LIGHT = {
+  white: '#FFFFFF',
+  frame: '#DCE5DF',
+  glassBase: 'rgba(255,255,255,0.12)',
+  glassEdge: 'rgba(255,255,255,0.95)',
+  glassDivider: 'rgba(16,51,38,0.18)',
+  page: '#F7F9F8',
   line: 'rgba(0,0,0,0.025)',
 
-  text: '#111111',
-  gray: '#8A8A8A',
+  text: '#17251E',
+  gray: '#52645A',
   hint: '#6E6E6E',
 
   /* blue1 = the deeper blue of the filter buttons; blue2 = the pale card blue. */
   blue1: '#E3EEFB',
-  blue2: '#F6FBFF',
+  blue2: '#F7F9F8',
 
   border: 'rgba(100,140,190,0.30)',
   rowLine: 'rgba(100,140,190,0.22)',
   headLine: 'rgba(30,40,35,0.10)',
 
-  green: '#159447',
-  red: '#E03131',
-  orange: '#E4A000',
+  green: '#2E7D5B',
+  red: '#B91C1C',
+  orange: '#B45309',
 };
 
 type FilterKey = 'team' | 'status';
@@ -66,19 +73,13 @@ const INJ_ACTION_W = 58;
  * nothing. Shading the pane instead — a very light grey at the top edge
  * sweeping down to white — is what gives the surface its glassy shape.
  */
-const SQ_GLOSS = [
-  'rgba(180,188,201,0.30)',
-  'rgba(216,222,231,0.15)',
-  'rgba(245,245,245,0.80)',
-] as const;
-
 /** One colour per medical status, reused by both tables. */
-const STATUS_TONE: Record<string, string> = {
+const STATUS_TONE = (C: AppColorsOf<typeof C_LIGHT>): Record<string, string> => ({
   'I lënduar': C.red,
   'Në rehabilitim': C.orange,
   Aktiv: C.green,
   'I shëruar': C.green,
-};
+});
 
 /** ISO `YYYY-MM-DD` → `dd/MM/yyyy`; absent/unparseable → a dash. */
 function formatDate(iso: string | null): string {
@@ -111,6 +112,9 @@ function latestPerPlayer(list: ApiInjury[]): ApiInjury[] {
 }
 
 export default function MedicalCardScreen() {
+  const glass = useGlass();
+  const C = useAppColors(C_LIGHT);
+  const styles = usePaletteStyles(createStyles, C);
   const router = useRouter();
   const { token, signOut } = useSession();
 
@@ -269,7 +273,7 @@ export default function MedicalCardScreen() {
                 accessibilityLabel="Kthehu prapa"
                 style={({ pressed }) => [styles.backBtn, pressed && styles.pressed]}
               >
-                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.text} />
+                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.textText} />
               </Pressable>
               <View style={styles.headerText}>
                 <Text style={styles.title} numberOfLines={1}>
@@ -297,14 +301,14 @@ export default function MedicalCardScreen() {
               <BlurView
                 pointerEvents="none"
                 intensity={55}
-                tint="light"
+                tint={glass.tint}
                 experimentalBlurMethod="dimezisBlurView"
                 style={StyleSheet.absoluteFill}
               />
               <LinearGradient
                 pointerEvents="none"
                 style={StyleSheet.absoluteFill}
-                colors={SQ_GLOSS}
+                colors={glass.gloss}
                 locations={[0, 0.55, 1]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
@@ -312,12 +316,7 @@ export default function MedicalCardScreen() {
               <LinearGradient
                 pointerEvents="none"
                 style={styles.statsGloss}
-                colors={[
-                  'rgba(255,255,255,0)',
-                  'rgba(255,255,255,0.78)',
-                  'rgba(255,255,255,0.55)',
-                  'rgba(255,255,255,0)',
-                ]}
+                colors={glass.sweep}
                 locations={[0, 0.38, 0.62, 1]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
@@ -325,11 +324,7 @@ export default function MedicalCardScreen() {
               <LinearGradient
                 pointerEvents="none"
                 style={styles.statsGloss2}
-                colors={[
-                  'rgba(255,255,255,0)',
-                  'rgba(255,255,255,0.55)',
-                  'rgba(255,255,255,0)',
-                ]}
+                colors={glass.sweepSoft}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
               />
@@ -397,7 +392,7 @@ export default function MedicalCardScreen() {
                           {p.team?.name ?? '—'}
                         </Text>
                         <Text
-                          style={[styles.td, styles.tdStatus, { width: 80, color: STATUS_TONE[status] ?? C.hint }]}
+                          style={[styles.td, styles.tdStatus, { width: 80, color: STATUS_TONE(C)[status] ?? C.hint }]}
                           numberOfLines={1}
                           adjustsFontSizeToFit
                           minimumFontScale={0.7}
@@ -437,6 +432,7 @@ export default function MedicalCardScreen() {
                     onPress={() => setOpenFilter((cur) => (cur === key ? null : key))}
                     accessibilityRole="button"
                     accessibilityLabel={`Filtro sipas ${key === 'team' ? 'ekipit' : 'statusit'}`}
+                    hitSlop={{ top: 2, bottom: 2 }}
                     style={({ pressed }) => [
                       styles.filterBtn,
                       openFilter === key && styles.filterBtnOpen,
@@ -449,7 +445,7 @@ export default function MedicalCardScreen() {
                     <MaterialCommunityIcons
                       name={openFilter === key ? 'chevron-up' : 'chevron-down'}
                       size={I(13)}
-                      color={C.text}
+                      color={C.textText}
                     />
                   </Pressable>
                 ))}
@@ -472,6 +468,7 @@ export default function MedicalCardScreen() {
                         onPress={() => applyFilter(openFilter, item.value)}
                         accessibilityRole="button"
                         accessibilityLabel={item.label}
+                        hitSlop={{ top: 4, bottom: 4, left: 2, right: 2 }}
                         style={({ pressed }) => [
                           styles.filterChip,
                           active && styles.filterChipActive,
@@ -539,7 +536,7 @@ export default function MedicalCardScreen() {
                           {date}
                         </Text>
                         <Text
-                          style={[styles.td, styles.tdStatus, { width: 70, color: STATUS_TONE[status] ?? C.hint }]}
+                          style={[styles.td, styles.tdStatus, { width: 70, color: STATUS_TONE(C)[status] ?? C.hint }]}
                           numberOfLines={1}
                           adjustsFontSizeToFit
                           minimumFontScale={0.7}
@@ -571,6 +568,7 @@ export default function MedicalCardScreen() {
                             }
                             accessibilityRole="button"
                             accessibilityLabel={`Shiko lëndimin e ${name}`}
+                            hitSlop={{ top: 7, bottom: 7, left: 4, right: 4 }}
                             style={({ pressed }) => [styles.viewBtn, pressed && styles.pressed]}
                           >
                             <Text style={styles.viewBtnText}>Shiko</Text>
@@ -599,14 +597,14 @@ export default function MedicalCardScreen() {
                     disabled={current <= 1}
                     accessibilityRole="button"
                     accessibilityLabel="Faqja e mëparshme"
-                    hitSlop={8}
+                    hitSlop={12}
                     style={({ pressed }) => [
                       styles.pagerArrow,
                       current <= 1 && styles.pagerDisabled,
                       pressed && styles.pressed,
                     ]}
                   >
-                    <MaterialCommunityIcons name="chevron-left" size={I(20)} color={C.text} />
+                    <MaterialCommunityIcons name="chevron-left" size={I(20)} color={C.textText} />
                   </Pressable>
                   <Text style={styles.pagerText}>
                     {current} / {lastPage}
@@ -616,14 +614,14 @@ export default function MedicalCardScreen() {
                     disabled={current >= lastPage}
                     accessibilityRole="button"
                     accessibilityLabel="Faqja tjetër"
-                    hitSlop={8}
+                    hitSlop={12}
                     style={({ pressed }) => [
                       styles.pagerArrow,
                       current >= lastPage && styles.pagerDisabled,
                       pressed && styles.pressed,
                     ]}
                   >
-                    <MaterialCommunityIcons name="chevron-right" size={I(20)} color={C.text} />
+                    <MaterialCommunityIcons name="chevron-right" size={I(20)} color={C.textText} />
                   </Pressable>
                 </View>
               ) : null}
@@ -639,7 +637,7 @@ export default function MedicalCardScreen() {
 /* Styles                                                              */
 /* ------------------------------------------------------------------ */
 
-const styles = StyleSheet.create(
+const createStyles = (C: AppColorsOf<typeof C_LIGHT>) => StyleSheet.create(
   scaled({
     safe: {
       flex: 1,
@@ -684,14 +682,14 @@ const styles = StyleSheet.create(
       fontSize: 20,
       lineHeight: 24,
       letterSpacing: -0.3,
-      color: C.text,
+      color: C.textText,
     },
 
     subtitle: {
       fontFamily: Fonts.body,
       fontSize: 12,
       lineHeight: 16,
-      color: C.gray,
+      color: C.grayText,
       marginTop: 1,
     },
 
@@ -715,8 +713,8 @@ const styles = StyleSheet.create(
       height: 122,
       borderRadius: 16,
       borderWidth: 1,
-      borderColor: C.orange,
-      backgroundColor: 'rgba(255,255,255,0.12)',
+      borderColor: C.orangeBorder,
+      backgroundColor: C.glassBaseFill,
       overflow: 'hidden',
       shadowColor: '#0B3B33',
       shadowOffset: { width: 0, height: 6 },
@@ -750,7 +748,7 @@ const styles = StyleSheet.create(
       right: 10,
       height: 1.5,
       borderRadius: 1,
-      backgroundColor: 'rgba(255,255,255,0.95)',
+      backgroundColor: C.glassEdgeFill,
     },
 
     statItem: {
@@ -765,7 +763,7 @@ const styles = StyleSheet.create(
       top: 10,
       bottom: 10,
       width: StyleSheet.hairlineWidth,
-      backgroundColor: 'rgba(16,51,38,0.18)',
+      backgroundColor: C.glassDividerFill,
     },
 
     /* Content rides above the frost and gloss overlays. */
@@ -780,7 +778,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodyBold,
       fontSize: 12,
       lineHeight: 15,
-      color: C.gray,
+      color: C.grayText,
     },
 
     sqValue: {
@@ -788,7 +786,7 @@ const styles = StyleSheet.create(
       fontSize: 26,
       lineHeight: 32,
       letterSpacing: -0.5,
-      color: C.text,
+      color: C.textText,
       marginTop: 4,
     },
 
@@ -796,15 +794,15 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 10.5,
       lineHeight: 13,
-      color: C.gray,
+      color: C.grayText,
       marginTop: 4,
     },
 
     /* ── Cards ───────────────────────────────────────────────── */
     card: {
-      backgroundColor: C.blue2,
+      backgroundColor: C.blue2Fill,
       borderWidth: 2,
-      borderColor: C.border,
+      borderColor: C.borderBorder,
       borderRadius: 7,
       overflow: 'hidden',
     },
@@ -825,12 +823,12 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodyBold,
       fontSize: 15,
       lineHeight: 19,
-      color: C.text,
+      color: C.textText,
     },
 
     headLine: {
       height: 1,
-      backgroundColor: C.headLine,
+      backgroundColor: C.headLineFill,
     },
 
     /* ── Filter row ──────────────────────────────────────────── */
@@ -846,22 +844,22 @@ const styles = StyleSheet.create(
       flexDirection: 'row',
       alignItems: 'center',
       gap: 8,
-      height: 32,
-      paddingHorizontal: 10,
-      backgroundColor: C.blue1,
+      height: 40,
+      paddingHorizontal: 12,
+      backgroundColor: C.blue1Fill,
       borderWidth: 1,
-      borderColor: '#000000',
-      borderRadius: 4,
+      borderColor: C.frameBorder,
+      borderRadius: 10,
     },
 
     filterBtnOpen: {
-      borderColor: C.orange,
+      borderColor: C.orangeBorder,
     },
 
     filterText: {
       fontFamily: Fonts.bodySemiBold,
       fontSize: 11,
-      color: C.text,
+      color: C.textText,
     },
 
     /* ── Filter options (inline strip under an open filter) ──── */
@@ -872,30 +870,30 @@ const styles = StyleSheet.create(
     },
 
     filterChip: {
-      height: 28,
+      height: 36,
       justifyContent: 'center',
-      paddingHorizontal: 11,
-      borderRadius: 14,
+      paddingHorizontal: 13,
+      borderRadius: 18,
       borderWidth: 1,
       borderColor: 'rgba(0,0,0,0.15)',
-      backgroundColor: '#FFFFFF',
+      backgroundColor: C.whiteFill,
     },
 
     filterChipActive: {
-      backgroundColor: C.blue1,
-      borderColor: C.blue1,
+      backgroundColor: C.blue1Fill,
+      borderColor: C.blue1Border,
       borderWidth: 1,
     },
 
     filterChipText: {
       fontFamily: Fonts.body,
       fontSize: 11.5,
-      color: C.hint,
+      color: C.hintText,
     },
 
     filterChipTextActive: {
       fontFamily: Fonts.bodySemiBold,
-      color: C.text,
+      color: C.textText,
     },
 
     /* ── Loading / empty / error ─────────────────────────────── */
@@ -909,7 +907,7 @@ const styles = StyleSheet.create(
     stateText: {
       fontFamily: Fonts.body,
       fontSize: 12,
-      color: C.hint,
+      color: C.hintText,
       textAlign: 'center',
     },
 
@@ -934,7 +932,7 @@ const styles = StyleSheet.create(
     pagerText: {
       fontFamily: Fonts.bodySemiBold,
       fontSize: 12,
-      color: C.text,
+      color: C.textText,
     },
 
     /* ── Tables ──────────────────────────────────────────────── */
@@ -958,7 +956,7 @@ const styles = StyleSheet.create(
 
     trBorder: {
       borderTopWidth: 1,
-      borderTopColor: C.rowLine,
+      borderTopColor: C.rowLineBorder,
     },
 
     colAction: {
@@ -969,7 +967,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodySemiBold,
       fontSize: 10.5,
       lineHeight: 13,
-      color: C.gray,
+      color: C.grayText,
       textAlign: 'center',
     },
 
@@ -981,14 +979,14 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 10.5,
       lineHeight: 13,
-      color: C.text,
+      color: C.textText,
     },
 
     td: {
       fontFamily: Fonts.body,
       fontSize: 10.5,
       lineHeight: 13,
-      color: C.hint,
+      color: C.hintText,
       textAlign: 'center',
     },
 
@@ -998,19 +996,20 @@ const styles = StyleSheet.create(
 
     /* Clear fill, black rim and black label. */
     viewBtn: {
-      height: 22,
-      paddingHorizontal: 8,
+      height: 30,
+      paddingHorizontal: 10,
       alignItems: 'center',
       justifyContent: 'center',
       borderWidth: 1,
-      borderColor: '#000000',
-      borderRadius: 4,
+      borderColor: C.frameBorder,
+      borderRadius: 6,
     },
 
     viewBtnText: {
       fontFamily: Fonts.bodySemiBold,
-      fontSize: 10,
-      color: '#000000',
+      fontSize: 11.5,
+      lineHeight: 15,
+      color: C.textText,
     },
 
     pressed: {

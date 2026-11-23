@@ -26,6 +26,7 @@ import { positionLabel } from '@/lib/player-position';
 import { statusLabel } from '@/lib/player-status';
 import { I, scaled } from '@/lib/responsive';
 import { useSession } from '@/lib/session';
+import { useAppColors, usePaletteStyles, type AppColorsOf } from '@/lib/app-theme';
 
 /**
  * The trainer's single player page — opened from the "Shiko" button on a row
@@ -37,30 +38,33 @@ import { useSession } from '@/lib/session';
  * the financial summary. Keep the two files in step when either side changes.
  */
 
-const C = {
-  page: '#FAFBFA',
+const C_LIGHT = {
+  white: '#FFFFFF',
+  page: '#F7F9F8',
   line: 'rgba(0,0,0,0.025)',
 
-  text: '#111111',
-  gray: '#8A8A8A',
+  text: '#17251E',
+  gray: '#52645A',
   hint: '#6E6E6E',
   hintSoft: '#E2E2E2',
 
   /* blue1 = the deeper blue of the dropdown button; blue2 = the pale blue of
      the cards/tables. Card heads sit on blue2, card bodies on blue1. */
   blue1: '#E3EEFB',
-  blue2: '#F6FBFF',
+  blue2: '#F7F9F8',
 
-  border: '#000000',
+  border: '#DCE5DF',
   rowLine: '#000000',
   headLine: '#000000',
+  /* Black affordances (chevron, avatar glyph, star outline). */
+  ink: '#000000',
 
-  green: '#159447',
+  green: '#2E7D5B',
   greenSoft: '#DDF6E7',
   redDark: '#9E1B1B',
-  red: '#E03131',
-  redSoft: '#ED5050',
-  orange: '#E4A000',
+  red: '#B91C1C',
+  redSoft: '#B91C1C',
+  orange: '#B45309',
   blue: '#1749B8',
 };
 
@@ -92,14 +96,16 @@ function formatContract(iso: string | null | undefined): string {
 }
 
 /** `health_status` → the existing pill tones; anything unknown stays green. */
-const STATUS_TONE: Record<string, string> = {
+const STATUS_TONE = (C: AppColorsOf<typeof C_LIGHT>): Record<string, string> => ({
   active: C.green,
   injured: C.red,
   rehabilitation: C.orange,
   suspended: C.redDark,
-};
+});
 
 export default function PlayerProfileScreen() {
+  const C = useAppColors(C_LIGHT);
+  const styles = usePaletteStyles(createStyles, C);
   const router = useRouter();
   const { token, signOut } = useSession();
 
@@ -283,7 +289,7 @@ export default function PlayerProfileScreen() {
                 accessibilityLabel="Kthehu prapa"
                 style={({ pressed }) => [styles.backBtn, pressed && styles.pressed]}
               >
-                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.text} />
+                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.textText} />
               </Pressable>
               <View style={styles.headerText}>
                 <Text style={styles.headerTeam} numberOfLines={1}>
@@ -314,7 +320,7 @@ export default function PlayerProfileScreen() {
                 <Text style={styles.playerBtnText} numberOfLines={1}>
                   {name}
                 </Text>
-                <MaterialCommunityIcons name="chevron-down" size={I(15)} color="#000000" />
+                <MaterialCommunityIcons name="chevron-down" size={I(15)} color={C.inkText} />
               </Pressable>
 
               {pickerOpen ? (
@@ -360,7 +366,7 @@ export default function PlayerProfileScreen() {
                         resizeMode="cover"
                       />
                     ) : (
-                      <MaterialCommunityIcons name="account" size={I(34)} color="#000000" />
+                      <MaterialCommunityIcons name="account" size={I(34)} color={C.inkText} />
                     )}
                   </View>
                   <View style={styles.identityText}>
@@ -376,13 +382,14 @@ export default function PlayerProfileScreen() {
                     <Pressable
                       onPress={() => player && setHealthOpen(true)}
                       disabled={!player}
+                      hitSlop={10}
                       accessibilityRole="button"
                       accessibilityLabel="Ndrysho statusin shëndetësor"
                       style={({ pressed }) => [
                         styles.activePill,
                         {
                           backgroundColor: player
-                            ? STATUS_TONE[player.health_status] ?? C.green
+                            ? STATUS_TONE(C)[player.health_status] ?? C.green
                             : C.green,
                         },
                         pressed && styles.pressed,
@@ -395,7 +402,7 @@ export default function PlayerProfileScreen() {
                         <MaterialCommunityIcons
                           name="chevron-down"
                           size={I(10)}
-                          color="#F5F5F5"
+                          color="#FFFFFF"
                         />
                       ) : null}
                     </Pressable>
@@ -467,7 +474,7 @@ export default function PlayerProfileScreen() {
                 <View style={styles.starWrap}>
                   {/* Same artwork scaled up and tinted black, sitting behind the
                       star — gives a uniform outline that keeps the sharp tips. */}
-                  <Image source={IMG.star} style={styles.starOutline} tintColor="#000000" />
+                  <Image source={IMG.star} style={styles.starOutline} tintColor={C.inkText} />
                   <Image source={IMG.star} style={styles.starImg} resizeMode="contain" />
                 </View>
                 <Text style={styles.emptyText}>Nuk ka vlerësime akoma.</Text>
@@ -571,7 +578,7 @@ export default function PlayerProfileScreen() {
 /* Styles                                                              */
 /* ------------------------------------------------------------------ */
 
-const styles = StyleSheet.create(
+const createStyles = (C: AppColorsOf<typeof C_LIGHT>) => StyleSheet.create(
   scaled({
     safe: {
       flex: 1,
@@ -616,7 +623,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 11,
       lineHeight: 14,
-      color: C.gray,
+      color: C.grayText,
       marginBottom: 1,
     },
 
@@ -625,7 +632,7 @@ const styles = StyleSheet.create(
       fontSize: 20,
       lineHeight: 24,
       letterSpacing: -0.3,
-      color: C.text,
+      color: C.textText,
     },
 
     scroll: {
@@ -638,19 +645,20 @@ const styles = StyleSheet.create(
       flexDirection: 'row',
       alignItems: 'center',
       gap: 10,
-      height: 36,
-      paddingHorizontal: 12,
-      backgroundColor: C.blue2,
+      height: 44,
+      paddingHorizontal: 14,
+      backgroundColor: C.blue2Fill,
       borderWidth: 1,
-      borderColor: '#000000',
-      borderRadius: 4,
+      borderColor: C.borderBorder,
+      borderRadius: 10,
       marginTop: 4,
     },
 
     playerBtnText: {
       fontFamily: Fonts.bodyBold,
-      fontSize: 12,
-      color: '#000000',
+      fontSize: 13,
+      lineHeight: 18,
+      color: C.textText,
     },
 
     /* Menu opens directly under the button, capped so a long squad scrolls. */
@@ -661,24 +669,24 @@ const styles = StyleSheet.create(
     playerMenu: {
       maxHeight: 220,
       marginTop: 3,
-      backgroundColor: C.blue2,
+      backgroundColor: C.blue2Fill,
       borderWidth: 1,
-      borderColor: C.border,
+      borderColor: C.borderBorder,
       borderRadius: 4,
     },
 
     playerMenuItem: {
-      minHeight: 34,
+      minHeight: 44,
       justifyContent: 'center',
       paddingHorizontal: 12,
       borderBottomWidth: 1,
-      borderBottomColor: C.line,
+      borderBottomColor: C.lineBorder,
     },
 
     playerMenuItemText: {
       fontFamily: Fonts.body,
       fontSize: 12,
-      color: C.text,
+      color: C.textText,
     },
 
     playerMenuEmpty: {
@@ -686,7 +694,7 @@ const styles = StyleSheet.create(
       paddingVertical: 10,
       fontFamily: Fonts.body,
       fontSize: 12,
-      color: C.hint,
+      color: C.hintText,
     },
 
     /* ── Parallel card rows ──────────────────────────────────── */
@@ -699,9 +707,9 @@ const styles = StyleSheet.create(
 
     /* Shared shell for the column cards and the full-width ones. */
     card: {
-      backgroundColor: C.blue2,
+      backgroundColor: C.blue2Fill,
       borderWidth: 1,
-      borderColor: C.border,
+      borderColor: C.borderBorder,
       borderRadius: 7,
       overflow: 'hidden',
     },
@@ -717,12 +725,12 @@ const styles = StyleSheet.create(
       paddingHorizontal: 10,
       paddingTop: 8,
       paddingBottom: 8,
-      backgroundColor: C.blue1,
+      backgroundColor: C.blue1Fill,
     },
 
     /* Same, for the full-width cards that have no inner padding. */
     bodyFlat: {
-      backgroundColor: C.blue1,
+      backgroundColor: C.blue1Fill,
     },
 
     duoCard: {
@@ -743,21 +751,21 @@ const styles = StyleSheet.create(
       paddingHorizontal: 12,
       paddingVertical: 11,
       borderBottomWidth: 1,
-      borderBottomColor: C.headLine,
+      borderBottomColor: C.headLineBorder,
     },
 
     cardHeadText: {
       fontFamily: Fonts.bodyBold,
       fontSize: 15,
       lineHeight: 19,
-      color: C.text,
+      color: C.textText,
     },
 
     cardTitle: {
       fontFamily: Fonts.bodyBold,
       fontSize: 12.5,
       lineHeight: 16,
-      color: C.text,
+      color: C.textText,
     },
 
     /* The rules close the blue2 head and run edge to edge so each card reads
@@ -766,21 +774,21 @@ const styles = StyleSheet.create(
     thinRule: {
       height: 1,
       marginHorizontal: -10,
-      backgroundColor: C.text,
+      backgroundColor: C.textFill,
       marginTop: 6,
     },
 
     blackRule: {
       height: 1,
       marginHorizontal: -10,
-      backgroundColor: C.text,
+      backgroundColor: C.textFill,
       marginTop: 8,
     },
 
     grayRule: {
       height: 1,
       marginHorizontal: -10,
-      backgroundColor: C.hintSoft,
+      backgroundColor: C.hintSoftFill,
       marginTop: 6,
     },
 
@@ -795,9 +803,9 @@ const styles = StyleSheet.create(
       width: 64,
       height: 64,
       borderRadius: 8,
-      backgroundColor: '#F5F5F5',
+      backgroundColor: C.whiteFill,
       borderWidth: 1,
-      borderColor: '#000000',
+      borderColor: C.borderBorder,
       alignItems: 'center',
       justifyContent: 'center',
     },
@@ -817,14 +825,14 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodyBold,
       fontSize: 13,
       lineHeight: 16,
-      color: C.text,
+      color: C.textText,
     },
 
     playerSub: {
       fontFamily: Fonts.body,
       fontSize: 10,
       lineHeight: 13,
-      color: C.hint,
+      color: C.hintText,
       marginTop: 1,
     },
 
@@ -832,7 +840,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 10.5,
       lineHeight: 13,
-      color: C.hint,
+      color: C.hintText,
       marginTop: 5,
     },
 
@@ -842,17 +850,17 @@ const styles = StyleSheet.create(
       flexDirection: 'row',
       alignItems: 'center',
       gap: 3,
-      paddingHorizontal: 9,
-      paddingVertical: 2,
+      paddingHorizontal: 10,
+      paddingVertical: 5,
       borderRadius: 999,
-      backgroundColor: C.green,
+      backgroundColor: C.greenFill,
     },
 
     activePillText: {
       fontFamily: Fonts.bodySemiBold,
-      fontSize: 9.5,
-      lineHeight: 12,
-      color: '#F5F5F5',
+      fontSize: 11,
+      lineHeight: 15,
+      color: '#FFFFFF',
     },
 
     statRow: {
@@ -879,7 +887,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 9,
       lineHeight: 12,
-      color: C.hint,
+      color: C.hintText,
       marginTop: 1,
     },
 
@@ -897,13 +905,13 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodyBold,
       fontSize: 12.5,
       lineHeight: 16,
-      color: C.text,
+      color: C.textText,
     },
 
     rateAvg: {
       fontFamily: Fonts.bodyBold,
       fontSize: 13,
-      color: C.green,
+      color: C.greenText,
     },
 
     rateRow: {
@@ -921,27 +929,27 @@ const styles = StyleSheet.create(
       flexShrink: 1,
       fontFamily: Fonts.body,
       fontSize: 10.5,
-      color: C.hint,
+      color: C.hintText,
     },
 
     rateValue: {
       fontFamily: Fonts.bodyBold,
       fontSize: 10.5,
-      color: C.text,
+      color: C.textText,
     },
 
     rail: {
       height: 4,
       marginTop: 4,
       borderRadius: 2,
-      backgroundColor: C.hintSoft,
+      backgroundColor: C.hintSoftFill,
       overflow: 'hidden',
     },
 
     railFill: {
       height: '100%',
       borderRadius: 2,
-      backgroundColor: C.green,
+      backgroundColor: C.greenFill,
     },
 
     /* ── Empty state ─────────────────────────────────────────── */
@@ -973,7 +981,7 @@ const styles = StyleSheet.create(
       marginTop: 10,
       fontFamily: Fonts.body,
       fontSize: 12,
-      color: C.hint,
+      color: C.hintText,
     },
 
     /* ── Prezenca ────────────────────────────────────────────── */
@@ -986,7 +994,7 @@ const styles = StyleSheet.create(
     prezencaPct: {
       fontFamily: Fonts.bodyBold,
       fontSize: 13,
-      color: C.red,
+      color: C.redText,
     },
 
     attRow: {
@@ -1012,13 +1020,13 @@ const styles = StyleSheet.create(
     attLabel: {
       fontFamily: Fonts.body,
       fontSize: 10.5,
-      color: C.hint,
+      color: C.hintText,
     },
 
     attValue: {
       fontFamily: Fonts.bodySemiBold,
       fontSize: 10.5,
-      color: C.text,
+      color: C.textText,
     },
 
     totalRow: {
@@ -1029,21 +1037,21 @@ const styles = StyleSheet.create(
       marginTop: 12,
       paddingHorizontal: 8,
       borderWidth: 1,
-      borderColor: '#000000',
+      borderColor: C.borderBorder,
       borderRadius: 4,
-      backgroundColor: C.blue2,
+      backgroundColor: C.blue2Fill,
     },
 
     totalRowLabel: {
       fontFamily: Fonts.body,
       fontSize: 9.5,
-      color: C.hint,
+      color: C.hintText,
     },
 
     totalRowValue: {
       fontFamily: Fonts.bodyBold,
       fontSize: 11.5,
-      color: C.text,
+      color: C.textText,
     },
 
     /* ── Details ─────────────────────────────────────────────── */
@@ -1057,13 +1065,13 @@ const styles = StyleSheet.create(
 
     detRowLine: {
       borderBottomWidth: 1,
-      borderBottomColor: C.rowLine,
+      borderBottomColor: C.rowLineBorder,
     },
 
     detLabel: {
       fontFamily: Fonts.body,
       fontSize: 10,
-      color: C.hint,
+      color: C.hintText,
     },
 
     detValue: {
@@ -1071,7 +1079,7 @@ const styles = StyleSheet.create(
       textAlign: 'right',
       fontFamily: Fonts.bodyBold,
       fontSize: 10,
-      color: C.text,
+      color: C.textText,
     },
 
     /* ── Injury history ──────────────────────────────────────── */
@@ -1091,14 +1099,14 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodyBold,
       fontSize: 13,
       lineHeight: 16,
-      color: C.text,
+      color: C.textText,
     },
 
     injurySub: {
       fontFamily: Fonts.body,
       fontSize: 10,
       lineHeight: 13,
-      color: C.hint,
+      color: C.hintText,
       marginTop: 2,
     },
 
@@ -1106,14 +1114,14 @@ const styles = StyleSheet.create(
       paddingHorizontal: 10,
       paddingVertical: 4,
       borderRadius: 999,
-      backgroundColor: C.green,
+      backgroundColor: C.greenFill,
     },
 
     healedPillText: {
       fontFamily: Fonts.bodySemiBold,
       fontSize: 10,
       lineHeight: 13,
-      color: '#F5F5F5',
+      color: '#FFFFFF',
     },
 
     pressed: {

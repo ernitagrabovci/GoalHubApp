@@ -23,10 +23,11 @@ import { ApiError } from '@/lib/api/errors';
 import type { ApiCompetition } from '@/lib/api/types';
 import { I, scaled } from '@/lib/responsive';
 import { useSession } from '@/lib/session';
+import { useAppColors, usePaletteStyles, type AppColorsOf } from '@/lib/app-theme';
 
 /**
  * Kompeticionet — page opened from the club profile's "Kompeticionet" card.
- * Same visual language as the dashboards: #FAFBFA canvas, cards with a thin
+ * Same visual language as the dashboards: #F7F9F8 canvas, cards with a thin
  * border and light-blue interior, green actions. Two large cards: an add
  * form ("Shto Kompeticion të Ri") and the club's competition list whose
  * header reads "Rrjetet sociale". Rows carry colored text badges
@@ -38,37 +39,37 @@ import { useSession } from '@/lib/session';
  * `DELETE /competitions/{id}`, then reload the list.
  */
 
-const C = {
-  page: '#FAFBFA',
+const C_LIGHT = {
+  page: '#F7F9F8',
   line: 'rgba(0,0,0,0.025)',
-  card: '#F6FBFF', // light-blue interior (the write areas share this tone)
+  card: '#F7F9F8', // light-blue interior (the write areas share this tone)
   border: 'rgba(100,140,190,0.30)',
   headLine: 'rgba(30,40,35,0.10)',
-  inputBorder: '#000000',
+  inputBorder: '#DCE5DF',
   placeholder: '#A8A8A8',
-  text: '#111111',
-  gray: '#8A8A8A',
+  text: '#17251E',
+  gray: '#52645A',
   name: '#7A7A7A',
-  green: '#159447',
+  green: '#2E7D5B',
   greenBtn: '#049729',
   kupe: '#E48500',
   lige: '#008CE4',
   mikesore: '#049729',
-  red: '#E03131',
+  red: '#B91C1C',
   fshi: '#D90000',
   chipOff: '#C4C4C4',
-  white: '#F5F5F5',
+  white: '#FFFFFF',
 };
 
 const DIVIDER = 'rgba(30,40,35,0.10)';
 
 type CompType = { key: string; label: string; color: string };
 
-const COMP_TYPES: CompType[] = [
-  { key: 'kupe', label: 'Kupë', color: C.kupe },
-  { key: 'lige', label: 'Ligë', color: C.lige },
-  { key: 'mikesore', label: 'Miqësore', color: C.mikesore },
-];
+const COMP_TYPES = (C: AppColorsOf<typeof C_LIGHT>): CompType[] => ([
+  { key: 'kupe', label: 'Kupë', color: C.kupeText },
+  { key: 'lige', label: 'Ligë', color: C.ligeText },
+  { key: 'mikesore', label: 'Miqësore', color: C.mikesoreText },
+]);
 
 type CompRow = {
   id: number;
@@ -78,15 +79,15 @@ type CompRow = {
 };
 
 /** Backend competition type → the badge shown on the row. */
-const TYPE_BY_API: Record<string, CompType> = {
-  cup: COMP_TYPES[0],
-  league: COMP_TYPES[1],
-  friendly: COMP_TYPES[2],
-};
+const TYPE_BY_API = (C: AppColorsOf<typeof C_LIGHT>): Record<string, CompType> => ({
+  cup: COMP_TYPES(C)[0],
+  league: COMP_TYPES(C)[1],
+  friendly: COMP_TYPES(C)[2],
+});
 
 /** An unrecognised backend type falls back to the "Ligë" badge. */
-function toCompType(type: string): CompType {
-  return TYPE_BY_API[type.toLowerCase()] ?? COMP_TYPES[1];
+function toCompType(type: string, C: AppColorsOf<typeof C_LIGHT>): CompType {
+  return TYPE_BY_API(C)[type.toLowerCase()] ?? COMP_TYPES(C)[1];
 }
 
 /** The form's badge key → the value the API's `type` field expects. */
@@ -107,16 +108,18 @@ function errorText(error: unknown): string {
 }
 
 /** Maps an API competition onto the page's row shape. */
-function toRow(c: ApiCompetition): CompRow {
+function toRow(c: ApiCompetition, C: AppColorsOf<typeof C_LIGHT>): CompRow {
   return {
     id: c.id,
     name: c.name,
-    type: toCompType(c.type),
+    type: toCompType(c.type, C),
     active: c.is_active,
   };
 }
 
 export default function CompetitionsScreen() {
+  const C = useAppColors(C_LIGHT);
+  const styles = usePaletteStyles(createStyles, C);
   const router = useRouter();
   const { token, signOut } = useSession();
 
@@ -134,7 +137,7 @@ export default function CompetitionsScreen() {
     listCompetitions(token, controller.signal)
       .then((res) => {
         if (controller.signal.aborted) return;
-        setList(res.data.map(toRow));
+        setList(res.data.map((c) => toRow(c, C)));
       })
       .catch((e) => {
         if (controller.signal.aborted) return;
@@ -144,7 +147,7 @@ export default function CompetitionsScreen() {
         }
       });
     return () => controller.abort();
-  }, [token, router, signOut, reloadKey]);
+  }, [token, router, signOut, reloadKey, C]);
 
   /** A write finished — clear any error and re-run the list fetch. */
   const refresh = () => {
@@ -215,7 +218,7 @@ export default function CompetitionsScreen() {
       .catch(onWriteError);
   };
 
-  const selectedType = COMP_TYPES.find((t) => t.key === typeKey);
+  const selectedType = COMP_TYPES(C).find((t) => t.key === typeKey);
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
@@ -239,7 +242,7 @@ export default function CompetitionsScreen() {
                 accessibilityLabel="Kthehu prapa"
                 style={({ pressed }) => [styles.backBtn, pressed && styles.pressed]}
               >
-                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.text} />
+                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.textText} />
               </Pressable>
               <View style={styles.headerText}>
                 <Text style={styles.title}>Kompeticionet</Text>
@@ -267,7 +270,7 @@ export default function CompetitionsScreen() {
                       value={name}
                       onChangeText={setName}
                       placeholder="Superliga"
-                      placeholderTextColor={C.placeholder}
+                      placeholderTextColor={C.placeholderText}
                       allowFontScaling={false}
                       style={styles.input}
                     />
@@ -287,14 +290,14 @@ export default function CompetitionsScreen() {
                       >
                         {selectedType ? selectedType.label : 'Zgjidh…'}
                       </Text>
-                      <MaterialCommunityIcons name="chevron-down" size={I(18)} color={C.gray} />
+                      <MaterialCommunityIcons name="chevron-down" size={I(18)} color={C.grayText} />
                     </Pressable>
                   </View>
                 </View>
 
                 {typeOpen ? (
                   <View style={styles.optBox}>
-                    {COMP_TYPES.map((t) => {
+                    {COMP_TYPES(C).map((t) => {
                       const active = t.key === typeKey;
                       return (
                         <Pressable
@@ -359,7 +362,7 @@ export default function CompetitionsScreen() {
                       </Text>
                     </View>
                     <Text
-                      style={[styles.compName, dim && { color: C.gray }]}
+                      style={[styles.compName, dim && { color: C.grayText }]}
                       numberOfLines={1}
                     >
                       {row.name}
@@ -406,7 +409,7 @@ export default function CompetitionsScreen() {
   );
 }
 
-const styles = StyleSheet.create(
+const createStyles = (C: AppColorsOf<typeof C_LIGHT>) => StyleSheet.create(
   scaled({
     safe: {
       flex: 1,
@@ -492,14 +495,14 @@ const styles = StyleSheet.create(
       fontSize: 20,
       lineHeight: 24,
       letterSpacing: -0.3,
-      color: C.text,
+      color: C.textText,
     },
 
     subtitle: {
       fontFamily: Fonts.body,
       fontSize: 12,
       lineHeight: 16,
-      color: C.gray,
+      color: C.grayText,
       marginTop: 1,
     },
 
@@ -508,9 +511,9 @@ const styles = StyleSheet.create(
     },
 
     card: {
-      backgroundColor: C.card,
+      backgroundColor: C.cardFill,
       borderWidth: 2,
-      borderColor: C.border,
+      borderColor: C.borderBorder,
       borderRadius: 8,
     },
 
@@ -526,7 +529,7 @@ const styles = StyleSheet.create(
       paddingTop: 12,
       paddingBottom: 11,
       borderBottomWidth: 1,
-      borderBottomColor: C.headLine,
+      borderBottomColor: C.headLineBorder,
       borderTopLeftRadius: 7,
       borderTopRightRadius: 7,
     },
@@ -534,7 +537,7 @@ const styles = StyleSheet.create(
     cardHeadText: {
       fontFamily: Fonts.bodyBold,
       fontSize: 16,
-      color: C.text,
+      color: C.textText,
       textAlign: 'center',
     },
 
@@ -555,53 +558,54 @@ const styles = StyleSheet.create(
 
     label: {
       fontFamily: Fonts.body,
-      fontSize: 11.5,
-      color: C.gray,
+      fontSize: 12,
+      lineHeight: 16,
+      color: C.grayText,
       marginBottom: 4,
     },
 
     input: {
-      height: 42,
-      backgroundColor: C.card,
+      height: 44,
+      backgroundColor: C.cardFill,
       borderWidth: 0.5,
-      borderColor: C.inputBorder,
-      borderRadius: 4,
-      paddingHorizontal: 11,
+      borderColor: C.inputBorderBorder,
+      borderRadius: 10,
+      paddingHorizontal: 12,
       paddingVertical: 0,
-      fontSize: 13,
+      fontSize: 14,
       lineHeight: 18,
       fontFamily: Fonts.body,
-      color: C.text,
+      color: C.textText,
     },
 
     select: {
-      height: 42,
+      height: 44,
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      backgroundColor: C.card,
+      backgroundColor: C.cardFill,
       borderWidth: 0.5,
-      borderColor: C.inputBorder,
-      borderRadius: 4,
-      paddingHorizontal: 11,
+      borderColor: C.inputBorderBorder,
+      borderRadius: 10,
+      paddingHorizontal: 12,
     },
 
     selectText: {
       fontFamily: Fonts.body,
       fontSize: 13,
-      color: C.text,
+      color: C.textText,
       flex: 1,
     },
 
     placeholderText: {
-      color: C.placeholder,
+      color: C.placeholderText,
     },
 
     optBox: {
       marginTop: 5,
-      backgroundColor: '#F5F5F5',
+      backgroundColor: C.whiteFill,
       borderWidth: 0.5,
-      borderColor: C.inputBorder,
+      borderColor: C.inputBorderBorder,
       borderRadius: 4,
       overflow: 'hidden',
     },
@@ -609,8 +613,8 @@ const styles = StyleSheet.create(
     opt: {
       flexDirection: 'row',
       alignItems: 'center',
-      height: 34,
-      paddingHorizontal: 11,
+      minHeight: 44,
+      paddingHorizontal: 12,
       gap: 9,
     },
 
@@ -627,19 +631,19 @@ const styles = StyleSheet.create(
     optText: {
       fontFamily: Fonts.body,
       fontSize: 13,
-      color: C.text,
+      color: C.textText,
     },
 
     optTextActive: {
       fontFamily: Fonts.bodyBold,
-      color: C.green,
+      color: C.greenText,
     },
 
     addBtn: {
       marginTop: 14,
-      height: 42,
+      height: 44,
       borderRadius: 4,
-      backgroundColor: C.greenBtn,
+      backgroundColor: C.greenBtnFill,
       alignItems: 'center',
       justifyContent: 'center',
     },
@@ -647,7 +651,7 @@ const styles = StyleSheet.create(
     addBtnText: {
       fontFamily: Fonts.bodyBold,
       fontSize: 14,
-      color: '#F5F5F5',
+      color: '#FFFFFF',
     },
 
     /* List rows */
@@ -672,7 +676,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodyBold,
       fontSize: 10.5,
       lineHeight: 13,
-      color: C.white,
+      color: C.whiteText,
       textAlign: 'center',
     },
 
@@ -680,7 +684,7 @@ const styles = StyleSheet.create(
       flex: 1,
       fontFamily: Fonts.bodyMedium,
       fontSize: 13.5,
-      color: C.name,
+      color: C.nameText,
       marginHorizontal: 9,
     },
 
@@ -690,40 +694,42 @@ const styles = StyleSheet.create(
     },
 
     deactBtn: {
-      height: 28,
-      paddingHorizontal: 11,
+      height: 34,
+      paddingHorizontal: 12,
       borderWidth: 1,
-      borderColor: C.red,
-      borderRadius: 5,
+      borderColor: C.redBorder,
+      borderRadius: 8,
       alignItems: 'center',
       justifyContent: 'center',
     },
 
     deactText: {
       fontFamily: Fonts.bodySemiBold,
-      fontSize: 10.5,
-      color: C.red,
+      fontSize: 11.5,
+      lineHeight: 15,
+      color: C.redText,
     },
 
     delBtn: {
-      height: 28,
+      height: 34,
       paddingHorizontal: 14,
-      backgroundColor: C.fshi,
-      borderRadius: 5,
+      backgroundColor: C.fshiFill,
+      borderRadius: 8,
       alignItems: 'center',
       justifyContent: 'center',
     },
 
     delText: {
       fontFamily: Fonts.bodySemiBold,
-      fontSize: 10.5,
-      color: C.white,
+      fontSize: 11.5,
+      lineHeight: 15,
+      color: C.whiteText,
     },
 
     emptyText: {
       fontFamily: Fonts.body,
       fontSize: 13,
-      color: C.gray,
+      color: C.grayText,
       textAlign: 'center',
       paddingVertical: 18,
     },
@@ -733,7 +739,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 11.5,
       lineHeight: 15,
-      color: C.red,
+      color: C.redText,
     },
 
     goPressed: {

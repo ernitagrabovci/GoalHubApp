@@ -13,6 +13,7 @@ import type { ApiChildAttendance } from '@/lib/api/types';
 import { I, scaled } from '@/lib/responsive';
 import { useSession } from '@/lib/session';
 import { attendanceLabel, typeName } from '@/lib/trainings';
+import { useAppColors, usePaletteStyles, type AppColorsOf } from '@/lib/app-theme';
 
 /**
  * Prezenca — the child's attendance, opened from the "Prezenca" card on the
@@ -22,32 +23,32 @@ import { attendanceLabel, typeName } from '@/lib/trainings';
  * child was marked at each.
  */
 
-const C = {
-  page: '#FAFBFA',
+const C_LIGHT = {
+  page: '#F7F9F8',
   line: 'rgba(0,0,0,0.025)',
 
-  text: '#111111',
-  gray: '#8A8A8A',
+  text: '#17251E',
+  gray: '#52645A',
 
   /* The card's pale blue wash and its blue rim. */
-  blue2: '#F6FBFF',
+  blue2: '#F7F9F8',
   border: 'rgba(100,140,190,0.30)',
   rowLine: 'rgba(100,140,190,0.22)',
   headLine: 'rgba(30,40,35,0.10)',
 
-  green: '#159447',
-  red: '#E03131',
+  green: '#2E7D5B',
+  red: '#B91C1C',
 
   /* The pager's squares. */
   blue: '#86BCFD',
 };
 
 /* How a training can be marked, each reading in its own colour. */
-const TONE: Record<string, string> = {
+const TONE = (C: AppColorsOf<typeof C_LIGHT>): Record<string, string> => ({
   Prezent: C.green,
   Mungesë: C.red,
   '—': C.gray,
-};
+});
 
 type Session = {
   id: number;
@@ -84,6 +85,8 @@ function pageWindow(current: number, last: number, span = 4): number[] {
 }
 
 export default function ChildAttendanceScreen() {
+  const C = useAppColors(C_LIGHT);
+  const styles = usePaletteStyles(createStyles, C);
   const router = useRouter();
   const { token, signOut } = useSession();
 
@@ -143,7 +146,7 @@ export default function ChildAttendanceScreen() {
                 accessibilityLabel="Kthehu prapa"
                 style={({ pressed }) => [styles.backBtn, pressed && styles.pressed]}
               >
-                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.text} />
+                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.textText} />
               </Pressable>
               <View style={styles.headerText}>
                 <Text
@@ -198,7 +201,7 @@ export default function ChildAttendanceScreen() {
                         styles.td,
                         styles.colStatus,
                         styles.tdStrong,
-                        { color: TONE[s.status] ?? C.text },
+                        { color: TONE(C)[s.status] ?? C.text },
                       ]}
                       numberOfLines={1}
                     >
@@ -232,7 +235,7 @@ export default function ChildAttendanceScreen() {
                     pressed && styles.pressed,
                   ]}
                 >
-                  <MaterialCommunityIcons name="chevron-left" size={I(22)} color={C.text} />
+                  <MaterialCommunityIcons name="chevron-left" size={I(22)} color={C.textText} />
                 </Pressable>
 
                 {pageWindow(current, lastPage).map((p) => (
@@ -262,7 +265,7 @@ export default function ChildAttendanceScreen() {
                     pressed && styles.pressed,
                   ]}
                 >
-                  <MaterialCommunityIcons name="chevron-right" size={I(22)} color={C.text} />
+                  <MaterialCommunityIcons name="chevron-right" size={I(22)} color={C.textText} />
                 </Pressable>
               </View>
             ) : null}
@@ -277,7 +280,7 @@ export default function ChildAttendanceScreen() {
 /* Styles                                                              */
 /* ------------------------------------------------------------------ */
 
-const styles = StyleSheet.create(
+const createStyles = (C: AppColorsOf<typeof C_LIGHT>) => StyleSheet.create(
   scaled({
     safe: {
       flex: 1,
@@ -322,7 +325,7 @@ const styles = StyleSheet.create(
       fontSize: 20,
       lineHeight: 24,
       letterSpacing: -0.3,
-      color: C.text,
+      color: C.textText,
     },
 
     scroll: {
@@ -332,9 +335,9 @@ const styles = StyleSheet.create(
     /* ── Table ───────────────────────────────────────────────── */
     card: {
       marginTop: 14,
-      backgroundColor: C.blue2,
+      backgroundColor: C.blue2Fill,
       borderWidth: 2,
-      borderColor: C.border,
+      borderColor: C.borderBorder,
       borderRadius: 7,
       overflow: 'hidden',
     },
@@ -356,19 +359,19 @@ const styles = StyleSheet.create(
       paddingTop: 9,
       paddingBottom: 7,
       borderBottomWidth: 1,
-      borderBottomColor: C.headLine,
+      borderBottomColor: C.headLineBorder,
     },
 
     trBorder: {
       borderTopWidth: 1,
-      borderTopColor: C.rowLine,
+      borderTopColor: C.rowLineBorder,
     },
 
     th: {
       fontFamily: Fonts.bodySemiBold,
       fontSize: 9,
       lineHeight: 12,
-      color: C.gray,
+      color: C.grayText,
       textAlign: 'center',
     },
 
@@ -376,13 +379,13 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 9.5,
       lineHeight: 12,
-      color: C.gray,
+      color: C.grayText,
       textAlign: 'center',
     },
 
     tdStrong: {
       fontFamily: Fonts.bodyBold,
-      color: C.text,
+      color: C.textText,
     },
 
     colType: {
@@ -403,7 +406,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 9.5,
       lineHeight: 13,
-      color: C.gray,
+      color: C.grayText,
       textAlign: 'left',
     },
 
@@ -426,18 +429,18 @@ const styles = StyleSheet.create(
     },
 
     pageSq: {
-      width: 34,
-      height: 34,
-      borderRadius: 5,
-      backgroundColor: C.blue,
+      width: 44,
+      height: 44,
+      borderRadius: 10,
+      backgroundColor: C.blueFill,
       alignItems: 'center',
       justifyContent: 'center',
     },
 
     pageSqActive: {
-      width: 34,
-      height: 34,
-      borderRadius: 5,
+      width: 44,
+      height: 44,
+      borderRadius: 10,
       backgroundColor: '#4E90D8',
       alignItems: 'center',
       justifyContent: 'center',
@@ -446,7 +449,7 @@ const styles = StyleSheet.create(
     pageSqText: {
       fontFamily: Fonts.bodySemiBold,
       fontSize: 14,
-      color: '#F5F5F5',
+      color: '#FFFFFF',
     },
 
     pressed: {

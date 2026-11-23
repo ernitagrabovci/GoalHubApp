@@ -14,8 +14,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
 import { DashboardHero } from '@/components/dashboard/dashboard-hero';
+import { DashboardC } from '@/constants/dashboard-theme';
+import { useAppColors, usePaletteStyles, type AppColorsOf } from '@/lib/app-theme';
+import { useGlass } from '@/lib/glass';
 import { Fonts } from '@/constants/theme';
-import { ApiError } from '@/lib/api/errors';
+import { ApiError, loadErrorMessage } from '@/lib/api/errors';
 import { financeStats, listFees } from '@/lib/api/finance';
 import { badges } from '@/lib/api/notifications';
 import type { ApiFee, FinanceStats } from '@/lib/api/types';
@@ -40,30 +43,6 @@ import { useSession } from '@/lib/session';
  *   hidden). Do NOT center them or give them their own white boxes.
  * - Content is intentionally compact so it fits without scrolling.
  */
-
-const C = {
-  bg: '#FAFBFA',
-  line: 'rgba(0,0,0,0.025)',
-
-  white: '#F5F5F5',
-  text: '#111111',
-
-  gray: '#666666',
-  muted: '#888888',
-
-  border: '#D9DEDB',
-  cardBorder: 'rgba(30,40,35,0.10)',
-
-  green: '#159447',
-  greenDark: '#0C6C36',
-  red: '#E54848',
-  gold: '#D2A900',
-
-  greenBorder: '#4DBB7B',
-  lightGreen: '#DDF6E7',
-
-  profileBg: '#E0F6E9',
-};
 
 /* =========================================================
    ASSETS
@@ -91,12 +70,17 @@ const SUMMARY_LABELS = ['Të paguar', 'Të papaguara', 'Me vonesë', 'Në total'
    ========================================================= */
 
 export function FinancierHome() {
+  const glass = useGlass();
+  const C = useAppColors(DashboardC);
+  const styles = usePaletteStyles(createStyles, C);
   const router = useRouter();
   const { user, token, signOut } = useSession();
 
   const [stats, setStats] = useState<FinanceStats | null>(null);
   const [recent, setRecent] = useState<ApiFee[]>([]);
   const [unread, setUnread] = useState(0);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
   /* The headline totals and the recent-payments strip are one-shot. */
   useEffect(() => {
@@ -125,10 +109,21 @@ export function FinancierHome() {
       if (totals.status === 'fulfilled') setStats(totals.value);
       if (paid.status === 'fulfilled') setRecent(paid.value.data.slice(0, 6));
       if (counts.status === 'fulfilled') setUnread(counts.value.notifications);
+      const failed = [totals, paid, counts].find((r) => r.status === 'rejected');
+      if (failed && failed.status === 'rejected') {
+        setLoadError(
+          loadErrorMessage(failed.reason, 'Nuk mund të ngarkohen të dhënat. Kontrollo lidhjen.'),
+        );
+      }
     });
 
     return () => controller.abort();
-  }, [token, router, signOut]);
+  }, [token, router, signOut, reloadKey]);
+
+  const retry = () => {
+    setLoadError(null);
+    setReloadKey((value) => value + 1);
+  };
 
   /* Each grid cell reads straight off the totals. */
   const summaryValues = stats
@@ -176,6 +171,20 @@ export function FinancierHome() {
                 Mirë se vini, {user?.name ?? ''}
               </Text>
             </View>
+
+            {loadError ? (
+              <View style={styles.loadError}>
+                <Text style={styles.loadErrorText}>{loadError}</Text>
+                <Pressable
+                  onPress={retry}
+                  accessibilityRole="button"
+                  accessibilityLabel="Provo përsëri"
+                  style={({ pressed }) => [styles.loadRetry, pressed && styles.pressed]}
+                >
+                  <Text style={styles.loadRetryText}>Provo përsëri</Text>
+                </Pressable>
+              </View>
+            ) : null}
           </View>
 
           {/* =================================================
@@ -186,25 +195,20 @@ export function FinancierHome() {
             <View style={styles.statsCard}>
               <BlurView
                 intensity={55}
-                tint="light"
+                tint={glass.tint}
                 experimentalBlurMethod="dimezisBlurView"
                 style={StyleSheet.absoluteFill}
                 pointerEvents="none"
               />
               <LinearGradient
-                colors={['rgba(255,255,255,0.38)', 'rgba(255,255,255,0.04)', 'rgba(255,255,255,0.24)']}
+                colors={glass.highlight}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={StyleSheet.absoluteFill}
                 pointerEvents="none"
               />
               <LinearGradient
-                colors={[
-                  'rgba(255,255,255,0)',
-                  'rgba(255,255,255,0.78)',
-                  'rgba(255,255,255,0.55)',
-                  'rgba(255,255,255,0)',
-                ]}
+                colors={glass.sweep}
                 locations={[0, 0.38, 0.62, 1]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
@@ -212,7 +216,7 @@ export function FinancierHome() {
                 pointerEvents="none"
               />
               <LinearGradient
-                colors={['rgba(255,255,255,0)', 'rgba(255,255,255,0.55)', 'rgba(255,255,255,0)']}
+                colors={glass.sweepSoft}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={styles.statsGloss2}
@@ -224,7 +228,7 @@ export function FinancierHome() {
                 labelTop="Totali"
                 labelBottom="paguar"
                 value={stats ? usd(stats.collected) : '—'}
-                color={C.green}
+                color={C.greenText}
                 valueSize={12.5}
                 img={IMG.statCalc}
                 imgStyle={styles.statImgStat}
@@ -236,7 +240,7 @@ export function FinancierHome() {
                 labelTop="Totali"
                 labelBottom="papaguar"
                 value={stats ? usd(stats.pending) : '—'}
-                color={C.red}
+                color={C.redText}
                 valueSize={12.5}
                 img={IMG.statCalc}
                 imgStyle={styles.statImgStat}
@@ -248,7 +252,7 @@ export function FinancierHome() {
                 labelTop="Vonëse"
                 labelBottom="Kritike"
                 value={stats ? String(stats.overdue) : '—'}
-                color={C.gold}
+                color={C.goldText}
                 valueSize={20}
                 img={IMG.statCalc}
                 imgStyle={styles.statImgStat}
@@ -339,7 +343,7 @@ export function FinancierHome() {
                 <MaterialCommunityIcons
                   name="chevron-right"
                   size={I(15)}
-                  color={C.text}
+                  color={C.textText}
                 />
               </Pressable>
             </View>
@@ -408,6 +412,8 @@ function HeaderBlock({
   onBell: () => void;
   onSettings: () => void;
 }) {
+  const C = useAppColors(DashboardC);
+  const styles = usePaletteStyles(createStyles, C);
   return (
     <View style={styles.header}>
 
@@ -434,7 +440,7 @@ function HeaderBlock({
           <MaterialCommunityIcons
             name="chevron-down"
             size={I(12)}
-            color="rgba(12,37,27,0.65)"
+            color={C.heroMutedText}
           />
         </View>
       </View>
@@ -456,7 +462,7 @@ function HeaderBlock({
           <MaterialCommunityIcons
             name="bell-outline"
             size={I(20)}
-            color={C.text}
+            color={C.textText}
           />
 
           {unread > 0 ? (
@@ -481,7 +487,7 @@ function HeaderBlock({
           <MaterialCommunityIcons
             name="cog-outline"
             size={I(20)}
-            color={C.green}
+            color={C.greenText}
           />
         </Pressable>
 
@@ -513,6 +519,8 @@ function StatCard({
   img,
   imgStyle,
 }: StatCardProps) {
+  const C = useAppColors(DashboardC);
+  const styles = usePaletteStyles(createStyles, C);
   return (
     <View style={styles.statItem}>
 
@@ -560,7 +568,7 @@ function StatCard({
    STYLES
    ========================================================= */
 
-const styles = StyleSheet.create(scaled({
+const createStyles = (C: AppColorsOf<typeof DashboardC>) => StyleSheet.create(scaled({
 
   /* =======================================================
      PAGE
@@ -585,6 +593,45 @@ const styles = StyleSheet.create(scaled({
 
   pressed: {
     opacity: 0.65,
+  },
+
+  /* Compact failure strip: the feeds are independent, so it sits under the
+     greeting and clears on retry. */
+  loadError: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+    marginTop: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: C.whiteFill,
+    borderWidth: 1,
+    borderColor: C.borderBorder,
+    borderRadius: 10,
+  },
+
+  loadErrorText: {
+    flex: 1,
+    fontFamily: Fonts.body,
+    fontSize: 12.5,
+    lineHeight: 18,
+    color: C.textText,
+  },
+
+  loadRetry: {
+    minHeight: 44,
+    justifyContent: 'center',
+    paddingHorizontal: 14,
+    borderWidth: 1,
+    borderColor: C.greenBorder,
+    borderRadius: 10,
+  },
+
+  loadRetryText: {
+    fontFamily: Fonts.bodySemiBold,
+    fontSize: 13,
+    color: C.greenText,
   },
 
   /* =======================================================
@@ -621,7 +668,7 @@ const styles = StyleSheet.create(scaled({
 
     letterSpacing: -0.35,
 
-    color: '#0C251B',
+    color: C.textText,
   },
 
   clubRow: {
@@ -637,7 +684,7 @@ const styles = StyleSheet.create(scaled({
 
     lineHeight: 16,
 
-    color: 'rgba(12,37,27,0.65)',
+    color: C.heroMutedText,
   },
 
   headerRight: {
@@ -656,7 +703,7 @@ const styles = StyleSheet.create(scaled({
 
     borderRadius: 18,
 
-    backgroundColor: C.white,
+    backgroundColor: C.whiteFill,
 
     borderWidth: 1,
     borderColor: 'rgba(30,40,35,0.10)',
@@ -681,7 +728,7 @@ const styles = StyleSheet.create(scaled({
 
     borderRadius: 18,
 
-    backgroundColor: C.profileBg,
+    backgroundColor: C.profileBgFill,
 
     alignItems: 'center',
     justifyContent: 'center',
@@ -698,7 +745,7 @@ const styles = StyleSheet.create(scaled({
 
     borderRadius: 8,
 
-    backgroundColor: C.green,
+    backgroundColor: C.greenFill,
 
     alignItems: 'center',
     justifyContent: 'center',
@@ -706,7 +753,7 @@ const styles = StyleSheet.create(scaled({
     paddingHorizontal: 3,
 
     borderWidth: 1.5,
-    borderColor: C.bg,
+    borderColor: C.bgBorder,
   },
 
   badgeText: {
@@ -715,7 +762,7 @@ const styles = StyleSheet.create(scaled({
 
     lineHeight: 11,
 
-    color: C.white,
+    color: C.whiteText,
   },
 
   /* =======================================================
@@ -734,7 +781,7 @@ const styles = StyleSheet.create(scaled({
 
     letterSpacing: -0.45,
 
-    color: '#0C251B',
+    color: C.textText,
   },
 
   welcomeSub: {
@@ -743,7 +790,7 @@ const styles = StyleSheet.create(scaled({
     fontSize: 12,
     lineHeight: 16,
 
-    color: 'rgba(12,37,27,0.7)',
+    color: C.heroSubText,
 
     marginTop: 1,
   },
@@ -765,9 +812,9 @@ const styles = StyleSheet.create(scaled({
 
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#BC6C25',
+    borderColor: C.statBorderBorder,
 
-    backgroundColor: 'rgba(255,255,255,0.12)',
+    backgroundColor: C.glassBaseFill,
 
     overflow: 'hidden',
 
@@ -800,7 +847,7 @@ const styles = StyleSheet.create(scaled({
     width: StyleSheet.hairlineWidth,
     alignSelf: 'stretch',
     marginVertical: 12,
-    backgroundColor: 'rgba(16,51,38,0.18)',
+    backgroundColor: C.glassDividerFill,
   },
 
   statsGloss: {
@@ -828,7 +875,7 @@ const styles = StyleSheet.create(scaled({
     right: 10,
     height: 1.5,
     borderRadius: 1,
-    backgroundColor: 'rgba(255,255,255,0.95)',
+    backgroundColor: C.glassEdgeFill,
   },
 
   statLabel: {
@@ -837,7 +884,7 @@ const styles = StyleSheet.create(scaled({
     fontSize: 9.5,
     lineHeight: 11.5,
 
-    color: '#5B6663',
+    color: C.statLabelSoftText,
 
     zIndex: 3,
   },
@@ -886,10 +933,10 @@ const styles = StyleSheet.create(scaled({
 
     height: 60,
 
-    backgroundColor: C.lightGreen,
+    backgroundColor: C.lightGreenFill,
 
     borderWidth: 1,
-    borderColor: C.greenBorder,
+    borderColor: C.greenBorderBorder,
 
     borderRadius: 10,
 
@@ -905,7 +952,7 @@ const styles = StyleSheet.create(scaled({
     fontSize: 11.5,
     lineHeight: 15,
 
-    color: C.gray,
+    color: C.grayText,
 
     textAlign: 'center',
   },
@@ -918,7 +965,7 @@ const styles = StyleSheet.create(scaled({
 
     letterSpacing: -0.5,
 
-    color: C.gray,
+    color: C.grayText,
 
     marginTop: 8,
   },
@@ -930,10 +977,10 @@ const styles = StyleSheet.create(scaled({
   tblCard: {
     marginTop: 14,
 
-    backgroundColor: C.white,
+    backgroundColor: C.whiteFill,
 
     borderWidth: 1,
-    borderColor: C.greenBorder,
+    borderColor: C.greenBorderBorder,
 
     borderRadius: 8,
 
@@ -946,7 +993,7 @@ const styles = StyleSheet.create(scaled({
     fontSize: 13,
     lineHeight: 16,
 
-    color: C.text,
+    color: C.textText,
 
     paddingVertical: 10,
     paddingHorizontal: 12,
@@ -966,7 +1013,7 @@ const styles = StyleSheet.create(scaled({
 
     marginHorizontal: 1,
 
-    backgroundColor: C.greenBorder,
+    backgroundColor: C.greenBorderFill,
 
     borderRadius: 1,
   },
@@ -977,7 +1024,7 @@ const styles = StyleSheet.create(scaled({
     fontSize: 12,
     lineHeight: 15,
 
-    color: C.text,
+    color: C.textText,
 
     width: 92,
 
@@ -990,7 +1037,7 @@ const styles = StyleSheet.create(scaled({
     fontSize: 10.5,
     lineHeight: 13,
 
-    color: C.muted,
+    color: C.mutedText,
 
     flex: 1,
 
@@ -1003,7 +1050,7 @@ const styles = StyleSheet.create(scaled({
     fontSize: 12,
     lineHeight: 15,
 
-    color: C.green,
+    color: C.greenText,
 
     width: 64,
 
@@ -1026,7 +1073,7 @@ const styles = StyleSheet.create(scaled({
     fontSize: 11.5,
     lineHeight: 15,
 
-    color: C.text,
+    color: C.textText,
   },
 
   /* =======================================================
@@ -1040,10 +1087,10 @@ const styles = StyleSheet.create(scaled({
 
     position: 'relative',
 
-    backgroundColor: '#E7E4FA',
+    backgroundColor: C.featCardBgFill,
 
     borderWidth: 1,
-    borderColor: '#C9C2ED',
+    borderColor: C.featCardBorderBorder,
 
     borderRadius: 12,
 
@@ -1101,7 +1148,7 @@ const styles = StyleSheet.create(scaled({
 
     letterSpacing: -0.5,
 
-    color: '#1E1A45',
+    color: C.featTitleText,
   },
 
   featBtn: {
@@ -1126,6 +1173,6 @@ const styles = StyleSheet.create(scaled({
     fontSize: 12,
     lineHeight: 15,
 
-    color: C.white,
+    color: C.whiteText,
   },
 }));

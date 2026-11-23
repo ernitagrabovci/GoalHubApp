@@ -13,25 +13,26 @@ import type { ApiTraining } from '@/lib/api/types';
 import { I, scaled } from '@/lib/responsive';
 import { useSession } from '@/lib/session';
 import { attendanceLabel, durationLabel, trainingDate, trainingTime, typeName } from '@/lib/trainings';
+import { useAppColors, usePaletteStyles, type AppColorsOf } from '@/lib/app-theme';
 
 /**
  * Stërvitjet — opened from "Stërvitjet" on the player's dashboard. The squad's
  * training schedule: what, when and where, and whether the player turned up.
  */
 
-const C = {
-  page: '#FAFBFA',
+const C_LIGHT = {
+  page: '#F7F9F8',
   line: 'rgba(0,0,0,0.025)',
 
-  text: '#111111',
-  gray: '#8A8A8A',
+  text: '#17251E',
+  gray: '#52645A',
 
-  frame: '#000000',
+  frame: '#DCE5DF',
   headLine: 'rgba(30,40,35,0.10)',
   rowLine: 'rgba(100,140,190,0.22)',
 
   /* blue2 = the table card's wash. */
-  blue2: '#F6FBFF',
+  blue2: '#F7F9F8',
   blueBtn: '#86BCFD',
 };
 
@@ -80,6 +81,8 @@ function pageWindow(current: number, last: number, span = 4): number[] {
 }
 
 export default function PlayerTrainingsScreen() {
+  const C = useAppColors(C_LIGHT);
+  const styles = usePaletteStyles(createStyles, C);
   const router = useRouter();
   const { token, signOut } = useSession();
 
@@ -149,7 +152,7 @@ export default function PlayerTrainingsScreen() {
                 accessibilityLabel="Kthehu prapa"
                 style={({ pressed }) => [styles.backBtn, pressed && styles.pressed]}
               >
-                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.text} />
+                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.textText} />
               </Pressable>
               <View style={styles.headerText}>
                 <Text style={styles.title} numberOfLines={1}>
@@ -230,6 +233,7 @@ export default function PlayerTrainingsScreen() {
                           }}
                           accessibilityRole="button"
                           accessibilityLabel={`Shiko ${s.type}`}
+                          hitSlop={{ top: 7, bottom: 7, left: 4, right: 4 }}
                           style={({ pressed }) => [styles.actView, pressed && styles.pressed]}
                         >
                           <Text style={styles.actViewText}>Shiko</Text>
@@ -264,7 +268,7 @@ export default function PlayerTrainingsScreen() {
                     pressed && styles.pressed,
                   ]}
                 >
-                  <MaterialCommunityIcons name="chevron-left" size={I(22)} color={C.text} />
+                  <MaterialCommunityIcons name="chevron-left" size={I(22)} color={C.textText} />
                 </Pressable>
 
                 {pageWindow(current, lastPage).map((p) => (
@@ -294,7 +298,7 @@ export default function PlayerTrainingsScreen() {
                     pressed && styles.pressed,
                   ]}
                 >
-                  <MaterialCommunityIcons name="chevron-right" size={I(22)} color={C.text} />
+                  <MaterialCommunityIcons name="chevron-right" size={I(22)} color={C.textText} />
                 </Pressable>
               </View>
             ) : null}
@@ -309,7 +313,7 @@ export default function PlayerTrainingsScreen() {
 /* Styles                                                              */
 /* ------------------------------------------------------------------ */
 
-const styles = StyleSheet.create(
+const createStyles = (C: AppColorsOf<typeof C_LIGHT>) => StyleSheet.create(
   scaled({
     safe: {
       flex: 1,
@@ -354,14 +358,14 @@ const styles = StyleSheet.create(
       fontSize: 20,
       lineHeight: 24,
       letterSpacing: -0.3,
-      color: C.text,
+      color: C.textText,
     },
 
     subtitle: {
       fontFamily: Fonts.body,
       fontSize: 12,
       lineHeight: 16,
-      color: C.gray,
+      color: C.grayText,
       marginTop: 1,
     },
 
@@ -372,9 +376,9 @@ const styles = StyleSheet.create(
     /* ── Stërvitjet table ────────────────────────────────────── */
     card: {
       marginTop: 14,
-      backgroundColor: C.blue2,
+      backgroundColor: C.blue2Fill,
       borderWidth: 2,
-      borderColor: C.rowLine,
+      borderColor: C.rowLineBorder,
       borderRadius: 7,
       overflow: 'hidden',
     },
@@ -393,7 +397,7 @@ const styles = StyleSheet.create(
       paddingTop: 10,
       paddingBottom: 8,
       borderBottomWidth: 1,
-      borderBottomColor: C.headLine,
+      borderBottomColor: C.headLineBorder,
     },
 
     tr: {
@@ -406,21 +410,21 @@ const styles = StyleSheet.create(
 
     trBorder: {
       borderTopWidth: 1,
-      borderTopColor: C.rowLine,
+      borderTopColor: C.rowLineBorder,
     },
 
     th: {
       fontFamily: Fonts.bodySemiBold,
       fontSize: 10.5,
       lineHeight: 13,
-      color: C.gray,
+      color: C.grayText,
     },
 
     td: {
       fontFamily: Fonts.body,
       fontSize: 11,
       lineHeight: 14,
-      color: C.text,
+      color: C.textText,
     },
 
     tdType: {
@@ -433,7 +437,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 11,
       lineHeight: 15,
-      color: C.gray,
+      color: C.grayText,
     },
 
     /* Transparent, so the row reads through it. */
@@ -445,19 +449,20 @@ const styles = StyleSheet.create(
     },
 
     actView: {
-      height: 24,
+      height: 30,
       paddingHorizontal: 10,
       alignItems: 'center',
       justifyContent: 'center',
       borderWidth: 1,
-      borderColor: C.frame,
-      borderRadius: 4,
+      borderColor: C.frameBorder,
+      borderRadius: 6,
     },
 
     actViewText: {
       fontFamily: Fonts.bodySemiBold,
-      fontSize: 10.5,
-      color: C.text,
+      fontSize: 11.5,
+      lineHeight: 15,
+      color: C.textText,
     },
 
     /* ── Pager ───────────────────────────────────────────────── */
@@ -479,18 +484,18 @@ const styles = StyleSheet.create(
     },
 
     pageSq: {
-      width: 34,
-      height: 34,
-      borderRadius: 5,
-      backgroundColor: C.blueBtn,
+      width: 44,
+      height: 44,
+      borderRadius: 10,
+      backgroundColor: C.blueBtnFill,
       alignItems: 'center',
       justifyContent: 'center',
     },
 
     pageSqActive: {
-      width: 34,
-      height: 34,
-      borderRadius: 5,
+      width: 44,
+      height: 44,
+      borderRadius: 10,
       backgroundColor: '#4E90D8',
       alignItems: 'center',
       justifyContent: 'center',
@@ -499,7 +504,7 @@ const styles = StyleSheet.create(
     pageSqText: {
       fontFamily: Fonts.bodySemiBold,
       fontSize: 14,
-      color: '#F5F5F5',
+      color: '#FFFFFF',
     },
 
     pressed: {

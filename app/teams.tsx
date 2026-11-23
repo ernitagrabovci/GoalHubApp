@@ -31,34 +31,43 @@ import type { ApiMember, ApiTeam, MatchReportRow, TeamStats } from '@/lib/api/ty
 import { listUsers } from '@/lib/api/users';
 import { I, scaled } from '@/lib/responsive';
 import { useSession } from '@/lib/session';
+import { useAppColors, usePaletteStyles, type AppColorsOf } from '@/lib/app-theme';
+import { useGlass } from '@/lib/glass';
 
 /**
  * Lista e ekipeve — opened from the admin dashboard's "Ekipet → Shiko të
- * gjitha". Same light #FAFBFA canvas as the other sub-pages: four orange
+ * gjitha". Same light #F7F9F8 canvas as the other sub-pages: four orange
  * summary squares, the "+ Ekipi i ri" control, the team cards inside a thin
  * green frame, the transfers banner, the sideways-scrolling statistics table
  * and a second green frame where each team shows its win/loss/goal figures.
  */
 
-const C = {
-  page: '#FAFBFA',
+const C_LIGHT = {
+  white: '#FFFFFF',
+  frame: '#DCE5DF',
+  glassBase: 'rgba(255,255,255,0.12)',
+  glassEdge: 'rgba(255,255,255,0.95)',
+  glassDivider: 'rgba(16,51,38,0.18)',
+  page: '#F7F9F8',
   line: 'rgba(0,0,0,0.025)',
 
-  text: '#111111',
-  gray: '#8A8A8A',
+  text: '#17251E',
+  gray: '#52645A',
+  /* Black rules that invert on the dark page. */
+  ink: '#000000',
 
-  card: '#F6FBFF',
+  card: '#F7F9F8',
   border: 'rgba(100,140,190,0.30)',
   thBg: '#E7F1F8',
   rowLine: 'rgba(100,140,190,0.22)',
 
-  green: '#159447',
+  green: '#2E7D5B',
   greenLine: '#7DCB9E',
-  red: '#E03131',
+  red: '#B91C1C',
   blue: '#1749B8',
   blueBtn: '#86BCFD',
   blueSoft: '#E3EEFB',
-  orange: '#E4A000',
+  orange: '#B45309',
   amber: '#DDA15E',
   amberFill: '#F4E9DB',
 };
@@ -70,12 +79,6 @@ const IMG_BALL = require('@/assets/dashboard/ndeshjet.png');
  * nothing. Shading the pane instead — a very light grey at the top edge
  * sweeping down to white — is what gives the surface its glassy shape.
  */
-const SQ_GLOSS = [
-  'rgba(180,188,201,0.30)',
-  'rgba(216,222,231,0.15)',
-  'rgba(245,245,245,0.80)',
-] as const;
-
 /* ------------------------------------------------------------------ */
 /* Data                                                                */
 /* ------------------------------------------------------------------ */
@@ -90,17 +93,17 @@ function errorText(error: unknown): string {
 
 type Col = { key: string; label: string; width: number; color?: string };
 
-const STAT_COLS: Col[] = [
+const STAT_COLS = (C: AppColorsOf<typeof C_LIGHT>): Col[] => ([
   { key: 'team', label: 'Ekipi', width: 92 },
   { key: 'players', label: 'Lojtarët', width: 64 },
   { key: 'nd', label: 'ND', width: 44 },
-  { key: 'f', label: 'F', width: 40, color: C.green },
-  { key: 'h', label: 'H', width: 40, color: C.red },
+  { key: 'f', label: 'F', width: 40, color: C.greenText },
+  { key: 'h', label: 'H', width: 40, color: C.redText },
   { key: 'b', label: 'B', width: 40 },
   { key: 'gp', label: 'Gola+', width: 56 },
   { key: 'gm', label: 'Gola-', width: 56 },
   { key: 'diff', label: 'Diferenca', width: 76 },
-];
+]);
 
 /** A team's match record, rolled up from the club's fixture list. */
 type TeamAgg = { played: number; win: number; loss: number; draw: number; gf: number; ga: number };
@@ -140,7 +143,7 @@ function chunkPairs<T>(items: T[]): T[][] {
 type ModalState = { title: string; team?: ApiTeam };
 
 /** Preset shirt colours — the backend wants a `#RRGGBB` hex. */
-const TEAM_COLORS = ['#159447', '#1749B8', '#E03131', '#E4A000', '#6C62D8', '#111111'];
+const TEAM_COLORS = ['#2E7D5B', '#1749B8', '#B91C1C', '#B45309', '#6C62D8', '#17251E'];
 
 /** Active staff who can be attached to a team, all pages included. */
 async function loadStaff(token: string, signal: AbortSignal): Promise<ApiMember[]> {
@@ -161,6 +164,9 @@ async function loadStaff(token: string, signal: AbortSignal): Promise<ApiMember[
 }
 
 export default function TeamsScreen() {
+  const glass = useGlass();
+  const C = useAppColors(C_LIGHT);
+  const styles = usePaletteStyles(createStyles, C);
   const router = useRouter();
   const { user, token, signOut } = useSession();
   const [modal, setModal] = useState<ModalState | null>(null);
@@ -252,7 +258,7 @@ export default function TeamsScreen() {
                 accessibilityLabel="Kthehu prapa"
                 style={({ pressed }) => [styles.backBtn, pressed && styles.pressed]}
               >
-                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.text} />
+                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.textText} />
               </Pressable>
               <View style={styles.headerText}>
                 <Text style={styles.title}>Lista e ekipeve</Text>
@@ -273,14 +279,14 @@ export default function TeamsScreen() {
               <BlurView
                 pointerEvents="none"
                 intensity={55}
-                tint="light"
+                tint={glass.tint}
                 experimentalBlurMethod="dimezisBlurView"
                 style={StyleSheet.absoluteFill}
               />
               <LinearGradient
                 pointerEvents="none"
                 style={StyleSheet.absoluteFill}
-                colors={SQ_GLOSS}
+                colors={glass.gloss}
                 locations={[0, 0.55, 1]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
@@ -288,12 +294,7 @@ export default function TeamsScreen() {
               <LinearGradient
                 pointerEvents="none"
                 style={styles.statsGloss}
-                colors={[
-                  'rgba(255,255,255,0)',
-                  'rgba(255,255,255,0.78)',
-                  'rgba(255,255,255,0.55)',
-                  'rgba(255,255,255,0)',
-                ]}
+                colors={glass.sweep}
                 locations={[0, 0.38, 0.62, 1]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
@@ -301,11 +302,7 @@ export default function TeamsScreen() {
               <LinearGradient
                 pointerEvents="none"
                 style={styles.statsGloss2}
-                colors={[
-                  'rgba(255,255,255,0)',
-                  'rgba(255,255,255,0.55)',
-                  'rgba(255,255,255,0)',
-                ]}
+                colors={glass.sweepSoft}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
               />
@@ -350,7 +347,7 @@ export default function TeamsScreen() {
               style={({ pressed }) => [styles.newTeam, pressed && styles.pressed]}
             >
               <View style={styles.newTeamPlus}>
-                <MaterialCommunityIcons name="plus" size={I(15)} color="#F5F5F5" />
+                <MaterialCommunityIcons name="plus" size={I(15)} color="#FFFFFF" />
               </View>
               <Text style={styles.newTeamText}>Ekipi i ri</Text>
             </Pressable>
@@ -363,7 +360,7 @@ export default function TeamsScreen() {
                 </View>
               ) : teams === null ? (
                 <View style={styles.frameState}>
-                  <ActivityIndicator color={C.blueBtn} />
+                  <ActivityIndicator color={C.blueBtnText} />
                 </View>
               ) : teams.length === 0 ? (
                 <View style={styles.frameState}>
@@ -416,7 +413,7 @@ export default function TeamsScreen() {
               >
                 <View style={styles.tblFill}>
                   <View style={[styles.tr, styles.thRow]}>
-                    {STAT_COLS.map((c) => (
+                    {STAT_COLS(C).map((c) => (
                       <Text
                         key={c.key}
                         style={[styles.th, { width: c.width }, c.color ? { color: c.color } : null]}
@@ -447,12 +444,12 @@ export default function TeamsScreen() {
                         <View key={team.id} style={[styles.tr, styles.trBorder]}>
                           {cells.map((value, i) => (
                             <Text
-                              key={STAT_COLS[i].key}
+                              key={STAT_COLS(C)[i].key}
                               style={[
                                 styles.td,
-                                { width: STAT_COLS[i].width },
+                                { width: STAT_COLS(C)[i].width },
                                 i === 0 ? styles.tdTeam : null,
-                                STAT_COLS[i].color ? { color: STAT_COLS[i].color } : null,
+                                STAT_COLS(C)[i].color ? { color: STAT_COLS(C)[i].color } : null,
                               ]}
                               numberOfLines={1}
                               adjustsFontSizeToFit
@@ -530,6 +527,8 @@ function TeamCard({
   onEdit: () => void;
   onOpen: () => void;
 }) {
+  const C = useAppColors(C_LIGHT);
+  const styles = usePaletteStyles(createStyles, C);
   return (
     <View style={styles.teamCard}>
       <Text style={styles.teamName} numberOfLines={1}>
@@ -554,6 +553,7 @@ function TeamCard({
         <Pressable
           onPress={onEdit}
           accessibilityRole="button"
+          hitSlop={{ top: 7, bottom: 7, left: 3, right: 3 }}
           style={({ pressed }) => [styles.editBtn, pressed && styles.pressed]}
         >
           <Text style={styles.editBtnText}>Edito</Text>
@@ -561,6 +561,7 @@ function TeamCard({
         <Pressable
           onPress={onOpen}
           accessibilityRole="button"
+          hitSlop={{ top: 7, bottom: 7, left: 3, right: 3 }}
           style={({ pressed }) => [styles.ekipaBtn, pressed && styles.pressed]}
         >
           <Text style={styles.ekipaBtnText}>Ekipa</Text>
@@ -583,6 +584,8 @@ function TeamRecordCard({
   loss: number;
   goals: number;
 }) {
+  const C = useAppColors(C_LIGHT);
+  const styles = usePaletteStyles(createStyles, C);
   return (
     <View style={[styles.teamCard, styles.recordCard]}>
       <Text style={styles.teamName} numberOfLines={1}>
@@ -594,15 +597,15 @@ function TeamRecordCard({
 
       <View style={styles.recordRow}>
         <View style={styles.recordCol}>
-          <Text style={[styles.recordNum, { color: C.green }]}>{win}</Text>
+          <Text style={[styles.recordNum, { color: C.greenText }]}>{win}</Text>
           <Text style={styles.recordLabel}>Fitore</Text>
         </View>
         <View style={styles.recordCol}>
-          <Text style={[styles.recordNum, { color: C.red }]}>{loss}</Text>
+          <Text style={[styles.recordNum, { color: C.redText }]}>{loss}</Text>
           <Text style={styles.recordLabel}>Humbje</Text>
         </View>
         <View style={styles.recordCol}>
-          <Text style={[styles.recordNum, { color: C.blue }]}>{goals}</Text>
+          <Text style={[styles.recordNum, { color: C.blueText }]}>{goals}</Text>
           <Text style={styles.recordLabel}>Gola</Text>
         </View>
       </View>
@@ -647,6 +650,8 @@ function TeamModal({
   onSaved: () => void;
   onExpired: () => void;
 }) {
+  const C = useAppColors(C_LIGHT);
+  const styles = usePaletteStyles(createStyles, C);
   const [name, setName] = useState(team?.name ?? '');
   const [season, setSeason] = useState(team?.season ?? '');
   const [colorHex, setColorHex] = useState(team?.color_hex ?? TEAM_COLORS[0]);
@@ -745,6 +750,7 @@ function TeamModal({
               accessibilityRole="button"
               accessibilityState={{ selected: active }}
               accessibilityLabel={o.name}
+              hitSlop={{ top: 4, bottom: 4, left: 2, right: 2 }}
               style={({ pressed }) => [
                 styles.chip,
                 active && styles.chipActive,
@@ -818,6 +824,7 @@ function TeamModal({
                   accessibilityRole="button"
                   accessibilityState={{ selected: active }}
                   accessibilityLabel={`Ngjyra ${color}`}
+                  hitSlop={2}
                   style={[styles.swatchOuter, active && styles.swatchSelected]}
                 >
                   <View style={[styles.swatchInner, { backgroundColor: color }]} />
@@ -864,7 +871,7 @@ function TeamModal({
             ]}
           >
             {busy ? (
-              <ActivityIndicator color="#F5F5F5" size="small" />
+              <ActivityIndicator color="#FFFFFF" size="small" />
             ) : (
               <Text style={styles.popBtnText}>{team ? 'Ruaj' : 'Krijo'}</Text>
             )}
@@ -879,7 +886,7 @@ function TeamModal({
 /* Styles                                                              */
 /* ------------------------------------------------------------------ */
 
-const styles = StyleSheet.create(
+const createStyles = (C: AppColorsOf<typeof C_LIGHT>) => StyleSheet.create(
   scaled({
     safe: {
       flex: 1,
@@ -924,14 +931,14 @@ const styles = StyleSheet.create(
       fontSize: 20,
       lineHeight: 24,
       letterSpacing: -0.3,
-      color: C.text,
+      color: C.textText,
     },
 
     subtitle: {
       fontFamily: Fonts.body,
       fontSize: 12,
       lineHeight: 16,
-      color: C.gray,
+      color: C.grayText,
       marginTop: 1,
     },
 
@@ -955,8 +962,8 @@ const styles = StyleSheet.create(
       height: 104,
       borderRadius: 16,
       borderWidth: 1,
-      borderColor: C.orange,
-      backgroundColor: 'rgba(255,255,255,0.12)',
+      borderColor: C.orangeBorder,
+      backgroundColor: C.glassBaseFill,
       overflow: 'hidden',
       shadowColor: '#0B3B33',
       shadowOffset: { width: 0, height: 6 },
@@ -990,7 +997,7 @@ const styles = StyleSheet.create(
       right: 10,
       height: 1.5,
       borderRadius: 1,
-      backgroundColor: 'rgba(255,255,255,0.95)',
+      backgroundColor: C.glassEdgeFill,
     },
 
     statItem: {
@@ -1005,7 +1012,7 @@ const styles = StyleSheet.create(
       top: 10,
       bottom: 10,
       width: StyleSheet.hairlineWidth,
-      backgroundColor: 'rgba(16,51,38,0.18)',
+      backgroundColor: C.glassDividerFill,
     },
 
     /* Content rides above the frost and gloss overlays. */
@@ -1020,7 +1027,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodyBold,
       fontSize: 9.5,
       lineHeight: 11.5,
-      color: C.gray,
+      color: C.grayText,
     },
 
     sqValue: {
@@ -1028,7 +1035,7 @@ const styles = StyleSheet.create(
       fontSize: 17,
       lineHeight: 21,
       letterSpacing: -0.5,
-      color: C.text,
+      color: C.textText,
       marginTop: 2,
     },
 
@@ -1036,7 +1043,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 9,
       lineHeight: 11,
-      color: C.gray,
+      color: C.grayText,
       marginTop: 3,
     },
 
@@ -1047,35 +1054,36 @@ const styles = StyleSheet.create(
       alignItems: 'center',
       gap: 8,
       marginTop: 14,
-      height: 36,
-      paddingLeft: 5,
-      paddingRight: 14,
-      backgroundColor: C.blueSoft,
+      height: 44,
+      paddingLeft: 9,
+      paddingRight: 16,
+      backgroundColor: C.blueSoftFill,
       borderWidth: 1,
-      borderColor: '#000000',
-      borderRadius: 4,
+      borderColor: C.frameBorder,
+      borderRadius: 10,
     },
 
     newTeamPlus: {
       width: 25,
       height: 25,
       borderRadius: 13,
-      backgroundColor: C.blueBtn,
+      backgroundColor: C.blueBtnFill,
       alignItems: 'center',
       justifyContent: 'center',
     },
 
     newTeamText: {
       fontFamily: Fonts.bodySemiBold,
-      fontSize: 12.5,
-      color: '#000000',
+      fontSize: 13,
+      lineHeight: 18,
+      color: C.textText,
     },
 
     /* ── Thin green frame around the team cards ──────────────── */
     frame: {
       marginTop: 14,
       borderWidth: 1,
-      borderColor: C.greenLine,
+      borderColor: C.greenLineBorder,
       borderRadius: 8,
       padding: 8,
       gap: 8,
@@ -1105,16 +1113,16 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 12.5,
       lineHeight: 16,
-      color: C.gray,
+      color: C.grayText,
       textAlign: 'center',
     },
 
     teamCard: {
       flex: 1,
       minHeight: 132,
-      backgroundColor: C.card,
+      backgroundColor: C.cardFill,
       borderWidth: 1,
-      borderColor: '#000000',
+      borderColor: C.frameBorder,
       borderRadius: 6,
       paddingHorizontal: 10,
       paddingTop: 8,
@@ -1126,21 +1134,21 @@ const styles = StyleSheet.create(
       fontSize: 15,
       lineHeight: 18,
       letterSpacing: -0.3,
-      color: C.text,
+      color: C.textText,
     },
 
     teamSeason: {
       fontFamily: Fonts.body,
       fontSize: 10.5,
       lineHeight: 13,
-      color: C.gray,
+      color: C.grayText,
       marginTop: 1,
     },
 
     teamDivider: {
       width: '80%',
       height: 1,
-      backgroundColor: '#000000',
+      backgroundColor: C.inkFill,
       marginTop: 6,
       marginBottom: 6,
     },
@@ -1157,7 +1165,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 10.5,
       lineHeight: 13,
-      color: C.gray,
+      color: C.grayText,
     },
 
     teamValue: {
@@ -1165,7 +1173,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodyBold,
       fontSize: 12.5,
       lineHeight: 15,
-      color: C.text,
+      color: C.textText,
       textAlign: 'right',
     },
 
@@ -1178,34 +1186,36 @@ const styles = StyleSheet.create(
     },
 
     editBtn: {
-      height: 24,
-      paddingHorizontal: 12,
+      height: 30,
+      paddingHorizontal: 11,
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: C.blueBtn,
-      borderRadius: 3,
+      backgroundColor: C.blueBtnFill,
+      borderRadius: 6,
     },
 
     editBtnText: {
       fontFamily: Fonts.bodySemiBold,
-      fontSize: 10.5,
-      color: '#F5F5F5',
+      fontSize: 11.5,
+      lineHeight: 15,
+      color: '#FFFFFF',
     },
 
     ekipaBtn: {
-      height: 24,
-      paddingHorizontal: 12,
+      height: 30,
+      paddingHorizontal: 11,
       alignItems: 'center',
       justifyContent: 'center',
       borderWidth: 1,
-      borderColor: C.blueBtn,
-      borderRadius: 3,
+      borderColor: C.blueBtnBorder,
+      borderRadius: 6,
     },
 
     ekipaBtnText: {
       fontFamily: Fonts.bodySemiBold,
-      fontSize: 10.5,
-      color: C.blueBtn,
+      fontSize: 11.5,
+      lineHeight: 15,
+      color: C.blueBtnText,
     },
 
     /* ── Win / loss / goals rows ─────────────────────────────── */
@@ -1235,7 +1245,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 10,
       lineHeight: 13,
-      color: C.gray,
+      color: C.grayText,
       marginTop: 1,
     },
 
@@ -1245,9 +1255,9 @@ const styles = StyleSheet.create(
       height: 112,
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: C.amberFill,
+      backgroundColor: C.amberFillFill,
       borderWidth: 1.5,
-      borderColor: C.amber,
+      borderColor: C.amberBorder,
       borderRadius: 7,
       overflow: 'hidden',
     },
@@ -1277,32 +1287,33 @@ const styles = StyleSheet.create(
       fontSize: 20,
       lineHeight: 24,
       letterSpacing: -0.4,
-      color: '#000000',
+      color: C.textText,
     },
 
     transferBtn: {
       zIndex: 2,
       marginTop: 12,
-      height: 32,
+      height: 44,
       paddingHorizontal: 26,
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: C.amber,
-      borderRadius: 4,
+      backgroundColor: C.amberFill,
+      borderRadius: 10,
     },
 
     transferBtnText: {
       fontFamily: Fonts.bodySemiBold,
-      fontSize: 12.5,
-      color: '#F5F5F5',
+      fontSize: 13,
+      lineHeight: 18,
+      color: '#FFFFFF',
     },
 
     /* ── Statistika table ────────────────────────────────────── */
     card: {
       marginTop: 16,
-      backgroundColor: C.card,
+      backgroundColor: C.cardFill,
       borderWidth: 2,
-      borderColor: C.border,
+      borderColor: C.borderBorder,
       borderRadius: 7,
       overflow: 'hidden',
     },
@@ -1320,7 +1331,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodyBold,
       fontSize: 16,
       lineHeight: 20,
-      color: C.text,
+      color: C.textText,
     },
 
     tblInner: {
@@ -1340,19 +1351,19 @@ const styles = StyleSheet.create(
     },
 
     thRow: {
-      backgroundColor: C.thBg,
+      backgroundColor: C.thBgFill,
     },
 
     trBorder: {
       borderTopWidth: 1,
-      borderTopColor: C.rowLine,
+      borderTopColor: C.rowLineBorder,
     },
 
     th: {
       fontFamily: Fonts.bodySemiBold,
       fontSize: 11.5,
       lineHeight: 14,
-      color: C.gray,
+      color: C.grayText,
       textAlign: 'center',
     },
 
@@ -1360,7 +1371,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 11.5,
       lineHeight: 14,
-      color: C.text,
+      color: C.textText,
       textAlign: 'center',
       paddingHorizontal: 2,
     },
@@ -1376,7 +1387,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 12.5,
       lineHeight: 16,
-      color: C.gray,
+      color: C.grayText,
     },
 
     pressed: {
@@ -1413,9 +1424,9 @@ const styles = StyleSheet.create(
     popCard: {
       width: '86%',
       maxWidth: 340,
-      backgroundColor: '#F5F5F5',
+      backgroundColor: C.whiteFill,
       borderWidth: 1,
-      borderColor: C.green,
+      borderColor: C.greenBorder,
       borderRadius: 6,
       overflow: 'hidden',
       shadowColor: '#000000',
@@ -1435,12 +1446,12 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodyBold,
       fontSize: 17,
       lineHeight: 21,
-      color: C.text,
+      color: C.textText,
     },
 
     popDivider: {
       height: 1,
-      backgroundColor: C.greenLine,
+      backgroundColor: C.greenLineFill,
     },
 
     popBody: {
@@ -1463,21 +1474,21 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 12,
       lineHeight: 15,
-      color: C.gray,
+      color: C.grayText,
       marginBottom: 5,
     },
 
     popInput: {
-      height: 32,
+      height: 44,
       borderWidth: 1,
-      borderColor: '#000000',
-      borderRadius: 4,
-      paddingHorizontal: 9,
+      borderColor: C.frameBorder,
+      borderRadius: 10,
+      paddingHorizontal: 12,
       paddingVertical: 0,
       fontFamily: Fonts.body,
-      fontSize: 12,
-      lineHeight: 15,
-      color: C.text,
+      fontSize: 14,
+      lineHeight: 18,
+      color: C.textText,
     },
 
     chipsRow: {
@@ -1491,35 +1502,35 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 12,
       lineHeight: 15,
-      color: C.gray,
+      color: C.grayText,
     },
 
     chip: {
       maxWidth: '100%',
-      height: 28,
-      paddingHorizontal: 10,
+      height: 36,
+      paddingHorizontal: 12,
       alignItems: 'center',
       justifyContent: 'center',
       borderWidth: 1,
-      borderColor: '#000000',
-      borderRadius: 14,
-      backgroundColor: '#F5F5F5',
+      borderColor: C.frameBorder,
+      borderRadius: 18,
+      backgroundColor: C.whiteFill,
     },
 
     chipActive: {
-      backgroundColor: C.green,
-      borderColor: C.green,
+      backgroundColor: C.greenFill,
+      borderColor: C.greenBorder,
     },
 
     chipText: {
       fontFamily: Fonts.body,
-      fontSize: 11.5,
-      lineHeight: 14,
-      color: C.text,
+      fontSize: 12,
+      lineHeight: 16,
+      color: C.textText,
     },
 
     chipTextActive: {
-      color: '#F5F5F5',
+      color: '#FFFFFF',
     },
 
     swatches: {
@@ -1529,33 +1540,33 @@ const styles = StyleSheet.create(
     },
 
     swatchOuter: {
-      width: 34,
-      height: 34,
+      width: 40,
+      height: 40,
       borderWidth: 1,
-      borderColor: '#000000',
-      borderRadius: 3,
+      borderColor: C.frameBorder,
+      borderRadius: 6,
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: '#F5F5F5',
+      backgroundColor: C.whiteFill,
     },
 
     swatchSelected: {
       borderWidth: 2,
-      borderColor: C.green,
+      borderColor: C.greenBorder,
     },
 
     swatchInner: {
-      width: 24,
-      height: 24,
-      borderRadius: 2,
-      backgroundColor: C.green,
+      width: 28,
+      height: 28,
+      borderRadius: 4,
+      backgroundColor: C.greenFill,
     },
 
     popError: {
       fontFamily: Fonts.body,
       fontSize: 12,
       lineHeight: 16,
-      color: C.red,
+      color: C.redText,
       marginTop: 4,
     },
 
@@ -1568,31 +1579,31 @@ const styles = StyleSheet.create(
     },
 
     popBtn: {
-      height: 32,
-      paddingHorizontal: 16,
+      height: 44,
+      paddingHorizontal: 18,
       alignItems: 'center',
       justifyContent: 'center',
-      borderRadius: 4,
+      borderRadius: 10,
     },
 
     popCancel: {
-      backgroundColor: C.red,
+      backgroundColor: C.redFill,
     },
 
     popCreate: {
-      backgroundColor: C.green,
+      backgroundColor: C.greenFill,
     },
 
     popDelete: {
       marginRight: 'auto',
       borderWidth: 1,
-      borderColor: C.red,
+      borderColor: C.redBorder,
     },
 
     popDeleteText: {
       fontFamily: Fonts.bodySemiBold,
       fontSize: 12.5,
-      color: C.red,
+      color: C.redText,
     },
 
     btnDisabled: {
@@ -1601,8 +1612,9 @@ const styles = StyleSheet.create(
 
     popBtnText: {
       fontFamily: Fonts.bodySemiBold,
-      fontSize: 12.5,
-      color: '#F5F5F5',
+      fontSize: 13,
+      lineHeight: 18,
+      color: '#FFFFFF',
     },
   }),
 );

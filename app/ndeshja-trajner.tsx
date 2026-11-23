@@ -12,6 +12,7 @@ import { getMatch } from '@/lib/api/matches';
 import type { ApiMatch } from '@/lib/api/types';
 import { I, scaled } from '@/lib/responsive';
 import { useSession } from '@/lib/session';
+import { useAppColors, usePaletteStyles, type AppColorsOf } from '@/lib/app-theme';
 
 /**
  * One upcoming match, the trainer's own view — opened from "Shiko" on the
@@ -19,19 +20,19 @@ import { useSession } from '@/lib/session';
  * always mirrors the row it was opened from.
  */
 
-const C = {
-  page: '#FAFBFA',
+const C_LIGHT = {
+  page: '#F7F9F8',
   line: 'rgba(0,0,0,0.025)',
 
-  text: '#111111',
-  gray: '#8A8A8A',
+  text: '#17251E',
+  gray: '#52645A',
   hint: '#6E6E6E',
 
   /* blue1 = the blue of the two row buttons; blue2 = the pale card blue. */
   blue1: '#E3EEFB',
-  blue2: '#F6FBFF',
+  blue2: '#F7F9F8',
 
-  frame: '#000000',
+  frame: '#DCE5DF',
   border: 'rgba(100,140,190,0.30)',
   headLine: 'rgba(30,40,35,0.10)',
 
@@ -68,6 +69,8 @@ function formatDateTime(iso: string | null): string {
 }
 
 export default function TrainerMatchViewScreen() {
+  const C = useAppColors(C_LIGHT);
+  const styles = usePaletteStyles(createStyles, C);
   const router = useRouter();
   const { token, signOut } = useSession();
 
@@ -154,7 +157,7 @@ export default function TrainerMatchViewScreen() {
                 accessibilityLabel="Kthehu prapa"
                 style={({ pressed }) => [styles.backBtn, pressed && styles.pressed]}
               >
-                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.text} />
+                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.textText} />
               </Pressable>
               <View style={styles.headerText}>
                 <Text
@@ -271,6 +274,7 @@ export default function TrainerMatchViewScreen() {
                       onPress={openResult}
                       accessibilityRole="button"
                       accessibilityLabel="Shto statistika"
+                      hitSlop={{ top: 8, bottom: 8 }}
                       style={({ pressed }) => [styles.addBtn, pressed && styles.pressed]}
                     >
                       <Text style={styles.addBtnText} numberOfLines={1}>
@@ -318,7 +322,7 @@ export default function TrainerMatchViewScreen() {
 /* Styles                                                              */
 /* ------------------------------------------------------------------ */
 
-const styles = StyleSheet.create(
+const createStyles = (C: AppColorsOf<typeof C_LIGHT>) => StyleSheet.create(
   scaled({
     safe: {
       flex: 1,
@@ -363,7 +367,7 @@ const styles = StyleSheet.create(
       fontSize: 20,
       lineHeight: 24,
       letterSpacing: -0.3,
-      color: C.text,
+      color: C.textText,
     },
 
     scroll: {
@@ -380,27 +384,28 @@ const styles = StyleSheet.create(
     },
 
     actionBtn: {
-      height: 30,
-      paddingHorizontal: 12,
+      height: 44,
+      paddingHorizontal: 14,
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: C.blue1,
+      backgroundColor: C.blue1Fill,
       borderWidth: 1,
-      borderColor: C.frame,
-      borderRadius: 4,
+      borderColor: C.frameBorder,
+      borderRadius: 10,
     },
 
     actionText: {
       fontFamily: Fonts.bodySemiBold,
-      fontSize: 11.5,
-      color: C.text,
+      fontSize: 13,
+      lineHeight: 18,
+      color: C.textText,
     },
 
     /* ── Cards ───────────────────────────────────────────────── */
     card: {
-      backgroundColor: C.blue2,
+      backgroundColor: C.blue2Fill,
       borderWidth: 2,
-      borderColor: C.border,
+      borderColor: C.borderBorder,
       borderRadius: 7,
       overflow: 'hidden',
     },
@@ -432,18 +437,18 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodyBold,
       fontSize: 14,
       lineHeight: 18,
-      color: C.text,
+      color: C.textText,
     },
 
     headLine: {
       height: 1,
-      backgroundColor: C.headLine,
+      backgroundColor: C.headLineFill,
     },
 
     /* ── Informacioni rows ───────────────────────────────────── */
     /* A step deeper than the title strip above it, with no rules inside. */
     infoBody: {
-      backgroundColor: C.blue1,
+      backgroundColor: C.blue1Fill,
     },
 
     cellRow: {
@@ -459,7 +464,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 11,
       lineHeight: 14,
-      color: C.hint,
+      color: C.hintText,
     },
 
     cellValue: {
@@ -468,7 +473,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodyBold,
       fontSize: 11,
       lineHeight: 14,
-      color: C.text,
+      color: C.textText,
     },
 
     /* ── Empty states ────────────────────────────────────────── */
@@ -478,7 +483,7 @@ const styles = StyleSheet.create(
       alignItems: 'center',
       paddingHorizontal: 10,
       paddingVertical: 18,
-      backgroundColor: C.blue1,
+      backgroundColor: C.blue1Fill,
     },
 
     /* This card is stretched to its neighbour's height, so its body takes the
@@ -493,7 +498,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 11,
       lineHeight: 15,
-      color: C.hint,
+      color: C.hintText,
     },
 
     /* Sits under the note, in the green wash the other add buttons use. */
@@ -503,21 +508,21 @@ const styles = StyleSheet.create(
       paddingHorizontal: 12,
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: C.green20,
+      backgroundColor: C.green20Fill,
       borderWidth: 1,
-      borderColor: C.frame,
+      borderColor: C.frameBorder,
       borderRadius: 4,
     },
 
     addBtnText: {
       fontFamily: Fonts.bodySemiBold,
       fontSize: 10.5,
-      color: C.text,
+      color: C.textText,
     },
 
     /* ── Player statistics (compact) ─────────────────────────── */
     statList: {
-      backgroundColor: C.blue1,
+      backgroundColor: C.blue1Fill,
       paddingHorizontal: 8,
       paddingBottom: 8,
     },
@@ -534,7 +539,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodySemiBold,
       fontSize: 9,
       lineHeight: 12,
-      color: C.hint,
+      color: C.hintText,
     },
 
     statLine: {
@@ -551,14 +556,14 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 10.5,
       lineHeight: 13,
-      color: C.text,
+      color: C.textText,
     },
 
     statVal: {
       fontFamily: Fonts.bodyBold,
       fontSize: 10.5,
       lineHeight: 13,
-      color: C.text,
+      color: C.textText,
     },
 
     /* ── Formacioni ──────────────────────────────────────────── */
@@ -566,7 +571,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodyBold,
       fontSize: 12,
       lineHeight: 16,
-      color: C.text,
+      color: C.textText,
       paddingHorizontal: 10,
       paddingTop: 10,
     },
@@ -587,9 +592,9 @@ const styles = StyleSheet.create(
       justifyContent: 'center',
       paddingHorizontal: 7,
       paddingVertical: 7,
-      backgroundColor: C.cardGreen,
+      backgroundColor: C.cardGreenFill,
       borderWidth: 1,
-      borderColor: '#000000',
+      borderColor: C.frameBorder,
       borderRadius: 4,
     },
 
@@ -597,7 +602,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodyBold,
       fontSize: 11.5,
       lineHeight: 14,
-      color: '#000000',
+      color: C.textText,
     },
 
     playerPosition: {
@@ -605,7 +610,7 @@ const styles = StyleSheet.create(
       fontSize: 9,
       lineHeight: 12,
       marginTop: 1,
-      color: '#000000',
+      color: C.textText,
     },
 
     pressed: {

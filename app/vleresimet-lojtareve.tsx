@@ -15,6 +15,8 @@ import { listRatings } from '@/lib/api/ratings';
 import type { ApiPlayer, PlayerRatingRow } from '@/lib/api/types';
 import { I, scaled } from '@/lib/responsive';
 import { useSession } from '@/lib/session';
+import { useAppColors, usePaletteStyles, type AppColorsOf } from '@/lib/app-theme';
+import { useGlass } from '@/lib/glass';
 
 /**
  * Vlerësimet e lojtarëve — the trainer's ratings screen, opened from the
@@ -28,35 +30,30 @@ import { useSession } from '@/lib/session';
  * un-rated totals have no API equivalent and stay static.
  */
 
-const C = {
-  page: '#FAFBFA',
+const C_LIGHT = {
+  frame: '#DCE5DF',
+  glassBase: 'rgba(255,255,255,0.12)',
+  glassEdge: 'rgba(255,255,255,0.95)',
+  glassDivider: 'rgba(16,51,38,0.18)',
+  page: '#F7F9F8',
   line: 'rgba(0,0,0,0.025)',
 
-  text: '#111111',
-  gray: '#8A8A8A',
+  text: '#17251E',
+  gray: '#52645A',
   hint: '#6E6E6E',
   hintSoft: '#E2E2E2',
+  /* Black rules that invert on the dark page. */
+  ink: '#000000',
 
-  card: '#F6FBFF',
+  card: '#F7F9F8',
   border: 'rgba(100,140,190,0.30)',
 
   blueSoft: '#E3EEFB',
-  orange: '#E4A000',
+  orange: '#B45309',
 
-  green: '#159447',
-  red: '#E03131',
+  green: '#2E7D5B',
+  red: '#B91C1C',
 };
-
-/**
- * The squares sit on a near-white page, so a white frost on its own reads as
- * nothing. Shading the pane instead — a very light grey at the top edge
- * sweeping down to white — is what gives the surface its glassy shape.
- */
-const SQ_GLASS = [
-  'rgba(180,188,201,0.30)',
-  'rgba(216,222,231,0.15)',
-  'rgba(245,245,245,0.80)',
-] as const;
 
 /* ── Team totals ───────────────────────────────────────────────────── */
 
@@ -64,6 +61,8 @@ type Square = { label: string; value: string; tone: string };
 
 /** One cell of the shared summary pane. */
 function SummarySquare({ square }: { square: Square }) {
+  const C = useAppColors(C_LIGHT);
+  const styles = usePaletteStyles(createStyles, C);
   return (
     <View style={styles.sqBody}>
       <Text style={styles.sqLabel} numberOfLines={2}>
@@ -119,10 +118,13 @@ function toRatedPlayer(row: PlayerRatingRow): RatedPlayer {
 }
 
 /** Anything below seven is flagged red, everything else green. */
-const tone = (score: number) => (score >= 7 ? C.green : C.red);
+const tone = (score: number, C: AppColorsOf<typeof C_LIGHT>) => (score >= 7 ? C.green : C.red);
 const average = (scores: number[]) => scores.reduce((a, b) => a + b, 0) / scores.length;
 
 export default function PlayerRatingsScreen() {
+  const glass = useGlass();
+  const C = useAppColors(C_LIGHT);
+  const styles = usePaletteStyles(createStyles, C);
   const router = useRouter();
   const { token, signOut } = useSession();
 
@@ -212,7 +214,7 @@ export default function PlayerRatingsScreen() {
                 accessibilityLabel="Kthehu prapa"
                 style={({ pressed }) => [styles.backBtn, pressed && styles.pressed]}
               >
-                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.text} />
+                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.textText} />
               </Pressable>
               <View style={styles.headerText}>
                 <Text style={styles.title} numberOfLines={1}>
@@ -240,14 +242,14 @@ export default function PlayerRatingsScreen() {
                 <BlurView
                   pointerEvents="none"
                   intensity={55}
-                  tint="light"
+                  tint={glass.tint}
                   experimentalBlurMethod="dimezisBlurView"
                   style={StyleSheet.absoluteFill}
                 />
                 <LinearGradient
                   pointerEvents="none"
                   style={StyleSheet.absoluteFill}
-                  colors={SQ_GLASS}
+                  colors={glass.gloss}
                   locations={[0, 0.55, 1]}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
@@ -255,12 +257,7 @@ export default function PlayerRatingsScreen() {
                 <LinearGradient
                   pointerEvents="none"
                   style={styles.statsGloss}
-                  colors={[
-                    'rgba(255,255,255,0)',
-                    'rgba(255,255,255,0.78)',
-                    'rgba(255,255,255,0.55)',
-                    'rgba(255,255,255,0)',
-                  ]}
+                  colors={glass.sweep}
                   locations={[0, 0.38, 0.62, 1]}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
@@ -268,11 +265,7 @@ export default function PlayerRatingsScreen() {
                 <LinearGradient
                   pointerEvents="none"
                   style={styles.statsGloss2}
-                  colors={[
-                    'rgba(255,255,255,0)',
-                    'rgba(255,255,255,0.55)',
-                    'rgba(255,255,255,0)',
-                  ]}
+                  colors={glass.sweepSoft}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
                 />
@@ -303,7 +296,7 @@ export default function PlayerRatingsScreen() {
                           {player.team} nr.{player.nr}
                         </Text>
                       </View>
-                      <Text style={[styles.overall, { color: tone(overall) }]}>
+                      <Text style={[styles.overall, { color: tone(overall, C) }]}>
                         {overall.toFixed(1)}
                       </Text>
                     </View>
@@ -326,12 +319,12 @@ export default function PlayerRatingsScreen() {
                                   styles.barFill,
                                   {
                                     width: `${value * 10}%`,
-                                    backgroundColor: tone(value),
+                                    backgroundColor: tone(value, C),
                                   },
                                 ]}
                               />
                             </View>
-                            <Text style={[styles.catValue, { color: tone(value) }]}>
+                            <Text style={[styles.catValue, { color: tone(value, C) }]}>
                               {value.toFixed(1)}
                             </Text>
                           </View>
@@ -359,6 +352,7 @@ export default function PlayerRatingsScreen() {
                         }
                         accessibilityRole="button"
                         accessibilityLabel={`Vlerëso ${player.name}`}
+                        hitSlop={{ top: 7, bottom: 7, left: 4, right: 4 }}
                         style={({ pressed }) => [styles.rateBtn, pressed && styles.pressed]}
                       >
                         <Text style={styles.rateBtnText}>Vlerëso</Text>
@@ -379,7 +373,7 @@ export default function PlayerRatingsScreen() {
 /* Styles                                                              */
 /* ------------------------------------------------------------------ */
 
-const styles = StyleSheet.create(
+const createStyles = (C: AppColorsOf<typeof C_LIGHT>) => StyleSheet.create(
   scaled({
     safe: {
       flex: 1,
@@ -424,14 +418,14 @@ const styles = StyleSheet.create(
       fontSize: 20,
       lineHeight: 24,
       letterSpacing: -0.3,
-      color: C.text,
+      color: C.textText,
     },
 
     subtitle: {
       fontFamily: Fonts.body,
       fontSize: 12,
       lineHeight: 16,
-      color: C.gray,
+      color: C.grayText,
       marginTop: 1,
     },
 
@@ -455,8 +449,8 @@ const styles = StyleSheet.create(
       height: 100,
       borderRadius: 16,
       borderWidth: 1,
-      borderColor: C.orange,
-      backgroundColor: 'rgba(255,255,255,0.12)',
+      borderColor: C.orangeBorder,
+      backgroundColor: C.glassBaseFill,
       overflow: 'hidden',
       shadowColor: '#0B3B33',
       shadowOffset: { width: 0, height: 6 },
@@ -490,7 +484,7 @@ const styles = StyleSheet.create(
       right: 10,
       height: 1.5,
       borderRadius: 1,
-      backgroundColor: 'rgba(255,255,255,0.95)',
+      backgroundColor: C.glassEdgeFill,
     },
 
     statItem: {
@@ -505,7 +499,7 @@ const styles = StyleSheet.create(
       top: 10,
       bottom: 10,
       width: StyleSheet.hairlineWidth,
-      backgroundColor: 'rgba(16,51,38,0.18)',
+      backgroundColor: C.glassDividerFill,
     },
 
     /* Content rides above the frost and gloss overlays. */
@@ -519,7 +513,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodyBold,
       fontSize: 12,
       lineHeight: 15,
-      color: C.gray,
+      color: C.grayText,
     },
 
     sqValue: {
@@ -543,9 +537,9 @@ const styles = StyleSheet.create(
        carry its own ground. */
     card: {
       width: '48%',
-      backgroundColor: C.card,
+      backgroundColor: C.cardFill,
       borderWidth: 1,
-      borderColor: '#000000',
+      borderColor: C.frameBorder,
       borderRadius: 7,
       overflow: 'hidden',
     },
@@ -562,11 +556,11 @@ const styles = StyleSheet.create(
     /* On the seam, so the black rule is the head's bottom edge. */
     divider: {
       height: 1,
-      backgroundColor: '#000000',
+      backgroundColor: C.inkFill,
     },
 
     cardBody: {
-      backgroundColor: C.blueSoft,
+      backgroundColor: C.blueSoftFill,
       paddingHorizontal: 10,
       paddingTop: 9,
       paddingBottom: 4,
@@ -580,14 +574,14 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodyBold,
       fontSize: 11.5,
       lineHeight: 15,
-      color: C.text,
+      color: C.textText,
     },
 
     teamText: {
       fontFamily: Fonts.body,
       fontSize: 9.5,
       lineHeight: 13,
-      color: C.hint,
+      color: C.hintText,
       marginTop: 1,
     },
 
@@ -611,14 +605,14 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 9.5,
       lineHeight: 13,
-      color: C.hint,
+      color: C.hintText,
     },
 
     barTrack: {
       flex: 1,
       height: 4,
       borderRadius: 2,
-      backgroundColor: C.hintSoft,
+      backgroundColor: C.hintSoftFill,
       overflow: 'hidden',
     },
 
@@ -646,7 +640,7 @@ const styles = StyleSheet.create(
       paddingHorizontal: 10,
       paddingTop: 8,
       paddingBottom: 10,
-      backgroundColor: C.blueSoft,
+      backgroundColor: C.blueSoftFill,
     },
 
     footText: {
@@ -654,24 +648,25 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 10,
       lineHeight: 13,
-      color: C.hint,
+      color: C.hintText,
     },
 
     rateBtn: {
-      height: 26,
-      paddingHorizontal: 12,
+      height: 30,
+      paddingHorizontal: 10,
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: C.card,
+      backgroundColor: C.cardFill,
       borderWidth: 1,
-      borderColor: '#000000',
-      borderRadius: 4,
+      borderColor: C.frameBorder,
+      borderRadius: 6,
     },
 
     rateBtnText: {
       fontFamily: Fonts.bodySemiBold,
-      fontSize: 10.5,
-      color: C.text,
+      fontSize: 11.5,
+      lineHeight: 15,
+      color: C.textText,
     },
 
     pressed: {

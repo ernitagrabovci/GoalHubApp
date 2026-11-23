@@ -2,18 +2,19 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
 import { AddMatchModal, EditMatchModal } from '@/components/matches/match-modals';
 import { Fonts } from '@/constants/theme';
-import { ApiError } from '@/lib/api/errors';
+import { ApiError, loadErrorMessage } from '@/lib/api/errors';
 import { listMatches } from '@/lib/api/matches';
 import { listTeams } from '@/lib/api/teams';
 import type { ApiMatch, ApiTeam } from '@/lib/api/types';
 import { I, scaled } from '@/lib/responsive';
 import { useSession } from '@/lib/session';
+import { useAppColors, usePaletteStyles, type AppColorsOf } from '@/lib/app-theme';
 
 /**
  * Ndeshjet — opened from the "Ndeshjet e sotme" section on the admin
@@ -21,25 +22,27 @@ import { useSession } from '@/lib/session';
  * list and the results table, each with its own pager.
  */
 
-const C = {
-  page: '#FAFBFA',
+const C_LIGHT = {
+  white: '#FFFFFF',
+  frame: '#DCE5DF',
+  page: '#F7F9F8',
   line: 'rgba(0,0,0,0.025)',
 
-  text: '#111111',
-  gray: '#8A8A8A',
+  text: '#17251E',
+  gray: '#52645A',
   hint: '#6E6E6E',
 
   /* blue1 = the deeper blue of the filter button; blue2 = the pale card blue. */
   blue1: '#E3EEFB',
-  blue2: '#F6FBFF',
+  blue2: '#F7F9F8',
 
   border: 'rgba(100,140,190,0.30)',
   rowLine: 'rgba(100,140,190,0.22)',
   headLine: 'rgba(30,40,35,0.10)',
 
-  green: '#159447',
-  red: '#E03131',
-  orange: '#E4A000',
+  green: '#2E7D5B',
+  red: '#B91C1C',
+  orange: '#B45309',
   dateBlue: '#0766D8',
   blueBtn: '#86BCFD',
 };
@@ -119,8 +122,8 @@ const COLS: Col[] = [
   { key: 'match', label: 'Ndeshja', width: 112, align: 'left' },
   { key: 'team', label: 'Ekipi', width: 48 },
   { key: 'date', label: 'Data', width: 54 },
-  { key: 'score', label: 'Rezultati', width: 40 },
-  { key: 'actions', label: 'Veprimet', width: 46 },
+  { key: 'score', label: 'Rezultati', width: 58 },
+  { key: 'actions', label: 'Veprimet', width: 60 },
 ];
 
 /** The two tables are split on the client, so page through them client-side. */
@@ -146,6 +149,8 @@ async function fetchAllMatches(token: string, signal: AbortSignal): Promise<ApiM
 }
 
 export default function MatchesScreen() {
+  const C = useAppColors(C_LIGHT);
+  const styles = usePaletteStyles(createStyles, C);
   const router = useRouter();
   const { user, token, signOut } = useSession();
   const clubName = user?.club ?? '—';
@@ -186,7 +191,11 @@ export default function MatchesScreen() {
 
       if (m.status === 'fulfilled') setMatches(m.value);
       if (t.status === 'fulfilled') setTeams(t.value.data);
-      setError(failure ? 'Nuk mund të ngarkohen ndeshjet.' : null);
+      setError(
+        failure && failure.status === 'rejected'
+          ? loadErrorMessage(failure.reason, 'Nuk mund të ngarkohen ndeshjet. Kontrollo lidhjen.')
+          : null,
+      );
     });
 
     return () => controller.abort();
@@ -238,6 +247,13 @@ export default function MatchesScreen() {
     router.replace('/login');
   };
 
+  /* Both tables share one fetch, so one retry repopulates both. */
+  const retry = () => {
+    setMatches(null);
+    setError(null);
+    setReload((n) => n + 1);
+  };
+
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
       <StatusBar style="dark" />
@@ -254,7 +270,7 @@ export default function MatchesScreen() {
                 accessibilityLabel="Kthehu prapa"
                 style={({ pressed }) => [styles.backBtn, pressed && styles.pressed]}
               >
-                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.text} />
+                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.textText} />
               </Pressable>
               <View style={styles.headerText}>
                 <Text style={styles.title} numberOfLines={1}>
@@ -286,7 +302,7 @@ export default function MatchesScreen() {
                   <Text style={styles.teamBtnText} numberOfLines={1}>
                     {filterLabel}
                   </Text>
-                  <MaterialCommunityIcons name="chevron-down" size={I(15)} color={C.text} />
+                  <MaterialCommunityIcons name="chevron-down" size={I(15)} color={C.textText} />
                 </Pressable>
 
                 {filterOpen ? (
@@ -326,10 +342,11 @@ export default function MatchesScreen() {
                 onPress={() => setAdding(true)}
                 accessibilityRole="button"
                 accessibilityLabel="Shto ndeshje"
+                hitSlop={{ top: 4, bottom: 4 }}
                 style={({ pressed }) => [styles.addBtn, pressed && styles.pressed]}
               >
                 <View style={styles.addBtnPlus}>
-                  <MaterialCommunityIcons name="plus" size={I(15)} color="#F5F5F5" />
+                  <MaterialCommunityIcons name="plus" size={I(15)} color="#FFFFFF" />
                 </View>
                 <Text style={styles.addBtnText}>Shto ndeshje</Text>
               </Pressable>
@@ -344,10 +361,19 @@ export default function MatchesScreen() {
               {error ? (
                 <View style={styles.stateBox}>
                   <Text style={styles.stateText}>{error}</Text>
+                  <Pressable
+                    onPress={retry}
+                    accessibilityRole="button"
+                    accessibilityLabel="Provo përsëri"
+                    style={({ pressed }) => [styles.stateRetry, pressed && styles.pressed]}
+                  >
+                    <Text style={styles.stateRetryText}>Provo përsëri</Text>
+                  </Pressable>
                 </View>
               ) : matches === null ? (
                 <View style={styles.stateBox}>
-                  <Text style={styles.stateText}>…</Text>
+                  <ActivityIndicator color={C.greenText} />
+                  <Text style={styles.stateText}>Duke ngarkuar ndeshjet…</Text>
                 </View>
               ) : upcomingRows.length === 0 ? (
                 <View style={styles.stateBox}>
@@ -413,6 +439,7 @@ export default function MatchesScreen() {
                         }
                         accessibilityRole="button"
                         accessibilityLabel="Shiko ndeshjen"
+                        hitSlop={{ top: 10, bottom: 10, left: 2, right: 2 }}
                         style={({ pressed }) => [styles.viewBtn, pressed && styles.pressed]}
                       >
                         <Text style={styles.viewBtnText}>Shiko</Text>
@@ -421,6 +448,7 @@ export default function MatchesScreen() {
                         onPress={() => setEditing(filtered.find((m) => m.id === f.id) ?? null)}
                         accessibilityRole="button"
                         accessibilityLabel="Edito ndeshjen"
+                        hitSlop={{ top: 10, bottom: 10, left: 2, right: 2 }}
                         style={({ pressed }) => [styles.editBtn, pressed && styles.pressed]}
                       >
                         <Text style={styles.editBtnText}>Edito</Text>
@@ -439,14 +467,14 @@ export default function MatchesScreen() {
                   disabled={upcomingCur <= 1}
                   accessibilityRole="button"
                   accessibilityLabel="Faqja e mëparshme"
-                  hitSlop={8}
+                  hitSlop={11}
                   style={({ pressed }) => [
                     styles.pagerArrow,
                     upcomingCur <= 1 && styles.pagerDisabled,
                     pressed && styles.pressed,
                   ]}
                 >
-                  <MaterialCommunityIcons name="chevron-left" size={I(22)} color={C.text} />
+                  <MaterialCommunityIcons name="chevron-left" size={I(22)} color={C.textText} />
                 </Pressable>
 
                 {pageWindow(upcomingCur, upcomingLast).map((p) => (
@@ -455,6 +483,7 @@ export default function MatchesScreen() {
                     onPress={() => setUpcomingPage(p)}
                     accessibilityRole="button"
                     accessibilityLabel={`Faqja ${p}`}
+                    hitSlop={{ top: 5, bottom: 5 }}
                     style={({ pressed }) => [
                       p === upcomingCur ? styles.pageSqActive : styles.pageSq,
                       pressed && styles.pressed,
@@ -469,14 +498,14 @@ export default function MatchesScreen() {
                   disabled={upcomingCur >= upcomingLast}
                   accessibilityRole="button"
                   accessibilityLabel="Faqja tjetër"
-                  hitSlop={8}
+                  hitSlop={11}
                   style={({ pressed }) => [
                     styles.pagerArrow,
                     upcomingCur >= upcomingLast && styles.pagerDisabled,
                     pressed && styles.pressed,
                   ]}
                 >
-                  <MaterialCommunityIcons name="chevron-right" size={I(22)} color={C.text} />
+                  <MaterialCommunityIcons name="chevron-right" size={I(22)} color={C.textText} />
                 </Pressable>
               </View>
             ) : null}
@@ -510,10 +539,19 @@ export default function MatchesScreen() {
                 {error ? (
                   <View style={styles.stateBox}>
                     <Text style={styles.stateText}>{error}</Text>
+                    <Pressable
+                      onPress={retry}
+                      accessibilityRole="button"
+                      accessibilityLabel="Provo përsëri"
+                      style={({ pressed }) => [styles.stateRetry, pressed && styles.pressed]}
+                    >
+                      <Text style={styles.stateRetryText}>Provo përsëri</Text>
+                    </Pressable>
                   </View>
                 ) : matches === null ? (
                   <View style={styles.stateBox}>
-                    <Text style={styles.stateText}>…</Text>
+                    <ActivityIndicator color={C.greenText} />
+                    <Text style={styles.stateText}>Duke ngarkuar ndeshjet…</Text>
                   </View>
                 ) : playedRows.length === 0 ? (
                   <View style={styles.stateBox}>
@@ -570,6 +608,7 @@ export default function MatchesScreen() {
                           }
                           accessibilityRole="button"
                           accessibilityLabel="Shiko ndeshjen"
+                          hitSlop={{ top: 10, bottom: 10, left: 2, right: 2 }}
                           style={({ pressed }) => [styles.viewBtn, pressed && styles.pressed]}
                         >
                           <Text style={styles.viewBtnText}>Shiko</Text>
@@ -589,14 +628,14 @@ export default function MatchesScreen() {
                   disabled={playedCur <= 1}
                   accessibilityRole="button"
                   accessibilityLabel="Faqja e mëparshme"
-                  hitSlop={8}
+                  hitSlop={11}
                   style={({ pressed }) => [
                     styles.pagerArrow,
                     playedCur <= 1 && styles.pagerDisabled,
                     pressed && styles.pressed,
                   ]}
                 >
-                  <MaterialCommunityIcons name="chevron-left" size={I(22)} color={C.text} />
+                  <MaterialCommunityIcons name="chevron-left" size={I(22)} color={C.textText} />
                 </Pressable>
 
                 {pageWindow(playedCur, playedLast).map((p) => (
@@ -605,6 +644,7 @@ export default function MatchesScreen() {
                     onPress={() => setPlayedPage(p)}
                     accessibilityRole="button"
                     accessibilityLabel={`Faqja ${p}`}
+                    hitSlop={{ top: 5, bottom: 5 }}
                     style={({ pressed }) => [
                       p === playedCur ? styles.pageSqActive : styles.pageSq,
                       pressed && styles.pressed,
@@ -619,14 +659,14 @@ export default function MatchesScreen() {
                   disabled={playedCur >= playedLast}
                   accessibilityRole="button"
                   accessibilityLabel="Faqja tjetër"
-                  hitSlop={8}
+                  hitSlop={11}
                   style={({ pressed }) => [
                     styles.pagerArrow,
                     playedCur >= playedLast && styles.pagerDisabled,
                     pressed && styles.pressed,
                   ]}
                 >
-                  <MaterialCommunityIcons name="chevron-right" size={I(22)} color={C.text} />
+                  <MaterialCommunityIcons name="chevron-right" size={I(22)} color={C.textText} />
                 </Pressable>
               </View>
             ) : null}
@@ -666,7 +706,7 @@ export default function MatchesScreen() {
 /* Styles                                                              */
 /* ------------------------------------------------------------------ */
 
-const styles = StyleSheet.create(
+const createStyles = (C: AppColorsOf<typeof C_LIGHT>) => StyleSheet.create(
   scaled({
     safe: {
       flex: 1,
@@ -711,14 +751,14 @@ const styles = StyleSheet.create(
       fontSize: 20,
       lineHeight: 24,
       letterSpacing: -0.3,
-      color: C.text,
+      color: C.textText,
     },
 
     subtitle: {
       fontFamily: Fonts.body,
       fontSize: 12,
       lineHeight: 16,
-      color: C.gray,
+      color: C.grayText,
       marginTop: 1,
     },
 
@@ -739,30 +779,31 @@ const styles = StyleSheet.create(
       flexDirection: 'row',
       alignItems: 'center',
       gap: 10,
-      height: 36,
-      paddingHorizontal: 12,
-      backgroundColor: C.blue1,
+      height: 44,
+      paddingHorizontal: 14,
+      backgroundColor: C.blue1Fill,
       borderWidth: 1,
-      borderColor: '#000000',
-      borderRadius: 4,
+      borderColor: C.frameBorder,
+      borderRadius: 10,
     },
 
     teamBtnText: {
       fontFamily: Fonts.bodyBold,
-      fontSize: 12,
-      color: C.text,
+      fontSize: 13,
+      lineHeight: 18,
+      color: C.textText,
     },
 
     filterMenu: {
       position: 'absolute',
-      top: 40,
+      top: 48,
       left: 0,
-      minWidth: 170,
+      minWidth: 180,
       zIndex: 30,
-      backgroundColor: '#FFFFFF',
+      backgroundColor: C.whiteFill,
       borderWidth: 1,
-      borderColor: '#000000',
-      borderRadius: 4,
+      borderColor: C.frameBorder,
+      borderRadius: 10,
       overflow: 'hidden',
       shadowColor: '#000000',
       shadowOffset: { width: 0, height: 3 },
@@ -772,27 +813,48 @@ const styles = StyleSheet.create(
     },
 
     filterItem: {
-      paddingHorizontal: 12,
-      paddingVertical: 9,
+      minHeight: 44,
+      justifyContent: 'center',
+      paddingHorizontal: 14,
     },
 
     filterItemText: {
       fontFamily: Fonts.body,
-      fontSize: 12,
-      color: C.text,
+      fontSize: 13,
+      lineHeight: 18,
+      color: C.textText,
     },
 
     stateBox: {
       alignItems: 'center',
       justifyContent: 'center',
+      gap: 10,
+      minHeight: 96,
+      paddingHorizontal: 16,
       paddingVertical: 22,
     },
 
     stateText: {
       fontFamily: Fonts.body,
       fontSize: 12.5,
-      color: C.gray,
+      lineHeight: 18,
+      color: C.grayText,
       textAlign: 'center',
+    },
+
+    stateRetry: {
+      minHeight: 44,
+      justifyContent: 'center',
+      paddingHorizontal: 18,
+      borderWidth: 1,
+      borderColor: C.greenBorder,
+      borderRadius: 10,
+    },
+
+    stateRetryText: {
+      fontFamily: Fonts.bodySemiBold,
+      fontSize: 13,
+      color: C.greenText,
     },
 
     /* Same shape as "Lojtari i ri" on the players page. */
@@ -800,36 +862,37 @@ const styles = StyleSheet.create(
       flexDirection: 'row',
       alignItems: 'center',
       gap: 8,
-      height: 36,
-      paddingLeft: 5,
-      paddingRight: 14,
-      backgroundColor: C.blue1,
+      height: 44,
+      paddingLeft: 9,
+      paddingRight: 16,
+      backgroundColor: C.blue1Fill,
       borderWidth: 1,
-      borderColor: '#000000',
-      borderRadius: 4,
+      borderColor: C.frameBorder,
+      borderRadius: 10,
     },
 
     addBtnPlus: {
       width: 25,
       height: 25,
       borderRadius: 13,
-      backgroundColor: C.blueBtn,
+      backgroundColor: C.blueBtnFill,
       alignItems: 'center',
       justifyContent: 'center',
     },
 
     addBtnText: {
       fontFamily: Fonts.bodySemiBold,
-      fontSize: 12.5,
-      color: '#000000',
+      fontSize: 13,
+      lineHeight: 18,
+      color: C.textText,
     },
 
     /* ── Cards ───────────────────────────────────────────────── */
     card: {
       marginTop: 14,
-      backgroundColor: C.blue2,
+      backgroundColor: C.blue2Fill,
       borderWidth: 2,
-      borderColor: C.border,
+      borderColor: C.borderBorder,
       borderRadius: 7,
       overflow: 'hidden',
     },
@@ -840,14 +903,14 @@ const styles = StyleSheet.create(
       paddingHorizontal: 12,
       paddingVertical: 11,
       borderBottomWidth: 1,
-      borderBottomColor: C.headLine,
+      borderBottomColor: C.headLineBorder,
     },
 
     cardHeadText: {
       fontFamily: Fonts.bodyBold,
       fontSize: 16,
       lineHeight: 20,
-      color: C.text,
+      color: C.textText,
     },
 
     /* ── Upcoming fixtures ───────────────────────────────────── */
@@ -862,7 +925,7 @@ const styles = StyleSheet.create(
 
     mRowBorder: {
       borderTopWidth: 1,
-      borderTopColor: C.rowLine,
+      borderTopColor: C.rowLineBorder,
     },
 
     dateBox: {
@@ -875,7 +938,7 @@ const styles = StyleSheet.create(
       fontSize: 22,
       lineHeight: 26,
       letterSpacing: -0.4,
-      color: C.dateBlue,
+      color: C.dateBlueText,
     },
 
     dateMon: {
@@ -883,7 +946,7 @@ const styles = StyleSheet.create(
       fontSize: 12,
       lineHeight: 15,
       letterSpacing: 0.4,
-      color: C.dateBlue,
+      color: C.dateBlueText,
     },
 
     mInfo: {
@@ -892,22 +955,22 @@ const styles = StyleSheet.create(
 
     mTitle: {
       fontFamily: Fonts.bodyBold,
-      fontSize: 11.5,
-      lineHeight: 14,
-      color: C.text,
+      fontSize: 12.5,
+      lineHeight: 16,
+      color: C.textText,
     },
 
     /* Time, venue and competition share one line. */
     mSub: {
       fontFamily: Fonts.body,
-      fontSize: 9.5,
-      lineHeight: 13,
+      fontSize: 11,
+      lineHeight: 14,
       marginTop: 2,
     },
 
     mTime: {
       fontFamily: Fonts.body,
-      color: C.hint,
+      color: C.hintText,
     },
 
     mVenue: {
@@ -916,7 +979,7 @@ const styles = StyleSheet.create(
 
     mComp: {
       fontFamily: Fonts.body,
-      color: C.hint,
+      color: C.hintText,
     },
 
     mActions: {
@@ -927,19 +990,20 @@ const styles = StyleSheet.create(
     /* "Shiko" is filled with the same blue as the "+" on "Shto ndeshje";
        "Edito" is the clear version of that same blue. */
     editBtn: {
-      height: 24,
-      paddingHorizontal: 7,
+      height: 30,
+      paddingHorizontal: 9,
       alignItems: 'center',
       justifyContent: 'center',
       borderWidth: 1,
-      borderColor: C.blueBtn,
-      borderRadius: 4,
+      borderColor: C.blueBtnBorder,
+      borderRadius: 6,
     },
 
     editBtnText: {
       fontFamily: Fonts.bodySemiBold,
-      fontSize: 9.5,
-      color: C.blueBtn,
+      fontSize: 11,
+      lineHeight: 15,
+      color: C.blueBtnText,
     },
 
     /* ── Results table ───────────────────────────────────────── */
@@ -961,14 +1025,14 @@ const styles = StyleSheet.create(
 
     trBorder: {
       borderTopWidth: 1,
-      borderTopColor: C.rowLine,
+      borderTopColor: C.rowLineBorder,
     },
 
     th: {
       fontFamily: Fonts.bodySemiBold,
-      fontSize: 9.5,
-      lineHeight: 12,
-      color: C.gray,
+      fontSize: 11,
+      lineHeight: 14,
+      color: C.grayText,
       textAlign: 'center',
     },
 
@@ -978,30 +1042,30 @@ const styles = StyleSheet.create(
 
     tdTitle: {
       fontFamily: Fonts.bodyBold,
-      fontSize: 9.5,
-      lineHeight: 12,
-      color: C.text,
+      fontSize: 11,
+      lineHeight: 14,
+      color: C.textText,
     },
 
     tdSub: {
       fontFamily: Fonts.body,
-      fontSize: 8,
-      lineHeight: 10,
-      color: C.hint,
+      fontSize: 10,
+      lineHeight: 12,
+      color: C.hintText,
       marginTop: 1,
     },
 
     td: {
       fontFamily: Fonts.body,
-      fontSize: 9.5,
-      lineHeight: 12,
-      color: C.hint,
+      fontSize: 11,
+      lineHeight: 14,
+      color: C.hintText,
       textAlign: 'center',
     },
 
     tdScore: {
       fontFamily: Fonts.bodyBold,
-      color: C.text,
+      color: C.textText,
     },
 
     tdResult: {
@@ -1013,18 +1077,19 @@ const styles = StyleSheet.create(
     },
 
     viewBtn: {
-      height: 24,
-      paddingHorizontal: 7,
+      height: 30,
+      paddingHorizontal: 9,
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: C.blueBtn,
-      borderRadius: 4,
+      backgroundColor: C.blueBtnFill,
+      borderRadius: 6,
     },
 
     viewBtnText: {
       fontFamily: Fonts.bodySemiBold,
-      fontSize: 9.5,
-      color: '#F5F5F5',
+      fontSize: 11,
+      lineHeight: 15,
+      color: '#FFFFFF',
     },
 
     /* ── Pager ───────────────────────────────────────────────── */
@@ -1046,18 +1111,18 @@ const styles = StyleSheet.create(
     },
 
     pageSq: {
-      width: 34,
-      height: 34,
-      borderRadius: 5,
-      backgroundColor: C.blueBtn,
+      width: 44,
+      height: 44,
+      borderRadius: 10,
+      backgroundColor: C.blueBtnFill,
       alignItems: 'center',
       justifyContent: 'center',
     },
 
     pageSqActive: {
-      width: 34,
-      height: 34,
-      borderRadius: 5,
+      width: 44,
+      height: 44,
+      borderRadius: 10,
       backgroundColor: '#4E90D8',
       alignItems: 'center',
       justifyContent: 'center',
@@ -1066,7 +1131,7 @@ const styles = StyleSheet.create(
     pageSqText: {
       fontFamily: Fonts.bodySemiBold,
       fontSize: 14,
-      color: '#F5F5F5',
+      color: '#FFFFFF',
     },
 
     pressed: {

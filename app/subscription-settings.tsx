@@ -20,29 +20,31 @@ import { ApiError } from '@/lib/api/errors';
 import type { ApiClubProfile } from '@/lib/api/types';
 import { I, scaled } from '@/lib/responsive';
 import { useSession } from '@/lib/session';
+import { useAppColors, usePaletteStyles, type AppColorsOf } from '@/lib/app-theme';
+import { useGlass } from '@/lib/glass';
 
 /**
  * Abonimi — the sixth settings sub-page.
  *
- * Same light #FAFBFA canvas as the other sub-pages. Two stacked cards: the
+ * Same light #F7F9F8 canvas as the other sub-pages. Two stacked cards: the
  * current plan with its billing pairs, and the cancellation card whose header
  * carries the glassy red treatment.
  */
 
-const C = {
-  page: '#FAFBFA',
+const C_LIGHT = {
+  page: '#F7F9F8',
   line: 'rgba(0,0,0,0.025)',
 
-  text: '#111111',
-  gray: '#8A8A8A',
+  text: '#17251E',
+  gray: '#52645A',
 
-  card: '#F6FBFF',
+  card: '#F7F9F8',
   cardBorder: 'rgba(100,140,190,0.30)',
   rowLine: 'rgba(100,140,190,0.22)',
   headLine: 'rgba(100,140,190,0.25)',
 
   ok: '#08A600',
-  red: '#E03131',
+  red: '#B91C1C',
   redLine: 'rgba(224,49,49,0.35)',
 };
 
@@ -67,6 +69,8 @@ function Pair({
   left: { label: string; value: string };
   right: { label: string; value: string };
 }) {
+  const C = useAppColors(C_LIGHT);
+  const styles = usePaletteStyles(createStyles, C);
   return (
     <View style={styles.pairRow}>
       <View style={styles.pairCol}>
@@ -89,6 +93,8 @@ function PairInline({
   left: { label: string; value: string };
   right: { label: string; value: string };
 }) {
+  const C = useAppColors(C_LIGHT);
+  const styles = usePaletteStyles(createStyles, C);
   return (
     <View style={styles.pairRow}>
       <View style={styles.inlineCol}>
@@ -108,6 +114,9 @@ function PairInline({
 /* ------------------------------------------------------------------ */
 
 export default function SubscriptionSettingsScreen() {
+  const glass = useGlass();
+  const C = useAppColors(C_LIGHT);
+  const styles = usePaletteStyles(createStyles, C);
   const router = useRouter();
   const { token, signOut } = useSession();
 
@@ -197,7 +206,7 @@ export default function SubscriptionSettingsScreen() {
                 accessibilityLabel="Kthehu prapa"
                 style={({ pressed }) => [styles.backBtn, pressed && styles.pressed]}
               >
-                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.text} />
+                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.textText} />
               </Pressable>
               <View style={styles.headerText}>
                 <Text style={styles.title}>Abonimi</Text>
@@ -249,7 +258,7 @@ export default function SubscriptionSettingsScreen() {
             {/* ── Anulo abonimin ───────────────────────────────── */}
             <View style={styles.card}>
               <View style={styles.cancelHead}>
-                <BlurView intensity={40} tint="light" style={StyleSheet.absoluteFill} />
+                <BlurView intensity={40} tint={glass.tint} style={StyleSheet.absoluteFill} />
                 <View pointerEvents="none" style={styles.cancelTint} />
 
                 <Text style={styles.cancelHeadText}>Anulo abonimin</Text>
@@ -287,7 +296,7 @@ export default function SubscriptionSettingsScreen() {
 /* Styles                                                              */
 /* ------------------------------------------------------------------ */
 
-const styles = StyleSheet.create(
+const createStyles = (C: AppColorsOf<typeof C_LIGHT>) => StyleSheet.create(
   scaled({
     safe: {
       flex: 1,
@@ -332,14 +341,14 @@ const styles = StyleSheet.create(
       fontSize: 20,
       lineHeight: 24,
       letterSpacing: -0.3,
-      color: C.text,
+      color: C.textText,
     },
 
     subtitle: {
       fontFamily: Fonts.body,
       fontSize: 12,
       lineHeight: 16,
-      color: C.gray,
+      color: C.grayText,
       marginTop: 1,
     },
 
@@ -350,9 +359,9 @@ const styles = StyleSheet.create(
     /* ── Card ────────────────────────────────────────────────── */
     card: {
       marginTop: 18,
-      backgroundColor: C.card,
+      backgroundColor: C.cardFill,
       borderWidth: 2,
-      borderColor: C.cardBorder,
+      borderColor: C.cardBorderBorder,
       borderRadius: 8,
       overflow: 'hidden',
     },
@@ -363,7 +372,7 @@ const styles = StyleSheet.create(
       paddingHorizontal: 12,
       paddingVertical: 11,
       borderBottomWidth: 1,
-      borderBottomColor: C.headLine,
+      borderBottomColor: C.headLineBorder,
     },
 
     cardHeadText: {
@@ -371,12 +380,12 @@ const styles = StyleSheet.create(
       fontSize: 16,
       lineHeight: 20,
       letterSpacing: -0.2,
-      color: C.text,
+      color: C.textText,
     },
 
     divider: {
       height: 1,
-      backgroundColor: C.rowLine,
+      backgroundColor: C.rowLineFill,
     },
 
     /* ── Current plan ────────────────────────────────────────── */
@@ -392,14 +401,14 @@ const styles = StyleSheet.create(
       fontSize: 15,
       lineHeight: 19,
       letterSpacing: -0.2,
-      color: C.text,
+      color: C.textText,
     },
 
     planSub: {
       fontFamily: Fonts.body,
       fontSize: 12,
       lineHeight: 16,
-      color: C.gray,
+      color: C.grayText,
       marginTop: 1,
     },
 
@@ -409,19 +418,19 @@ const styles = StyleSheet.create(
       paddingHorizontal: 12,
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: C.ok,
+      backgroundColor: C.okFill,
       borderRadius: 999,
     },
 
     pillOff: {
-      backgroundColor: C.gray,
+      backgroundColor: C.grayFill,
     },
 
     pillText: {
       fontFamily: Fonts.bodySemiBold,
       fontSize: 11.5,
       lineHeight: 14,
-      color: '#F5F5F5',
+      color: '#FFFFFF',
     },
 
     /* ── Billing pairs ───────────────────────────────────────── */
@@ -452,7 +461,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodySemiBold,
       fontSize: 13,
       lineHeight: 17,
-      color: C.text,
+      color: C.textText,
     },
 
     pairCol: {
@@ -468,14 +477,14 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 11.5,
       lineHeight: 15,
-      color: C.gray,
+      color: C.grayText,
     },
 
     pairValue: {
       fontFamily: Fonts.bodySemiBold,
       fontSize: 13,
       lineHeight: 17,
-      color: C.text,
+      color: C.textText,
       marginTop: 2,
     },
 
@@ -487,7 +496,7 @@ const styles = StyleSheet.create(
       paddingHorizontal: 12,
       paddingVertical: 11,
       borderBottomWidth: 1,
-      borderBottomColor: C.redLine,
+      borderBottomColor: C.redLineBorder,
     },
 
     cancelTint: {
@@ -504,7 +513,7 @@ const styles = StyleSheet.create(
       fontSize: 16,
       lineHeight: 20,
       letterSpacing: -0.2,
-      color: C.text,
+      color: C.textText,
     },
 
     cancelBody: {
@@ -517,18 +526,18 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 11,
       lineHeight: 15,
-      color: C.text,
+      color: C.textText,
     },
 
     cancelBtn: {
       marginTop: 14,
-      height: 38,
+      height: 44,
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: 'transparent',
       borderWidth: 1,
-      borderColor: C.red,
-      borderRadius: 4,
+      borderColor: C.redBorder,
+      borderRadius: 10,
     },
 
     cancelBtnOff: {
@@ -538,8 +547,8 @@ const styles = StyleSheet.create(
     cancelBtnText: {
       fontFamily: Fonts.bodySemiBold,
       fontSize: 13,
-      lineHeight: 17,
-      color: C.red,
+      lineHeight: 18,
+      color: C.redText,
     },
 
     pressed: {

@@ -8,9 +8,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
 import { DashboardHero } from '@/components/dashboard/dashboard-hero';
+import { DashboardC } from '@/constants/dashboard-theme';
+import { useAppColors, usePaletteStyles, type AppColorsOf } from '@/lib/app-theme';
+import { useGlass } from '@/lib/glass';
 import { Fonts } from '@/constants/theme';
 import { dashboardStats } from '@/lib/api/dashboard';
-import { ApiError } from '@/lib/api/errors';
+import { ApiError, loadErrorMessage } from '@/lib/api/errors';
 import { listMatches } from '@/lib/api/matches';
 import { badges } from '@/lib/api/notifications';
 import { activityReport } from '@/lib/api/reports';
@@ -34,32 +37,6 @@ import { useSession } from '@/lib/session';
  * Content stays in Albanian, hardcoded to match the reference exactly.
  */
 
-const C = {
-  bg: '#FAFBFA',
-  line: 'rgba(0,0,0,0.025)',
-  cardBorder: 'rgba(30,40,35,0.12)',
-  statBorder: '#E4A000',
-  white: '#F5F5F5',
-  green: '#159447',
-  greenDark: '#0C6C36',
-  lightGreen: '#DDF6E7',
-  matchBg: '#F2FBF5',
-  matchBorder: '#69C994',
-  profileBg: '#E1F6EA',
-  text: '#111111',
-  text2: '#666666',
-  muted: '#8A8A8A',
-  faint: '#9E9E9E',
-  red: '#D94B4B',
-  orange: '#D99A4A',
-  lavenderBg: '#F3ECF7',
-  lavenderBorder: '#BCA6C4',
-  beigeBg: '#F7EBD8',
-  beigeBorder: '#E2C89B',
-  promoBg: '#FBEFE8',
-  promoBorder: 'rgba(217,77,77,0.22)',
-};
-
 const DIVIDER = 'rgba(30,40,35,0.10)';
 const DIVIDER_LAV = 'rgba(123,79,142,0.22)';
 
@@ -75,12 +52,12 @@ const IMG = {
 /* The activity report carries logins, not a feed — each row is one of them. */
 const ROLE_TONE: Record<string, string> = {
   administrator: '#1B5FA0',
-  trainer: '#159447',
-  assistant_trainer: '#159447',
-  technical_staff: '#159447',
+  trainer: '#2E7D5B',
+  assistant_trainer: '#2E7D5B',
+  technical_staff: '#2E7D5B',
   player: '#D94B4B',
   parent: '#7B4F8E',
-  financier: '#E4A000',
+  financier: '#B45309',
 };
 
 const ROLE_NAME: Record<string, string> = {
@@ -130,6 +107,9 @@ function hhmm(iso: string | null): string {
 }
 
 export function AdminHome() {
+  const glass = useGlass();
+  const C = useAppColors(DashboardC);
+  const styles = usePaletteStyles(createStyles, C);
   const router = useRouter();
   const { user, token, signOut } = useSession();
 
@@ -139,10 +119,14 @@ export function AdminHome() {
   const [matches, setMatches] = useState<ApiMatch[] | null>(null);
   const [activity, setActivity] = useState<ActivityReport | null>(null);
   const [unread, setUnread] = useState(0);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
-  // These dashboard reads are one-shots — fetched together, and a failure of one
-  // simply leaves its section empty. An abort is indistinguishable from a
-  // timeout (both surface as status 0), so guard on our own signal.
+  // These dashboard reads are one-shots — fetched together. A failed feed keeps
+  // its own section empty; the banner under the greeting says the data did not
+  // arrive and offers a retry rather than failing silently. An abort is
+  // indistinguishable from a timeout (both surface as status 0), so guard on
+  // our own signal.
   useEffect(() => {
     if (!token) return;
     const controller = new AbortController();
@@ -177,10 +161,24 @@ export function AdminHome() {
       if (matchList.status === 'fulfilled') setMatches(matchList.value.data);
       if (activityRes.status === 'fulfilled') setActivity(activityRes.value);
       if (badgeCounts.status === 'fulfilled') setUnread(badgeCounts.value.notifications);
+
+      const failed = [dash, team, teamList, matchList, activityRes, badgeCounts].find(
+        (r) => r.status === 'rejected',
+      );
+      if (failed && failed.status === 'rejected') {
+        setLoadError(
+          loadErrorMessage(failed.reason, 'Nuk mund të ngarkohen të dhënat. Kontrollo lidhjen.'),
+        );
+      }
     });
 
     return () => controller.abort();
-  }, [token, router, signOut]);
+  }, [token, router, signOut, reloadKey]);
+
+  const retry = () => {
+    setLoadError(null);
+    setReloadKey((value) => value + 1);
+  };
 
   const stats = data?.stats;
   const seasonName = data?.season?.name ?? teamData?.season ?? '—';
@@ -214,6 +212,20 @@ export function AdminHome() {
               <Text style={styles.welcomeTitle}>Mirë se erdhe, {firstName}!</Text>
               <Text style={styles.welcomeSub}>Këtu është përmbledhja e klubit tënd sot.</Text>
             </View>
+
+            {loadError ? (
+              <View style={styles.loadError}>
+                <Text style={styles.loadErrorText}>{loadError}</Text>
+                <Pressable
+                  onPress={retry}
+                  accessibilityRole="button"
+                  accessibilityLabel="Provo përsëri"
+                  style={({ pressed }) => [styles.loadRetry, pressed && styles.pressed]}
+                >
+                  <Text style={styles.loadRetryText}>Provo përsëri</Text>
+                </Pressable>
+              </View>
+            ) : null}
           </View>
 
           {/* Statistics — one unified card with hairline dividers */}
@@ -221,25 +233,20 @@ export function AdminHome() {
             <View style={styles.statsCard}>
               <BlurView
                 intensity={55}
-                tint="light"
+                tint={glass.tint}
                 experimentalBlurMethod="dimezisBlurView"
                 style={StyleSheet.absoluteFill}
                 pointerEvents="none"
               />
               <LinearGradient
-                colors={['rgba(255,255,255,0.38)', 'rgba(255,255,255,0.04)', 'rgba(255,255,255,0.24)']}
+                colors={glass.highlight}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={StyleSheet.absoluteFill}
                 pointerEvents="none"
               />
               <LinearGradient
-                colors={[
-                  'rgba(255,255,255,0)',
-                  'rgba(255,255,255,0.78)',
-                  'rgba(255,255,255,0.55)',
-                  'rgba(255,255,255,0)',
-                ]}
+                colors={glass.sweep}
                 locations={[0, 0.38, 0.62, 1]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
@@ -247,7 +254,7 @@ export function AdminHome() {
                 pointerEvents="none"
               />
               <LinearGradient
-                colors={['rgba(255,255,255,0)', 'rgba(255,255,255,0.55)', 'rgba(255,255,255,0)']}
+                colors={glass.sweepSoft}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={styles.statsGloss2}
@@ -359,7 +366,7 @@ export function AdminHome() {
                         {m.opponent ?? '—'}
                       </Text>
                     </View>
-                    <MaterialCommunityIcons name="chevron-right" size={I(22)} color={C.green} />
+                    <MaterialCommunityIcons name="chevron-right" size={I(22)} color={C.greenText} />
                   </Pressable>
                 ))
               )}
@@ -369,19 +376,19 @@ export function AdminHome() {
             <View style={styles.twoCol}>
               <View style={styles.activityCard}>
                 <View style={styles.cardHead}>
-                  <MaterialCommunityIcons name="heart-pulse" size={I(16)} color={C.green} />
+                  <MaterialCommunityIcons name="heart-pulse" size={I(16)} color={C.greenText} />
                   <Text style={styles.cardHeadText}>Raportet</Text>
                 </View>
                 {activity === null ? (
                   <View style={styles.activityRow}>
-                    <View style={[styles.activityDot, { backgroundColor: C.faint }]} />
+                    <View style={[styles.activityDot, { backgroundColor: C.faintFill }]} />
                     <View style={styles.activityBody}>
                       <Text style={styles.activityText}>…</Text>
                     </View>
                   </View>
                 ) : recentLogins.length === 0 ? (
                   <View style={styles.activityRow}>
-                    <View style={[styles.activityDot, { backgroundColor: C.faint }]} />
+                    <View style={[styles.activityDot, { backgroundColor: C.faintFill }]} />
                     <View style={styles.activityBody}>
                       <Text style={styles.activityText}>Nuk ka aktivitet.</Text>
                     </View>
@@ -405,12 +412,12 @@ export function AdminHome() {
                     </View>
                   ))
                 )}
-                <SeeAllFooter color={C.text} onPress={() => router.push('/raportet')} />
+                <SeeAllFooter color={C.textText} onPress={() => router.push('/raportet')} />
               </View>
 
               <View style={styles.teamsCard}>
                 <View style={[styles.cardHead, styles.cardHeadLav]}>
-                  <MaterialCommunityIcons name="shield-account-outline" size={I(17)} color="#7B4F8E" />
+                  <MaterialCommunityIcons name="shield-account-outline" size={I(17)} color={C.promoIconText} />
                   <Text style={styles.cardHeadText}>Ekipet</Text>
                 </View>
                 {teams === null ? (
@@ -431,7 +438,7 @@ export function AdminHome() {
                     </View>
                   ))
                 )}
-                <SeeAllFooter color={C.text} onPress={() => router.push('/teams')} />
+                <SeeAllFooter color={C.textText} onPress={() => router.push('/teams')} />
               </View>
             </View>
 
@@ -441,11 +448,11 @@ export function AdminHome() {
                 style={({ pressed }) => [styles.promoPlayers, pressed && styles.pressed]}
                 onPress={() => router.push('/players')}
               >
-                <MaterialCommunityIcons name="soccer" size={I(17)} color={C.red} style={styles.promoIcon} />
+                <MaterialCommunityIcons name="soccer" size={I(17)} color={C.redText} style={styles.promoIcon} />
                 <Text style={styles.promoSmall}>Shiko të gjithë</Text>
                 <Text style={styles.promoBig}>Lojtarët</Text>
                 <Image source={IMG.young} style={styles.promoPlayerImg} resizeMode="contain" />
-                <View style={[styles.promoBtn, { backgroundColor: C.red }]}>
+                <View style={[styles.promoBtn, { backgroundColor: C.redFill }]}>
                   <Text style={styles.promoBtnText}>Vazhdo</Text>
                 </View>
               </Pressable>
@@ -459,7 +466,7 @@ export function AdminHome() {
                   <Text style={styles.medSmall}>Kartela</Text>
                   <Text style={styles.medBig}>Mjekësore</Text>
                 </View>
-                <View style={[styles.promoBtn, { backgroundColor: C.orange }]}>
+                <View style={[styles.promoBtn, { backgroundColor: C.orangeFill }]}>
                   <Text style={styles.promoBtnText}>Vazhdo</Text>
                 </View>
               </Pressable>
@@ -484,6 +491,8 @@ function HeaderBlock({
   onSettings: () => void;
   onClub: () => void;
 }) {
+  const C = useAppColors(DashboardC);
+  const styles = usePaletteStyles(createStyles, C);
   return (
     <View style={styles.header}>
       <Pressable
@@ -499,12 +508,12 @@ function HeaderBlock({
           <Text style={styles.clubName} numberOfLines={1}>
             {clubName}
           </Text>
-          <MaterialCommunityIcons name="chevron-down" size={I(12)} color="rgba(12,37,27,0.65)" />
+          <MaterialCommunityIcons name="chevron-down" size={I(12)} color={C.heroMutedText} />
         </View>
       </View>
       <View style={styles.headerRight}>
         <Pressable onPress={onBell} hitSlop={6} style={({ pressed }) => [styles.roundBtn, pressed && styles.pressed]}>
-          <MaterialCommunityIcons name="bell-outline" size={I(20)} color={C.text} />
+          <MaterialCommunityIcons name="bell-outline" size={I(20)} color={C.textText} />
           {unread > 0 ? (
             <View style={styles.badge}>
               <Text style={styles.badgeText}>{unread > 99 ? '99+' : unread}</Text>
@@ -516,7 +525,7 @@ function HeaderBlock({
           hitSlop={6}
           style={({ pressed }) => [styles.settingsBtn, pressed && styles.pressed]}
         >
-          <MaterialCommunityIcons name="cog-outline" size={I(20)} color={C.greenDark} />
+          <MaterialCommunityIcons name="cog-outline" size={I(20)} color={C.greenDarkText} />
         </Pressable>
       </View>
     </View>
@@ -533,6 +542,8 @@ type StatCardProps = {
 };
 
 function StatCard({ labelTop, labelBottom, value, image, imageStyle, children }: StatCardProps) {
+  const C = useAppColors(DashboardC);
+  const styles = usePaletteStyles(createStyles, C);
   return (
     <View style={styles.statItem}>
       <Text style={styles.statLabel} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
@@ -551,6 +562,8 @@ function StatCard({ labelTop, labelBottom, value, image, imageStyle, children }:
 }
 
 function SectionHead({ title, onSeeAll }: { title: string; onSeeAll: () => void }) {
+  const C = useAppColors(DashboardC);
+  const styles = usePaletteStyles(createStyles, C);
   return (
     <View style={styles.sectionHead}>
       <Text style={styles.sectionTitle}>{title}</Text>
@@ -562,6 +575,8 @@ function SectionHead({ title, onSeeAll }: { title: string; onSeeAll: () => void 
 }
 
 function SeeAllFooter({ color, onPress }: { color: string; onPress: () => void }) {
+  const C = useAppColors(DashboardC);
+  const styles = usePaletteStyles(createStyles, C);
   return (
     <Pressable
       onPress={onPress}
@@ -573,7 +588,7 @@ function SeeAllFooter({ color, onPress }: { color: string; onPress: () => void }
   );
 }
 
-const styles = StyleSheet.create(scaled({
+const createStyles = (C: AppColorsOf<typeof DashboardC>) => StyleSheet.create(scaled({
   safe: {
     flex: 1,
   },
@@ -605,7 +620,7 @@ const styles = StyleSheet.create(scaled({
     fontFamily: Fonts.bodyBold,
     fontSize: 17,
     letterSpacing: -0.3,
-    color: '#0C251B',
+    color: C.textText,
     lineHeight: 20,
   },
   clubRow: {
@@ -616,7 +631,7 @@ const styles = StyleSheet.create(scaled({
   clubName: {
     fontFamily: Fonts.bodyMedium,
     fontSize: 13,
-    color: 'rgba(12,37,27,0.65)',
+    color: C.heroMutedText,
   },
   headerRight: {
     flex: 1,
@@ -629,7 +644,7 @@ const styles = StyleSheet.create(scaled({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: C.white,
+    backgroundColor: C.whiteFill,
     borderWidth: 1,
     borderColor: 'rgba(30,40,35,0.10)',
     alignItems: 'center',
@@ -644,7 +659,7 @@ const styles = StyleSheet.create(scaled({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: C.profileBg,
+    backgroundColor: C.profileBgFill,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -655,17 +670,17 @@ const styles = StyleSheet.create(scaled({
     minWidth: 16,
     height: 16,
     borderRadius: 8,
-    backgroundColor: C.green,
+    backgroundColor: C.greenFill,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 3,
     borderWidth: 1.5,
-    borderColor: C.bg,
+    borderColor: C.bgBorder,
   },
   badgeText: {
     fontFamily: Fonts.bodyBold,
     fontSize: 9.5,
-    color: C.white,
+    color: C.whiteText,
   },
 
   /* Welcome */
@@ -676,13 +691,13 @@ const styles = StyleSheet.create(scaled({
     fontFamily: Fonts.bodyBold,
     fontSize: 22,
     letterSpacing: -0.5,
-    color: '#0C251B',
+    color: C.textText,
     lineHeight: 28,
   },
   welcomeSub: {
     fontFamily: Fonts.body,
     fontSize: 13.5,
-    color: 'rgba(12,37,27,0.7)',
+    color: C.heroSubText,
     marginTop: 3,
   },
 
@@ -696,9 +711,8 @@ const styles = StyleSheet.create(scaled({
     marginHorizontal: 27,
     borderRadius: 16,
     borderWidth: 1,
-    /* Matches the orange rim the individual stat cards used to have. */
-    borderColor: C.statBorder,
-    backgroundColor: 'rgba(255,255,255,0.12)',
+    borderColor: C.statBorderBorder,
+    backgroundColor: C.glassBaseFill,
     overflow: 'hidden',
     shadowColor: '#0B3B33',
     shadowOffset: { width: 0, height: 6 },
@@ -729,7 +743,7 @@ const styles = StyleSheet.create(scaled({
     right: 10,
     height: 1.5,
     borderRadius: 1,
-    backgroundColor: 'rgba(255,255,255,0.95)',
+    backgroundColor: C.glassEdgeFill,
   },
   statItem: {
     flex: 1,
@@ -742,18 +756,18 @@ const styles = StyleSheet.create(scaled({
     width: StyleSheet.hairlineWidth,
     alignSelf: 'stretch',
     marginVertical: 12,
-    backgroundColor: 'rgba(16,51,38,0.18)',
+    backgroundColor: C.glassDividerFill,
   },
   statLabel: {
     fontFamily: Fonts.bodyBold,
     fontSize: 9.5,
-    color: '#3F5A50',
+    color: C.statLabelText,
     lineHeight: 11.5,
   },
   statValue: {
     fontFamily: Fonts.bodyBold,
     fontSize: 19,
-    color: '#0C251B',
+    color: C.textText,
     letterSpacing: -0.5,
     marginTop: 2,
     lineHeight: 23,
@@ -764,25 +778,25 @@ const styles = StyleSheet.create(scaled({
   statDown: {
     fontFamily: Fonts.bodySemiBold,
     fontSize: 9.5,
-    color: C.red,
+    color: C.redText,
     lineHeight: 11.5,
   },
   statDownSub: {
     fontFamily: Fonts.body,
     fontSize: 9,
-    color: '#C25454',
+    color: C.statDownSubText,
     lineHeight: 11,
   },
   statSubLabel: {
     fontFamily: Fonts.body,
     fontSize: 9,
-    color: '#4E6A5F',
+    color: C.statSubLabelText,
     lineHeight: 11,
   },
   statSubValue: {
     fontFamily: Fonts.bodyMedium,
     fontSize: 10,
-    color: '#2A5040',
+    color: C.statSubValueText,
     lineHeight: 13,
   },
   statImg: {
@@ -820,20 +834,20 @@ const styles = StyleSheet.create(scaled({
     fontFamily: Fonts.bodyBold,
     fontSize: 16.5,
     letterSpacing: -0.2,
-    color: '#0C251B',
+    color: C.textText,
   },
   seeAll: {
     fontFamily: Fonts.bodySemiBold,
     fontSize: 13.5,
-    color: '#1F6B4F',
+    color: C.seeAllText,
   },
 
   /* Matches */
   matchesCard: {
-    backgroundColor: C.matchBg,
+    backgroundColor: C.matchBgFill,
     borderWidth: 1,
-    borderColor: C.matchBorder,
-    borderRadius: 7,
+    borderColor: C.matchBorderBorder,
+    borderRadius: 12,
     overflow: 'hidden',
   },
   matchRow: {
@@ -844,7 +858,7 @@ const styles = StyleSheet.create(scaled({
   },
   matchRowSep: {
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#F5F5F5',
+    borderTopColor: 'rgba(23,37,30,0.08)',
   },
   matchEmpty: {
     alignItems: 'center',
@@ -854,13 +868,52 @@ const styles = StyleSheet.create(scaled({
   matchEmptyText: {
     fontFamily: Fonts.body,
     fontSize: 12.5,
-    color: C.muted,
+    color: C.mutedText,
   },
   pressed: {
     opacity: 0.6,
   },
+
+  /* Compact failure strip: the feeds are independent, so it sits under the
+     greeting and clears on retry. */
+  loadError: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+    marginTop: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: C.whiteFill,
+    borderWidth: 1,
+    borderColor: C.borderBorder,
+    borderRadius: 10,
+  },
+
+  loadErrorText: {
+    flex: 1,
+    fontFamily: Fonts.body,
+    fontSize: 12.5,
+    lineHeight: 18,
+    color: C.textText,
+  },
+
+  loadRetry: {
+    minHeight: 44,
+    justifyContent: 'center',
+    paddingHorizontal: 14,
+    borderWidth: 1,
+    borderColor: C.greenBorder,
+    borderRadius: 10,
+  },
+
+  loadRetryText: {
+    fontFamily: Fonts.bodySemiBold,
+    fontSize: 13,
+    color: C.greenText,
+  },
   ageBadge: {
-    backgroundColor: C.lightGreen,
+    backgroundColor: C.lightGreenFill,
     borderRadius: 4,
     paddingHorizontal: 7,
     paddingVertical: 3,
@@ -869,7 +922,7 @@ const styles = StyleSheet.create(scaled({
   ageText: {
     fontFamily: Fonts.bodySemiBold,
     fontSize: 13,
-    color: C.greenDark,
+    color: C.greenDarkText,
   },
   teamHome: {
     flex: 1,
@@ -891,13 +944,13 @@ const styles = StyleSheet.create(scaled({
   teamName: {
     fontFamily: Fonts.bodyMedium,
     fontSize: 13.5,
-    color: '#3A3A3A',
+    color: C.text2Text,
     flexShrink: 1,
   },
   teamNameAway: {
     fontFamily: Fonts.bodyMedium,
     fontSize: 13.5,
-    color: '#3A3A3A',
+    color: C.text2Text,
     flexShrink: 1,
   },
   vsCol: {
@@ -907,14 +960,14 @@ const styles = StyleSheet.create(scaled({
   vsText: {
     fontFamily: Fonts.bodyMedium,
     fontSize: 12,
-    color: C.faint,
+    color: C.faintText,
     textTransform: 'uppercase',
     lineHeight: 15,
   },
   timeText: {
     fontFamily: Fonts.bodySemiBold,
     fontSize: 12,
-    color: C.muted,
+    color: C.mutedText,
     lineHeight: 15,
   },
 
@@ -929,10 +982,10 @@ const styles = StyleSheet.create(scaled({
   /* Activity card — one continuous card, 1px full-width dividers */
   activityCard: {
     flex: 1,
-    backgroundColor: C.white,
+    backgroundColor: C.whiteFill,
     borderWidth: 1,
-    borderColor: 'rgba(100,140,190,0.30)',
-    borderRadius: 7,
+    borderColor: C.cardBorderBorder,
+    borderRadius: 12,
     overflow: 'hidden',
   },
   cardHead: {
@@ -951,7 +1004,7 @@ const styles = StyleSheet.create(scaled({
   cardHeadText: {
     fontFamily: Fonts.bodySemiBold,
     fontSize: 13.5,
-    color: C.text,
+    color: C.textText,
   },
   activityRow: {
     flex: 1,
@@ -975,27 +1028,27 @@ const styles = StyleSheet.create(scaled({
   activityText: {
     fontFamily: Fonts.body,
     fontSize: 11.5,
-    color: '#555555',
+    color: C.text2Text,
     lineHeight: 15,
   },
   activityName: {
     fontFamily: Fonts.bodySemiBold,
-    color: '#222222',
+    color: C.textText,
   },
   activityTime: {
     fontFamily: Fonts.body,
     fontSize: 10.5,
-    color: C.faint,
+    color: C.faintText,
     marginTop: 1,
   },
 
   /* Teams card — one continuous card, 1px full-width dividers */
   teamsCard: {
     flex: 1,
-    backgroundColor: C.lavenderBg,
+    backgroundColor: C.lavenderBgFill,
     borderWidth: 1,
-    borderColor: C.lavenderBorder,
-    borderRadius: 7,
+    borderColor: C.lavenderBorderBorder,
+    borderRadius: 12,
     overflow: 'hidden',
   },
   teamRow: {
@@ -1011,13 +1064,13 @@ const styles = StyleSheet.create(scaled({
   teamRowName: {
     fontFamily: Fonts.bodyMedium,
     fontSize: 12.5,
-    color: '#3A3042',
+    color: C.teamRowNameText,
     flexShrink: 1,
   },
   teamRowCount: {
     fontFamily: Fonts.bodyBold,
     fontSize: 12.5,
-    color: C.text,
+    color: C.textText,
     marginLeft: 6,
   },
 
@@ -1036,20 +1089,20 @@ const styles = StyleSheet.create(scaled({
   promoPlayers: {
     flex: 1,
     height: 134,
-    backgroundColor: C.promoBg,
+    backgroundColor: C.promoBgFill,
     borderWidth: 1,
-    borderColor: C.promoBorder,
-    borderRadius: 8,
+    borderColor: C.promoBorderBorder,
+    borderRadius: 12,
     overflow: 'hidden',
     padding: 12,
   },
   promoMedical: {
     flex: 1,
     height: 134,
-    backgroundColor: C.beigeBg,
+    backgroundColor: C.beigeBgFill,
     borderWidth: 1,
-    borderColor: C.beigeBorder,
-    borderRadius: 8,
+    borderColor: C.beigeBorderBorder,
+    borderRadius: 12,
     overflow: 'hidden',
     padding: 12,
   },
@@ -1061,13 +1114,13 @@ const styles = StyleSheet.create(scaled({
   promoSmall: {
     fontFamily: Fonts.bodyMedium,
     fontSize: 13,
-    color: C.text2,
+    color: C.text2Text,
   },
   promoBig: {
     fontFamily: Fonts.bodyBold,
     fontSize: 18,
     letterSpacing: -0.2,
-    color: C.text,
+    color: C.textText,
     marginTop: 1,
   },
   promoPlayerImg: {
@@ -1093,14 +1146,14 @@ const styles = StyleSheet.create(scaled({
   medSmall: {
     fontFamily: Fonts.bodyMedium,
     fontSize: 13.5,
-    color: C.text2,
+    color: C.text2Text,
     textAlign: 'right',
   },
   medBig: {
     fontFamily: Fonts.bodyBold,
     fontSize: 17,
     letterSpacing: -0.3,
-    color: C.text,
+    color: C.textText,
     marginTop: 1,
     textAlign: 'right',
   },
@@ -1108,7 +1161,7 @@ const styles = StyleSheet.create(scaled({
     position: 'absolute',
     right: 9,
     bottom: 9,
-    borderRadius: 6,
+    borderRadius: 8,
     paddingHorizontal: 14,
     paddingVertical: 7,
     alignItems: 'center',
@@ -1116,6 +1169,6 @@ const styles = StyleSheet.create(scaled({
   promoBtnText: {
     fontFamily: Fonts.bodyBold,
     fontSize: 13.5,
-    color: C.white,
+    color: C.whiteText,
   },
 }));

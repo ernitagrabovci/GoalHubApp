@@ -16,6 +16,8 @@ import { listTeams } from '@/lib/api/teams';
 import type { ApiTeam, PlayerStatRow, PlayerStatisticsResponse } from '@/lib/api/types';
 import { I, scaled } from '@/lib/responsive';
 import { useSession } from '@/lib/session';
+import { useAppColors, usePaletteStyles, type AppColorsOf } from '@/lib/app-theme';
+import { useGlass } from '@/lib/glass';
 
 /**
  * Statistikat e lojtarëve — opened from the "Statistikat" card on the players
@@ -23,21 +25,25 @@ import { useSession } from '@/lib/session';
  * "Statistikat individuale" table and its pager.
  */
 
-const C = {
-  page: '#FAFBFA',
+const C_LIGHT = {
+  frame: '#DCE5DF',
+  glassBase: 'rgba(255,255,255,0.12)',
+  glassEdge: 'rgba(255,255,255,0.95)',
+  glassDivider: 'rgba(16,51,38,0.18)',
+  page: '#F7F9F8',
   line: 'rgba(0,0,0,0.025)',
 
-  text: '#111111',
-  gray: '#8A8A8A',
+  text: '#17251E',
+  gray: '#52645A',
 
-  card: '#F6FBFF',
+  card: '#F7F9F8',
   border: 'rgba(100,140,190,0.30)',
   rowLine: 'rgba(100,140,190,0.22)',
   headLine: 'rgba(30,40,35,0.10)',
 
-  orange: '#E4A000',
-  red: '#E03131',
-  green: '#159447',
+  orange: '#B45309',
+  red: '#B91C1C',
+  green: '#2E7D5B',
   blue: '#1749B8',
   blueSoft: '#E3EEFB',
 };
@@ -45,25 +51,25 @@ const C = {
 type StatRect = { label: string; value: string; hint: string; tone?: string };
 
 /** Labels/hints/tones are static; only the value comes from the API totals. */
-const STAT_TEMPLATES: Omit<StatRect, 'value'>[] = [
+const STAT_TEMPLATES = (C: AppColorsOf<typeof C_LIGHT>): Omit<StatRect, 'value'>[] => ([
   { label: 'Lojtarë gjithsej', hint: 'me statistika' },
   { label: 'Gola total', hint: 'sezoni aktual', tone: C.green },
   { label: 'Asiste total', hint: 'sezoni aktual', tone: C.blue },
   { label: 'Minuta total', hint: 'luajtura', tone: C.orange },
-];
+]);
 
 type Col = { key: string; label: string; width: number; color?: string; align?: 'left' | 'center' };
 
-const COLS: Col[] = [
+const COLS = (C: AppColorsOf<typeof C_LIGHT>): Col[] => ([
   { key: 'player', label: 'Lojtari', width: 56, align: 'left' },
   { key: 'team', label: 'Ekipi', width: 46 },
   { key: 'nd', label: 'ND', width: 29 },
   { key: 'min', label: 'Min', width: 37 },
-  { key: 'goals', label: 'Gola', width: 42, color: C.green },
+  { key: 'goals', label: 'Gola', width: 42, color: C.greenText },
   { key: 'assists', label: 'Asiste', width: 50 },
-  { key: 'kv', label: 'KV', width: 28, color: C.orange },
-  { key: 'kk', label: 'KK', width: 28, color: C.red },
-];
+  { key: 'kv', label: 'KV', width: 28, color: C.orangeText },
+  { key: 'kk', label: 'KK', width: 28, color: C.redText },
+]);
 
 /** The stats endpoint returns every player at once, so the pager works on the client. */
 const PAGE_SIZE = 8;
@@ -96,6 +102,9 @@ function rowValues(r: PlayerStatRow): string[] {
 }
 
 export default function PlayerStatisticsScreen() {
+  const glass = useGlass();
+  const C = useAppColors(C_LIGHT);
+  const styles = usePaletteStyles(createStyles, C);
   const router = useRouter();
   const { token, signOut } = useSession();
 
@@ -152,11 +161,11 @@ export default function PlayerStatisticsScreen() {
 
   const totals = data?.totals;
   const stats: StatRect[] = [
-    { ...STAT_TEMPLATES[0], value: totals ? String(totals.players) : '—' },
-    { ...STAT_TEMPLATES[1], value: totals ? String(totals.goals) : '—' },
-    { ...STAT_TEMPLATES[2], value: totals ? String(totals.assists) : '—' },
+    { ...STAT_TEMPLATES(C)[0], value: totals ? String(totals.players) : '—' },
+    { ...STAT_TEMPLATES(C)[1], value: totals ? String(totals.goals) : '—' },
+    { ...STAT_TEMPLATES(C)[2], value: totals ? String(totals.assists) : '—' },
     {
-      ...STAT_TEMPLATES[3],
+      ...STAT_TEMPLATES(C)[3],
       value: totals ? totals.minutes.toLocaleString('en-US') : '—',
     },
   ];
@@ -182,7 +191,7 @@ export default function PlayerStatisticsScreen() {
                 accessibilityLabel="Kthehu prapa"
                 style={({ pressed }) => [styles.backBtn, pressed && styles.pressed]}
               >
-                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.text} />
+                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.textText} />
               </Pressable>
               <View style={styles.headerText}>
                 <Text style={styles.title} numberOfLines={1}>
@@ -209,30 +218,21 @@ export default function PlayerStatisticsScreen() {
               <BlurView
                 pointerEvents="none"
                 intensity={55}
-                tint="light"
+                tint={glass.tint}
                 experimentalBlurMethod="dimezisBlurView"
                 style={StyleSheet.absoluteFill}
               />
               <LinearGradient
                 pointerEvents="none"
                 style={StyleSheet.absoluteFill}
-                colors={[
-                  'rgba(255,255,255,0.38)',
-                  'rgba(255,255,255,0.04)',
-                  'rgba(255,255,255,0.24)',
-                ]}
+                colors={glass.highlight}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
               />
               <LinearGradient
                 pointerEvents="none"
                 style={styles.statsGloss}
-                colors={[
-                  'rgba(255,255,255,0)',
-                  'rgba(255,255,255,0.78)',
-                  'rgba(255,255,255,0.55)',
-                  'rgba(255,255,255,0)',
-                ]}
+                colors={glass.sweep}
                 locations={[0, 0.38, 0.62, 1]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
@@ -240,11 +240,7 @@ export default function PlayerStatisticsScreen() {
               <LinearGradient
                 pointerEvents="none"
                 style={styles.statsGloss2}
-                colors={[
-                  'rgba(255,255,255,0)',
-                  'rgba(255,255,255,0.55)',
-                  'rgba(255,255,255,0)',
-                ]}
+                colors={glass.sweepSoft}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
               />
@@ -299,7 +295,7 @@ export default function PlayerStatisticsScreen() {
 
               <View style={styles.tblWrap}>
                 <View style={styles.tr}>
-                  {COLS.map((c) => (
+                  {COLS(C).map((c) => (
                     <Text
                       key={c.key}
                       style={[
@@ -318,7 +314,7 @@ export default function PlayerStatisticsScreen() {
                   const values = rowValues(r);
                   return (
                     <View key={r.player_id} style={[styles.tr, styles.trBorder]}>
-                      {COLS.map((c, i) => (
+                      {COLS(C).map((c, i) => (
                         <Text
                           key={c.key}
                           style={[
@@ -352,7 +348,7 @@ export default function PlayerStatisticsScreen() {
                     pressed && styles.pressed,
                   ]}
                 >
-                  <MaterialCommunityIcons name="chevron-left" size={I(22)} color={C.text} />
+                  <MaterialCommunityIcons name="chevron-left" size={I(22)} color={C.textText} />
                 </Pressable>
 
                 {pageWindow(current, lastPage).map((p) => (
@@ -382,7 +378,7 @@ export default function PlayerStatisticsScreen() {
                     pressed && styles.pressed,
                   ]}
                 >
-                  <MaterialCommunityIcons name="chevron-right" size={I(22)} color={C.text} />
+                  <MaterialCommunityIcons name="chevron-right" size={I(22)} color={C.textText} />
                 </Pressable>
               </View>
             ) : null}
@@ -397,7 +393,7 @@ export default function PlayerStatisticsScreen() {
 /* Styles                                                              */
 /* ------------------------------------------------------------------ */
 
-const styles = StyleSheet.create(
+const createStyles = (C: AppColorsOf<typeof C_LIGHT>) => StyleSheet.create(
   scaled({
     safe: {
       flex: 1,
@@ -442,14 +438,14 @@ const styles = StyleSheet.create(
       fontSize: 20,
       lineHeight: 24,
       letterSpacing: -0.3,
-      color: C.text,
+      color: C.textText,
     },
 
     subtitle: {
       fontFamily: Fonts.body,
       fontSize: 12,
       lineHeight: 16,
-      color: C.gray,
+      color: C.grayText,
       marginTop: 1,
     },
 
@@ -473,8 +469,8 @@ const styles = StyleSheet.create(
       height: 104,
       borderRadius: 16,
       borderWidth: 1,
-      borderColor: C.orange,
-      backgroundColor: 'rgba(255,255,255,0.12)',
+      borderColor: C.orangeBorder,
+      backgroundColor: C.glassBaseFill,
       overflow: 'hidden',
       shadowColor: '#0B3B33',
       shadowOffset: { width: 0, height: 6 },
@@ -508,7 +504,7 @@ const styles = StyleSheet.create(
       right: 10,
       height: 1.5,
       borderRadius: 1,
-      backgroundColor: 'rgba(255,255,255,0.95)',
+      backgroundColor: C.glassEdgeFill,
     },
 
     statItem: {
@@ -524,7 +520,7 @@ const styles = StyleSheet.create(
       top: 10,
       bottom: 10,
       width: StyleSheet.hairlineWidth,
-      backgroundColor: 'rgba(16,51,38,0.18)',
+      backgroundColor: C.glassDividerFill,
     },
 
     /* Fixed two-line block so all four values sit on the same line. */
@@ -533,7 +529,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodySemiBold,
       fontSize: 9.5,
       lineHeight: 11.5,
-      color: C.gray,
+      color: C.grayText,
     },
 
     rectValue: {
@@ -541,7 +537,7 @@ const styles = StyleSheet.create(
       fontSize: 17,
       lineHeight: 21,
       letterSpacing: -0.5,
-      color: C.text,
+      color: C.textText,
       marginTop: 2,
     },
 
@@ -549,7 +545,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 9,
       lineHeight: 11,
-      color: C.gray,
+      color: C.grayText,
       marginTop: 3,
     },
 
@@ -563,24 +559,24 @@ const styles = StyleSheet.create(
       height: 36,
       marginTop: 14,
       paddingHorizontal: 12,
-      backgroundColor: C.blueSoft,
+      backgroundColor: C.blueSoftFill,
       borderWidth: 1,
-      borderColor: '#000000',
+      borderColor: C.frameBorder,
       borderRadius: 4,
     },
 
     teamBtnText: {
       fontFamily: Fonts.body,
       fontSize: 12,
-      color: C.text,
+      color: C.textText,
     },
 
     /* ── Statistikat individuale ─────────────────────────────── */
     card: {
       marginTop: 14,
-      backgroundColor: C.card,
+      backgroundColor: C.cardFill,
       borderWidth: 2,
-      borderColor: C.border,
+      borderColor: C.borderBorder,
       borderRadius: 7,
       overflow: 'hidden',
     },
@@ -591,14 +587,14 @@ const styles = StyleSheet.create(
       paddingHorizontal: 12,
       paddingVertical: 11,
       borderBottomWidth: 1,
-      borderBottomColor: C.headLine,
+      borderBottomColor: C.headLineBorder,
     },
 
     cardHeadText: {
       fontFamily: Fonts.bodyBold,
       fontSize: 16,
       lineHeight: 20,
-      color: C.text,
+      color: C.textText,
     },
 
     /* All eight columns fit — this table never scrolls sideways. */
@@ -615,14 +611,14 @@ const styles = StyleSheet.create(
 
     trBorder: {
       borderTopWidth: 1,
-      borderTopColor: C.rowLine,
+      borderTopColor: C.rowLineBorder,
     },
 
     th: {
       fontFamily: Fonts.bodySemiBold,
       fontSize: 10.5,
       lineHeight: 13,
-      color: C.gray,
+      color: C.grayText,
       textAlign: 'center',
     },
 
@@ -631,7 +627,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 10.5,
       lineHeight: 13,
-      color: C.text,
+      color: C.textText,
       textAlign: 'center',
     },
 
@@ -654,18 +650,18 @@ const styles = StyleSheet.create(
     },
 
     pageSq: {
-      width: 34,
-      height: 34,
-      borderRadius: 5,
+      width: 44,
+      height: 44,
+      borderRadius: 10,
       backgroundColor: '#86BCFD',
       alignItems: 'center',
       justifyContent: 'center',
     },
 
     pageSqActive: {
-      width: 34,
-      height: 34,
-      borderRadius: 5,
+      width: 44,
+      height: 44,
+      borderRadius: 10,
       backgroundColor: '#4E90D8',
       alignItems: 'center',
       justifyContent: 'center',
@@ -674,7 +670,7 @@ const styles = StyleSheet.create(
     pageSqText: {
       fontFamily: Fonts.bodySemiBold,
       fontSize: 14,
-      color: '#F5F5F5',
+      color: '#FFFFFF',
     },
 
     pressed: {

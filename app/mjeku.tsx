@@ -15,6 +15,7 @@ import type { ApiPlayer } from '@/lib/api/types';
 import { toInjuryRow, type InjuryRow } from '@/lib/medical';
 import { I, scaled } from '@/lib/responsive';
 import { useSession } from '@/lib/session';
+import { useAppColors, usePaletteStyles, type AppColorsOf } from '@/lib/app-theme';
 
 /**
  * Mjeku — the trainer's own view of the medical card, opened from the
@@ -24,24 +25,24 @@ import { useSession } from '@/lib/session';
  * ending in the "Shiko" that opens it in full.
  */
 
-const C = {
-  page: '#FAFBFA',
+const C_LIGHT = {
+  page: '#F7F9F8',
   line: 'rgba(0,0,0,0.025)',
 
-  text: '#111111',
-  gray: '#8A8A8A',
+  text: '#17251E',
+  gray: '#52645A',
   hint: '#6E6E6E',
 
-  frame: '#000000',
+  frame: '#DCE5DF',
   headLine: 'rgba(30,40,35,0.10)',
   rowLine: 'rgba(100,140,190,0.22)',
 
-  card: '#F6FBFF',
+  card: '#F7F9F8',
 
-  green: '#159447',
+  green: '#2E7D5B',
   green20: 'rgba(21,148,71,0.20)',
-  orange: '#E4A000',
-  red: '#E03131',
+  orange: '#B45309',
+  red: '#B91C1C',
 };
 
 /* ── Injury log ────────────────────────────────────────────────────── */
@@ -49,11 +50,11 @@ const C = {
 /* The squad this page covers — shown as the page subtitle. */
 const TEAM = 'Ekipi i Parë';
 
-const STATUS_TONE: Record<string, string> = {
+const STATUS_TONE = (C: AppColorsOf<typeof C_LIGHT>): Record<string, string> => ({
   'I lënduar': C.red,
   'Në rehabilitim': C.orange,
   'I shëruar': C.green,
-};
+});
 
 /* The form's Albanian labels → the API's codes. */
 const API_DURING: Record<string, 'training' | 'match' | 'other'> = {
@@ -100,6 +101,8 @@ const COLS: { key: keyof InjuryRow; label: string; width: number }[] = [
 const ACTION_W = 58;
 
 export default function DoctorScreen() {
+  const C = useAppColors(C_LIGHT);
+  const styles = usePaletteStyles(createStyles, C);
   const router = useRouter();
   const { token, signOut } = useSession();
 
@@ -198,7 +201,7 @@ export default function DoctorScreen() {
                 accessibilityLabel="Kthehu prapa"
                 style={({ pressed }) => [styles.backBtn, pressed && styles.pressed]}
               >
-                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.text} />
+                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.textText} />
               </Pressable>
               <View style={styles.headerText}>
                 <Text
@@ -231,12 +234,18 @@ export default function DoctorScreen() {
               }}
               accessibilityRole="button"
               accessibilityLabel="Regjistro lëndim"
+              hitSlop={{ top: 5, bottom: 5 }}
               style={({ pressed }) => [styles.addBtn, pressed && styles.pressed]}
             >
               <Text style={styles.addBtnText} numberOfLines={1}>
                 + Regjistro lëndim
               </Text>
             </Pressable>
+
+            <View style={styles.scrollHint} accessibilityElementsHidden importantForAccessibility="no">
+              <MaterialCommunityIcons name="gesture-swipe-horizontal" size={I(14)} color={C.grayText} />
+              <Text style={styles.scrollHintText}>Rrëshqit anash për më shumë kolona</Text>
+            </View>
 
             {/* ── Injury table ────────────────────────────────────── */}
             <View style={styles.card}>
@@ -280,7 +289,7 @@ export default function DoctorScreen() {
                               styles.td,
                               c.key === 'name' ? styles.tdName : null,
                               isStatus
-                                ? [styles.tdStrong, { color: STATUS_TONE[inj.status] ?? C.hint }]
+                                ? [styles.tdStrong, { color: STATUS_TONE(C)[inj.status] ?? C.hint }]
                                 : null,
                               { width: c.width },
                             ]}
@@ -315,6 +324,7 @@ export default function DoctorScreen() {
                           }
                           accessibilityRole="button"
                           accessibilityLabel={`Shiko lëndimin e ${inj.name}`}
+                          hitSlop={{ top: 7, bottom: 7, left: 4, right: 4 }}
                           style={({ pressed }) => [styles.viewBtn, pressed && styles.pressed]}
                         >
                           <Text style={styles.viewBtnText}>Shiko</Text>
@@ -349,7 +359,7 @@ export default function DoctorScreen() {
 /* Styles                                                              */
 /* ------------------------------------------------------------------ */
 
-const styles = StyleSheet.create(
+const createStyles = (C: AppColorsOf<typeof C_LIGHT>) => StyleSheet.create(
   scaled({
     safe: {
       flex: 1,
@@ -394,14 +404,14 @@ const styles = StyleSheet.create(
       fontSize: 20,
       lineHeight: 24,
       letterSpacing: -0.3,
-      color: C.text,
+      color: C.textText,
     },
 
     subtitle: {
       fontFamily: Fonts.body,
       fontSize: 12,
       lineHeight: 16,
-      color: C.gray,
+      color: C.grayText,
       marginTop: 1,
     },
 
@@ -413,30 +423,45 @@ const styles = StyleSheet.create(
     /* Small and hugging its label, rather than spanning the page. */
     addBtn: {
       alignSelf: 'flex-start',
-      height: 34,
+      height: 44,
       marginTop: 8,
       paddingHorizontal: 14,
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: C.green20,
+      backgroundColor: C.green20Fill,
       borderWidth: 1,
-      borderColor: C.frame,
-      borderRadius: 4,
+      borderColor: C.frameBorder,
+      borderRadius: 10,
     },
 
     addBtnText: {
       fontFamily: Fonts.bodySemiBold,
-      fontSize: 12,
-      lineHeight: 16,
-      color: C.text,
+      fontSize: 13,
+      lineHeight: 18,
+      color: C.textText,
     },
 
     /* ── Injury table ────────────────────────────────────────── */
+    /* Tells sighted users the injury grid continues sideways on narrow phones. */
+    scrollHint: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 5,
+      marginTop: 12,
+    },
+
+    scrollHintText: {
+      fontFamily: Fonts.body,
+      fontSize: 11.5,
+      lineHeight: 15,
+      color: C.grayText,
+    },
+
     card: {
       marginTop: 14,
-      backgroundColor: C.card,
+      backgroundColor: C.cardFill,
       borderWidth: 1,
-      borderColor: C.frame,
+      borderColor: C.frameBorder,
       borderRadius: 5,
       overflow: 'hidden',
     },
@@ -450,7 +475,7 @@ const styles = StyleSheet.create(
       paddingTop: 10,
       paddingBottom: 9,
       borderBottomWidth: 1,
-      borderBottomColor: C.headLine,
+      borderBottomColor: C.headLineBorder,
     },
 
     cardTitle: {
@@ -458,14 +483,14 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodyBold,
       fontSize: 12.5,
       lineHeight: 16,
-      color: C.text,
+      color: C.textText,
     },
 
     cardCount: {
       fontFamily: Fonts.body,
       fontSize: 11,
       lineHeight: 15,
-      color: C.gray,
+      color: C.grayText,
     },
 
     tblInner: {
@@ -482,7 +507,7 @@ const styles = StyleSheet.create(
       paddingTop: 10,
       paddingBottom: 8,
       borderBottomWidth: 1,
-      borderBottomColor: C.headLine,
+      borderBottomColor: C.headLineBorder,
     },
 
     tr: {
@@ -493,21 +518,21 @@ const styles = StyleSheet.create(
 
     trBorder: {
       borderTopWidth: 1,
-      borderTopColor: C.rowLine,
+      borderTopColor: C.rowLineBorder,
     },
 
     th: {
       fontFamily: Fonts.bodySemiBold,
       fontSize: 10.5,
       lineHeight: 13,
-      color: C.gray,
+      color: C.grayText,
     },
 
     td: {
       fontFamily: Fonts.body,
       fontSize: 11,
       lineHeight: 14,
-      color: C.text,
+      color: C.textText,
     },
 
     tdName: {
@@ -524,19 +549,20 @@ const styles = StyleSheet.create(
 
     /* Outlined, and sitting on the row itself. */
     viewBtn: {
-      height: 24,
+      height: 30,
       paddingHorizontal: 10,
       alignItems: 'center',
       justifyContent: 'center',
       borderWidth: 1,
-      borderColor: C.frame,
-      borderRadius: 4,
+      borderColor: C.frameBorder,
+      borderRadius: 6,
     },
 
     viewBtnText: {
       fontFamily: Fonts.bodySemiBold,
-      fontSize: 10.5,
-      color: C.text,
+      fontSize: 11.5,
+      lineHeight: 15,
+      color: C.textText,
     },
 
     pressed: {

@@ -5,6 +5,7 @@ import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useMemo, useState } from 'react';
 import {
+  ActivityIndicator,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -21,6 +22,8 @@ import { createMatch, listMatches } from '@/lib/api/matches';
 import type { ApiMatch } from '@/lib/api/types';
 import { I, scaled } from '@/lib/responsive';
 import { useSession } from '@/lib/session';
+import { useAppColors, type AppColorsOf } from '@/lib/app-theme';
+import { useGlass } from '@/lib/glass';
 
 /**
  * Ndeshjet — the trainer's own copy of the matches page, opened from the
@@ -30,46 +33,51 @@ import { useSession } from '@/lib/session';
  * results already banked, each in its own framed table.
  */
 
-const C = {
-  page: '#FAFBFA',
+const C_LIGHT = {
+  white: '#FFFFFF',
+  glassBase: 'rgba(255,255,255,0.12)',
+  glassEdge: 'rgba(255,255,255,0.95)',
+  glassDivider: 'rgba(16,51,38,0.18)',
+  page: '#F7F9F8',
   line: 'rgba(0,0,0,0.025)',
 
-  text: '#111111',
-  gray: '#8A8A8A',
+  text: '#17251E',
+  gray: '#52645A',
   hint: '#6E6E6E',
+  chevron: '#777777',
 
   /* The pale blue both tables sit on. */
-  blue2: '#F6FBFF',
+  blue2: '#F7F9F8',
 
-  frame: '#000000',
+  frame: '#DCE5DF',
   border: 'rgba(100,140,190,0.30)',
   rowLine: 'rgba(100,140,190,0.22)',
   headLine: 'rgba(30,40,35,0.10)',
 
-  green: '#159447',
-  red: '#E03131',
-  orange: '#E4A000',
+  green: '#2E7D5B',
+  red: '#B91C1C',
+  orange: '#B45309',
   dateBlue: '#0766D8',
 
   /* Translucent row buttons — a wash of the tone, not a block of it. */
-  green20: 'rgba(21,148,71,0.20)',
-  red20: 'rgba(224,49,49,0.20)',
+  green20: 'rgba(46,125,91,0.14)',
+  red20: 'rgba(185,28,28,0.12)',
 };
 
 /* Popup palette — same shell as the modals on the other pages. */
-const MO = {
-  border: '#159B63',
-  divider: '#55B88B',
+const MO_LIGHT = {
+  border: '#B5DCC6',
+  divider: '#D9EEE2',
   title: '#080808',
-  text: '#111111',
+  text: '#17251E',
   sub: '#666666',
   inputBorder: '#777777',
   inputBg: '#FAFCFC',
   ph: '#A8A8A8',
-  cancel: '#ED5050',
-  create: '#16A51D',
-  white: '#F5F5F5',
-  err: '#C90000',
+  cancel: '#B91C1C',
+  create: '#2E7D5B',
+  white: '#FFFFFF',
+  err: '#B91C1C',
 };
 
 /* Popup option sets */
@@ -129,12 +137,6 @@ function toPlayed(m: ApiMatch, club: string): Played {
  * nothing. Shading the pane instead — a very light grey at the top edge
  * sweeping down to white — is what gives the surface its glassy shape.
  */
-const SQ_GLOSS = [
-  'rgba(180,188,201,0.30)',
-  'rgba(216,222,231,0.15)',
-  'rgba(245,245,245,0.80)',
-] as const;
-
 /* ── Fixtures ──────────────────────────────────────────────────────── */
 
 type Fixture = {
@@ -184,7 +186,7 @@ const COLS: Col[] = [
 const ACTION_W = 118;
 
 /** Our goals and the letter that goes with them. */
-function resultOf(score: string) {
+function resultOf(score: string, C: AppColorsOf<typeof C_LIGHT>) {
   const [us, them] = score.split('-').map((n) => Number(n.trim()));
   const letter = us === them ? 'B' : us > them ? 'F' : 'H';
   const tone = letter === 'F' ? C.green : letter === 'H' ? C.red : C.orange;
@@ -192,6 +194,10 @@ function resultOf(score: string) {
 }
 
 export default function TrainerMatchesScreen() {
+  const glass = useGlass();
+  const C = useAppColors(C_LIGHT);
+  const MO = useAppColors(MO_LIGHT);
+  const styles = useMemo(() => createStyles(C, MO), [C, MO]);
   const router = useRouter();
   const { user, token, signOut } = useSession();
   const club = user?.club ?? '—';
@@ -265,7 +271,7 @@ export default function TrainerMatchesScreen() {
       { label: 'Ndeshjet e humbura', value: String(lost), tone: C.red },
       { label: 'Golat', value: `${gf}:${ga}`, tone: C.text },
     ];
-  }, [matches, played.length]);
+  }, [matches, played.length, C]);
 
   /* The competitions already on the calendar — the only list the staff API
      exposes, since `/competitions` is administrator-only. */
@@ -318,7 +324,7 @@ export default function TrainerMatchesScreen() {
                 accessibilityLabel="Kthehu prapa"
                 style={({ pressed }) => [styles.backBtn, pressed && styles.pressed]}
               >
-                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.text} />
+                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.textText} />
               </Pressable>
               <View style={styles.headerText}>
                 <Text
@@ -351,14 +357,14 @@ export default function TrainerMatchesScreen() {
               <BlurView
                 pointerEvents="none"
                 intensity={55}
-                tint="light"
+                tint={glass.tint}
                 experimentalBlurMethod="dimezisBlurView"
                 style={StyleSheet.absoluteFill}
               />
               <LinearGradient
                 pointerEvents="none"
                 style={StyleSheet.absoluteFill}
-                colors={SQ_GLOSS}
+                colors={glass.gloss}
                 locations={[0, 0.55, 1]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
@@ -366,12 +372,7 @@ export default function TrainerMatchesScreen() {
               <LinearGradient
                 pointerEvents="none"
                 style={styles.statsGloss}
-                colors={[
-                  'rgba(255,255,255,0)',
-                  'rgba(255,255,255,0.78)',
-                  'rgba(255,255,255,0.55)',
-                  'rgba(255,255,255,0)',
-                ]}
+                colors={glass.sweep}
                 locations={[0, 0.38, 0.62, 1]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
@@ -379,11 +380,7 @@ export default function TrainerMatchesScreen() {
               <LinearGradient
                 pointerEvents="none"
                 style={styles.statsGloss2}
-                colors={[
-                  'rgba(255,255,255,0)',
-                  'rgba(255,255,255,0.55)',
-                  'rgba(255,255,255,0)',
-                ]}
+                colors={glass.sweepSoft}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
               />
@@ -438,11 +435,12 @@ export default function TrainerMatchesScreen() {
               </View>
 
               {upcoming.length === 0 ? (
-                <View style={styles.mRow}>
-                  <Text style={styles.mSub} numberOfLines={1}>
-                    {error ?? (matches ? 'Nuk ka ndeshje të ardhshme.' : '…')}
-                  </Text>
-                </View>
+                <TableState
+                  loading={matches === null && !error}
+                  error={error}
+                  empty="Nuk ka ndeshje të ardhshme."
+                  onRetry={() => setReloadKey((k) => k + 1)}
+                />
               ) : (
                 upcoming.map((f, i) => (
                 <View key={`${f.day}-${f.away}-${i}`} style={[styles.mRow, i > 0 && styles.mRowBorder]}>
@@ -501,6 +499,7 @@ export default function TrainerMatchesScreen() {
                       }
                       accessibilityRole="button"
                       accessibilityLabel="Shiko ndeshjen"
+                      hitSlop={{ top: 6, bottom: 6, left: 3, right: 3 }}
                       style={({ pressed }) => [styles.rowBtn, styles.shikoBtn, pressed && styles.pressed]}
                     >
                       <Text style={styles.rowBtnText}>Shiko</Text>
@@ -514,6 +513,7 @@ export default function TrainerMatchesScreen() {
                       }
                       accessibilityRole="button"
                       accessibilityLabel="Fut rezultatin"
+                      hitSlop={{ top: 6, bottom: 6, left: 3, right: 3 }}
                       style={({ pressed }) => [styles.rowBtn, styles.resultBtn, pressed && styles.pressed]}
                     >
                       <Text style={styles.rowBtnText}>Fut rezultatin</Text>
@@ -530,6 +530,14 @@ export default function TrainerMatchesScreen() {
                 <Text style={styles.cardHeadText}>Ndeshjet e luajtura</Text>
               </View>
 
+              {played.length === 0 ? (
+                <TableState
+                  loading={matches === null && !error}
+                  error={error}
+                  empty="Nuk ka ndeshje të luajtura."
+                  onRetry={() => setReloadKey((k) => k + 1)}
+                />
+              ) : (
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
@@ -549,15 +557,8 @@ export default function TrainerMatchesScreen() {
                     <View style={{ width: ACTION_W }} />
                   </View>
 
-                  {played.length === 0 ? (
-                    <View style={styles.tr}>
-                      <Text style={[styles.td, { width: COLS[0].width }]} numberOfLines={1}>
-                        {error ?? (matches ? 'Nuk ka ndeshje të luajtura.' : '…')}
-                      </Text>
-                    </View>
-                  ) : (
-                    played.map((p) => {
-                    const { goals, letter, tone } = resultOf(p.score);
+                  {played.map((p) => {
+                    const { goals, letter, tone } = resultOf(p.score, C);
 
                     return (
                       <View key={`${p.date}-${p.rival}`} style={[styles.tr, styles.trBorder]}>
@@ -591,7 +592,7 @@ export default function TrainerMatchesScreen() {
                           <Text style={{ color: tone }}> {letter}</Text>
                         </Text>
                         <Text
-                          style={[styles.td, styles.tdStrong, { color: C.green, width: COLS[4].width }]}
+                          style={[styles.td, styles.tdStrong, { color: C.greenText, width: COLS[4].width }]}
                           numberOfLines={1}
                         >
                           {goals}
@@ -614,6 +615,7 @@ export default function TrainerMatchesScreen() {
                             }
                             accessibilityRole="button"
                             accessibilityLabel="Shiko ndeshjen"
+                            hitSlop={{ top: 6, bottom: 6, left: 3, right: 3 }}
                             style={({ pressed }) => [styles.rowBtn, pressed && styles.pressed]}
                           >
                             <Text style={styles.rowBtnText}>Shiko</Text>
@@ -621,10 +623,10 @@ export default function TrainerMatchesScreen() {
                         </View>
                       </View>
                     );
-                  })
-                  )}
+                  })}
                 </View>
               </ScrollView>
+              )}
             </View>
           </View>
         </ScrollView>
@@ -653,6 +655,48 @@ export default function TrainerMatchesScreen() {
   );
 }
 
+/* Loading / error / empty body shared by both tables. It sits in the card
+   rather than the sideways-scrolling grid so it stays centred on screen. */
+function TableState({
+  loading,
+  error,
+  empty,
+  onRetry,
+}: {
+  loading: boolean;
+  error: string | null;
+  empty: string;
+  onRetry: () => void;
+}) {
+  const C = useAppColors(C_LIGHT);
+  const MO = useAppColors(MO_LIGHT);
+  const styles = useMemo(() => createStyles(C, MO), [C, MO]);
+  return (
+    <View style={styles.stateRow}>
+      {loading ? (
+        <>
+          <ActivityIndicator color={C.greenText} />
+          <Text style={styles.stateText}>Duke ngarkuar ndeshjet…</Text>
+        </>
+      ) : error ? (
+        <>
+          <Text style={[styles.stateText, styles.stateErr]}>{error}</Text>
+          <Pressable
+            onPress={onRetry}
+            accessibilityRole="button"
+            accessibilityLabel="Provo përsëri"
+            style={({ pressed }) => [styles.stateRetry, pressed && styles.pressed]}
+          >
+            <Text style={styles.stateRetryText}>Provo përsëri</Text>
+          </Pressable>
+        </>
+      ) : (
+        <Text style={styles.stateText}>{empty}</Text>
+      )}
+    </View>
+  );
+}
+
 /* ------------------------------------------------------------------ */
 /* "Shto ndeshje" popup                                                */
 /* ------------------------------------------------------------------ */
@@ -670,6 +714,9 @@ function AddMatchModal({
   onClose: () => void;
   onSave: (d: MatchDraft) => void;
 }) {
+  const C = useAppColors(C_LIGHT);
+  const MO = useAppColors(MO_LIGHT);
+  const styles = useMemo(() => createStyles(C, MO), [C, MO]);
   const { width, height } = useWindowDimensions();
   const cardW = Math.min(width - 24, 360);
   const maxBody = Math.max(280, height - 187);
@@ -721,6 +768,9 @@ function AddMatchModal({
           onChangeText={setRival}
           allowFontScaling={false}
           style={styles.nmInput}
+          accessibilityLabel="Kundërshtari"
+          placeholder="Emri i ekipit kundërshtar"
+          placeholderTextColor={MO.phText}
         />
 
         <Text style={[styles.nmLabel, styles.nmGap]}>Gara/Kompeticioni:</Text>
@@ -747,6 +797,7 @@ function AddMatchModal({
           allowFontScaling={false}
           style={styles.nmTextarea}
           textAlignVertical="top"
+          accessibilityLabel="Shenime"
         />
 
         <View style={styles.nmActions}>
@@ -784,6 +835,14 @@ type Clock = { day: string; month: string; year: string; hour: string; minute: s
 
 const EMPTY_CLOCK: Clock = { day: '', month: '', year: '', hour: '', minute: '' };
 
+const CLOCK_LABELS: Record<keyof Clock, string> = {
+  day: 'Dita',
+  month: 'Muaji',
+  year: 'Viti',
+  hour: 'Ora',
+  minute: 'Minuta',
+};
+
 /** A fully filled clock as `YYYY-MM-DD HH:mm:00`; anything incomplete is null. */
 function isoDateTime(c: Clock): string | null {
   const filled =
@@ -797,6 +856,9 @@ function isoDateTime(c: Clock): string | null {
 
 /** "DD/MM/YY ---- HH:MM" on one line, the same shape wherever a moment is asked for. */
 function ClockBoxes({ value, onChange }: { value: Clock; onChange: (next: Clock) => void }) {
+  const C = useAppColors(C_LIGHT);
+  const MO = useAppColors(MO_LIGHT);
+  const styles = useMemo(() => createStyles(C, MO), [C, MO]);
   const set = (patch: Partial<Clock>) => onChange({ ...value, ...patch });
 
   const box = (
@@ -808,11 +870,12 @@ function ClockBoxes({ value, onChange }: { value: Clock; onChange: (next: Clock)
       value={value[key]}
       onChangeText={(text) => set({ [key]: text })}
       placeholder={placeholder}
-      placeholderTextColor={MO.ph}
+      placeholderTextColor={MO.phText}
       maxLength={maxLength}
       keyboardType="number-pad"
       allowFontScaling={false}
       style={styles.nmDateBox}
+      accessibilityLabel={CLOCK_LABELS[key]}
     />
   );
 
@@ -841,6 +904,9 @@ function NMSelect({
   options: string[];
   onChange: (v: string) => void;
 }) {
+  const C = useAppColors(C_LIGHT);
+  const MO = useAppColors(MO_LIGHT);
+  const styles = useMemo(() => createStyles(C, MO), [C, MO]);
   const [open, setOpen] = useState(false);
 
   return (
@@ -848,12 +914,14 @@ function NMSelect({
       <Pressable
         onPress={() => setOpen((v) => !v)}
         accessibilityRole="button"
+        accessibilityState={{ expanded: open }}
+        accessibilityLabel={`Zgjidh opsionin, aktualisht ${value}`}
         style={({ pressed }) => [styles.nmSel, pressed && styles.pressed]}
       >
         <Text style={styles.nmSelText} numberOfLines={1}>
           {value}
         </Text>
-        <MaterialCommunityIcons name="chevron-down" size={I(11)} color="#777777" />
+        <MaterialCommunityIcons name="chevron-down" size={I(14)} color={C.chevronText} />
       </Pressable>
       {open ? (
         <View style={styles.nmOpts}>
@@ -866,6 +934,8 @@ function NMSelect({
                   onChange(o);
                   setOpen(false);
                 }}
+                accessibilityRole="button"
+                accessibilityState={{ selected: active }}
                 style={[styles.nmOpt, active && styles.nmOptActive]}
               >
                 <Text style={[styles.nmOptText, active && styles.nmOptTextActive]} numberOfLines={1}>
@@ -884,7 +954,7 @@ function NMSelect({
 /* Styles                                                              */
 /* ------------------------------------------------------------------ */
 
-const styles = StyleSheet.create(
+const createStyles = (C: AppColorsOf<typeof C_LIGHT>, MO: AppColorsOf<typeof MO_LIGHT>) => StyleSheet.create(
   scaled({
     safe: {
       flex: 1,
@@ -929,14 +999,14 @@ const styles = StyleSheet.create(
       fontSize: 20,
       lineHeight: 24,
       letterSpacing: -0.3,
-      color: C.text,
+      color: C.textText,
     },
 
     subtitle: {
       fontFamily: Fonts.body,
       fontSize: 12,
       lineHeight: 16,
-      color: C.gray,
+      color: C.grayText,
       marginTop: 1,
     },
 
@@ -963,8 +1033,8 @@ const styles = StyleSheet.create(
       height: 88,
       borderRadius: 16,
       borderWidth: 1,
-      borderColor: C.orange,
-      backgroundColor: 'rgba(255,255,255,0.12)',
+      borderColor: C.orangeBorder,
+      backgroundColor: C.glassBaseFill,
       overflow: 'hidden',
       shadowColor: '#0B3B33',
       shadowOffset: { width: 0, height: 6 },
@@ -998,7 +1068,7 @@ const styles = StyleSheet.create(
       right: 10,
       height: 1.5,
       borderRadius: 1,
-      backgroundColor: 'rgba(255,255,255,0.95)',
+      backgroundColor: C.glassEdgeFill,
     },
 
     statItem: {
@@ -1013,7 +1083,7 @@ const styles = StyleSheet.create(
       top: 8,
       bottom: 8,
       width: StyleSheet.hairlineWidth,
-      backgroundColor: 'rgba(16,51,38,0.18)',
+      backgroundColor: C.glassDividerFill,
     },
 
     /* Content rides above the frost and gloss overlays. */
@@ -1024,11 +1094,11 @@ const styles = StyleSheet.create(
 
     /* Fixed two-line block so every value sits on the same line. */
     sqLabel: {
-      minHeight: 22,
+      minHeight: 26,
       fontFamily: Fonts.bodyBold,
-      fontSize: 8.5,
-      lineHeight: 10.5,
-      color: C.gray,
+      fontSize: 10,
+      lineHeight: 12.5,
+      color: C.grayText,
     },
 
     sqValue: {
@@ -1039,35 +1109,72 @@ const styles = StyleSheet.create(
       marginTop: 3,
     },
 
+    /* ── Table states ────────────────────────────────────────── */
+    stateRow: {
+      minHeight: 120,
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 10,
+      paddingHorizontal: 16,
+      paddingVertical: 24,
+    },
+
+    stateText: {
+      fontFamily: Fonts.body,
+      fontSize: 13,
+      lineHeight: 18,
+      color: C.grayText,
+      textAlign: 'center',
+    },
+
+    stateErr: {
+      color: C.redText,
+    },
+
+    stateRetry: {
+      minHeight: 44,
+      justifyContent: 'center',
+      paddingHorizontal: 18,
+      borderWidth: 1,
+      borderColor: C.greenBorder,
+      borderRadius: 10,
+    },
+
+    stateRetryText: {
+      fontFamily: Fonts.bodySemiBold,
+      fontSize: 13,
+      color: C.greenText,
+    },
+
     /* ── Add a fixture ───────────────────────────────────────── */
     /* Small and hugging its label, rather than spanning the page. */
     addBtn: {
       alignSelf: 'flex-start',
-      height: 34,
+      height: 44,
       marginTop: 14,
-      paddingHorizontal: 14,
+      paddingHorizontal: 18,
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: C.green20,
+      backgroundColor: C.green20Fill,
       borderWidth: 1,
-      borderColor: C.frame,
-      borderRadius: 4,
+      borderColor: C.frameBorder,
+      borderRadius: 10,
     },
 
     addBtnText: {
       fontFamily: Fonts.bodySemiBold,
-      fontSize: 12,
-      lineHeight: 16,
-      color: C.text,
+      fontSize: 13,
+      lineHeight: 17,
+      color: C.textText,
     },
 
     /* ── Cards ───────────────────────────────────────────────── */
     card: {
       marginTop: 14,
-      backgroundColor: C.blue2,
+      backgroundColor: C.blue2Fill,
       borderWidth: 2,
-      borderColor: C.border,
-      borderRadius: 7,
+      borderColor: C.borderBorder,
+      borderRadius: 12,
       overflow: 'hidden',
     },
 
@@ -1077,14 +1184,14 @@ const styles = StyleSheet.create(
       paddingHorizontal: 12,
       paddingVertical: 11,
       borderBottomWidth: 1,
-      borderBottomColor: C.headLine,
+      borderBottomColor: C.headLineBorder,
     },
 
     cardHeadText: {
       fontFamily: Fonts.bodyBold,
       fontSize: 16,
       lineHeight: 20,
-      color: C.text,
+      color: C.textText,
     },
 
     /* ── Upcoming fixtures ───────────────────────────────────── */
@@ -1098,7 +1205,7 @@ const styles = StyleSheet.create(
 
     mRowBorder: {
       borderTopWidth: 1,
-      borderTopColor: C.rowLine,
+      borderTopColor: C.rowLineBorder,
     },
 
     dateBox: {
@@ -1111,7 +1218,7 @@ const styles = StyleSheet.create(
       fontSize: 22,
       lineHeight: 26,
       letterSpacing: -0.4,
-      color: C.dateBlue,
+      color: C.dateBlueText,
     },
 
     dateMon: {
@@ -1119,14 +1226,14 @@ const styles = StyleSheet.create(
       fontSize: 11,
       lineHeight: 14,
       letterSpacing: 0.4,
-      color: C.text,
+      color: C.textText,
     },
 
     /* Splits the date off from the fixture it belongs to. */
     vLine: {
       width: 1,
       height: 44,
-      backgroundColor: C.frame,
+      backgroundColor: C.frameFill,
     },
 
     mInfo: {
@@ -1137,25 +1244,25 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodyBold,
       fontSize: 11.5,
       lineHeight: 15,
-      color: C.text,
+      color: C.textText,
     },
 
     /* Time, venue and competition share one line. */
     mSub: {
       fontFamily: Fonts.body,
-      fontSize: 9,
-      lineHeight: 12,
+      fontSize: 11,
+      lineHeight: 15,
       marginTop: 2,
     },
 
     mTime: {
       fontFamily: Fonts.body,
-      color: C.hint,
+      color: C.hintText,
     },
 
     mSep: {
       fontFamily: Fonts.body,
-      color: C.gray,
+      color: C.grayText,
     },
 
     mVenue: {
@@ -1164,14 +1271,14 @@ const styles = StyleSheet.create(
 
     mComp: {
       fontFamily: Fonts.body,
-      color: C.hint,
+      color: C.hintText,
     },
 
     mPending: {
       fontFamily: Fonts.bodySemiBold,
-      fontSize: 9,
-      lineHeight: 12,
-      color: C.red,
+      fontSize: 10.5,
+      lineHeight: 14,
+      color: C.redText,
       marginTop: 2,
     },
 
@@ -1184,29 +1291,30 @@ const styles = StyleSheet.create(
     },
 
     rowBtn: {
-      height: 22,
-      paddingHorizontal: 7,
+      height: 32,
+      paddingHorizontal: 10,
       alignItems: 'center',
       justifyContent: 'center',
       borderWidth: 1,
-      borderColor: C.frame,
-      borderRadius: 4,
+      borderColor: C.frameBorder,
+      borderRadius: 6,
     },
 
     /* The shorter label, so it keeps a tighter gutter than its neighbour. */
     shikoBtn: {
       paddingHorizontal: 6,
-      backgroundColor: C.red20,
+      backgroundColor: C.red20Fill,
     },
 
     resultBtn: {
-      backgroundColor: C.green20,
+      backgroundColor: C.green20Fill,
     },
 
     rowBtnText: {
       fontFamily: Fonts.bodySemiBold,
-      fontSize: 8.5,
-      color: C.text,
+      fontSize: 11.5,
+      lineHeight: 15,
+      color: C.textText,
     },
 
     /* ── Results table ───────────────────────────────────────── */
@@ -1227,7 +1335,7 @@ const styles = StyleSheet.create(
       paddingTop: 9,
       paddingBottom: 7,
       borderBottomWidth: 1,
-      borderBottomColor: C.headLine,
+      borderBottomColor: C.headLineBorder,
     },
 
     tr: {
@@ -1240,27 +1348,27 @@ const styles = StyleSheet.create(
 
     trBorder: {
       borderTopWidth: 1,
-      borderTopColor: C.rowLine,
+      borderTopColor: C.rowLineBorder,
     },
 
     th: {
       fontFamily: Fonts.bodySemiBold,
-      fontSize: 9,
-      lineHeight: 12,
-      color: C.gray,
+      fontSize: 10.5,
+      lineHeight: 14,
+      color: C.grayText,
       textAlign: 'center',
     },
 
     td: {
       fontFamily: Fonts.body,
-      fontSize: 9.5,
-      lineHeight: 12,
-      color: C.hint,
+      fontSize: 11.5,
+      lineHeight: 15,
+      color: C.hintText,
       textAlign: 'center',
     },
 
     tdRival: {
-      color: C.text,
+      color: C.textText,
     },
 
     tdStrong: {
@@ -1276,7 +1384,7 @@ const styles = StyleSheet.create(
       width: 20,
       height: 20,
       borderRadius: 3,
-      backgroundColor: C.orange,
+      backgroundColor: C.orangeFill,
       alignItems: 'center',
       justifyContent: 'center',
     },
@@ -1284,7 +1392,7 @@ const styles = StyleSheet.create(
     cardChipText: {
       fontFamily: Fonts.bodyBold,
       fontSize: 10,
-      color: '#F5F5F5',
+      color: '#FFFFFF',
     },
 
     tdActions: {
@@ -1319,10 +1427,10 @@ const styles = StyleSheet.create(
     nmCard: {
       marginTop: 100,
       alignSelf: 'center',
-      backgroundColor: '#F5F5F5',
+      backgroundColor: C.whiteFill,
       borderWidth: 1,
-      borderColor: MO.border,
-      borderRadius: 5,
+      borderColor: MO.borderBorder,
+      borderRadius: 14,
       overflow: 'hidden',
       shadowColor: '#000000',
       shadowOffset: { width: 0, height: 5 },
@@ -1341,12 +1449,12 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodyBold,
       fontSize: 20,
       lineHeight: 24,
-      color: MO.title,
+      color: MO.titleText,
     },
 
     nmDivider: {
       height: 1,
-      backgroundColor: MO.divider,
+      backgroundColor: MO.dividerFill,
     },
 
     nmContent: {
@@ -1361,16 +1469,17 @@ const styles = StyleSheet.create(
 
     nmErr: {
       fontFamily: Fonts.body,
-      fontSize: 9,
-      color: MO.err,
+      fontSize: 12,
+      lineHeight: 16,
+      color: MO.errText,
       marginBottom: 8,
     },
 
     nmLabel: {
       fontFamily: Fonts.body,
-      fontSize: 9.5,
-      lineHeight: 12,
-      color: MO.sub,
+      fontSize: 12,
+      lineHeight: 16,
+      color: MO.subText,
       marginBottom: 4,
     },
 
@@ -1379,66 +1488,66 @@ const styles = StyleSheet.create(
     },
 
     nmInput: {
-      height: 31,
-      backgroundColor: MO.inputBg,
+      height: 44,
+      backgroundColor: MO.inputBgFill,
       borderWidth: 1,
-      borderColor: MO.inputBorder,
-      borderRadius: 1,
-      paddingHorizontal: 8,
+      borderColor: MO.inputBorderBorder,
+      borderRadius: 8,
+      paddingHorizontal: 10,
       paddingVertical: 0,
-      fontSize: 11.5,
+      fontSize: 13,
       fontFamily: Fonts.body,
-      color: MO.text,
+      color: MO.textText,
     },
 
     nmSel: {
-      height: 31,
+      height: 44,
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      backgroundColor: MO.inputBg,
+      backgroundColor: MO.inputBgFill,
       borderWidth: 1,
-      borderColor: MO.inputBorder,
-      borderRadius: 1,
-      paddingHorizontal: 8,
+      borderColor: MO.inputBorderBorder,
+      borderRadius: 8,
+      paddingHorizontal: 10,
     },
 
     nmSelText: {
       flex: 1,
       fontFamily: Fonts.body,
-      fontSize: 11.5,
-      color: MO.text,
+      fontSize: 13,
+      color: MO.textText,
       marginRight: 3,
     },
 
     nmOpts: {
       marginTop: 2,
-      backgroundColor: '#F5F5F5',
+      backgroundColor: C.whiteFill,
       borderWidth: 1,
-      borderColor: MO.inputBorder,
-      borderRadius: 1,
+      borderColor: MO.inputBorderBorder,
+      borderRadius: 8,
       overflow: 'hidden',
     },
 
     nmOpt: {
-      height: 25,
+      height: 44,
       justifyContent: 'center',
-      paddingHorizontal: 8,
+      paddingHorizontal: 10,
     },
 
     nmOptActive: {
-      backgroundColor: 'rgba(22,165,29,0.10)',
+      backgroundColor: 'rgba(46,125,91,0.10)',
     },
 
     nmOptText: {
       fontFamily: Fonts.body,
-      fontSize: 10,
-      color: MO.text,
+      fontSize: 12,
+      color: MO.textText,
     },
 
     nmOptTextActive: {
       fontFamily: Fonts.bodyBold,
-      color: MO.create,
+      color: MO.createText,
     },
 
     nmClockRow: {
@@ -1448,24 +1557,24 @@ const styles = StyleSheet.create(
     },
 
     nmDateBox: {
-      width: 30,
-      height: 30,
-      backgroundColor: MO.inputBg,
+      width: 42,
+      height: 44,
+      backgroundColor: MO.inputBgFill,
       borderWidth: 1,
-      borderColor: MO.inputBorder,
-      borderRadius: 4,
+      borderColor: MO.inputBorderBorder,
+      borderRadius: 8,
       paddingHorizontal: 0,
       paddingVertical: 0,
       textAlign: 'center',
-      fontSize: 11,
+      fontSize: 13,
       fontFamily: Fonts.body,
-      color: MO.text,
+      color: MO.textText,
     },
 
     nmSep: {
       fontFamily: Fonts.body,
-      fontSize: 11,
-      color: MO.sub,
+      fontSize: 13,
+      color: MO.subText,
     },
 
     /* Short separator that keeps the time next to the date. */
@@ -1473,21 +1582,21 @@ const styles = StyleSheet.create(
       width: 24,
       textAlign: 'center',
       fontFamily: Fonts.body,
-      fontSize: 11,
+      fontSize: 12,
       color: '#BBBBBB',
     },
 
     nmTextarea: {
-      height: 76,
-      backgroundColor: MO.inputBg,
+      height: 96,
+      backgroundColor: MO.inputBgFill,
       borderWidth: 1,
-      borderColor: MO.inputBorder,
-      borderRadius: 1,
-      paddingHorizontal: 8,
-      paddingVertical: 7,
-      fontSize: 11.5,
+      borderColor: MO.inputBorderBorder,
+      borderRadius: 8,
+      paddingHorizontal: 10,
+      paddingVertical: 9,
+      fontSize: 13,
       fontFamily: Fonts.body,
-      color: MO.text,
+      color: MO.textText,
     },
 
     nmActions: {
@@ -1498,26 +1607,26 @@ const styles = StyleSheet.create(
     },
 
     nmBtn: {
-      height: 28,
+      height: 44,
       alignItems: 'center',
       justifyContent: 'center',
-      borderRadius: 2,
+      borderRadius: 10,
     },
 
     nmBtnCancel: {
-      width: 74,
-      backgroundColor: MO.cancel,
+      width: 88,
+      backgroundColor: MO.cancelFill,
     },
 
     nmBtnSave: {
-      width: 74,
-      backgroundColor: MO.create,
+      width: 88,
+      backgroundColor: MO.createFill,
     },
 
     nmBtnText: {
       fontFamily: Fonts.bodyMedium,
-      fontSize: 10.5,
-      color: MO.white,
+      fontSize: 13,
+      color: MO.whiteText,
     },
 
     pressed: {

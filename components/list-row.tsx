@@ -1,6 +1,7 @@
-import type { ReactNode } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useMemo, type ReactNode } from 'react';
+import { StyleSheet, Text, View } from 'react-native';
 
+import { AnimatedPressable } from '@/components/ui/animated-pressable';
 import { IconSymbol, type IconSymbolName } from '@/components/ui/icon-symbol';
 import { Fonts, Radius, Spacing, type ThemeColors } from '@/constants/theme';
 import { useTheme, useThemedStyles } from '@/lib/theme';
@@ -13,15 +14,28 @@ type ListRowProps = {
   trailing?: ReactNode;
   onPress?: () => void;
   dimmed?: boolean;
+  /** Fixed palette for screens that ignore the global theme (module pages). */
+  palette?: ThemeColors;
 };
 
 /** A card-style list row used across the module screens. */
-export function ListRow({ title, subtitle, leading, trailing, onPress, dimmed }: ListRowProps) {
-  const { colors } = useTheme();
-  const styles = useThemedStyles(createStyles);
+export function ListRow({
+  title,
+  subtitle,
+  leading,
+  trailing,
+  onPress,
+  dimmed,
+  palette,
+}: ListRowProps) {
+  const { colors: themed } = useTheme();
+  const colors = palette ?? themed;
+  const styles = useMemo(() => createStyles(colors), [colors]);
   return (
-    <Pressable
+    <AnimatedPressable
       onPress={onPress}
+      accessibilityRole={onPress ? 'button' : undefined}
+      accessibilityLabel={title}
       style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
     >
       {leading}
@@ -36,7 +50,7 @@ export function ListRow({ title, subtitle, leading, trailing, onPress, dimmed }:
         ) : null}
       </View>
       {trailing ?? <IconSymbol name="chevron.right" size={18} color={colors.textMuted} />}
-    </Pressable>
+    </AnimatedPressable>
   );
 }
 
@@ -89,9 +103,21 @@ export function IconTile({
 }
 
 /** A square date chip showing a day + month, e.g. for trainings/matches. */
-export function DateTile({ day, month, color }: { day: string; month: string; color: string }) {
+export function DateTile({
+  day,
+  month,
+  color,
+  palette,
+}: {
+  day: string;
+  month: string;
+  color: string;
+  palette?: ThemeColors;
+}) {
   const { t } = useLanguage();
-  const styles = useThemedStyles(createStyles);
+  const { colors: themed } = useTheme();
+  const colors = palette ?? themed;
+  const styles = useMemo(() => createStyles(colors), [colors]);
   return (
     <View style={[styles.dateTile, { borderColor: `${color}55` }]}>
       <Text style={[styles.dateDay, { color }]}>{day}</Text>
@@ -105,6 +131,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.md,
+    minHeight: 56,
     backgroundColor: colors.surface,
     borderColor: colors.glassBorder,
     borderWidth: 1,
@@ -120,7 +147,8 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   title: {
     fontFamily: Fonts.bodySemiBold,
-    fontSize: 14,
+    fontSize: 15,
+    lineHeight: 20,
     color: colors.text,
   },
   titleDimmed: {
@@ -128,7 +156,8 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   subtitle: {
     fontFamily: Fonts.body,
-    fontSize: 12,
+    fontSize: 13,
+    lineHeight: 18,
     color: colors.textMuted,
   },
   tile: {

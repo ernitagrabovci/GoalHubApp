@@ -13,6 +13,7 @@ import type { ApiTraining } from '@/lib/api/types';
 import { I, scaled } from '@/lib/responsive';
 import { useSession } from '@/lib/session';
 import { attendanceLabel, durationLabel, trainingDate, trainingTime, typeName } from '@/lib/trainings';
+import { useAppColors, usePaletteStyles, type AppColorsOf } from '@/lib/app-theme';
 
 /**
  * Stërvitja — one session in full, opened from the "Shiko" button on a row of
@@ -24,25 +25,28 @@ import { attendanceLabel, durationLabel, trainingDate, trainingTime, typeName } 
  * absence before the session starts.
  */
 
-const C = {
-  page: '#FAFBFA',
+const C_LIGHT = {
+  white: '#FFFFFF',
+  page: '#F7F9F8',
   line: 'rgba(0,0,0,0.025)',
 
-  text: '#111111',
-  gray: '#8A8A8A',
+  text: '#17251E',
+  gray: '#52645A',
   hint: '#6E6E6E',
 
-  frame: '#000000',
+  frame: '#DCE5DF',
   headLine: 'rgba(30,40,35,0.10)',
 
   /* The table ground is the palest blue. */
-  card: '#F6FBFF',
+  card: '#F7F9F8',
 
   blue: '#4E90D8',
   danger: '#B03A2E',
 };
 
 export default function PlayerTrainingScreen() {
+  const C = useAppColors(C_LIGHT);
+  const styles = usePaletteStyles(createStyles, C);
   const router = useRouter();
   const { token, signOut } = useSession();
 
@@ -190,7 +194,7 @@ export default function PlayerTrainingScreen() {
                 accessibilityLabel="Kthehu prapa"
                 style={({ pressed }) => [styles.backBtn, pressed && styles.pressed]}
               >
-                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.text} />
+                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.textText} />
               </Pressable>
               <View style={styles.headerText}>
                 <Text
@@ -307,7 +311,7 @@ export default function PlayerTrainingScreen() {
                       value={reason}
                       onChangeText={setReason}
                       placeholder="Arsyeja e mungesës"
-                      placeholderTextColor={C.gray}
+                      placeholderTextColor={C.grayText}
                       style={styles.reasonInput}
                       maxLength={300}
                       multiline
@@ -375,7 +379,7 @@ export default function PlayerTrainingScreen() {
 /* Styles                                                              */
 /* ------------------------------------------------------------------ */
 
-const styles = StyleSheet.create(
+const createStyles = (C: AppColorsOf<typeof C_LIGHT>) => StyleSheet.create(
   scaled({
     safe: {
       flex: 1,
@@ -420,14 +424,14 @@ const styles = StyleSheet.create(
       fontSize: 20,
       lineHeight: 24,
       letterSpacing: -0.3,
-      color: C.text,
+      color: C.textText,
     },
 
     subtitle: {
       fontFamily: Fonts.body,
       fontSize: 12,
       lineHeight: 16,
-      color: C.gray,
+      color: C.grayText,
       marginTop: 1,
     },
 
@@ -438,9 +442,9 @@ const styles = StyleSheet.create(
     /* ── Cards ───────────────────────────────────────────────── */
     card: {
       marginTop: 14,
-      backgroundColor: C.card,
+      backgroundColor: C.cardFill,
       borderWidth: 1,
-      borderColor: C.frame,
+      borderColor: C.frameBorder,
       borderRadius: 5,
       overflow: 'hidden',
     },
@@ -453,14 +457,14 @@ const styles = StyleSheet.create(
       paddingTop: 10,
       paddingBottom: 9,
       borderBottomWidth: 1,
-      borderBottomColor: C.headLine,
+      borderBottomColor: C.headLineBorder,
     },
 
     cardTitle: {
       fontFamily: Fonts.bodyBold,
       fontSize: 12.5,
       lineHeight: 16,
-      color: C.text,
+      color: C.textText,
       textAlign: 'center',
     },
 
@@ -489,7 +493,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 10.5,
       lineHeight: 13,
-      color: C.hint,
+      color: C.hintText,
     },
 
     detailValue: {
@@ -497,7 +501,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodyBold,
       fontSize: 11.5,
       lineHeight: 16,
-      color: C.text,
+      color: C.textText,
     },
 
     /* ── Attendance ──────────────────────────────────────────── */
@@ -511,7 +515,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 11,
       lineHeight: 15,
-      color: C.hint,
+      color: C.hintText,
       textAlign: 'center',
     },
 
@@ -519,7 +523,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 11,
       lineHeight: 15,
-      color: C.text,
+      color: C.textText,
       textAlign: 'center',
     },
 
@@ -527,7 +531,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 11,
       lineHeight: 15,
-      color: C.danger,
+      color: C.dangerText,
       textAlign: 'center',
     },
 
@@ -535,7 +539,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 11,
       lineHeight: 15,
-      color: C.blue,
+      color: C.blueText,
       textAlign: 'center',
     },
 
@@ -548,13 +552,13 @@ const styles = StyleSheet.create(
       borderWidth: 1,
       borderColor: 'rgba(0,0,0,0.18)',
       borderRadius: 5,
-      backgroundColor: '#FFFFFF',
+      backgroundColor: C.whiteFill,
       paddingHorizontal: 10,
       paddingVertical: 8,
       fontFamily: Fonts.body,
       fontSize: 12,
       lineHeight: 16,
-      color: C.text,
+      color: C.textText,
       textAlignVertical: 'top',
     },
 
@@ -571,36 +575,38 @@ const styles = StyleSheet.create(
     primaryBtn: {
       alignSelf: 'center',
       minWidth: 160,
-      height: 34,
-      paddingHorizontal: 16,
+      height: 44,
+      paddingHorizontal: 18,
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: C.blue,
-      borderRadius: 5,
+      backgroundColor: C.blueFill,
+      borderRadius: 10,
     },
 
     primaryBtnText: {
       fontFamily: Fonts.bodySemiBold,
-      fontSize: 12,
+      fontSize: 13,
+      lineHeight: 18,
       color: '#FFFFFF',
     },
 
     ghostBtn: {
       alignSelf: 'center',
       minWidth: 160,
-      height: 34,
-      paddingHorizontal: 16,
+      height: 44,
+      paddingHorizontal: 18,
       alignItems: 'center',
       justifyContent: 'center',
       borderWidth: 1,
-      borderColor: C.frame,
-      borderRadius: 5,
+      borderColor: C.frameBorder,
+      borderRadius: 10,
     },
 
     ghostBtnText: {
       fontFamily: Fonts.bodySemiBold,
-      fontSize: 12,
-      color: C.text,
+      fontSize: 13,
+      lineHeight: 18,
+      color: C.textText,
     },
 
     btnDisabled: {

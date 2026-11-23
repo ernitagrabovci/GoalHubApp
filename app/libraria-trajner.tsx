@@ -20,6 +20,7 @@ import type { ApiTrainingMaterial } from '@/lib/api/types';
 import { LEVEL_TO_API, levelLabel, typeLabel } from '@/lib/library';
 import { I, scaled } from '@/lib/responsive';
 import { useSession } from '@/lib/session';
+import { useAppColors, usePaletteStyles, type AppColorsOf } from '@/lib/app-theme';
 
 /**
  * Libraria e trajnimeve — opened from "Libraria" on the trainer's Akademia
@@ -27,27 +28,28 @@ import { useSession } from '@/lib/session';
  * search, and edit or delete a row.
  */
 
-const C = {
-  page: '#FAFBFA',
+const C_LIGHT = {
+  white: '#FFFFFF',
+  page: '#F7F9F8',
   line: 'rgba(0,0,0,0.025)',
 
-  text: '#111111',
-  gray: '#8A8A8A',
+  text: '#17251E',
+  gray: '#52645A',
   hint: '#6E6E6E',
 
-  frame: '#000000',
+  frame: '#DCE5DF',
   headLine: 'rgba(30,40,35,0.10)',
   rowLine: 'rgba(100,140,190,0.22)',
 
   /* blue1 = the wash behind the live filter and the pickers; blue2 = the card. */
   blue1: '#E3EEFB',
-  blue2: '#F6FBFF',
+  blue2: '#F7F9F8',
   blue: '#2F80ED',
   blueBtn: '#86BCFD',
 
-  green: '#159447',
+  green: '#2E7D5B',
   green20: 'rgba(21,148,71,0.20)',
-  red: '#E03131',
+  red: '#B91C1C',
 };
 
 /* The level chips under the add button. "Të gjitha" is the resting state. */
@@ -90,6 +92,8 @@ function pageWindow(current: number, last: number, span = 4): number[] {
 }
 
 export default function TrainerLibraryScreen() {
+  const C = useAppColors(C_LIGHT);
+  const styles = usePaletteStyles(createStyles, C);
   const router = useRouter();
   const { token, signOut } = useSession();
 
@@ -195,7 +199,7 @@ export default function TrainerLibraryScreen() {
                 accessibilityLabel="Kthehu prapa"
                 style={({ pressed }) => [styles.backBtn, pressed && styles.pressed]}
               >
-                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.text} />
+                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.textText} />
               </Pressable>
               <View style={styles.headerText}>
                 <Text style={styles.title} numberOfLines={1}>
@@ -220,6 +224,7 @@ export default function TrainerLibraryScreen() {
               onPress={() => router.push('/shto-material-trajner' as never)}
               accessibilityRole="button"
               accessibilityLabel="Shto material"
+              hitSlop={{ top: 5, bottom: 5 }}
               style={({ pressed }) => [styles.addBtn, pressed && styles.pressed]}
             >
               <Text style={styles.addText} numberOfLines={1}>
@@ -230,7 +235,7 @@ export default function TrainerLibraryScreen() {
             {/* ── Filter ────────────────────────────────────────── */}
             {/* The icon heads the block; the chips below it share one row. */}
             <View style={styles.filterIconRow}>
-              <MaterialCommunityIcons name="filter-variant" size={I(19)} color={C.text} />
+              <MaterialCommunityIcons name="filter-variant" size={I(19)} color={C.textText} />
             </View>
 
             <View style={styles.chipRow}>
@@ -273,7 +278,7 @@ export default function TrainerLibraryScreen() {
                   <Text style={styles.catText} numberOfLines={1}>
                     {category}
                   </Text>
-                  <MaterialCommunityIcons name="chevron-down" size={I(14)} color={C.text} />
+                  <MaterialCommunityIcons name="chevron-down" size={I(14)} color={C.textText} />
                 </Pressable>
 
                 {catOpen ? (
@@ -309,12 +314,12 @@ export default function TrainerLibraryScreen() {
                 <TextInput
                   style={styles.searchInput}
                   placeholder="Kërko material..."
-                  placeholderTextColor={C.gray}
+                  placeholderTextColor={C.grayText}
                   accessibilityLabel="Kërko material"
                   value={searchInput}
                   onChangeText={setSearchInput}
                 />
-                <MaterialCommunityIcons name="magnify" size={I(17)} color={C.text} />
+                <MaterialCommunityIcons name="magnify" size={I(17)} color={C.textText} />
               </View>
             </View>
 
@@ -385,6 +390,7 @@ export default function TrainerLibraryScreen() {
                           }
                           accessibilityRole="button"
                           accessibilityLabel={`Edito ${m.title}`}
+                          hitSlop={{ top: 7, bottom: 7, left: 4, right: 4 }}
                           style={({ pressed }) => [styles.actEdit, pressed && styles.pressed]}
                         >
                           <Text style={styles.actEditText}>Edito</Text>
@@ -393,6 +399,7 @@ export default function TrainerLibraryScreen() {
                           onPress={() => confirmDelete(m)}
                           accessibilityRole="button"
                           accessibilityLabel={`Fshij ${m.title}`}
+                          hitSlop={{ top: 7, bottom: 7, left: 4, right: 4 }}
                           style={({ pressed }) => [styles.actDel, pressed && styles.pressed]}
                         >
                           <Text style={styles.actDelText}>Fshij</Text>
@@ -412,14 +419,14 @@ export default function TrainerLibraryScreen() {
                   disabled={current <= 1}
                   accessibilityRole="button"
                   accessibilityLabel="Faqja e mëparshme"
-                  hitSlop={8}
+                  hitSlop={11}
                   style={({ pressed }) => [
                     styles.pagerArrow,
                     current <= 1 && styles.pagerDisabled,
                     pressed && styles.pressed,
                   ]}
                 >
-                  <MaterialCommunityIcons name="chevron-left" size={I(22)} color={C.text} />
+                  <MaterialCommunityIcons name="chevron-left" size={I(22)} color={C.textText} />
                 </Pressable>
 
                 {pageWindow(current, lastPage).map((p) => (
@@ -442,14 +449,14 @@ export default function TrainerLibraryScreen() {
                   disabled={current >= lastPage}
                   accessibilityRole="button"
                   accessibilityLabel="Faqja tjetër"
-                  hitSlop={8}
+                  hitSlop={11}
                   style={({ pressed }) => [
                     styles.pagerArrow,
                     current >= lastPage && styles.pagerDisabled,
                     pressed && styles.pressed,
                   ]}
                 >
-                  <MaterialCommunityIcons name="chevron-right" size={I(22)} color={C.text} />
+                  <MaterialCommunityIcons name="chevron-right" size={I(22)} color={C.textText} />
                 </Pressable>
               </View>
             ) : null}
@@ -464,7 +471,7 @@ export default function TrainerLibraryScreen() {
 /* Styles                                                              */
 /* ------------------------------------------------------------------ */
 
-const styles = StyleSheet.create(
+const createStyles = (C: AppColorsOf<typeof C_LIGHT>) => StyleSheet.create(
   scaled({
     safe: {
       flex: 1,
@@ -509,14 +516,14 @@ const styles = StyleSheet.create(
       fontSize: 20,
       lineHeight: 24,
       letterSpacing: -0.3,
-      color: C.text,
+      color: C.textText,
     },
 
     subtitle: {
       fontFamily: Fonts.body,
       fontSize: 12,
       lineHeight: 16,
-      color: C.gray,
+      color: C.grayText,
       marginTop: 1,
     },
 
@@ -533,16 +540,16 @@ const styles = StyleSheet.create(
       alignItems: 'center',
       justifyContent: 'center',
       paddingHorizontal: 12,
-      backgroundColor: C.green20,
+      backgroundColor: C.green20Fill,
       borderWidth: 1,
-      borderColor: C.frame,
+      borderColor: C.frameBorder,
       borderRadius: 4,
     },
 
     addText: {
       fontFamily: Fonts.bodyBold,
       fontSize: 12,
-      color: C.text,
+      color: C.textText,
     },
 
     /* ── Filter ──────────────────────────────────────────────── */
@@ -562,24 +569,25 @@ const styles = StyleSheet.create(
 
     chip: {
       flex: 1,
-      height: 34,
+      height: 44,
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: '#F5F5F5',
+      backgroundColor: C.whiteFill,
       borderWidth: 1,
-      borderColor: C.frame,
-      borderRadius: 4,
+      borderColor: C.frameBorder,
+      borderRadius: 10,
     },
 
     /* The live filter takes the blue wash; the rest stay white. */
     chipActive: {
-      backgroundColor: C.blue1,
+      backgroundColor: C.blue1Fill,
     },
 
     chipText: {
       fontFamily: Fonts.bodySemiBold,
-      fontSize: 11,
-      color: C.text,
+      fontSize: 12.5,
+      lineHeight: 16,
+      color: C.textText,
     },
 
     /* ── Category + search ───────────────────────────────────── */
@@ -600,37 +608,37 @@ const styles = StyleSheet.create(
     },
 
     catBox: {
-      height: 34,
+      height: 44,
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
       gap: 6,
-      paddingHorizontal: 9,
-      backgroundColor: C.blue1,
+      paddingHorizontal: 10,
+      backgroundColor: C.blue1Fill,
       borderWidth: 1,
-      borderColor: C.frame,
-      borderRadius: 4,
+      borderColor: C.frameBorder,
+      borderRadius: 10,
     },
 
     catText: {
       flex: 1,
       fontFamily: Fonts.bodySemiBold,
-      fontSize: 11,
-      lineHeight: 14,
-      color: C.text,
+      fontSize: 12.5,
+      lineHeight: 16,
+      color: C.textText,
     },
 
     /* Floats over the table so opening it moves nothing. */
     catOpts: {
       position: 'absolute',
-      top: 37,
+      top: 47,
       left: 0,
       right: 0,
       zIndex: 40,
       elevation: 12,
-      backgroundColor: '#F5F5F5',
+      backgroundColor: C.whiteFill,
       borderWidth: 1,
-      borderColor: C.frame,
+      borderColor: C.frameBorder,
       borderRadius: 4,
       overflow: 'hidden',
       shadowColor: '#000000',
@@ -640,38 +648,38 @@ const styles = StyleSheet.create(
     },
 
     catOpt: {
-      height: 30,
+      minHeight: 40,
       alignItems: 'center',
       justifyContent: 'center',
     },
 
     catOptActive: {
-      backgroundColor: C.blue1,
+      backgroundColor: C.blue1Fill,
     },
 
     catOptText: {
       fontFamily: Fonts.body,
-      fontSize: 11,
-      color: C.text,
+      fontSize: 12.5,
+      color: C.textText,
     },
 
     catOptTextActive: {
       fontFamily: Fonts.bodyBold,
-      color: C.blue,
+      color: C.blueText,
     },
 
     /* The field wears the magnifier on its right edge. */
     searchBar: {
       flex: 1,
-      height: 34,
+      height: 44,
       flexDirection: 'row',
       alignItems: 'center',
       gap: 6,
-      paddingHorizontal: 9,
-      backgroundColor: '#F5F5F5',
+      paddingHorizontal: 10,
+      backgroundColor: C.whiteFill,
       borderWidth: 1,
-      borderColor: C.frame,
-      borderRadius: 4,
+      borderColor: C.frameBorder,
+      borderRadius: 10,
     },
 
     searchInput: {
@@ -679,16 +687,16 @@ const styles = StyleSheet.create(
       paddingHorizontal: 0,
       paddingVertical: 0,
       fontFamily: Fonts.body,
-      fontSize: 11,
-      color: C.text,
+      fontSize: 14,
+      color: C.textText,
     },
 
     /* ── Materialet table ────────────────────────────────────── */
     card: {
       marginTop: 14,
-      backgroundColor: C.blue2,
+      backgroundColor: C.blue2Fill,
       borderWidth: 2,
-      borderColor: C.rowLine,
+      borderColor: C.rowLineBorder,
       borderRadius: 7,
       overflow: 'hidden',
     },
@@ -707,7 +715,7 @@ const styles = StyleSheet.create(
       paddingTop: 10,
       paddingBottom: 8,
       borderBottomWidth: 1,
-      borderBottomColor: C.headLine,
+      borderBottomColor: C.headLineBorder,
     },
 
     tr: {
@@ -720,21 +728,21 @@ const styles = StyleSheet.create(
 
     trBorder: {
       borderTopWidth: 1,
-      borderTopColor: C.rowLine,
+      borderTopColor: C.rowLineBorder,
     },
 
     th: {
       fontFamily: Fonts.bodySemiBold,
       fontSize: 10.5,
       lineHeight: 13,
-      color: C.gray,
+      color: C.grayText,
     },
 
     td: {
       fontFamily: Fonts.body,
       fontSize: 11,
       lineHeight: 14,
-      color: C.text,
+      color: C.textText,
     },
 
     tdName: {
@@ -750,35 +758,37 @@ const styles = StyleSheet.create(
     },
 
     actEdit: {
-      height: 24,
-      paddingHorizontal: 9,
+      height: 30,
+      paddingHorizontal: 10,
       alignItems: 'center',
       justifyContent: 'center',
       borderWidth: 1,
-      borderColor: C.blue,
-      borderRadius: 4,
+      borderColor: C.blueBorder,
+      borderRadius: 6,
     },
 
     actEditText: {
       fontFamily: Fonts.bodySemiBold,
-      fontSize: 10.5,
-      color: C.blue,
+      fontSize: 11.5,
+      lineHeight: 15,
+      color: C.blueText,
     },
 
     actDel: {
-      height: 24,
-      paddingHorizontal: 9,
+      height: 30,
+      paddingHorizontal: 10,
       alignItems: 'center',
       justifyContent: 'center',
       borderWidth: 1,
-      borderColor: C.red,
-      borderRadius: 4,
+      borderColor: C.redBorder,
+      borderRadius: 6,
     },
 
     actDelText: {
       fontFamily: Fonts.bodySemiBold,
-      fontSize: 10.5,
-      color: C.red,
+      fontSize: 11.5,
+      lineHeight: 15,
+      color: C.redText,
     },
 
     /* ── Pager ───────────────────────────────────────────────── */
@@ -800,18 +810,18 @@ const styles = StyleSheet.create(
     },
 
     pageSq: {
-      width: 34,
-      height: 34,
-      borderRadius: 5,
-      backgroundColor: C.blueBtn,
+      width: 44,
+      height: 44,
+      borderRadius: 10,
+      backgroundColor: C.blueBtnFill,
       alignItems: 'center',
       justifyContent: 'center',
     },
 
     pageSqActive: {
-      width: 34,
-      height: 34,
-      borderRadius: 5,
+      width: 44,
+      height: 44,
+      borderRadius: 10,
       backgroundColor: '#4E90D8',
       alignItems: 'center',
       justifyContent: 'center',
@@ -820,7 +830,7 @@ const styles = StyleSheet.create(
     pageSqText: {
       fontFamily: Fonts.bodySemiBold,
       fontSize: 14,
-      color: '#F5F5F5',
+      color: '#FFFFFF',
     },
 
     pressed: {

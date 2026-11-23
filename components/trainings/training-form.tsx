@@ -13,6 +13,7 @@ import {
 import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
 import { I, scaled } from '@/lib/responsive';
+import { useAppColors, usePaletteStyles, type AppColorsOf } from '@/lib/app-theme';
 
 /**
  * Training form popup — the one sheet behind "Shto stërvitje" on the trainings
@@ -25,13 +26,14 @@ import { I, scaled } from '@/lib/responsive';
  */
 
 /* Popup palette — same shell as the modals on the other pages. */
-const MO = {
+const MO_LIGHT = {
   border: '#159B63',
   divider: '#55B88B',
   title: '#080808',
   text: '#111111',
   sub: '#666666',
   inputBorder: '#777777',
+  chevron: '#777777',
   inputBg: '#FAFCFC',
   ph: '#A8A8A8',
   cancel: '#ED5050',
@@ -130,6 +132,8 @@ export function TrainingFormModal({
   onClose: () => void;
   onConfirm: (draft: TrainingDraft) => void;
 }) {
+  const MO = useAppColors(MO_LIGHT);
+  const styles = usePaletteStyles(createStyles, MO);
   const { width, height } = useWindowDimensions();
   const cardW = Math.min(width - 24, 360);
   const maxBody = Math.max(280, height - 187);
@@ -226,7 +230,7 @@ export function TrainingFormModal({
                   value={day}
                   onChangeText={setDay}
                   placeholder="DD"
-                  placeholderTextColor={MO.ph}
+                  placeholderTextColor={MO.phText}
                   maxLength={2}
                   keyboardType="number-pad"
                   allowFontScaling={false}
@@ -237,7 +241,7 @@ export function TrainingFormModal({
                   value={month}
                   onChangeText={setMonth}
                   placeholder="MM"
-                  placeholderTextColor={MO.ph}
+                  placeholderTextColor={MO.phText}
                   maxLength={2}
                   keyboardType="number-pad"
                   allowFontScaling={false}
@@ -248,7 +252,7 @@ export function TrainingFormModal({
                   value={year}
                   onChangeText={setYear}
                   placeholder="YYYY"
-                  placeholderTextColor={MO.ph}
+                  placeholderTextColor={MO.phText}
                   maxLength={4}
                   keyboardType="number-pad"
                   allowFontScaling={false}
@@ -264,7 +268,7 @@ export function TrainingFormModal({
                   value={hour}
                   onChangeText={setHour}
                   placeholder="HH"
-                  placeholderTextColor={MO.ph}
+                  placeholderTextColor={MO.phText}
                   maxLength={2}
                   keyboardType="number-pad"
                   allowFontScaling={false}
@@ -275,7 +279,7 @@ export function TrainingFormModal({
                   value={minute}
                   onChangeText={setMinute}
                   placeholder="MM"
-                  placeholderTextColor={MO.ph}
+                  placeholderTextColor={MO.phText}
                   maxLength={2}
                   keyboardType="number-pad"
                   allowFontScaling={false}
@@ -312,7 +316,7 @@ export function TrainingFormModal({
                         {f}
                       </Text>
                       <Text
-                        style={[styles.fieldState, { color: busy ? MO.err : MO.create }]}
+                        style={[styles.fieldState, { color: busy ? MO.errText : MO.createText }]}
                         numberOfLines={1}
                       >
                         {busy ? 'E zënë' : 'E lirë'}
@@ -327,7 +331,7 @@ export function TrainingFormModal({
                   value={field}
                   onChangeText={setField}
                   placeholder="Emri i fushës"
-                  placeholderTextColor={MO.ph}
+                  placeholderTextColor={MO.phText}
                   maxLength={100}
                   allowFontScaling={false}
                   style={styles.fieldInput}
@@ -391,6 +395,8 @@ function Select({
   options: string[];
   onChange: (v: string) => void;
 }) {
+  const MO = useAppColors(MO_LIGHT);
+  const styles = usePaletteStyles(createStyles, MO);
   const [open, setOpen] = useState(false);
 
   return (
@@ -404,7 +410,7 @@ function Select({
         <Text style={styles.selText} numberOfLines={1}>
           {value}
         </Text>
-        <MaterialCommunityIcons name="chevron-down" size={I(11)} color="#777777" />
+        <MaterialCommunityIcons name="chevron-down" size={I(11)} color={MO.chevronText} />
       </Pressable>
       {open ? (
         <View style={styles.opts}>
@@ -436,7 +442,7 @@ function Select({
 /* Styles                                                              */
 /* ------------------------------------------------------------------ */
 
-const styles = StyleSheet.create(
+const createStyles = (MO: AppColorsOf<typeof MO_LIGHT>) => StyleSheet.create(
   scaled({
     ovWrap: {
       position: 'absolute',
@@ -462,9 +468,9 @@ const styles = StyleSheet.create(
     card: {
       marginTop: 100,
       alignSelf: 'center',
-      backgroundColor: '#F5F5F5',
+      backgroundColor: MO.whiteFill,
       borderWidth: 1,
-      borderColor: MO.border,
+      borderColor: MO.borderBorder,
       borderRadius: 5,
       overflow: 'hidden',
       shadowColor: '#000000',
@@ -485,13 +491,13 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodyBold,
       fontSize: 20,
       lineHeight: 24,
-      color: MO.title,
+      color: MO.titleText,
     },
 
     /* The title is ruled off from the fields below it. */
     divider: {
       height: 1,
-      backgroundColor: MO.divider,
+      backgroundColor: MO.dividerFill,
     },
 
     content: {
@@ -503,7 +509,7 @@ const styles = StyleSheet.create(
     err: {
       fontFamily: Fonts.body,
       fontSize: 9,
-      color: MO.err,
+      color: MO.errText,
       marginBottom: 8,
     },
 
@@ -511,7 +517,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 9.5,
       lineHeight: 12,
-      color: MO.sub,
+      color: MO.subText,
       marginBottom: 4,
     },
 
@@ -535,9 +541,9 @@ const styles = StyleSheet.create(
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      backgroundColor: MO.inputBg,
+      backgroundColor: MO.inputBgFill,
       borderWidth: 1,
-      borderColor: MO.inputBorder,
+      borderColor: MO.inputBorderBorder,
       borderRadius: 1,
       paddingHorizontal: 8,
     },
@@ -546,15 +552,15 @@ const styles = StyleSheet.create(
       flex: 1,
       fontFamily: Fonts.body,
       fontSize: 11.5,
-      color: MO.text,
+      color: MO.textText,
       marginRight: 3,
     },
 
     opts: {
       marginTop: 2,
-      backgroundColor: '#F5F5F5',
+      backgroundColor: MO.whiteFill,
       borderWidth: 1,
-      borderColor: MO.inputBorder,
+      borderColor: MO.inputBorderBorder,
       borderRadius: 1,
       overflow: 'hidden',
     },
@@ -572,12 +578,12 @@ const styles = StyleSheet.create(
     optText: {
       fontFamily: Fonts.body,
       fontSize: 10,
-      color: MO.text,
+      color: MO.textText,
     },
 
     optTextActive: {
       fontFamily: Fonts.bodyBold,
-      color: MO.create,
+      color: MO.createText,
     },
 
     /* ── Date and time boxes ─────────────────────────────────── */
@@ -590,58 +596,58 @@ const styles = StyleSheet.create(
     box: {
       width: 30,
       height: 30,
-      backgroundColor: MO.inputBg,
+      backgroundColor: MO.inputBgFill,
       borderWidth: 1,
-      borderColor: MO.inputBorder,
+      borderColor: MO.inputBorderBorder,
       borderRadius: 4,
       paddingHorizontal: 0,
       paddingVertical: 0,
       textAlign: 'center',
       fontSize: 11,
       fontFamily: Fonts.body,
-      color: MO.text,
+      color: MO.textText,
     },
 
     boxYear: {
       width: 50,
       height: 30,
-      backgroundColor: MO.inputBg,
+      backgroundColor: MO.inputBgFill,
       borderWidth: 1,
-      borderColor: MO.inputBorder,
+      borderColor: MO.inputBorderBorder,
       borderRadius: 4,
       paddingHorizontal: 0,
       paddingVertical: 0,
       textAlign: 'center',
       fontSize: 11,
       fontFamily: Fonts.body,
-      color: MO.text,
+      color: MO.textText,
     },
 
     sep: {
       fontFamily: Fonts.body,
       fontSize: 11,
-      color: MO.sub,
+      color: MO.subText,
     },
 
     /* ── Fusha ───────────────────────────────────────────────── */
     fieldInput: {
       height: 31,
-      backgroundColor: MO.inputBg,
+      backgroundColor: MO.inputBgFill,
       borderWidth: 1,
-      borderColor: MO.inputBorder,
+      borderColor: MO.inputBorderBorder,
       borderRadius: 1,
       paddingHorizontal: 8,
       paddingVertical: 0,
       fontSize: 11.5,
       fontFamily: Fonts.body,
-      color: MO.text,
+      color: MO.textText,
     },
 
     fieldHint: {
       fontFamily: Fonts.body,
       fontSize: 9.5,
       lineHeight: 13,
-      color: MO.sub,
+      color: MO.subText,
       paddingVertical: 2,
     },
 
@@ -652,14 +658,14 @@ const styles = StyleSheet.create(
       height: 30,
       paddingHorizontal: 8,
       marginBottom: 4,
-      backgroundColor: MO.inputBg,
+      backgroundColor: MO.inputBgFill,
       borderWidth: 1,
-      borderColor: MO.inputBorder,
+      borderColor: MO.inputBorderBorder,
       borderRadius: 1,
     },
 
     fieldRowActive: {
-      borderColor: MO.create,
+      borderColor: MO.createBorder,
       backgroundColor: 'rgba(22,165,29,0.10)',
     },
 
@@ -671,7 +677,7 @@ const styles = StyleSheet.create(
       flex: 1,
       fontFamily: Fonts.body,
       fontSize: 11,
-      color: MO.text,
+      color: MO.textText,
       marginRight: 6,
     },
 
@@ -683,15 +689,15 @@ const styles = StyleSheet.create(
     /* ── Note ────────────────────────────────────────────────── */
     textarea: {
       height: 76,
-      backgroundColor: MO.inputBg,
+      backgroundColor: MO.inputBgFill,
       borderWidth: 1,
-      borderColor: MO.inputBorder,
+      borderColor: MO.inputBorderBorder,
       borderRadius: 1,
       paddingHorizontal: 8,
       paddingVertical: 7,
       fontSize: 11.5,
       fontFamily: Fonts.body,
-      color: MO.text,
+      color: MO.textText,
     },
 
     /* ── Actions ─────────────────────────────────────────────── */
@@ -711,18 +717,18 @@ const styles = StyleSheet.create(
 
     btnCancel: {
       width: 74,
-      backgroundColor: MO.cancel,
+      backgroundColor: MO.cancelFill,
     },
 
     btnConfirm: {
       width: 74,
-      backgroundColor: MO.create,
+      backgroundColor: MO.createFill,
     },
 
     btnText: {
       fontFamily: Fonts.bodyMedium,
       fontSize: 10.5,
-      color: MO.white,
+      color: MO.whiteText,
     },
 
     pressed: {

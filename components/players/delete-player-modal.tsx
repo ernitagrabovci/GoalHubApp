@@ -3,7 +3,8 @@ import { useState } from 'react';
 import { Modal, Pressable, StyleSheet, View } from 'react-native';
 
 import { Text } from '@/components/dashboard/dashboard-text';
-import { Fonts } from '@/constants/theme';
+import { Fonts, Semantic } from '@/constants/theme';
+import { useAppColors, usePaletteStyles, type AppColorsOf } from '@/lib/app-theme';
 import { ApiError } from '@/lib/api/errors';
 import { deletePlayer } from '@/lib/api/players';
 import { scaled } from '@/lib/responsive';
@@ -13,11 +14,12 @@ import { scaled } from '@/lib/responsive';
  * deletes the player's user account, so the caller navigates away on success.
  */
 
-const C = {
-  text: '#111111',
-  gray: '#8A8A8A',
-  frame: '#000000',
-  red: '#E03131',
+const C_LIGHT = {
+  text: '#17251E',
+  gray: '#52645A',
+  frame: '#DCE5DF',
+  red: Semantic.danger,
+  white: '#FFFFFF',
 };
 
 export function DeletePlayerModal({
@@ -37,6 +39,8 @@ export function DeletePlayerModal({
   onDeleted: () => void;
   onUnauthorized: () => void;
 }) {
+  const C = useAppColors(C_LIGHT);
+  const styles = usePaletteStyles(createStyles, C);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -124,7 +128,7 @@ export function DeletePlayerModal({
   );
 }
 
-const styles = StyleSheet.create(
+const createStyles = (C: AppColorsOf<typeof C_LIGHT>) => StyleSheet.create(
   scaled({
     ovWrap: {
       flex: 1,
@@ -148,10 +152,10 @@ const styles = StyleSheet.create(
     card: {
       width: '86%',
       maxWidth: 340,
-      backgroundColor: '#F5F5F5',
+      backgroundColor: C.whiteFill,
       borderWidth: 1,
-      borderColor: C.red,
-      borderRadius: 6,
+      borderColor: C.redBorder,
+      borderRadius: 12,
       overflow: 'hidden',
       shadowColor: '#000000',
       shadowOffset: { width: 0, height: 5 },
@@ -168,9 +172,9 @@ const styles = StyleSheet.create(
 
     title: {
       fontFamily: Fonts.bodyBold,
-      fontSize: 17,
-      lineHeight: 21,
-      color: C.text,
+      fontSize: 18,
+      lineHeight: 24,
+      color: C.textText,
     },
 
     divider: {
@@ -186,16 +190,16 @@ const styles = StyleSheet.create(
 
     warning: {
       fontFamily: Fonts.body,
-      fontSize: 11.5,
-      lineHeight: 16,
-      color: C.text,
+      fontSize: 12.5,
+      lineHeight: 18,
+      color: C.textText,
     },
 
     error: {
-      fontFamily: Fonts.body,
-      fontSize: 11.5,
-      lineHeight: 15,
-      color: C.red,
+      fontFamily: Fonts.bodySemiBold,
+      fontSize: 12.5,
+      lineHeight: 17,
+      color: C.redText,
       marginTop: 10,
     },
 
@@ -208,34 +212,34 @@ const styles = StyleSheet.create(
     },
 
     cancel: {
-      height: 32,
-      paddingHorizontal: 16,
+      height: 44,
+      paddingHorizontal: 20,
       alignItems: 'center',
       justifyContent: 'center',
       borderWidth: 1,
-      borderColor: C.frame,
-      borderRadius: 4,
+      borderColor: C.frameBorder,
+      borderRadius: 10,
     },
 
     cancelText: {
       fontFamily: Fonts.bodySemiBold,
-      fontSize: 12.5,
-      color: C.text,
+      fontSize: 13,
+      color: C.textText,
     },
 
     danger: {
-      height: 32,
-      paddingHorizontal: 16,
+      height: 44,
+      paddingHorizontal: 20,
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: C.red,
-      borderRadius: 4,
+      backgroundColor: C.redFill,
+      borderRadius: 10,
     },
 
     dangerText: {
       fontFamily: Fonts.bodySemiBold,
-      fontSize: 12.5,
-      color: '#F5F5F5',
+      fontSize: 13,
+      color: C.whiteText,
     },
 
     off: {

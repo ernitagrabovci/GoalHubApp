@@ -13,6 +13,7 @@ import type { ApiMatch } from '@/lib/api/types';
 import { positionLabel } from '@/lib/player-position';
 import { I, scaled } from '@/lib/responsive';
 import { useSession } from '@/lib/session';
+import { useAppColors, usePaletteStyles, type AppColorsOf } from '@/lib/app-theme';
 
 /**
  * A played match, the trainer's own view — opened from "Shiko" on the results
@@ -20,17 +21,18 @@ import { useSession } from '@/lib/session';
  * the starting eleven that was called up.
  */
 
-const C = {
-  page: '#FAFBFA',
+const C_LIGHT = {
+  frame: '#DCE5DF',
+  page: '#F7F9F8',
   line: 'rgba(0,0,0,0.025)',
 
-  text: '#111111',
-  gray: '#8A8A8A',
+  text: '#17251E',
+  gray: '#52645A',
   hint: '#6E6E6E',
 
   /* blue1 = the deeper blue of the buttons and the body; blue2 = pale card. */
   blue1: '#E3EEFB',
-  blue2: '#F6FBFF',
+  blue2: '#F7F9F8',
 
   border: 'rgba(100,140,190,0.30)',
   rowLine: 'rgba(100,140,190,0.22)',
@@ -79,6 +81,8 @@ function whenLabel(iso: string | null): string {
 }
 
 export default function TrainerPlayedMatchScreen() {
+  const C = useAppColors(C_LIGHT);
+  const styles = usePaletteStyles(createStyles, C);
   const router = useRouter();
   const { token, signOut } = useSession();
 
@@ -183,7 +187,7 @@ export default function TrainerPlayedMatchScreen() {
                 accessibilityLabel="Kthehu prapa"
                 style={({ pressed }) => [styles.backBtn, pressed && styles.pressed]}
               >
-                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.text} />
+                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.textText} />
               </Pressable>
               <View style={styles.headerText}>
                 <Text
@@ -361,7 +365,7 @@ export default function TrainerPlayedMatchScreen() {
 /* Styles                                                              */
 /* ------------------------------------------------------------------ */
 
-const styles = StyleSheet.create(
+const createStyles = (C: AppColorsOf<typeof C_LIGHT>) => StyleSheet.create(
   scaled({
     safe: {
       flex: 1,
@@ -406,7 +410,7 @@ const styles = StyleSheet.create(
       fontSize: 20,
       lineHeight: 24,
       letterSpacing: -0.3,
-      color: C.text,
+      color: C.textText,
     },
 
     scroll: {
@@ -423,27 +427,28 @@ const styles = StyleSheet.create(
 
     /* A blue wash under a black rim and label. */
     editBtn: {
-      height: 30,
-      paddingHorizontal: 14,
+      height: 44,
+      paddingHorizontal: 16,
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: C.blue1,
+      backgroundColor: C.blue1Fill,
       borderWidth: 1,
-      borderColor: '#000000',
-      borderRadius: 4,
+      borderColor: C.frameBorder,
+      borderRadius: 10,
     },
 
     actionText: {
       fontFamily: Fonts.bodySemiBold,
-      fontSize: 11.5,
-      color: '#000000',
+      fontSize: 13,
+      lineHeight: 18,
+      color: C.textText,
     },
 
     /* ── Cards ───────────────────────────────────────────────── */
     card: {
-      backgroundColor: C.blue2,
+      backgroundColor: C.blue2Fill,
       borderWidth: 2,
-      borderColor: C.border,
+      borderColor: C.borderBorder,
       borderRadius: 7,
       overflow: 'hidden',
     },
@@ -462,18 +467,18 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodyBold,
       fontSize: 14,
       lineHeight: 18,
-      color: C.text,
+      color: C.textText,
     },
 
     headLine: {
       height: 1,
-      backgroundColor: C.headLine,
+      backgroundColor: C.headLineFill,
     },
 
     /* ── Informacioni rows ───────────────────────────────────── */
     /* A step deeper than the title strip above it, with no rules inside. */
     infoBody: {
-      backgroundColor: C.blue1,
+      backgroundColor: C.blue1Fill,
     },
 
     cellRow: {
@@ -489,7 +494,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 11,
       lineHeight: 14,
-      color: C.hint,
+      color: C.hintText,
     },
 
     cellValue: {
@@ -498,7 +503,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodyBold,
       fontSize: 11,
       lineHeight: 14,
-      color: C.text,
+      color: C.textText,
     },
 
     /* ── Statistikat table ───────────────────────────────────── */
@@ -516,7 +521,7 @@ const styles = StyleSheet.create(
       paddingTop: 9,
       paddingBottom: 7,
       borderBottomWidth: 1,
-      borderBottomColor: C.headLine,
+      borderBottomColor: C.headLineBorder,
     },
 
     tr: {
@@ -529,21 +534,21 @@ const styles = StyleSheet.create(
 
     trBorder: {
       borderTopWidth: 1,
-      borderTopColor: C.rowLine,
+      borderTopColor: C.rowLineBorder,
     },
 
     th: {
       fontFamily: Fonts.bodySemiBold,
       fontSize: 10,
       lineHeight: 13,
-      color: C.hint,
+      color: C.hintText,
     },
 
     tdName: {
       fontFamily: Fonts.bodySemiBold,
       fontSize: 11,
       lineHeight: 14,
-      color: C.text,
+      color: C.textText,
     },
 
     td: {
@@ -551,7 +556,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 11,
       lineHeight: 14,
-      color: C.text,
+      color: C.textText,
     },
 
     /* The load error / empty-list line, spanning the table. */
@@ -561,7 +566,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 11,
       lineHeight: 15,
-      color: C.hint,
+      color: C.hintText,
     },
 
     /* ── Formacioni ──────────────────────────────────────────── */
@@ -569,7 +574,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodyBold,
       fontSize: 12,
       lineHeight: 16,
-      color: C.text,
+      color: C.textText,
       paddingHorizontal: 10,
       paddingTop: 10,
     },
@@ -590,9 +595,9 @@ const styles = StyleSheet.create(
       justifyContent: 'center',
       paddingHorizontal: 7,
       paddingVertical: 7,
-      backgroundColor: C.cardGreen,
+      backgroundColor: C.cardGreenFill,
       borderWidth: 1,
-      borderColor: '#000000',
+      borderColor: C.frameBorder,
       borderRadius: 4,
     },
 
@@ -600,7 +605,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodyBold,
       fontSize: 11.5,
       lineHeight: 14,
-      color: '#000000',
+      color: C.textText,
     },
 
     playerPosition: {
@@ -608,7 +613,7 @@ const styles = StyleSheet.create(
       fontSize: 9,
       lineHeight: 12,
       marginTop: 1,
-      color: '#000000',
+      color: C.textText,
     },
 
     pressed: {

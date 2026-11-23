@@ -1,7 +1,9 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Animated, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 
 import { Fonts, Radius, Spacing, type ThemeColors } from '@/constants/theme';
+import { Easings, Motion, useReducedMotion } from '@/lib/motion';
 import { useTheme, useThemedStyles } from '@/lib/theme';
 
 /** Horizontal progress bar — label + value on top, fill below. */
@@ -21,9 +23,21 @@ export function StatBar({
 }) {
   const { colors } = useTheme();
   const styles = useThemedStyles(createStyles);
+  const reduced = useReducedMotion();
+  const [grow] = useState(() => new Animated.Value(0));
   const accent = color ?? colors.mint;
   const pct = Math.min(Math.max(value / max, 0), 1) * 100;
   const width = `${pct}%` as const;
+
+  useEffect(() => {
+    Animated.timing(grow, {
+      toValue: 1,
+      duration: reduced ? 0 : Motion.complex,
+      easing: Easings.enter,
+      useNativeDriver: true,
+    }).start();
+  }, [grow, reduced]);
+
   return (
     <View style={styles.barRow}>
       <View style={styles.barLabels}>
@@ -31,7 +45,17 @@ export function StatBar({
         <Text style={[styles.barValue, { color: accent }]}>{display ?? value}</Text>
       </View>
       <View style={styles.barTrack}>
-        <View style={[styles.barFill, { width, backgroundColor: accent }]} />
+        <Animated.View
+          style={[
+            styles.barFill,
+            {
+              width,
+              backgroundColor: accent,
+              transformOrigin: 'left',
+              transform: [{ scaleX: grow }],
+            },
+          ]}
+        />
       </View>
     </View>
   );

@@ -1,11 +1,19 @@
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
 import type { ReactNode } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { AnimatedPressable } from '@/components/ui/animated-pressable';
 import { IconSymbol, type IconSymbolName } from '@/components/ui/icon-symbol';
-import { Fonts, Radius, Spacing, type ThemeColors } from '@/constants/theme';
+import {
+  Elevation,
+  Fonts,
+  Radius,
+  Spacing,
+  TypeScale,
+  type ThemeColors,
+} from '@/constants/theme';
 import { useLanguage } from '@/lib/i18n';
 import { useTheme, useThemedStyles } from '@/lib/theme';
 
@@ -49,10 +57,17 @@ export function Screen({ children, back }: { children: ReactNode; back?: boolean
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled">
         {back ? (
-          <Pressable style={styles.backRow} onPress={() => router.back()} hitSlop={8}>
-            <IconSymbol name="chevron-left" size={22} color={colors.mint} />
+          <AnimatedPressable
+            style={styles.backRow}
+            onPress={() => router.back()}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel={t('common.back')}>
+            <View style={styles.backIcon}>
+              <IconSymbol name="chevron-left" size={20} color={colors.mint} />
+            </View>
             <Text style={styles.backText}>{t('common.back')}</Text>
-          </Pressable>
+          </AnimatedPressable>
         ) : (
           <BrandHeader />
         )}
@@ -107,12 +122,13 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   content: {
     paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.sm,
+    paddingTop: Spacing.md,
     paddingBottom: Spacing.xxl,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
+    minHeight: 36,
   },
   brand: {
     flexDirection: 'row',
@@ -120,13 +136,14 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     gap: Spacing.sm,
   },
   brandLogo: {
-    width: 28,
-    height: 28,
+    width: 30,
+    height: 30,
   },
   brandText: {
     fontFamily: Fonts.heading,
     fontSize: 20,
-    letterSpacing: -0.5,
+    lineHeight: 26,
+    letterSpacing: -0.6,
     color: colors.mint,
     textTransform: 'lowercase',
   },
@@ -134,12 +151,22 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'flex-start',
-    gap: 4,
-    paddingVertical: Spacing.xs,
+    gap: Spacing.sm,
+    minHeight: 44,
+    paddingRight: Spacing.sm,
+  },
+  backIcon: {
+    width: 30,
+    height: 30,
+    borderRadius: Radius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.brandTint,
   },
   backText: {
-    fontFamily: Fonts.bodyMedium,
+    fontFamily: Fonts.bodySemiBold,
     fontSize: 13,
+    lineHeight: 18,
     color: colors.mint,
     textTransform: 'lowercase',
   },
@@ -147,13 +174,15 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.md,
-    marginTop: Spacing.lg,
+    marginTop: Spacing.md,
     marginBottom: Spacing.lg,
     borderWidth: 1,
     borderColor: colors.glassBorder,
     borderRadius: Radius.xl,
     overflow: 'hidden',
+    backgroundColor: colors.surface,
     padding: Spacing.lg,
+    ...Elevation.sm,
   },
   headIcon: {
     width: 52,
@@ -167,20 +196,21 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     gap: 2,
   },
   title: {
-    fontFamily: Fonts.heading,
-    fontSize: 26,
-    letterSpacing: -0.5,
+    ...TypeScale.h2,
     color: colors.mint,
     textTransform: 'lowercase',
   },
   subtitle: {
     fontFamily: Fonts.body,
     fontSize: 13,
-    color: colors.textMuted,
+    lineHeight: 18,
+    color: colors.textSecondary,
   },
   sectionLabel: {
     fontFamily: Fonts.headingSemiBold,
     fontSize: 16,
+    lineHeight: 22,
+    letterSpacing: -0.2,
     color: colors.mint,
     textTransform: 'lowercase',
     marginTop: Spacing.xl,
@@ -193,12 +223,15 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   statValue: {
     fontFamily: Fonts.heading,
     fontSize: 24,
+    lineHeight: 30,
     letterSpacing: -0.5,
+    fontVariant: ['tabular-nums'],
   },
   statLabel: {
-    fontFamily: Fonts.bodyMedium,
+    fontFamily: Fonts.bodySemiBold,
     fontSize: 10,
-    letterSpacing: 1,
+    lineHeight: 14,
+    letterSpacing: 1.1,
     textTransform: 'uppercase',
     color: colors.textMuted,
   },

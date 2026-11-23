@@ -13,6 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
 import { I, scaled } from '@/lib/responsive';
+import { useAppColors, usePaletteStyles, useThemedColor, type AppColorsOf } from '@/lib/app-theme';
 
 /**
  * Femiu — one child's page, opened from the child's card on the parent home.
@@ -21,14 +22,14 @@ import { I, scaled } from '@/lib/responsive';
  * player has, but read-only from the outside.
  */
 
-const C = {
-  page: '#FAFBFA',
+const C_LIGHT = {
+  page: '#F7F9F8',
   line: 'rgba(0,0,0,0.025)',
 
-  text: '#111111',
-  gray: '#8A8A8A',
+  text: '#17251E',
+  gray: '#52645A',
 
-  white: '#F5F5F5',
+  white: '#FFFFFF',
   border: '#D9DEDB',
 
   /* The thin green rim around the menu. */
@@ -49,6 +50,9 @@ const IMG = {
 };
 
 export default function ChildScreen() {
+  const C = useAppColors(C_LIGHT);
+  const styles = usePaletteStyles(createStyles, C);
+  const themed = useThemedColor();
   const router = useRouter();
 
   const params = useLocalSearchParams<{
@@ -82,7 +86,7 @@ export default function ChildScreen() {
                 accessibilityLabel="Kthehu prapa"
                 style={({ pressed }) => [styles.backBtn, pressed && styles.pressed]}
               >
-                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.text} />
+                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.textText} />
               </Pressable>
               <View style={styles.headerText}>
                 <Text
@@ -110,7 +114,7 @@ export default function ChildScreen() {
             <View style={styles.menuWrap}>
               {/* THIN GREEN FRAME */}
               <View style={styles.menuContainer}>
-                {MENU.map((card) => {
+                {MENU(styles).map((card) => {
                   const face = (
                     <>
                       {/* CARD TITLE */}
@@ -137,7 +141,7 @@ export default function ChildScreen() {
 
                   const skin = [
                     styles.menuCard,
-                    { backgroundColor: card.bg, borderColor: card.border },
+                    { backgroundColor: themed(card.bg), borderColor: themed(card.border) },
                   ];
 
                   const route = card.route;
@@ -188,7 +192,7 @@ export default function ChildScreen() {
 /* Styles                                                              */
 /* ------------------------------------------------------------------ */
 
-const styles = StyleSheet.create(
+const createStyles = (C: AppColorsOf<typeof C_LIGHT>) => StyleSheet.create(
   scaled({
     safe: {
       flex: 1,
@@ -233,14 +237,14 @@ const styles = StyleSheet.create(
       fontSize: 20,
       lineHeight: 24,
       letterSpacing: -0.3,
-      color: C.text,
+      color: C.textText,
     },
 
     subtitle: {
       fontFamily: Fonts.body,
       fontSize: 12,
       lineHeight: 16,
-      color: C.gray,
+      color: C.grayText,
       marginTop: 1,
     },
 
@@ -260,10 +264,10 @@ const styles = StyleSheet.create(
       flexDirection: 'row',
       flexWrap: 'wrap',
 
-      backgroundColor: C.white,
+      backgroundColor: C.whiteFill,
 
       borderWidth: 1,
-      borderColor: C.greenBorder,
+      borderColor: C.greenBorderBorder,
 
       borderRadius: 8,
 
@@ -301,7 +305,7 @@ const styles = StyleSheet.create(
 
       letterSpacing: 0.3,
 
-      color: C.text,
+      color: C.textText,
 
       zIndex: 3,
     },
@@ -408,10 +412,10 @@ const styles = StyleSheet.create(
       width: 100,
       height: 28,
 
-      backgroundColor: C.white,
+      backgroundColor: C.whiteFill,
 
       borderWidth: 1,
-      borderColor: C.border,
+      borderColor: C.borderBorder,
 
       /* Open at the bottom so the pill and the frame share one line. */
       borderBottomWidth: 0,
@@ -427,7 +431,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodySemiBold,
       fontSize: 12.5,
       lineHeight: 16,
-      color: C.text,
+      color: C.textText,
     },
 
     pressed: {
@@ -472,7 +476,7 @@ type MenuCard = {
  * Stërvitjet    Ndeshjet
  */
 
-const MENU: MenuCard[] = [
+const MENU = (styles: ReturnType<typeof createStyles>): MenuCard[] => ([
   {
     id: 'profili',
     title: 'Profili',
@@ -481,7 +485,7 @@ const MENU: MenuCard[] = [
     border: '#F6D5D5',
 
     btnBg: '#D94B4B',
-    btnColor: '#F5F5F5',
+    btnColor: '#FFFFFF',
 
     img: IMG.profili,
     imgStyle: styles.menuImgProfili,
@@ -496,7 +500,7 @@ const MENU: MenuCard[] = [
     border: '#C6E0FA',
 
     btnBg: '#78B8F5',
-    btnColor: '#F5F5F5',
+    btnColor: '#FFFFFF',
 
     img: IMG.prezenca,
     imgStyle: styles.menuImgPrezenca,
@@ -511,7 +515,7 @@ const MENU: MenuCard[] = [
     border: '#F0D9AE',
 
     btnBg: '#D99A4A',
-    btnColor: '#F5F5F5',
+    btnColor: '#FFFFFF',
 
     img: IMG.vleresimet,
     imgStyle: styles.menuImgVleresimet,
@@ -526,7 +530,7 @@ const MENU: MenuCard[] = [
     border: '#D9C9F2',
 
     btnBg: '#7B5FD9',
-    btnColor: '#F5F5F5',
+    btnColor: '#FFFFFF',
 
     img: IMG.kuotat,
     imgStyle: styles.menuImgKuotat,
@@ -541,7 +545,7 @@ const MENU: MenuCard[] = [
     border: '#BFE7CD',
 
     btnBg: '#2E9E5B',
-    btnColor: '#F5F5F5',
+    btnColor: '#FFFFFF',
 
     img: IMG.stervitjet,
     imgStyle: styles.menuImgStervitjet,
@@ -556,11 +560,11 @@ const MENU: MenuCard[] = [
     border: '#F3C2D2',
 
     btnBg: '#E34D63',
-    btnColor: '#F5F5F5',
+    btnColor: '#FFFFFF',
 
     img: IMG.ndeshjet,
     imgStyle: styles.menuImgNdeshjet,
 
     route: '/ndeshjet-femiut',
   },
-];
+]);

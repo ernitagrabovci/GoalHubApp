@@ -14,6 +14,7 @@ import {
 import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
 import { listCompetitions } from '@/lib/api/competitions';
+import { useAppColors, usePaletteStyles, type AppColorsOf } from '@/lib/app-theme';
 import { ApiError } from '@/lib/api/errors';
 import { createMatch, updateMatch } from '@/lib/api/matches';
 import type { ApiMatch, ApiTeam } from '@/lib/api/types';
@@ -30,13 +31,15 @@ const C = {
 };
 
 /* Popup palette — the same shell as the other admin popups. */
-const MO = {
+const MO_LIGHT = {
   border: '#159B63',
   divider: '#55B88B',
   title: '#080808',
   text: '#111111',
   sub: '#666666',
   inputBorder: '#777777',
+  chevron: '#777777',
+  ink: '#000000',
   inputBg: '#FAFCFC',
   ph: '#A8A8A8',
   cancel: '#ED5050',
@@ -122,6 +125,8 @@ function useCompetitionNames(
 /* ── "Shto ndeshje" ───────────────────────────────────────────────── */
 
 export function AddMatchModal({ token, teams, clubName, onClose, onSaved, onExpired }: ModalBaseProps) {
+  const MO = useAppColors(MO_LIGHT);
+  const styles = usePaletteStyles(createStyles, MO);
   const { width, height } = useWindowDimensions();
   const cardW = Math.min(width - 24, 360);
   const maxBody = Math.max(280, height - 187);
@@ -272,6 +277,8 @@ export function EditMatchModal({
   onSaved,
   onExpired,
 }: ModalBaseProps & { match: ApiMatch }) {
+  const MO = useAppColors(MO_LIGHT);
+  const styles = usePaletteStyles(createStyles, MO);
   const { width, height } = useWindowDimensions();
   const cardW = Math.min(width - 24, 360);
   const maxBody = Math.max(280, height - 187);
@@ -436,6 +443,8 @@ export function EditMatchModal({
 
 /** The dimmed, blurred backdrop the popups ride on. */
 function Overlay({ children, onDismiss }: { children: React.ReactNode; onDismiss: () => void }) {
+  const MO = useAppColors(MO_LIGHT);
+  const styles = usePaletteStyles(createStyles, MO);
   return (
     <View style={styles.ovWrap}>
       <BlurView style={styles.ovFill} intensity={45} tint="dark" />
@@ -464,12 +473,14 @@ function DateBox({
   width?: number;
   maxLength?: number;
 }) {
+  const MO = useAppColors(MO_LIGHT);
+  const styles = usePaletteStyles(createStyles, MO);
   return (
     <TextInput
       value={value}
       onChangeText={onChangeText}
       placeholder={placeholder}
-      placeholderTextColor={MO.ph}
+      placeholderTextColor={MO.phText}
       maxLength={maxLength}
       keyboardType="number-pad"
       allowFontScaling={false}
@@ -487,6 +498,8 @@ function Actions({
   onClose: () => void;
   onSubmit: () => void;
 }) {
+  const MO = useAppColors(MO_LIGHT);
+  const styles = usePaletteStyles(createStyles, MO);
   return (
     <View style={styles.actions}>
       <Pressable
@@ -504,7 +517,7 @@ function Actions({
         style={({ pressed }) => [styles.btn, styles.btnSave, busy && styles.btnOff, pressed && styles.pressed]}
       >
         {busy ? (
-          <ActivityIndicator size="small" color={MO.white} />
+          <ActivityIndicator size="small" color={MO.whiteText} />
         ) : (
           <Text style={styles.btnText}>Ruaj</Text>
         )}
@@ -523,6 +536,8 @@ function NMSelect({
   options: string[];
   onChange: (v: string) => void;
 }) {
+  const MO = useAppColors(MO_LIGHT);
+  const styles = usePaletteStyles(createStyles, MO);
   const [open, setOpen] = useState(false);
 
   return (
@@ -535,7 +550,7 @@ function NMSelect({
         <Text style={styles.selText} numberOfLines={1}>
           {value}
         </Text>
-        <MaterialCommunityIcons name="chevron-down" size={I(11)} color="#777777" />
+        <MaterialCommunityIcons name="chevron-down" size={I(11)} color={MO.chevronText} />
       </Pressable>
       {open ? (
         <View style={styles.opts}>
@@ -562,7 +577,7 @@ function NMSelect({
   );
 }
 
-const styles = StyleSheet.create(
+const createStyles = (MO: AppColorsOf<typeof MO_LIGHT>) => StyleSheet.create(
   scaled({
     ovWrap: {
       position: 'absolute',
@@ -588,9 +603,9 @@ const styles = StyleSheet.create(
     card: {
       marginTop: 100,
       alignSelf: 'center',
-      backgroundColor: '#F5F5F5',
+      backgroundColor: MO.whiteFill,
       borderWidth: 1,
-      borderColor: MO.border,
+      borderColor: MO.borderBorder,
       borderRadius: 5,
       overflow: 'hidden',
       shadowColor: '#000000',
@@ -610,12 +625,12 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodyBold,
       fontSize: 20,
       lineHeight: 24,
-      color: MO.title,
+      color: MO.titleText,
     },
 
     divider: {
       height: 1,
-      backgroundColor: MO.divider,
+      backgroundColor: MO.dividerFill,
     },
 
     content: {
@@ -627,7 +642,7 @@ const styles = StyleSheet.create(
     err: {
       fontFamily: Fonts.body,
       fontSize: 9,
-      color: MO.err,
+      color: MO.errText,
       marginBottom: 8,
     },
 
@@ -642,7 +657,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 9.5,
       lineHeight: 12,
-      color: MO.sub,
+      color: MO.subText,
       marginBottom: 4,
     },
 
@@ -652,15 +667,15 @@ const styles = StyleSheet.create(
 
     input: {
       height: 31,
-      backgroundColor: MO.inputBg,
+      backgroundColor: MO.inputBgFill,
       borderWidth: 1,
-      borderColor: MO.inputBorder,
+      borderColor: MO.inputBorderBorder,
       borderRadius: 1,
       paddingHorizontal: 8,
       paddingVertical: 0,
       fontSize: 11.5,
       fontFamily: Fonts.body,
-      color: MO.text,
+      color: MO.textText,
     },
 
     /* The transport field opens on the kick-off values, greyed as a suggestion. */
@@ -683,9 +698,9 @@ const styles = StyleSheet.create(
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      backgroundColor: MO.inputBg,
+      backgroundColor: MO.inputBgFill,
       borderWidth: 1,
-      borderColor: MO.inputBorder,
+      borderColor: MO.inputBorderBorder,
       borderRadius: 1,
       paddingHorizontal: 8,
     },
@@ -694,15 +709,15 @@ const styles = StyleSheet.create(
       flex: 1,
       fontFamily: Fonts.body,
       fontSize: 11.5,
-      color: MO.text,
+      color: MO.textText,
       marginRight: 3,
     },
 
     opts: {
       marginTop: 2,
-      backgroundColor: '#F5F5F5',
+      backgroundColor: MO.whiteFill,
       borderWidth: 1,
-      borderColor: MO.inputBorder,
+      borderColor: MO.inputBorderBorder,
       borderRadius: 1,
       overflow: 'hidden',
     },
@@ -720,12 +735,12 @@ const styles = StyleSheet.create(
     optText: {
       fontFamily: Fonts.body,
       fontSize: 10,
-      color: MO.text,
+      color: MO.textText,
     },
 
     optTextActive: {
       fontFamily: Fonts.bodyBold,
-      color: MO.create,
+      color: MO.createText,
     },
 
     /* Live preview of the fixture name. */
@@ -735,7 +750,7 @@ const styles = StyleSheet.create(
       justifyContent: 'center',
       paddingHorizontal: 8,
       borderWidth: 1,
-      borderColor: '#000000',
+      borderColor: MO.inkBorder,
       borderRadius: 3,
       backgroundColor: 'rgba(26,157,0,0.2)',
     },
@@ -744,7 +759,7 @@ const styles = StyleSheet.create(
       textAlign: 'center',
       fontFamily: Fonts.bodyBold,
       fontSize: 12,
-      color: '#000000',
+      color: MO.inkText,
     },
 
     clockRow: {
@@ -756,16 +771,16 @@ const styles = StyleSheet.create(
     dateBox: {
       width: 30,
       height: 30,
-      backgroundColor: MO.inputBg,
+      backgroundColor: MO.inputBgFill,
       borderWidth: 1,
-      borderColor: MO.inputBorder,
+      borderColor: MO.inputBorderBorder,
       borderRadius: 4,
       paddingHorizontal: 0,
       paddingVertical: 0,
       textAlign: 'center',
       fontSize: 11,
       fontFamily: Fonts.body,
-      color: MO.text,
+      color: MO.textText,
     },
 
     yearBox: {
@@ -779,7 +794,7 @@ const styles = StyleSheet.create(
     sep: {
       fontFamily: Fonts.body,
       fontSize: 11,
-      color: MO.sub,
+      color: MO.subText,
     },
 
     /* Short separator that keeps the time next to the date. */
@@ -793,15 +808,15 @@ const styles = StyleSheet.create(
 
     textarea: {
       height: 76,
-      backgroundColor: MO.inputBg,
+      backgroundColor: MO.inputBgFill,
       borderWidth: 1,
-      borderColor: MO.inputBorder,
+      borderColor: MO.inputBorderBorder,
       borderRadius: 1,
       paddingHorizontal: 8,
       paddingVertical: 7,
       fontSize: 11.5,
       fontFamily: Fonts.body,
-      color: MO.text,
+      color: MO.textText,
     },
 
     actions: {
@@ -820,12 +835,12 @@ const styles = StyleSheet.create(
 
     btnCancel: {
       width: 74,
-      backgroundColor: MO.cancel,
+      backgroundColor: MO.cancelFill,
     },
 
     btnSave: {
       width: 74,
-      backgroundColor: MO.create,
+      backgroundColor: MO.createFill,
     },
 
     btnOff: {
@@ -835,7 +850,7 @@ const styles = StyleSheet.create(
     btnText: {
       fontFamily: Fonts.bodyMedium,
       fontSize: 10.5,
-      color: MO.white,
+      color: MO.whiteText,
     },
 
     pressed: {

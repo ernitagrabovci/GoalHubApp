@@ -1,9 +1,10 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { BlurView } from 'expo-blur';
 import {
+  ActivityIndicator,
   Animated,
   Pressable,
   ScrollView,
@@ -17,27 +18,28 @@ import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
 import { activateSeason, createSeason, deleteSeason, getSeasons } from '@/lib/api/club';
 import { listCompetitions } from '@/lib/api/competitions';
-import { ApiError } from '@/lib/api/errors';
+import { ApiError, loadErrorMessage } from '@/lib/api/errors';
 import { listMatches } from '@/lib/api/matches';
 import type { ApiCompetition, ApiMatch, ApiSeason } from '@/lib/api/types';
 import { I, scaled } from '@/lib/responsive';
 import { useSession } from '@/lib/session';
+import { useAppColors, type AppColorsOf } from '@/lib/app-theme';
 
 /**
  * Sezoni — page opened from the club profile's "Sezoni" card. Same visual
- * language as the dashboards/competitions: #FAFBFA canvas, light-blue cards,
+ * language as the dashboards/competitions: #F7F9F8 canvas, light-blue cards,
  * compact grids. Shows a competition selector + "new season" control, the
  * current season card (info grid, statistics, win-rate bar) and the season
  * history card with per-season actions.
  */
 
-const C = {
-  page: '#FAFBFA',
+const C_LIGHT = {
+  page: '#F7F9F8',
   line: 'rgba(0,0,0,0.025)',
-  card: '#F6FBFF',
+  card: '#F7F9F8',
   border: 'rgba(100,140,190,0.30)',
   headLine: 'rgba(30,40,35,0.10)',
-  text: '#111111',
+  text: '#17251E',
   title: '#050505',
   gray: '#737373',
   label: '#666666',
@@ -48,17 +50,17 @@ const C = {
   green: '#059A55',
   barGreen: '#05A85A',
   barGray: '#A8A8A8',
-  orange: '#E4A000',
-  red: '#C90000',
+  orange: '#B45309',
+  red: '#B91C1C',
   fshiBorder: '#F05252',
   aktivBorder: '#28B889',
-  white: '#F5F5F5',
+  white: '#FFFFFF',
 };
 
 const DIVIDER = 'rgba(30,40,35,0.10)';
 
 /* Create-season modal palette (matches the reference popup) */
-const MO = {
+const MO_LIGHT = {
   card: '#F7FAFA',
   border: '#079B58',
   divider: '#39B887',
@@ -67,12 +69,12 @@ const MO = {
   fieldBorder: '#777777',
   label: '#666666',
   text: '#080808',
-  cancel: '#ED5050',
+  cancel: '#B91C1C',
   create: '#14A51C',
-  white: '#F5F5F5',
+  white: '#FFFFFF',
   selBorder: '#999999',
   selOn: '#079B58',
-  err: '#C90000',
+  err: '#B91C1C',
 };
 
 const COMP_TAG: Record<string, string> = {
@@ -135,6 +137,9 @@ function seasonErrorText(err: unknown): string {
 }
 
 export default function SezoniScreen() {
+  const C = useAppColors(C_LIGHT);
+  const MO = useAppColors(MO_LIGHT);
+  const styles = useMemo(() => createStyles(C, MO), [C, MO]);
   const router = useRouter();
   const { token, signOut } = useSession();
 
@@ -142,6 +147,8 @@ export default function SezoniScreen() {
   const [competitions, setCompetitions] = useState<ApiCompetition[]>([]);
   const [matches, setMatches] = useState<ApiMatch[]>([]);
   const [reload, setReload] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [compOpen, setCompOpen] = useState(false);
   const [pickedComp, setPickedComp] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
@@ -185,10 +192,25 @@ export default function SezoniScreen() {
 
       if (compRes.status === 'fulfilled') setCompetitions(compRes.value.data);
       if (matchRes.status === 'fulfilled') setMatches(matchRes.value);
+
+      const failed = [seasonRes, compRes, matchRes].find((r) => r.status === 'rejected');
+      setLoadError(
+        failed && failed.status === 'rejected'
+          ? loadErrorMessage(failed.reason, 'Nuk mund të ngarkohet sezoni. Kontrollo lidhjen.')
+          : null,
+      );
+      setLoading(false);
     });
 
     return () => controller.abort();
   }, [token, reload, expired]);
+
+  /* Refetch from the error box; the effect cannot reset state synchronously. */
+  const retry = () => {
+    setLoading(true);
+    setLoadError(null);
+    setReload((value) => value + 1);
+  };
 
   const active = seasons.find((s) => s.is_active) ?? seasons[0] ?? null;
   const compNames = competitions.map((c) => c.name);
@@ -206,11 +228,11 @@ export default function SezoniScreen() {
   const winRate = played.length ? Math.round((wins / played.length) * 100) : 0;
 
   const stats: Stat[] = [
-    { label: 'Ndeshja', value: String(played.length), color: C.blue },
-    { label: 'Fitore', value: String(wins), color: C.green },
-    { label: 'Barazime', value: String(draws), color: C.orange },
-    { label: 'Humbje', value: String(losses), color: C.red },
-    { label: 'Gola', value: String(goalsFor), color: C.blue },
+    { label: 'Ndeshja', value: String(played.length), color: C.blueText },
+    { label: 'Fitore', value: String(wins), color: C.greenText },
+    { label: 'Barazime', value: String(draws), color: C.orangeText },
+    { label: 'Humbje', value: String(losses), color: C.redText },
+    { label: 'Gola', value: String(goalsFor), color: C.blueText },
   ];
 
   const history: Hist[] = seasons.map((s, i) => ({
@@ -290,7 +312,7 @@ export default function SezoniScreen() {
                 accessibilityLabel="Kthehu prapa"
                 style={({ pressed }) => [styles.backBtn, pressed && styles.pressed]}
               >
-                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.text} />
+                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.textText} />
               </Pressable>
               <View style={styles.headerText}>
                 <Text style={styles.title}>Sezoni</Text>
@@ -317,7 +339,7 @@ export default function SezoniScreen() {
                 <Text style={styles.ctlSelectText} numberOfLines={1}>
                   {currentComp ?? '—'}
                 </Text>
-                <MaterialCommunityIcons name="chevron-down" size={I(13)} color={C.gray} />
+                <MaterialCommunityIcons name="chevron-down" size={I(13)} color={C.grayText} />
               </Pressable>
               <Pressable
                 onPress={() => setCreateOpen(true)}
@@ -425,7 +447,7 @@ export default function SezoniScreen() {
               {history.map((h) => (
                 <View key={h.id} style={styles.histItem}>
                   <View style={styles.histLeft}>
-                    <Text style={[styles.histSeason, h.active && { color: C.green }]}>
+                    <Text style={[styles.histSeason, h.active && { color: C.greenText }]}>
                       {h.season}
                     </Text>
                     <Text style={styles.histRange}>{h.range}</Text>
@@ -484,7 +506,24 @@ export default function SezoniScreen() {
                   </View>
                 </View>
               ))}
-              {history.length === 0 ? (
+              {loading ? (
+                <View style={styles.stateRow}>
+                  <ActivityIndicator color={C.greenText} />
+                  <Text style={styles.stateText}>Duke ngarkuar sezonin…</Text>
+                </View>
+              ) : loadError ? (
+                <View style={styles.stateRow}>
+                  <Text style={styles.stateText}>{loadError}</Text>
+                  <Pressable
+                    onPress={retry}
+                    accessibilityRole="button"
+                    accessibilityLabel="Provo përsëri"
+                    style={({ pressed }) => [styles.stateRetry, pressed && styles.pressed]}
+                  >
+                    <Text style={styles.stateRetryText}>Provo përsëri</Text>
+                  </Pressable>
+                </View>
+              ) : history.length === 0 ? (
                 <Text style={styles.emptyText}>Nuk ka sezone ende.</Text>
               ) : null}
               {actionError ? <Text style={styles.actionErr}>{actionError}</Text> : null}
@@ -536,6 +575,9 @@ function CreateSeasonModal({
   onClose: () => void;
   onCreate: (d: SeasonDraft) => void;
 }) {
+  const C = useAppColors(C_LIGHT);
+  const MO = useAppColors(MO_LIGHT);
+  const styles = useMemo(() => createStyles(C, MO), [C, MO]);
   const [seasonName, setSeasonName] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
@@ -601,7 +643,7 @@ function CreateSeasonModal({
               value={startDate}
               onChangeText={setStartDate}
               placeholder="DD/MM/YYYY"
-              placeholderTextColor={MO.label}
+              placeholderTextColor={MO.labelText}
               allowFontScaling={false}
               style={styles.mInput}
             />
@@ -612,7 +654,7 @@ function CreateSeasonModal({
               value={endDate}
               onChangeText={setEndDate}
               placeholder="DD/MM/YYYY"
-              placeholderTextColor={MO.label}
+              placeholderTextColor={MO.labelText}
               allowFontScaling={false}
               style={styles.mInput}
             />
@@ -685,7 +727,7 @@ function CreateSeasonModal({
   );
 }
 
-const styles = StyleSheet.create(
+const createStyles = (C: AppColorsOf<typeof C_LIGHT>, MO: AppColorsOf<typeof MO_LIGHT>) => StyleSheet.create(
   scaled({
     safe: {
       flex: 1,
@@ -770,14 +812,14 @@ const styles = StyleSheet.create(
       fontSize: 20,
       lineHeight: 24,
       letterSpacing: -0.3,
-      color: C.text,
+      color: C.textText,
     },
 
     subtitle: {
       fontFamily: Fonts.body,
       fontSize: 12,
       lineHeight: 16,
-      color: C.gray,
+      color: C.grayText,
       marginTop: 1,
     },
 
@@ -794,64 +836,67 @@ const styles = StyleSheet.create(
 
     ctlLabel: {
       fontFamily: Fonts.body,
-      fontSize: 10.5,
-      color: C.text,
-      marginRight: 5,
+      fontSize: 11.5,
+      lineHeight: 15,
+      color: C.textText,
+      marginRight: 6,
     },
 
     ctlSelect: {
-      width: 110,
-      height: 31,
+      width: 118,
+      height: 44,
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
       backgroundColor: 'transparent',
       borderWidth: 1,
-      borderColor: C.selectBorder,
-      borderRadius: 2,
-      paddingHorizontal: 7,
+      borderColor: C.selectBorderBorder,
+      borderRadius: 10,
+      paddingHorizontal: 10,
     },
 
     ctlSelectText: {
       flex: 1,
       fontFamily: Fonts.bodySemiBold,
-      fontSize: 10.5,
-      color: C.text,
+      fontSize: 12.5,
+      lineHeight: 16,
+      color: C.textText,
     },
 
     ctlNew: {
-      height: 31,
+      height: 44,
       marginLeft: 16,
       flex: 1,
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: C.mint,
+      backgroundColor: C.mintFill,
       borderWidth: 1,
-      borderColor: C.mintBorder,
-      borderRadius: 2,
-      paddingHorizontal: 8,
+      borderColor: C.mintBorderBorder,
+      borderRadius: 10,
+      paddingHorizontal: 10,
     },
 
     ctlNewText: {
       fontFamily: Fonts.bodySemiBold,
-      fontSize: 10.5,
-      color: C.text,
+      fontSize: 12.5,
+      lineHeight: 16,
+      color: C.textText,
     },
 
     compOptBox: {
-      marginTop: -6,
+      marginTop: 4,
       marginBottom: 14,
-      backgroundColor: '#F5F5F5',
+      backgroundColor: C.whiteFill,
       borderWidth: 1,
-      borderColor: C.selectBorder,
-      borderRadius: 3,
+      borderColor: C.selectBorderBorder,
+      borderRadius: 8,
       overflow: 'hidden',
     },
 
     compOpt: {
-      height: 34,
+      minHeight: 44,
       justifyContent: 'center',
-      paddingHorizontal: 11,
+      paddingHorizontal: 12,
     },
 
     compOptActive: {
@@ -860,20 +905,21 @@ const styles = StyleSheet.create(
 
     compOptText: {
       fontFamily: Fonts.body,
-      fontSize: 12,
-      color: C.text,
+      fontSize: 13,
+      lineHeight: 18,
+      color: C.textText,
     },
 
     compOptTextActive: {
       fontFamily: Fonts.bodyBold,
-      color: C.green,
+      color: C.greenText,
     },
 
     /* Cards */
     card: {
-      backgroundColor: C.card,
+      backgroundColor: C.cardFill,
       borderWidth: 2,
-      borderColor: C.border,
+      borderColor: C.borderBorder,
       borderRadius: 8,
     },
 
@@ -892,7 +938,7 @@ const styles = StyleSheet.create(
       paddingTop: 11,
       paddingBottom: 10,
       borderBottomWidth: 1,
-      borderBottomColor: C.headLine,
+      borderBottomColor: C.headLineBorder,
       borderTopLeftRadius: 7,
       borderTopRightRadius: 7,
     },
@@ -900,7 +946,7 @@ const styles = StyleSheet.create(
     cardHeadText: {
       fontFamily: Fonts.bodyBold,
       fontSize: 13,
-      color: C.text,
+      color: C.textText,
       textAlign: 'center',
     },
 
@@ -923,13 +969,13 @@ const styles = StyleSheet.create(
     iLabel: {
       fontFamily: Fonts.body,
       fontSize: 10,
-      color: C.label,
+      color: C.labelText,
     },
 
     iValue: {
       fontFamily: Fonts.bodyBold,
       fontSize: 10,
-      color: C.text,
+      color: C.textText,
       textAlign: 'right',
     },
 
@@ -954,7 +1000,7 @@ const styles = StyleSheet.create(
     statsTitle: {
       fontFamily: Fonts.bodySemiBold,
       fontSize: 12,
-      color: C.text,
+      color: C.textText,
       marginTop: 18,
       marginBottom: 12,
     },
@@ -976,8 +1022,9 @@ const styles = StyleSheet.create(
 
     statLabel: {
       fontFamily: Fonts.body,
-      fontSize: 9.5,
-      color: C.gray,
+      fontSize: 11,
+      lineHeight: 15,
+      color: C.grayText,
       marginTop: 2,
     },
 
@@ -992,20 +1039,20 @@ const styles = StyleSheet.create(
     fitLabel: {
       fontFamily: Fonts.bodyMedium,
       fontSize: 11,
-      color: C.text,
+      color: C.textText,
     },
 
     fitPct: {
       fontFamily: Fonts.bodyBold,
       fontSize: 11,
-      color: C.text,
+      color: C.textText,
     },
 
     bar: {
       marginTop: 7,
       height: 6,
       borderRadius: 1,
-      backgroundColor: C.barGray,
+      backgroundColor: C.barGrayFill,
       overflow: 'hidden',
     },
 
@@ -1013,7 +1060,7 @@ const styles = StyleSheet.create(
       width: '40%',
       height: 6,
       borderRadius: 1,
-      backgroundColor: C.barGreen,
+      backgroundColor: C.barGreenFill,
     },
 
     /* History item */
@@ -1034,13 +1081,13 @@ const styles = StyleSheet.create(
     histSeason: {
       fontFamily: Fonts.bodyBold,
       fontSize: 14,
-      color: C.text,
+      color: C.textText,
     },
 
     histRange: {
       fontFamily: Fonts.body,
       fontSize: 10,
-      color: C.gray,
+      color: C.grayText,
       marginTop: 2,
     },
 
@@ -1051,7 +1098,7 @@ const styles = StyleSheet.create(
     histComp: {
       fontFamily: Fonts.body,
       fontSize: 10,
-      color: C.gray,
+      color: C.grayText,
       lineHeight: 15,
     },
 
@@ -1066,15 +1113,16 @@ const styles = StyleSheet.create(
       justifyContent: 'center',
       backgroundColor: 'transparent',
       borderWidth: 1,
-      borderColor: C.selectBorder,
+      borderColor: C.selectBorderBorder,
       borderRadius: 2,
       paddingHorizontal: 10,
     },
 
     statusText: {
       fontFamily: Fonts.bodySemiBold,
-      fontSize: 10,
-      color: C.text,
+      fontSize: 11.5,
+      lineHeight: 15,
+      color: C.textText,
     },
 
     histActions: {
@@ -1084,13 +1132,13 @@ const styles = StyleSheet.create(
     },
 
     hBtn: {
-      height: 30,
-      minWidth: 74,
+      height: 44,
+      minWidth: 84,
       alignItems: 'center',
       justifyContent: 'center',
       borderWidth: 1,
-      borderRadius: 2,
-      paddingHorizontal: 10,
+      borderRadius: 10,
+      paddingHorizontal: 12,
     },
 
     hBtnOff: {
@@ -1098,7 +1146,7 @@ const styles = StyleSheet.create(
     },
 
     aktivBtn: {
-      borderColor: C.aktivBorder,
+      borderColor: C.aktivBorderBorder,
       backgroundColor: 'transparent',
     },
 
@@ -1108,37 +1156,71 @@ const styles = StyleSheet.create(
 
     aktivText: {
       fontFamily: Fonts.bodySemiBold,
-      fontSize: 10,
-      color: C.green,
+      fontSize: 12,
+      lineHeight: 16,
+      color: C.greenText,
     },
 
     aktivTextOn: {
-      color: C.green,
+      color: C.greenText,
     },
 
     fshiBtn: {
-      borderColor: C.fshiBorder,
+      borderColor: C.fshiBorderBorder,
       backgroundColor: 'transparent',
     },
 
     fshiText: {
       fontFamily: Fonts.bodySemiBold,
-      fontSize: 10,
-      color: C.red,
+      fontSize: 12,
+      lineHeight: 16,
+      color: C.redText,
     },
 
     emptyText: {
       fontFamily: Fonts.body,
       fontSize: 13,
-      color: C.gray,
+      color: C.grayText,
       textAlign: 'center',
       paddingVertical: 18,
+    },
+
+    stateRow: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 10,
+      minHeight: 96,
+      paddingHorizontal: 16,
+      paddingVertical: 20,
+    },
+
+    stateText: {
+      fontFamily: Fonts.body,
+      fontSize: 13,
+      lineHeight: 18,
+      color: C.grayText,
+      textAlign: 'center',
+    },
+
+    stateRetry: {
+      minHeight: 44,
+      justifyContent: 'center',
+      paddingHorizontal: 18,
+      borderWidth: 1,
+      borderColor: C.greenBorder,
+      borderRadius: 10,
+    },
+
+    stateRetryText: {
+      fontFamily: Fonts.bodySemiBold,
+      fontSize: 13,
+      color: C.greenText,
     },
 
     actionErr: {
       fontFamily: Fonts.body,
       fontSize: 11,
-      color: C.red,
+      color: C.redText,
       paddingHorizontal: 16,
       paddingBottom: 14,
     },
@@ -1177,9 +1259,9 @@ const styles = StyleSheet.create(
     mCard: {
       width: '94%',
       maxWidth: 380,
-      backgroundColor: MO.card,
+      backgroundColor: MO.cardFill,
       borderWidth: 1,
-      borderColor: MO.border,
+      borderColor: MO.borderBorder,
       borderRadius: 6,
       overflow: 'hidden',
       shadowColor: '#000000',
@@ -1199,12 +1281,12 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodyBold,
       fontSize: 20,
       lineHeight: 24,
-      color: MO.text,
+      color: MO.textText,
     },
 
     mDivider: {
       height: 1,
-      backgroundColor: MO.divider,
+      backgroundColor: MO.dividerFill,
     },
 
     mContent: {
@@ -1217,7 +1299,7 @@ const styles = StyleSheet.create(
       marginTop: 14,
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: MO.warn,
+      backgroundColor: MO.warnFill,
       borderRadius: 6,
       paddingVertical: 7,
       paddingHorizontal: 12,
@@ -1225,31 +1307,32 @@ const styles = StyleSheet.create(
 
     mWarnText: {
       fontFamily: Fonts.body,
-      fontSize: 9,
-      lineHeight: 12.5,
-      color: MO.white,
+      fontSize: 11.5,
+      lineHeight: 15,
+      color: MO.whiteText,
       textAlign: 'center',
     },
 
     mFieldLabel: {
       fontFamily: Fonts.body,
-      fontSize: 9,
-      color: MO.label,
+      fontSize: 11.5,
+      lineHeight: 15,
+      color: MO.labelText,
       marginTop: 12,
       marginBottom: 4,
     },
 
     mInput: {
-      height: 33,
-      backgroundColor: MO.inputBg,
+      height: 44,
+      backgroundColor: MO.inputBgFill,
       borderWidth: 1,
-      borderColor: MO.fieldBorder,
-      borderRadius: 3,
-      paddingHorizontal: 8,
+      borderColor: MO.fieldBorderBorder,
+      borderRadius: 10,
+      paddingHorizontal: 12,
       paddingVertical: 0,
-      fontSize: 11,
+      fontSize: 14,
       fontFamily: Fonts.body,
-      color: MO.text,
+      color: MO.textText,
     },
 
     mDateRow: {
@@ -1264,32 +1347,34 @@ const styles = StyleSheet.create(
 
     mDateLabel: {
       fontFamily: Fonts.body,
-      fontSize: 9,
-      color: MO.label,
+      fontSize: 11.5,
+      lineHeight: 15,
+      color: MO.labelText,
       marginBottom: 4,
     },
 
     mBox: {
       marginTop: 12,
-      backgroundColor: '#F5F5F5',
+      backgroundColor: C.whiteFill,
       borderWidth: 1,
-      borderColor: MO.fieldBorder,
+      borderColor: MO.fieldBorderBorder,
       borderRadius: 2,
       padding: 8,
     },
 
     mBoxTitle: {
       fontFamily: Fonts.body,
-      fontSize: 10,
-      color: MO.label,
+      fontSize: 11.5,
+      lineHeight: 15,
+      color: MO.labelText,
       marginBottom: 4,
     },
 
     mOpt: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 5,
-      paddingVertical: 3,
+      gap: 6,
+      minHeight: 40,
     },
 
     mRadio: {
@@ -1297,32 +1382,34 @@ const styles = StyleSheet.create(
       height: 13,
       borderRadius: 6.5,
       borderWidth: 1,
-      borderColor: MO.selBorder,
+      borderColor: MO.selBorderBorder,
       alignItems: 'center',
       justifyContent: 'center',
     },
 
     mRadioOn: {
-      borderColor: MO.selOn,
+      borderColor: MO.selOnBorder,
     },
 
     mRadioDot: {
       width: 6,
       height: 6,
       borderRadius: 3,
-      backgroundColor: MO.selOn,
+      backgroundColor: MO.selOnFill,
     },
 
     mOptText: {
       fontFamily: Fonts.body,
-      fontSize: 9.5,
-      color: MO.text,
+      fontSize: 12,
+      lineHeight: 16,
+      color: MO.textText,
     },
 
     mErr: {
       fontFamily: Fonts.body,
-      fontSize: 9,
-      color: MO.err,
+      fontSize: 11.5,
+      lineHeight: 15,
+      color: MO.errText,
       marginTop: 10,
       textAlign: 'right',
     },
@@ -1335,19 +1422,19 @@ const styles = StyleSheet.create(
     },
 
     mBtn: {
-      width: 86,
-      height: 33,
+      width: 96,
+      height: 44,
       alignItems: 'center',
       justifyContent: 'center',
-      borderRadius: 3,
+      borderRadius: 10,
     },
 
     mBtnCancel: {
-      backgroundColor: MO.cancel,
+      backgroundColor: MO.cancelFill,
     },
 
     mBtnCreate: {
-      backgroundColor: MO.create,
+      backgroundColor: MO.createFill,
     },
 
     mBtnOff: {
@@ -1356,8 +1443,9 @@ const styles = StyleSheet.create(
 
     mBtnText: {
       fontFamily: Fonts.bodyMedium,
-      fontSize: 10.5,
-      color: MO.white,
+      fontSize: 13,
+      lineHeight: 18,
+      color: MO.whiteText,
     },
   }),
 );

@@ -14,6 +14,7 @@ import {
 import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
 import { ApiError } from '@/lib/api/errors';
+import { useAppColors, usePaletteStyles, type AppColorsOf } from '@/lib/app-theme';
 import { playerUnpaidPeriods, registerPayment } from '@/lib/api/finance';
 import { listPlayers } from '@/lib/api/players';
 import type { ApiPlayer, ApiTeam, PlayerPeriods } from '@/lib/api/types';
@@ -32,13 +33,15 @@ import { useSession } from '@/lib/session';
  */
 
 /* Green palette shared by every popup in the app. */
-const MO = {
+const MO_LIGHT = {
   border: '#159B63',
   divider: '#55B88B',
   title: '#080808',
   text: '#111111',
   sub: '#666666',
   inputBorder: '#777777',
+  chevron: '#777777',
+  ink: '#000000',
   inputBg: '#FAFCFC',
   ph: '#A8A8A8',
   cancel: '#ED5050',
@@ -87,6 +90,8 @@ function PSelect({
   options: { key: string; label: string }[];
   onChange: (key: string) => void;
 }) {
+  const MO = useAppColors(MO_LIGHT);
+  const styles = usePaletteStyles(createStyles, MO);
   const [open, setOpen] = useState(false);
   const current = options.find((o) => o.key === value);
 
@@ -103,7 +108,7 @@ function PSelect({
         >
           {current?.label ?? placeholder ?? '—'}
         </Text>
-        <MaterialCommunityIcons name="chevron-down" size={I(11)} color="#777777" />
+        <MaterialCommunityIcons name="chevron-down" size={I(11)} color={MO.chevronText} />
       </Pressable>
       {open ? (
         <View style={styles.pmOpts}>
@@ -144,6 +149,8 @@ export function RegisterPaymentModal({
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const MO = useAppColors(MO_LIGHT);
+  const styles = usePaletteStyles(createStyles, MO);
   const router = useRouter();
   const { token, signOut } = useSession();
   const { width, height } = useWindowDimensions();
@@ -399,7 +406,7 @@ export function RegisterPaymentModal({
             value={day}
             onChangeText={setDay}
             placeholder="DD"
-            placeholderTextColor={MO.ph}
+            placeholderTextColor={MO.phText}
             maxLength={2}
             keyboardType="number-pad"
             allowFontScaling={false}
@@ -410,7 +417,7 @@ export function RegisterPaymentModal({
             value={month}
             onChangeText={setMonth}
             placeholder="MM"
-            placeholderTextColor={MO.ph}
+            placeholderTextColor={MO.phText}
             maxLength={2}
             keyboardType="number-pad"
             allowFontScaling={false}
@@ -421,7 +428,7 @@ export function RegisterPaymentModal({
             value={year}
             onChangeText={setYear}
             placeholder="YYYY"
-            placeholderTextColor={MO.ph}
+            placeholderTextColor={MO.phText}
             maxLength={4}
             keyboardType="number-pad"
             allowFontScaling={false}
@@ -451,7 +458,7 @@ export function RegisterPaymentModal({
             style={({ pressed }) => [styles.pmFileBtn, pressed && styles.pressed]}
           >
             <View style={styles.pmFileCircle}>
-              <MaterialCommunityIcons name="cloud-upload-outline" size={I(22)} color={MO.white} />
+              <MaterialCommunityIcons name="cloud-upload-outline" size={I(22)} color={MO.whiteText} />
             </View>
           </Pressable>
           <Text style={styles.pmFileHint} numberOfLines={1}>
@@ -486,14 +493,14 @@ export function RegisterPaymentModal({
   );
 }
 
-const styles = StyleSheet.create(
+const createStyles = (MO: AppColorsOf<typeof MO_LIGHT>) => StyleSheet.create(
   scaled({
     /* ── Register-payment popup ──────────────────────────────── */
     pmCard: {
       marginTop: 100,
-      backgroundColor: MO.white,
+      backgroundColor: MO.whiteFill,
       borderWidth: 2,
-      borderColor: MO.border,
+      borderColor: MO.borderBorder,
       borderRadius: 10,
       overflow: 'hidden',
     },
@@ -509,20 +516,20 @@ const styles = StyleSheet.create(
       fontSize: 20,
       lineHeight: 24,
       letterSpacing: -0.3,
-      color: MO.title,
+      color: MO.titleText,
     },
 
     pmSubtitle: {
       fontFamily: Fonts.body,
       fontSize: 10,
       lineHeight: 13,
-      color: MO.sub,
+      color: MO.subText,
       marginTop: 2,
     },
 
     pmDivider: {
       height: 1,
-      backgroundColor: MO.divider,
+      backgroundColor: MO.dividerFill,
     },
 
     pmContent: {
@@ -535,7 +542,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodySemiBold,
       fontSize: 9,
       lineHeight: 12,
-      color: MO.err,
+      color: MO.errText,
       marginBottom: 6,
     },
 
@@ -543,7 +550,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 9.5,
       lineHeight: 12,
-      color: MO.sub,
+      color: MO.subText,
       marginBottom: 4,
     },
 
@@ -555,7 +562,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 9,
       lineHeight: 12,
-      color: MO.ph,
+      color: MO.phText,
       marginTop: 2,
     },
 
@@ -565,20 +572,20 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodySemiBold,
       fontSize: 11.5,
       lineHeight: 31,
-      color: MO.text,
+      color: MO.textText,
     },
 
     pmInput: {
       height: 31,
-      backgroundColor: MO.inputBg,
+      backgroundColor: MO.inputBgFill,
       borderWidth: 1,
-      borderColor: MO.inputBorder,
+      borderColor: MO.inputBorderBorder,
       borderRadius: 4,
       paddingHorizontal: 8,
       paddingVertical: 0,
       fontFamily: Fonts.body,
       fontSize: 11.5,
-      color: MO.text,
+      color: MO.textText,
     },
 
     pmRow: {
@@ -597,9 +604,9 @@ const styles = StyleSheet.create(
       height: 31,
       gap: 4,
       paddingHorizontal: 8,
-      backgroundColor: MO.inputBg,
+      backgroundColor: MO.inputBgFill,
       borderWidth: 1,
-      borderColor: MO.inputBorder,
+      borderColor: MO.inputBorderBorder,
       borderRadius: 4,
     },
 
@@ -607,18 +614,18 @@ const styles = StyleSheet.create(
       flex: 1,
       fontFamily: Fonts.body,
       fontSize: 11.5,
-      color: MO.text,
+      color: MO.textText,
     },
 
     pmSelPlaceholder: {
-      color: MO.ph,
+      color: MO.phText,
     },
 
     pmOpts: {
       marginTop: 3,
-      backgroundColor: MO.white,
+      backgroundColor: MO.whiteFill,
       borderWidth: 1,
-      borderColor: MO.inputBorder,
+      borderColor: MO.inputBorderBorder,
       borderRadius: 4,
       overflow: 'hidden',
     },
@@ -636,7 +643,7 @@ const styles = StyleSheet.create(
     pmOptText: {
       fontFamily: Fonts.body,
       fontSize: 10,
-      color: MO.text,
+      color: MO.textText,
     },
 
     pmOptTextActive: {
@@ -646,7 +653,7 @@ const styles = StyleSheet.create(
     /* ── Period picker ───────────────────────────────────────── */
     pmPeriods: {
       borderWidth: 1,
-      borderColor: MO.inputBorder,
+      borderColor: MO.inputBorderBorder,
       borderRadius: 4,
       overflow: 'hidden',
     },
@@ -665,25 +672,25 @@ const styles = StyleSheet.create(
       height: 14,
       borderRadius: 3,
       borderWidth: 1.5,
-      borderColor: '#000000',
+      borderColor: MO.inkBorder,
       backgroundColor: 'transparent',
     },
 
     pmCheckOn: {
-      backgroundColor: MO.create,
+      backgroundColor: MO.createFill,
     },
 
     pmPeriodText: {
       flex: 1,
       fontFamily: Fonts.body,
       fontSize: 10.5,
-      color: MO.text,
+      color: MO.textText,
     },
 
     pmPeriodAmount: {
       fontFamily: Fonts.bodySemiBold,
       fontSize: 10.5,
-      color: MO.text,
+      color: MO.textText,
     },
 
     pmClockRow: {
@@ -696,35 +703,35 @@ const styles = StyleSheet.create(
     pmDateBox: {
       width: 30,
       height: 30,
-      backgroundColor: MO.inputBg,
+      backgroundColor: MO.inputBgFill,
       borderWidth: 1,
-      borderColor: MO.inputBorder,
+      borderColor: MO.inputBorderBorder,
       borderRadius: 4,
       textAlign: 'center',
       paddingVertical: 0,
       fontFamily: Fonts.body,
       fontSize: 11,
-      color: MO.text,
+      color: MO.textText,
     },
 
     pmYearBox: {
       width: 50,
       height: 30,
-      backgroundColor: MO.inputBg,
+      backgroundColor: MO.inputBgFill,
       borderWidth: 1,
-      borderColor: MO.inputBorder,
+      borderColor: MO.inputBorderBorder,
       borderRadius: 4,
       textAlign: 'center',
       paddingVertical: 0,
       fontFamily: Fonts.body,
       fontSize: 11,
-      color: MO.text,
+      color: MO.textText,
     },
 
     pmSep: {
       fontFamily: Fonts.body,
       fontSize: 12,
-      color: MO.sub,
+      color: MO.subText,
     },
 
     /* Mirrors the player form's photo zone, but hugging the left edge. */
@@ -750,7 +757,7 @@ const styles = StyleSheet.create(
     pmFileHint: {
       fontFamily: Fonts.body,
       fontSize: 12,
-      color: MO.text,
+      color: MO.textText,
       marginTop: 8,
     },
 
@@ -770,11 +777,11 @@ const styles = StyleSheet.create(
     },
 
     pmBtnCancel: {
-      backgroundColor: MO.cancel,
+      backgroundColor: MO.cancelFill,
     },
 
     pmBtnCreate: {
-      backgroundColor: MO.create,
+      backgroundColor: MO.createFill,
     },
 
     pmBtnOff: {
@@ -784,7 +791,7 @@ const styles = StyleSheet.create(
     pmBtnText: {
       fontFamily: Fonts.bodySemiBold,
       fontSize: 10.5,
-      color: MO.white,
+      color: MO.whiteText,
     },
 
     pressed: {

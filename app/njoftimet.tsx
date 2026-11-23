@@ -3,8 +3,9 @@ import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   Pressable,
   ScrollView,
@@ -17,7 +18,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
-import { ApiError } from '@/lib/api/errors';
+import { ApiError, loadErrorMessage } from '@/lib/api/errors';
 import {
   badges,
   listNotifications,
@@ -30,23 +31,28 @@ import { listTeams } from '@/lib/api/teams';
 import type { ApiNotification, ApiTeam, Paginated } from '@/lib/api/types';
 import { I, scaled } from '@/lib/responsive';
 import { useSession } from '@/lib/session';
+import { useAppColors, type AppColorsOf } from '@/lib/app-theme';
+import { useGlass } from '@/lib/glass';
 
 /**
  * The admin's system notifications — opened from the bell in the home header.
  */
 
-const C = {
-  page: '#FAFBFA',
+const C_LIGHT = {
+  glassBase: 'rgba(255,255,255,0.12)',
+  glassEdge: 'rgba(255,255,255,0.95)',
+  glassDivider: 'rgba(16,51,38,0.18)',
+  page: '#F7F9F8',
   line: 'rgba(0,0,0,0.025)',
 
-  text: '#111111',
-  gray: '#8A8A8A',
+  text: '#17251E',
+  gray: '#52645A',
   hint: '#6E6E6E',
 
   /* Cards are two-tone: a lighter title strip over a deeper body. */
   cardBg: '#E3EEFB',
-  headBg: '#F6FBFF',
-  frame: '#000000',
+  headBg: '#F7F9F8',
+  frame: '#DCE5DF',
   headLine: 'rgba(30,40,35,0.10)',
   /* The row table sits on the palest card, where the faint rule above washes
      out — its rules go darker instead. */
@@ -55,22 +61,22 @@ const C = {
   blue: '#2F80ED',
   blueSoft: '#E3EEFB',
   blueBtn: '#86BCFD',
-  green: '#159447',
-  red: '#E03131',
+  green: '#2E7D5B',
+  red: '#B91C1C',
 };
 
 /** Popup palette — the same white card and green rim the other dialogs use. */
-const MO = {
-  border: '#159B63',
-  divider: '#55B88B',
+const MO_LIGHT = {
+  border: '#B5DCC6',
+  divider: '#D9EEE2',
   title: '#080808',
-  text: '#111111',
+  text: '#17251E',
   sub: '#666666',
   inputBorder: '#777777',
   inputBg: '#FAFCFC',
-  cancel: '#ED5050',
-  create: '#16A51D',
-  white: '#F5F5F5',
+  cancel: '#B91C1C',
+  create: '#2E7D5B',
+  white: '#FFFFFF',
 };
 
 const FILTER_ROLES: { label: string; value: BroadcastRole }[] = [
@@ -86,12 +92,6 @@ type Target = 'all' | 'filter';
  * nothing. Shading the pane instead — a very light grey at the top edge
  * sweeping down to white — is what gives the surface its glassy shape.
  */
-const SQ_GLOSS = [
-  'rgba(180,188,201,0.30)',
-  'rgba(216,222,231,0.15)',
-  'rgba(245,245,245,0.80)',
-] as const;
-
 /* Every square reads label / number / unit, so the count stays the loud part. */
 
 /** Who a notice came from — the backend `source` field. */
@@ -152,6 +152,10 @@ function inThisMonth(iso: string | null): boolean {
 }
 
 export default function NotificationsScreen() {
+  const glass = useGlass();
+  const C = useAppColors(C_LIGHT);
+  const MO = useAppColors(MO_LIGHT);
+  const styles = useMemo(() => createStyles(C, MO), [C, MO]);
   const router = useRouter();
   const { token, signOut } = useSession();
 
@@ -223,15 +227,18 @@ export default function NotificationsScreen() {
           router.replace('/login');
           return;
         }
-        setError(
-          err instanceof ApiError && err.status === 0
-            ? 'Nuk mund të lidhemi me serverin. Kontrollo lidhjen.'
-            : 'Nuk mund të ngarkohen njoftimet.',
-        );
+        setError(loadErrorMessage(err, 'Nuk mund të ngarkohen njoftimet. Kontrollo lidhjen.'));
       });
 
     return () => controller.abort();
   }, [token, page, router, signOut, reloadKey]);
+
+  /* Refetch from the error box; the effect cannot reset state synchronously. */
+  const retry = () => {
+    setList(null);
+    setError(null);
+    setReloadKey((value) => value + 1);
+  };
 
   const items = list?.data ?? [];
   const latest = items[0] ?? null;
@@ -318,7 +325,7 @@ export default function NotificationsScreen() {
                 accessibilityLabel="Kthehu prapa"
                 style={({ pressed }) => [styles.backBtn, pressed && styles.pressed]}
               >
-                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.text} />
+                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.textText} />
               </Pressable>
               <View style={styles.headerText}>
                 <Text
@@ -351,14 +358,14 @@ export default function NotificationsScreen() {
               <BlurView
                 pointerEvents="none"
                 intensity={55}
-                tint="light"
+                tint={glass.tint}
                 experimentalBlurMethod="dimezisBlurView"
                 style={StyleSheet.absoluteFill}
               />
               <LinearGradient
                 pointerEvents="none"
                 style={StyleSheet.absoluteFill}
-                colors={SQ_GLOSS}
+                colors={glass.gloss}
                 locations={[0, 0.55, 1]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
@@ -366,12 +373,7 @@ export default function NotificationsScreen() {
               <LinearGradient
                 pointerEvents="none"
                 style={styles.statsGloss}
-                colors={[
-                  'rgba(255,255,255,0)',
-                  'rgba(255,255,255,0.78)',
-                  'rgba(255,255,255,0.55)',
-                  'rgba(255,255,255,0)',
-                ]}
+                colors={glass.sweep}
                 locations={[0, 0.38, 0.62, 1]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
@@ -379,11 +381,7 @@ export default function NotificationsScreen() {
               <LinearGradient
                 pointerEvents="none"
                 style={styles.statsGloss2}
-                colors={[
-                  'rgba(255,255,255,0)',
-                  'rgba(255,255,255,0.55)',
-                  'rgba(255,255,255,0)',
-                ]}
+                colors={glass.sweepSoft}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
               />
@@ -430,7 +428,7 @@ export default function NotificationsScreen() {
                 style={({ pressed }) => [styles.controlBtn, pressed && styles.pressed]}
               >
                 <View style={styles.plusCircle}>
-                  <MaterialCommunityIcons name="plus" size={I(15)} color="#F5F5F5" />
+                  <MaterialCommunityIcons name="plus" size={I(15)} color="#FFFFFF" />
                 </View>
                 <Text style={styles.controlText}>Njoftim i ri</Text>
               </Pressable>
@@ -446,7 +444,7 @@ export default function NotificationsScreen() {
                   pressed && styles.pressed,
                 ]}
               >
-                <MaterialCommunityIcons name="check-all" size={I(15)} color={C.frame} />
+                <MaterialCommunityIcons name="check-all" size={I(15)} color={C.frameText} />
                 <Text style={styles.controlText} numberOfLines={1}>
                   {markingRead ? '…' : 'Shëno të lexuara'}
                 </Text>
@@ -492,9 +490,26 @@ export default function NotificationsScreen() {
               ) : (
                 <View style={styles.nRow}>
                   <View style={styles.nBody}>
-                    <Text style={styles.nMeta} numberOfLines={1}>
-                      {error ?? (list ? 'Nuk ka njoftime.' : '…')}
-                    </Text>
+                    {error ? (
+                      <>
+                        <Text style={styles.nMeta}>{error}</Text>
+                        <Pressable
+                          onPress={retry}
+                          accessibilityRole="button"
+                          accessibilityLabel="Provo përsëri"
+                          style={({ pressed }) => [styles.stateRetry, pressed && styles.pressed]}
+                        >
+                          <Text style={styles.stateRetryText}>Provo përsëri</Text>
+                        </Pressable>
+                      </>
+                    ) : list ? (
+                      <Text style={styles.nMeta}>Nuk ka njoftime.</Text>
+                    ) : (
+                      <View style={styles.stateInline}>
+                        <ActivityIndicator color={C.blueText} />
+                        <Text style={styles.nMeta}>Duke ngarkuar njoftimet…</Text>
+                      </View>
+                    )}
                   </View>
                 </View>
               )}
@@ -522,10 +537,27 @@ export default function NotificationsScreen() {
                   <Text style={[styles.th, styles.cDate]}>Data</Text>
                 </View>
 
-                {items.length === 0 ? (
+                {error ? (
+                  <View style={[styles.tr, styles.stateTableRow]}>
+                    <Text style={styles.td}>{error}</Text>
+                    <Pressable
+                      onPress={retry}
+                      accessibilityRole="button"
+                      accessibilityLabel="Provo përsëri"
+                      style={({ pressed }) => [styles.stateRetry, pressed && styles.pressed]}
+                    >
+                      <Text style={styles.stateRetryText}>Provo përsëri</Text>
+                    </Pressable>
+                  </View>
+                ) : items.length === 0 && !list ? (
+                  <View style={[styles.tr, styles.stateTableRow]}>
+                    <ActivityIndicator color={C.blueText} />
+                    <Text style={styles.td}>Duke ngarkuar njoftimet…</Text>
+                  </View>
+                ) : items.length === 0 ? (
                   <View style={styles.tr}>
                     <Text style={[styles.td, styles.thLeft]} numberOfLines={1}>
-                      {error ?? (list ? 'Nuk ka njoftime.' : '…')}
+                      Nuk ka njoftime.
                     </Text>
                   </View>
                 ) : (
@@ -571,7 +603,7 @@ export default function NotificationsScreen() {
                     pressed && styles.pressed,
                   ]}
                 >
-                  <MaterialCommunityIcons name="chevron-left" size={I(22)} color={C.text} />
+                  <MaterialCommunityIcons name="chevron-left" size={I(22)} color={C.textText} />
                 </Pressable>
 
                 {pages.map((p) => (
@@ -602,7 +634,7 @@ export default function NotificationsScreen() {
                     pressed && styles.pressed,
                   ]}
                 >
-                  <MaterialCommunityIcons name="chevron-right" size={I(22)} color={C.text} />
+                  <MaterialCommunityIcons name="chevron-right" size={I(22)} color={C.textText} />
                 </Pressable>
               </View>
             ) : null}
@@ -637,6 +669,9 @@ export default function NotificationsScreen() {
 
 /** The ring stays black throughout; only the fill turns green once picked. */
 function Radio({ on }: { on: boolean }) {
+  const C = useAppColors(C_LIGHT);
+  const MO = useAppColors(MO_LIGHT);
+  const styles = useMemo(() => createStyles(C, MO), [C, MO]);
   return <View style={[styles.radio, on && styles.radioOn]} />;
 }
 
@@ -654,6 +689,9 @@ function NewNotificationModal({
   /** Resolves with the delivery summary, or throws an `ApiError`. */
   onSend: (input: BroadcastInput) => Promise<void>;
 }) {
+  const C = useAppColors(C_LIGHT);
+  const MO = useAppColors(MO_LIGHT);
+  const styles = useMemo(() => createStyles(C, MO), [C, MO]);
   const { width, height } = useWindowDimensions();
   const cardW = Math.min(width - 24, 360);
   const maxBody = Math.max(260, height - 167);
@@ -860,7 +898,7 @@ function NewNotificationModal({
 /* Styles                                                              */
 /* ------------------------------------------------------------------ */
 
-const styles = StyleSheet.create(
+const createStyles = (C: AppColorsOf<typeof C_LIGHT>, MO: AppColorsOf<typeof MO_LIGHT>) => StyleSheet.create(
   scaled({
     safe: {
       flex: 1,
@@ -905,14 +943,14 @@ const styles = StyleSheet.create(
       fontSize: 20,
       lineHeight: 24,
       letterSpacing: -0.3,
-      color: C.text,
+      color: C.textText,
     },
 
     subtitle: {
       fontFamily: Fonts.body,
       fontSize: 12,
       lineHeight: 16,
-      color: C.gray,
+      color: C.grayText,
       marginTop: 1,
     },
 
@@ -936,8 +974,8 @@ const styles = StyleSheet.create(
       height: 122,
       borderRadius: 16,
       borderWidth: 1,
-      borderColor: '#E4A000',
-      backgroundColor: 'rgba(255,255,255,0.12)',
+      borderColor: '#B45309',
+      backgroundColor: C.glassBaseFill,
       overflow: 'hidden',
       shadowColor: '#0B3B33',
       shadowOffset: { width: 0, height: 6 },
@@ -971,7 +1009,7 @@ const styles = StyleSheet.create(
       right: 10,
       height: 1.5,
       borderRadius: 1,
-      backgroundColor: 'rgba(255,255,255,0.95)',
+      backgroundColor: C.glassEdgeFill,
     },
 
     statItem: {
@@ -986,7 +1024,7 @@ const styles = StyleSheet.create(
       top: 10,
       bottom: 10,
       width: StyleSheet.hairlineWidth,
-      backgroundColor: 'rgba(16,51,38,0.18)',
+      backgroundColor: C.glassDividerFill,
     },
 
     /* Content rides above the frost and gloss overlays. */
@@ -1001,7 +1039,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodyBold,
       fontSize: 12,
       lineHeight: 15,
-      color: C.gray,
+      color: C.grayText,
     },
 
     sqValue: {
@@ -1033,19 +1071,19 @@ const styles = StyleSheet.create(
       flexDirection: 'row',
       alignItems: 'center',
       gap: 7,
-      height: 34,
+      height: 44,
       paddingHorizontal: 10,
-      backgroundColor: C.blueSoft,
+      backgroundColor: C.blueSoftFill,
       borderWidth: 1,
-      borderColor: C.frame,
-      borderRadius: 4,
+      borderColor: C.frameBorder,
+      borderRadius: 10,
     },
 
     plusCircle: {
       width: 23,
       height: 23,
       borderRadius: 12,
-      backgroundColor: C.blueBtn,
+      backgroundColor: C.blueBtnFill,
       alignItems: 'center',
       justifyContent: 'center',
     },
@@ -1054,7 +1092,7 @@ const styles = StyleSheet.create(
       flexShrink: 1,
       fontFamily: Fonts.bodySemiBold,
       fontSize: 12,
-      color: C.frame,
+      color: C.textText,
     },
 
     /* Greyed out while there is nothing left to mark, or a call is in flight. */
@@ -1065,16 +1103,16 @@ const styles = StyleSheet.create(
     /* ── Card shell ──────────────────────────────────────────── */
     card: {
       marginTop: 14,
-      backgroundColor: C.cardBg,
+      backgroundColor: C.cardBgFill,
       borderWidth: 1,
-      borderColor: C.frame,
+      borderColor: C.frameBorder,
       borderRadius: 7,
       overflow: 'hidden',
     },
 
     /* Lighter than the card body, so the title reads as its own strip. */
     head: {
-      backgroundColor: C.headBg,
+      backgroundColor: C.headBgFill,
       alignItems: 'center',
       justifyContent: 'center',
       paddingHorizontal: 8,
@@ -1086,23 +1124,23 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodyBold,
       fontSize: 14,
       lineHeight: 18,
-      color: C.text,
+      color: C.textText,
     },
 
     headLine: {
       height: 1,
-      backgroundColor: C.headLine,
+      backgroundColor: C.headLineFill,
     },
 
     /* Same rule, but for the pale row card where C.headLine disappears. */
     headLineTable: {
       height: 1,
-      backgroundColor: C.tableLine,
+      backgroundColor: C.tableLineFill,
     },
 
     /* The row log carries no fields, so it stays light throughout. */
     lightCard: {
-      backgroundColor: C.headBg,
+      backgroundColor: C.headBgFill,
     },
 
     /* ── Latest notice ───────────────────────────────────────── */
@@ -1118,7 +1156,7 @@ const styles = StyleSheet.create(
       width: 7,
       height: 7,
       borderRadius: 4,
-      backgroundColor: C.frame,
+      backgroundColor: C.frameFill,
     },
 
     nBody: {
@@ -1129,27 +1167,57 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodySemiBold,
       fontSize: 11,
       lineHeight: 14,
-      color: C.text,
+      color: C.textText,
     },
 
     nMeta: {
       fontFamily: Fonts.body,
       fontSize: 10,
       lineHeight: 13,
-      color: C.hint,
+      color: C.hintText,
       marginTop: 1,
+    },
+
+    stateInline: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      paddingVertical: 4,
+    },
+
+    stateTableRow: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 10,
+      paddingVertical: 18,
+    },
+
+    stateRetry: {
+      minHeight: 44,
+      justifyContent: 'center',
+      paddingHorizontal: 18,
+      borderWidth: 1,
+      borderColor: C.blueBorder,
+      borderRadius: 10,
+      marginTop: 6,
+    },
+
+    stateRetryText: {
+      fontFamily: Fonts.bodySemiBold,
+      fontSize: 13,
+      color: C.blueText,
     },
 
     /* Only the sender's name carries the link colour. */
     nMetaBlue: {
-      color: C.blue,
+      color: C.blueText,
     },
 
     nTime: {
       fontFamily: Fonts.body,
       fontSize: 9.5,
       lineHeight: 12,
-      color: C.gray,
+      color: C.grayText,
     },
 
     /* ── Sent log table ──────────────────────────────────────── */
@@ -1169,7 +1237,7 @@ const styles = StyleSheet.create(
 
     trBorder: {
       borderTopWidth: 1,
-      borderTopColor: C.tableLine,
+      borderTopColor: C.tableLineBorder,
     },
 
     /* Columns share the card width so nothing overflows and every row rule
@@ -1190,7 +1258,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodySemiBold,
       fontSize: 10.5,
       lineHeight: 13,
-      color: C.gray,
+      color: C.grayText,
       textAlign: 'center',
     },
 
@@ -1202,21 +1270,21 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 10.5,
       lineHeight: 13,
-      color: C.text,
+      color: C.textText,
     },
 
     tdHint: {
       fontFamily: Fonts.body,
       fontSize: 10.5,
       lineHeight: 13,
-      color: C.hint,
+      color: C.hintText,
     },
 
     td: {
       fontFamily: Fonts.body,
       fontSize: 10.5,
       lineHeight: 13,
-      color: C.hint,
+      color: C.hintText,
       textAlign: 'center',
     },
 
@@ -1239,10 +1307,10 @@ const styles = StyleSheet.create(
     },
 
     pageSq: {
-      width: 34,
-      height: 34,
-      borderRadius: 5,
-      backgroundColor: C.blueBtn,
+      width: 44,
+      height: 44,
+      borderRadius: 10,
+      backgroundColor: C.blueBtnFill,
       alignItems: 'center',
       justifyContent: 'center',
     },
@@ -1254,7 +1322,7 @@ const styles = StyleSheet.create(
     pageSqText: {
       fontFamily: Fonts.bodySemiBold,
       fontSize: 14,
-      color: '#F5F5F5',
+      color: '#FFFFFF',
     },
 
     /* ── Overlay ─────────────────────────────────────────────── */
@@ -1283,9 +1351,9 @@ const styles = StyleSheet.create(
     nmCard: {
       marginTop: 80,
       alignSelf: 'center',
-      backgroundColor: MO.white,
+      backgroundColor: MO.whiteFill,
       borderWidth: 1,
-      borderColor: MO.border,
+      borderColor: MO.borderBorder,
       borderRadius: 5,
       overflow: 'hidden',
       shadowColor: '#000000',
@@ -1307,7 +1375,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodyBold,
       fontSize: 20,
       lineHeight: 24,
-      color: MO.title,
+      color: MO.titleText,
     },
 
     nmSubtitle: {
@@ -1315,13 +1383,13 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 10,
       lineHeight: 13,
-      color: MO.sub,
+      color: MO.subText,
       marginTop: 2,
     },
 
     nmDivider: {
       height: 1,
-      backgroundColor: MO.divider,
+      backgroundColor: MO.dividerFill,
     },
 
     nmContent: {
@@ -1334,7 +1402,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodySemiBold,
       fontSize: 9.5,
       lineHeight: 12,
-      color: MO.sub,
+      color: MO.subText,
       marginBottom: 5,
     },
 
@@ -1350,7 +1418,7 @@ const styles = StyleSheet.create(
       paddingHorizontal: 9,
       paddingVertical: 8,
       borderWidth: 1,
-      borderColor: '#000000',
+      borderColor: C.frameBorder,
       borderRadius: 4,
     },
 
@@ -1360,7 +1428,7 @@ const styles = StyleSheet.create(
 
     /* The chosen destination floods blue, so which one is booked is obvious. */
     optBoxOn: {
-      backgroundColor: C.blueSoft,
+      backgroundColor: C.blueSoftFill,
     },
 
     optText: {
@@ -1371,14 +1439,14 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodyBold,
       fontSize: 11.5,
       lineHeight: 14,
-      color: MO.text,
+      color: MO.textText,
     },
 
     optSub: {
       fontFamily: Fonts.body,
       fontSize: 9.5,
       lineHeight: 12,
-      color: MO.sub,
+      color: MO.subText,
       marginTop: 1,
     },
 
@@ -1389,7 +1457,7 @@ const styles = StyleSheet.create(
       paddingTop: 9,
       paddingBottom: 10,
       borderWidth: 1,
-      borderColor: '#000000',
+      borderColor: C.frameBorder,
       borderRadius: 4,
     },
 
@@ -1397,7 +1465,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodySemiBold,
       fontSize: 9.5,
       lineHeight: 12,
-      color: MO.sub,
+      color: MO.subText,
       marginBottom: 6,
     },
 
@@ -1409,13 +1477,13 @@ const styles = StyleSheet.create(
       flexDirection: 'row',
       alignItems: 'center',
       gap: 8,
-      minHeight: 26,
+      minHeight: 44,
     },
 
     teamText: {
       fontFamily: Fonts.body,
       fontSize: 11,
-      color: MO.text,
+      color: MO.textText,
     },
 
     roleRow: {
@@ -1433,7 +1501,7 @@ const styles = StyleSheet.create(
     roleText: {
       fontFamily: Fonts.body,
       fontSize: 11,
-      color: MO.text,
+      color: MO.textText,
     },
 
     /* Black ring at rest, filled green once picked. */
@@ -1442,39 +1510,39 @@ const styles = StyleSheet.create(
       height: 15,
       borderRadius: 8,
       borderWidth: 1.5,
-      borderColor: '#000000',
+      borderColor: C.frameBorder,
       backgroundColor: 'transparent',
     },
 
     radioOn: {
-      backgroundColor: MO.create,
+      backgroundColor: MO.createFill,
     },
 
     /* ── Title / message fields ──────────────────────────────── */
     nmInput: {
       height: 31,
-      backgroundColor: MO.inputBg,
+      backgroundColor: MO.inputBgFill,
       borderWidth: 1,
-      borderColor: MO.inputBorder,
+      borderColor: MO.inputBorderBorder,
       borderRadius: 1,
       paddingHorizontal: 8,
       paddingVertical: 0,
       fontSize: 11.5,
       fontFamily: Fonts.body,
-      color: MO.text,
+      color: MO.textText,
     },
 
     nmTextarea: {
       height: 96,
-      backgroundColor: MO.inputBg,
+      backgroundColor: MO.inputBgFill,
       borderWidth: 1,
-      borderColor: MO.inputBorder,
+      borderColor: MO.inputBorderBorder,
       borderRadius: 1,
       paddingHorizontal: 8,
       paddingVertical: 7,
       fontSize: 11.5,
       fontFamily: Fonts.body,
-      color: MO.text,
+      color: MO.textText,
     },
 
     nmError: {
@@ -1482,7 +1550,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 10.5,
       lineHeight: 14,
-      color: MO.cancel,
+      color: MO.cancelText,
       textAlign: 'right',
     },
 
@@ -1494,20 +1562,20 @@ const styles = StyleSheet.create(
     },
 
     nmBtn: {
-      height: 28,
+      height: 44,
       alignItems: 'center',
       justifyContent: 'center',
-      borderRadius: 2,
+      borderRadius: 10,
     },
 
     nmBtnCancel: {
       width: 74,
-      backgroundColor: MO.cancel,
+      backgroundColor: MO.cancelFill,
     },
 
     nmBtnSave: {
       width: 74,
-      backgroundColor: MO.create,
+      backgroundColor: MO.createFill,
     },
 
     nmBtnOff: {
@@ -1516,8 +1584,9 @@ const styles = StyleSheet.create(
 
     nmBtnText: {
       fontFamily: Fonts.bodyMedium,
-      fontSize: 10.5,
-      color: MO.white,
+      fontSize: 13,
+      lineHeight: 18,
+      color: MO.whiteText,
     },
 
     pressed: {

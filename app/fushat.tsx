@@ -2,7 +2,7 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { BlurView } from 'expo-blur';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Pressable,
@@ -25,6 +25,7 @@ import type {
 } from '@/lib/api/types';
 import { I, scaled } from '@/lib/responsive';
 import { useSession } from '@/lib/session';
+import { useAppColors, type AppColorsOf } from '@/lib/app-theme';
 
 /**
  * Fushat e stërvitjes — opened from the club profile's "Fushat e stërvitjes"
@@ -35,36 +36,40 @@ import { useSession } from '@/lib/session';
  * in-tree BlurView overlay so the page behind is truly blurred.
  */
 
-const C = {
-  page: '#FAFBFA',
+const C_LIGHT = {
+  sub: '#666666',
+  page: '#F7F9F8',
   line: 'rgba(0,0,0,0.025)',
-  card: '#F6FBFF',
+  card: '#F7F9F8',
   border: 'rgba(100,140,190,0.30)',
   headLine: 'rgba(30,40,35,0.10)',
-  text: '#111111',
-  gray: '#8A8A8A',
+  text: '#17251E',
+  gray: '#52645A',
   label: '#737373',
   value: '#0A0A0A',
   selectBorder: '#777777',
+  chevron: '#777777',
   mint: '#DCEEE8',
   mintBorder: '#7A9B91',
   mintText: '#0F3D2E',
   green: '#059A55',
   black: '#000000',
-  editText: '#8A8A8A',
-  red: '#E03131',
-  white: '#F5F5F5',
+  editText: '#52645A',
+  red: '#B91C1C',
+  white: '#FFFFFF',
 };
 
 /* Create/edit-field modal palette (matches the reference popup) */
-const MO = {
+const MO_LIGHT = {
   card: '#F8FAFA',
-  border: '#159B63',
-  divider: '#55B88B',
+  border: '#B5DCC6',
+  divider: '#D9EEE2',
   title: '#080808',
-  text: '#111111',
+  text: '#17251E',
   sub: '#666666',
   radio: '#555555',
+  th: '#222222',
+  td: '#333333',
   inputBorder: '#777777',
   inputBg: '#FAFCFC',
   ph: '#A8A8A8',
@@ -74,10 +79,10 @@ const MO = {
   rowLine: 'rgba(131,175,197,0.35)',
   green: '#08A83E',
   closed: '#6B6B6B',
-  cancel: '#ED5050',
-  create: '#16A51D',
-  white: '#F5F5F5',
-  err: '#C90000',
+  cancel: '#B91C1C',
+  create: '#2E7D5B',
+  white: '#FFFFFF',
+  err: '#B91C1C',
 };
 
 type DayRow = {
@@ -243,6 +248,9 @@ function errorText(error: unknown): string {
 }
 
 export default function FushatScreen() {
+  const C = useAppColors(C_LIGHT);
+  const MO = useAppColors(MO_LIGHT);
+  const styles = useMemo(() => createStyles(C, MO), [C, MO]);
   const router = useRouter();
   const { token, signOut } = useSession();
 
@@ -379,7 +387,7 @@ export default function FushatScreen() {
                 accessibilityLabel="Kthehu prapa"
                 style={({ pressed }) => [styles.backBtn, pressed && styles.pressed]}
               >
-                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.text} />
+                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.textText} />
               </Pressable>
               <View style={styles.headerText}>
                 <Text style={styles.title}>Fushat e stërvitjes</Text>
@@ -406,7 +414,7 @@ export default function FushatScreen() {
                 <Text style={styles.ctlSelectText} numberOfLines={1}>
                   {sel ? sel.label : 'Zgjidh…'}
                 </Text>
-                <MaterialCommunityIcons name="chevron-down" size={I(13)} color={C.gray} />
+                <MaterialCommunityIcons name="chevron-down" size={I(13)} color={C.grayText} />
               </Pressable>
               <Pressable
                 onPress={openAdd}
@@ -453,6 +461,7 @@ export default function FushatScreen() {
                     <Pressable
                       onPress={() => openEdit(sel)}
                       accessibilityRole="button"
+                      hitSlop={{ top: 5, bottom: 5, left: 3, right: 3 }}
                       style={({ pressed }) => [styles.editBtn, pressed && styles.pressed]}
                     >
                       <Text style={styles.editText} numberOfLines={1}>
@@ -462,6 +471,7 @@ export default function FushatScreen() {
                     <Pressable
                       onPress={() => removeField(sel)}
                       accessibilityRole="button"
+                      hitSlop={{ top: 5, bottom: 5, left: 3, right: 3 }}
                       style={({ pressed }) => [styles.fshiBtn, pressed && styles.pressed]}
                     >
                       <Text style={styles.fshiText} numberOfLines={1}>
@@ -531,6 +541,9 @@ type FieldModalProps = {
 };
 
 function FieldModal({ mode, field, onClose, onSave }: FieldModalProps) {
+  const C = useAppColors(C_LIGHT);
+  const MO = useAppColors(MO_LIGHT);
+  const styles = useMemo(() => createStyles(C, MO), [C, MO]);
   const { width, height } = useWindowDimensions();
   const cardW = Math.min(width - 24, 360);
   const maxBody = Math.max(300, height - 187);
@@ -733,6 +746,9 @@ function FMSelect({
   onChange: (v: string) => void;
   emptyLabel?: string;
 }) {
+  const C = useAppColors(C_LIGHT);
+  const MO = useAppColors(MO_LIGHT);
+  const styles = useMemo(() => createStyles(C, MO), [C, MO]);
   const [open, setOpen] = useState(false);
   const show = options.find((o) => o.value === value)?.label ?? (value || emptyLabel);
   const isPh = !value;
@@ -746,7 +762,7 @@ function FMSelect({
         <Text style={[styles.fmSelText, isPh && styles.fmSelPh]} numberOfLines={1}>
           {show}
         </Text>
-        <MaterialCommunityIcons name="chevron-down" size={I(11)} color="#777777" />
+        <MaterialCommunityIcons name="chevron-down" size={I(11)} color={C.chevronText} />
       </Pressable>
       {open ? (
         <View style={styles.fmOpts}>
@@ -781,6 +797,9 @@ function WeeklyTable({
   days: DayRow[];
   onPatch: (i: number, p: Partial<DayRow>) => void;
 }) {
+  const C = useAppColors(C_LIGHT);
+  const MO = useAppColors(MO_LIGHT);
+  const styles = useMemo(() => createStyles(C, MO), [C, MO]);
   const fromParts = days.map((d) => splitTime(d.from));
   const toParts = days.map((d) => splitTime(d.to));
   return (
@@ -858,7 +877,7 @@ function WeeklyTable({
   );
 }
 
-const styles = StyleSheet.create(
+const createStyles = (C: AppColorsOf<typeof C_LIGHT>, MO: AppColorsOf<typeof MO_LIGHT>) => StyleSheet.create(
   scaled({
     safe: {
       flex: 1,
@@ -943,14 +962,14 @@ const styles = StyleSheet.create(
       fontSize: 20,
       lineHeight: 24,
       letterSpacing: -0.3,
-      color: C.text,
+      color: C.textText,
     },
 
     subtitle: {
       fontFamily: Fonts.body,
       fontSize: 13,
       lineHeight: 17,
-      color: C.gray,
+      color: C.grayText,
       marginTop: 1,
     },
 
@@ -968,64 +987,66 @@ const styles = StyleSheet.create(
     ctlLabel: {
       fontFamily: Fonts.body,
       fontSize: 12,
-      color: C.text,
+      color: C.textText,
       marginRight: 6,
     },
 
     ctlSelect: {
       width: 178,
-      height: 32,
+      height: 44,
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
       backgroundColor: 'transparent',
       borderWidth: 1,
-      borderColor: C.selectBorder,
-      borderRadius: 2,
-      paddingHorizontal: 7,
+      borderColor: C.selectBorderBorder,
+      borderRadius: 10,
+      paddingHorizontal: 10,
     },
 
     ctlSelectText: {
       flex: 1,
       fontFamily: Fonts.bodySemiBold,
-      fontSize: 11,
-      color: C.text,
+      fontSize: 12.5,
+      lineHeight: 16,
+      color: C.textText,
       marginRight: 4,
     },
 
     ctlNew: {
-      width: 96,
-      height: 28,
+      width: 104,
+      height: 44,
       marginLeft: 'auto',
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: C.mint,
+      backgroundColor: C.mintFill,
       borderWidth: 1,
-      borderColor: C.mintBorder,
-      borderRadius: 2,
-      paddingHorizontal: 8,
+      borderColor: C.mintBorderBorder,
+      borderRadius: 10,
+      paddingHorizontal: 10,
     },
 
     ctlNewText: {
       fontFamily: Fonts.bodySemiBold,
-      fontSize: 10,
-      color: C.mintText,
+      fontSize: 12.5,
+      lineHeight: 16,
+      color: C.mintTextText,
     },
 
     optBox: {
-      marginTop: -6,
+      marginTop: 4,
       marginBottom: 14,
-      backgroundColor: '#F5F5F5',
+      backgroundColor: C.whiteFill,
       borderWidth: 1,
-      borderColor: C.selectBorder,
-      borderRadius: 3,
+      borderColor: C.selectBorderBorder,
+      borderRadius: 8,
       overflow: 'hidden',
     },
 
     opt: {
-      height: 34,
+      minHeight: 44,
       justifyContent: 'center',
-      paddingHorizontal: 11,
+      paddingHorizontal: 12,
     },
 
     optActive: {
@@ -1034,20 +1055,21 @@ const styles = StyleSheet.create(
 
     optText: {
       fontFamily: Fonts.body,
-      fontSize: 12,
-      color: C.text,
+      fontSize: 13,
+      lineHeight: 18,
+      color: C.textText,
     },
 
     optTextActive: {
       fontFamily: Fonts.bodyBold,
-      color: C.green,
+      color: C.greenText,
     },
 
     /* Field detail card */
     card: {
-      backgroundColor: C.card,
+      backgroundColor: C.cardFill,
       borderWidth: 2,
-      borderColor: C.border,
+      borderColor: C.borderBorder,
       borderRadius: 8,
     },
 
@@ -1061,7 +1083,7 @@ const styles = StyleSheet.create(
       paddingHorizontal: 14,
       paddingVertical: 13,
       borderBottomWidth: 1,
-      borderBottomColor: C.headLine,
+      borderBottomColor: C.headLineBorder,
     },
 
     fcTitle: {
@@ -1069,7 +1091,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodyBold,
       fontSize: 16,
       lineHeight: 20,
-      color: C.text,
+      color: C.textText,
       marginRight: 10,
     },
 
@@ -1079,37 +1101,39 @@ const styles = StyleSheet.create(
     },
 
     editBtn: {
-      height: 28,
-      paddingHorizontal: 14,
+      height: 34,
+      paddingHorizontal: 13,
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: 'transparent',
       borderWidth: 1,
-      borderColor: C.black,
-      borderRadius: 3,
+      borderColor: C.blackBorder,
+      borderRadius: 8,
     },
 
     editText: {
       fontFamily: Fonts.bodySemiBold,
-      fontSize: 11.5,
-      color: C.editText,
+      fontSize: 12,
+      lineHeight: 16,
+      color: C.editTextText,
     },
 
     fshiBtn: {
-      height: 28,
-      paddingHorizontal: 14,
+      height: 34,
+      paddingHorizontal: 13,
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: 'transparent',
       borderWidth: 1,
-      borderColor: C.red,
-      borderRadius: 3,
+      borderColor: C.redBorder,
+      borderRadius: 8,
     },
 
     fshiText: {
       fontFamily: Fonts.bodySemiBold,
-      fontSize: 11.5,
-      color: C.red,
+      fontSize: 12,
+      lineHeight: 16,
+      color: C.redText,
     },
 
     fcBody: {
@@ -1128,7 +1152,7 @@ const styles = StyleSheet.create(
       width: 118,
       fontFamily: Fonts.body,
       fontSize: 12,
-      color: C.label,
+      color: C.labelText,
       lineHeight: 18,
       paddingTop: 1,
     },
@@ -1137,7 +1161,7 @@ const styles = StyleSheet.create(
       flex: 1,
       fontFamily: Fonts.bodyMedium,
       fontSize: 12,
-      color: C.value,
+      color: C.valueText,
       lineHeight: 18,
       paddingTop: 1,
       textAlign: 'right',
@@ -1150,20 +1174,20 @@ const styles = StyleSheet.create(
     availLabel: {
       fontFamily: Fonts.body,
       fontSize: 11.5,
-      color: C.label,
+      color: C.labelText,
       marginBottom: 4,
     },
 
     availValue: {
       fontFamily: Fonts.body,
       fontSize: 12,
-      color: C.label,
+      color: C.labelText,
     },
 
     emptyText: {
       fontFamily: Fonts.body,
       fontSize: 13,
-      color: C.gray,
+      color: C.grayText,
       textAlign: 'center',
       paddingVertical: 18,
     },
@@ -1198,9 +1222,9 @@ const styles = StyleSheet.create(
     fmCard: {
       marginTop: 116,
       alignSelf: 'center',
-      backgroundColor: MO.card,
+      backgroundColor: MO.cardFill,
       borderWidth: 1,
-      borderColor: MO.border,
+      borderColor: MO.borderBorder,
       borderRadius: 5,
       overflow: 'hidden',
       shadowColor: '#000000',
@@ -1220,12 +1244,12 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodyBold,
       fontSize: 20,
       lineHeight: 24,
-      color: MO.title,
+      color: MO.titleText,
     },
 
     fmDivider: {
       height: 1,
-      backgroundColor: MO.divider,
+      backgroundColor: MO.dividerFill,
     },
 
     fmContent: {
@@ -1236,30 +1260,31 @@ const styles = StyleSheet.create(
 
     fmErr: {
       fontFamily: Fonts.body,
-      fontSize: 9,
-      color: MO.err,
+      fontSize: 11.5,
+      lineHeight: 15,
+      color: MO.errText,
       marginBottom: 8,
     },
 
     fmLabel: {
       fontFamily: Fonts.body,
-      fontSize: 9.5,
-      lineHeight: 12,
-      color: MO.sub,
+      fontSize: 11.5,
+      lineHeight: 15,
+      color: MO.subText,
       marginBottom: 4,
     },
 
     fmInput: {
-      height: 31,
-      backgroundColor: MO.inputBg,
+      height: 44,
+      backgroundColor: MO.inputBgFill,
       borderWidth: 1,
-      borderColor: MO.inputBorder,
-      borderRadius: 1,
-      paddingHorizontal: 8,
+      borderColor: MO.inputBorderBorder,
+      borderRadius: 10,
+      paddingHorizontal: 12,
       paddingVertical: 0,
-      fontSize: 11.5,
+      fontSize: 14,
       fontFamily: Fonts.body,
-      color: MO.text,
+      color: MO.textText,
     },
 
     fmGroup: {
@@ -1277,42 +1302,43 @@ const styles = StyleSheet.create(
     },
 
     fmSel: {
-      height: 31,
+      height: 44,
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      backgroundColor: MO.inputBg,
+      backgroundColor: MO.inputBgFill,
       borderWidth: 1,
-      borderColor: MO.inputBorder,
-      borderRadius: 1,
-      paddingHorizontal: 8,
+      borderColor: MO.inputBorderBorder,
+      borderRadius: 10,
+      paddingHorizontal: 12,
     },
 
     fmSelText: {
       flex: 1,
       fontFamily: Fonts.body,
-      fontSize: 11.5,
-      color: MO.text,
+      fontSize: 13.5,
+      lineHeight: 18,
+      color: MO.textText,
       marginRight: 3,
     },
 
     fmSelPh: {
-      color: MO.ph,
+      color: MO.phText,
     },
 
     fmOpts: {
       marginTop: 2,
-      backgroundColor: '#F5F5F5',
+      backgroundColor: C.whiteFill,
       borderWidth: 1,
-      borderColor: MO.inputBorder,
-      borderRadius: 1,
+      borderColor: MO.inputBorderBorder,
+      borderRadius: 10,
       overflow: 'hidden',
     },
 
     fmOpt: {
-      height: 25,
+      minHeight: 40,
       justifyContent: 'center',
-      paddingHorizontal: 8,
+      paddingHorizontal: 10,
     },
 
     fmOptActive: {
@@ -1321,19 +1347,20 @@ const styles = StyleSheet.create(
 
     fmOptText: {
       fontFamily: Fonts.body,
-      fontSize: 10,
-      color: MO.text,
+      fontSize: 12,
+      lineHeight: 16,
+      color: MO.textText,
     },
 
     fmOptTextActive: {
       fontFamily: Fonts.bodyBold,
-      color: MO.create,
+      color: MO.createText,
     },
 
     fmRadioRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      height: 31,
+      minHeight: 40,
     },
 
     fmRadio: {
@@ -1348,20 +1375,21 @@ const styles = StyleSheet.create(
     },
 
     fmRadioOn: {
-      borderColor: MO.green,
+      borderColor: MO.greenBorder,
     },
 
     fmRadioDot: {
       width: 7,
       height: 7,
       borderRadius: 3.5,
-      backgroundColor: MO.green,
+      backgroundColor: MO.greenFill,
     },
 
     fmRadioText: {
       fontFamily: Fonts.body,
-      fontSize: 9.5,
-      color: MO.radio,
+      fontSize: 12,
+      lineHeight: 16,
+      color: MO.radioText,
     },
 
     fmAvailLabel: {
@@ -1372,41 +1400,41 @@ const styles = StyleSheet.create(
     fmTable: {
       marginTop: 6,
       borderWidth: 1,
-      borderColor: MO.tableBorder,
+      borderColor: MO.tableBorderBorder,
       borderRadius: 5,
       overflow: 'hidden',
-      backgroundColor: MO.rowBg,
+      backgroundColor: MO.rowBgFill,
     },
 
     fmTrHead: {
       flexDirection: 'row',
       alignItems: 'center',
-      height: 31,
-      backgroundColor: MO.tableHead,
+      height: 44,
+      backgroundColor: MO.tableHeadFill,
     },
 
     fmTh: {
       fontFamily: Fonts.bodyMedium,
-      fontSize: 10,
-      color: '#222222',
+      fontSize: 11,
+      color: MO.thText,
     },
 
     fmTr: {
       flexDirection: 'row',
       alignItems: 'center',
-      height: 29,
-      backgroundColor: MO.rowBg,
+      height: 44,
+      backgroundColor: MO.rowBgFill,
     },
 
     fmTrBorder: {
       borderTopWidth: 1,
-      borderTopColor: MO.rowLine,
+      borderTopColor: MO.rowLineBorder,
     },
 
     fmTd: {
       fontFamily: Fonts.body,
-      fontSize: 9,
-      color: '#333333',
+      fontSize: 10.5,
+      color: MO.tdText,
     },
 
     fmDayL: {
@@ -1415,7 +1443,7 @@ const styles = StyleSheet.create(
     },
 
     fmTimeL: {
-      width: 60,
+      width: 66,
       textAlign: 'center',
     },
 
@@ -1425,12 +1453,12 @@ const styles = StyleSheet.create(
     },
 
     fmDayName: {
-      fontSize: 9,
-      lineHeight: 12,
+      fontSize: 11,
+      lineHeight: 14,
     },
 
     fmTimeCol: {
-      width: 60,
+      width: 66,
       alignItems: 'center',
       justifyContent: 'center',
     },
@@ -1441,24 +1469,24 @@ const styles = StyleSheet.create(
     },
 
     fmTimeBox: {
-      width: 24,
-      height: 22,
+      width: 30,
+      height: 36,
       backgroundColor: 'transparent',
       borderWidth: 1,
       borderColor: '#6C8FA6',
-      borderRadius: 1,
+      borderRadius: 6,
       paddingHorizontal: 0,
       paddingVertical: 0,
       textAlign: 'center',
-      fontSize: 9.5,
+      fontSize: 12,
       fontFamily: Fonts.body,
-      color: MO.text,
+      color: MO.textText,
     },
 
     fmClockColon: {
       fontFamily: Fonts.body,
-      fontSize: 9.5,
-      color: '#666666',
+      fontSize: 11,
+      color: C.subText,
       marginHorizontal: 1,
     },
 
@@ -1469,8 +1497,8 @@ const styles = StyleSheet.create(
     },
 
     fmCircleHit: {
-      width: 24,
-      height: 24,
+      width: 44,
+      height: 44,
       alignItems: 'center',
       justifyContent: 'center',
     },
@@ -1480,13 +1508,13 @@ const styles = StyleSheet.create(
       height: 14,
       borderRadius: 7,
       borderWidth: 1,
-      borderColor: MO.closed,
-      backgroundColor: MO.card,
+      borderColor: MO.closedBorder,
+      backgroundColor: MO.cardFill,
     },
 
     fmCircleOn: {
-      backgroundColor: MO.green,
-      borderColor: MO.green,
+      backgroundColor: MO.greenFill,
+      borderColor: MO.greenBorder,
     },
 
     fmNotesLabel: {
@@ -1494,16 +1522,16 @@ const styles = StyleSheet.create(
     },
 
     fmTextarea: {
-      height: 76,
-      backgroundColor: MO.inputBg,
+      height: 84,
+      backgroundColor: MO.inputBgFill,
       borderWidth: 1,
-      borderColor: MO.inputBorder,
-      borderRadius: 1,
-      paddingHorizontal: 8,
-      paddingVertical: 7,
-      fontSize: 11.5,
+      borderColor: MO.inputBorderBorder,
+      borderRadius: 10,
+      paddingHorizontal: 12,
+      paddingVertical: 9,
+      fontSize: 14,
       fontFamily: Fonts.body,
-      color: MO.text,
+      color: MO.textText,
     },
 
     fmActions: {
@@ -1514,20 +1542,20 @@ const styles = StyleSheet.create(
     },
 
     fmBtn: {
-      height: 28,
+      height: 44,
       alignItems: 'center',
       justifyContent: 'center',
-      borderRadius: 2,
+      borderRadius: 10,
     },
 
     fmBtnCancel: {
-      width: 74,
-      backgroundColor: MO.cancel,
+      width: 88,
+      backgroundColor: MO.cancelFill,
     },
 
     fmBtnCreate: {
-      width: 92,
-      backgroundColor: MO.create,
+      width: 104,
+      backgroundColor: MO.createFill,
     },
 
     fmBtnBusy: {
@@ -1536,8 +1564,9 @@ const styles = StyleSheet.create(
 
     fmBtnText: {
       fontFamily: Fonts.bodyMedium,
-      fontSize: 10.5,
-      color: MO.white,
+      fontSize: 13,
+      lineHeight: 18,
+      color: MO.whiteText,
     },
   }),
 );

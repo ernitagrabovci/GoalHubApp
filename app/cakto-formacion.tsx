@@ -12,6 +12,7 @@ import { getMatch, saveMatchLineup, type LineupEntry } from '@/lib/api/matches';
 import { listPlayers } from '@/lib/api/players';
 import { I, scaled } from '@/lib/responsive';
 import { useSession } from '@/lib/session';
+import { useAppColors, usePaletteStyles, type AppColorsOf } from '@/lib/app-theme';
 
 /**
  * Cakto formacion — opened from the button of the same name on the trainer's
@@ -19,25 +20,26 @@ import { useSession } from '@/lib/session';
  * Jashtë, and can correct their position, then publishes the call-up.
  */
 
-const C = {
-  page: '#FAFBFA',
+const C_LIGHT = {
+  white: '#FFFFFF',
+  page: '#F7F9F8',
   line: 'rgba(0,0,0,0.025)',
 
-  text: '#111111',
-  gray: '#8A8A8A',
+  text: '#17251E',
+  gray: '#52645A',
   hint: '#6E6E6E',
 
   /* Both cards and every control are rimmed in a thin black line. */
-  frame: '#000000',
+  frame: '#DCE5DF',
   headLine: 'rgba(30,40,35,0.10)',
   rowLine: 'rgba(100,140,190,0.22)',
 
   blue1: '#E3EEFB',
-  blue2: '#F6FBFF',
+  blue2: '#F7F9F8',
 
-  green: '#159447',
-  red: '#E03131',
-  orange: '#E4A000',
+  green: '#2E7D5B',
+  red: '#B91C1C',
+  orange: '#B45309',
   blue: '#0766D8',
 
   green10: 'rgba(21,148,71,0.10)',
@@ -45,12 +47,12 @@ const C = {
 };
 
 /* A player's position, each in its own colour under their name. */
-const POS_TONE: Record<string, string> = {
+const POS_TONE = (C: AppColorsOf<typeof C_LIGHT>): Record<string, string> => ({
   Portier: C.blue,
   Mbrojtës: C.green,
   Mesfushor: C.orange,
   Sulmues: C.red,
-};
+});
 
 const POSITIONS = ['Portier', 'Mbrojtës', 'Mesfushor', 'Sulmues'];
 
@@ -112,6 +114,8 @@ function monthName(mon: string): string {
 }
 
 export default function SetFormationScreen() {
+  const C = useAppColors(C_LIGHT);
+  const styles = usePaletteStyles(createStyles, C);
   const router = useRouter();
   const { token, signOut } = useSession();
 
@@ -279,7 +283,7 @@ export default function SetFormationScreen() {
                 accessibilityLabel="Kthehu prapa"
                 style={({ pressed }) => [styles.backBtn, pressed && styles.pressed]}
               >
-                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.text} />
+                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.textText} />
               </Pressable>
               <View style={styles.headerText}>
                 <Text
@@ -402,7 +406,7 @@ export default function SetFormationScreen() {
                           {p.name}
                         </Text>
                         <Text
-                          style={[styles.pPos, { color: POS_TONE[p.pos] ?? C.hint }]}
+                          style={[styles.pPos, { color: POS_TONE(C)[p.pos] ?? C.hint }]}
                           numberOfLines={1}
                         >
                           {p.pos}
@@ -471,6 +475,8 @@ function Pick({
   isOff?: (option: string) => boolean;
   onChange: (v: string) => void;
 }) {
+  const C = useAppColors(C_LIGHT);
+  const styles = usePaletteStyles(createStyles, C);
   return (
     <View style={{ width }}>
       <Pressable
@@ -482,7 +488,7 @@ function Pick({
         <Text style={styles.selText} numberOfLines={1}>
           {value}
         </Text>
-        <MaterialCommunityIcons name="chevron-down" size={I(12)} color={C.text} />
+        <MaterialCommunityIcons name="chevron-down" size={I(14)} color={C.textText} />
       </Pressable>
 
       {open ? (
@@ -521,7 +527,7 @@ function Pick({
 /* Styles                                                              */
 /* ------------------------------------------------------------------ */
 
-const styles = StyleSheet.create(
+const createStyles = (C: AppColorsOf<typeof C_LIGHT>) => StyleSheet.create(
   scaled({
     safe: {
       flex: 1,
@@ -566,14 +572,14 @@ const styles = StyleSheet.create(
       fontSize: 20,
       lineHeight: 24,
       letterSpacing: -0.3,
-      color: C.text,
+      color: C.textText,
     },
 
     subtitle: {
       fontFamily: Fonts.body,
       fontSize: 12,
       lineHeight: 16,
-      color: C.gray,
+      color: C.grayText,
       marginTop: 1,
     },
 
@@ -584,9 +590,9 @@ const styles = StyleSheet.create(
 
     /* ── Cards ───────────────────────────────────────────────── */
     card: {
-      backgroundColor: C.blue2,
+      backgroundColor: C.blue2Fill,
       borderWidth: 1,
-      borderColor: C.frame,
+      borderColor: C.frameBorder,
       borderRadius: 5,
       overflow: 'hidden',
     },
@@ -607,12 +613,12 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodyBold,
       fontSize: 13,
       lineHeight: 17,
-      color: C.text,
+      color: C.textText,
     },
 
     headLine: {
       height: 1,
-      backgroundColor: C.headLine,
+      backgroundColor: C.headLineFill,
     },
 
     /* ── Përmbledhje / Udhëzimi ───────────────────────────────── */
@@ -635,7 +641,7 @@ const styles = StyleSheet.create(
     sumBody: {
       flex: 1,
       justifyContent: 'space-between',
-      backgroundColor: C.blue1,
+      backgroundColor: C.blue1Fill,
       paddingHorizontal: 8,
       paddingTop: 2,
       paddingBottom: 8,
@@ -652,34 +658,34 @@ const styles = StyleSheet.create(
     sumLabel: {
       fontFamily: Fonts.body,
       fontSize: 10.5,
-      color: C.hint,
+      color: C.hintText,
     },
 
     sumValue: {
       fontFamily: Fonts.bodyBold,
       fontSize: 11,
-      color: C.text,
+      color: C.textText,
     },
 
     publishBtn: {
-      minHeight: 28,
+      minHeight: 44,
       marginTop: 8,
       paddingHorizontal: 6,
       paddingVertical: 4,
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: C.green20,
+      backgroundColor: C.green20Fill,
       borderWidth: 1,
-      borderColor: C.frame,
-      borderRadius: 4,
+      borderColor: C.frameBorder,
+      borderRadius: 10,
     },
 
     publishText: {
       textAlign: 'center',
       fontFamily: Fonts.bodySemiBold,
-      fontSize: 10,
-      lineHeight: 13,
-      color: C.text,
+      fontSize: 11.5,
+      lineHeight: 15,
+      color: C.textText,
     },
 
     publishBtnOff: {
@@ -692,12 +698,12 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 9.5,
       lineHeight: 13,
-      color: C.red,
+      color: C.redText,
     },
 
     guideBody: {
       flex: 1,
-      backgroundColor: C.blue1,
+      backgroundColor: C.blue1Fill,
       paddingHorizontal: 9,
       paddingTop: 8,
       paddingBottom: 10,
@@ -708,7 +714,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 10.5,
       lineHeight: 14,
-      color: C.hint,
+      color: C.hintText,
     },
 
     /* ── Lojtarët e ekipit ───────────────────────────────────── */
@@ -719,7 +725,7 @@ const styles = StyleSheet.create(
     },
 
     rosterBody: {
-      backgroundColor: C.blue1,
+      backgroundColor: C.blue1Fill,
       borderBottomLeftRadius: 4,
       borderBottomRightRadius: 4,
     },
@@ -729,7 +735,7 @@ const styles = StyleSheet.create(
       paddingVertical: 12,
       fontFamily: Fonts.body,
       fontSize: 11,
-      color: C.hint,
+      color: C.hintText,
     },
 
     /* The name block stays at the top when a dropdown below it opens. */
@@ -745,7 +751,7 @@ const styles = StyleSheet.create(
     /* Every row but the first is ruled off from the one above it. */
     trBorder: {
       borderTopWidth: 1,
-      borderTopColor: C.rowLine,
+      borderTopColor: C.rowLineBorder,
     },
 
     /* Lifts the whole row so its unrolled dropdown floats over the next ones. */
@@ -764,7 +770,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodyBold,
       fontSize: 11.5,
       lineHeight: 14,
-      color: C.text,
+      color: C.textText,
     },
 
     pPos: {
@@ -782,37 +788,37 @@ const styles = StyleSheet.create(
 
     /* ── Dropdown ────────────────────────────────────────────── */
     sel: {
-      height: 26,
+      height: 44,
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      paddingHorizontal: 6,
+      gap: 2,
+      paddingHorizontal: 8,
       backgroundColor: 'transparent',
       borderWidth: 1,
-      borderColor: C.frame,
-      borderRadius: 3,
+      borderColor: C.frameBorder,
+      borderRadius: 10,
     },
 
     selText: {
       flex: 1,
       fontFamily: Fonts.body,
-      fontSize: 9.5,
-      color: C.text,
-      marginRight: 2,
+      fontSize: 11.5,
+      color: C.textText,
     },
 
     /* Floats over the rows below so opening it never pushes them down. */
     selOpts: {
       position: 'absolute',
-      top: 28,
+      top: 46,
       left: 0,
       right: 0,
       zIndex: 40,
       elevation: 12,
-      backgroundColor: '#F5F5F5',
+      backgroundColor: C.whiteFill,
       borderWidth: 1,
-      borderColor: C.frame,
-      borderRadius: 3,
+      borderColor: C.frameBorder,
+      borderRadius: 8,
       overflow: 'hidden',
       shadowColor: '#000000',
       shadowOffset: { width: 0, height: 3 },
@@ -821,13 +827,13 @@ const styles = StyleSheet.create(
     },
 
     selOpt: {
-      height: 26,
+      minHeight: 40,
       justifyContent: 'center',
-      paddingHorizontal: 6,
+      paddingHorizontal: 12,
     },
 
     selOptActive: {
-      backgroundColor: C.green10,
+      backgroundColor: C.green10Fill,
     },
 
     /* Startues, once the eleven are already named. */
@@ -837,13 +843,13 @@ const styles = StyleSheet.create(
 
     selOptText: {
       fontFamily: Fonts.body,
-      fontSize: 9.5,
-      color: C.text,
+      fontSize: 12,
+      color: C.textText,
     },
 
     selOptTextActive: {
       fontFamily: Fonts.bodyBold,
-      color: C.green,
+      color: C.greenText,
     },
 
     pressed: {

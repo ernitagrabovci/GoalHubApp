@@ -14,11 +14,12 @@ import type { ApiPlayer, ApiTeam } from '@/lib/api/types';
 import { positionLabel } from '@/lib/player-position';
 import { I, scaled } from '@/lib/responsive';
 import { useSession } from '@/lib/session';
+import { useAppColors, usePaletteStyles, type AppColorsOf } from '@/lib/app-theme';
 
 /**
  * Transferimet — opened from the "Transferimet" card on "Lista e ekipeve".
  *
- * Same light #FAFBFA canvas. A blue "Transferim i shpejtë" form card up top,
+ * Same light #F7F9F8 canvas. A blue "Transferim i shpejtë" form card up top,
  * then the "Lojtarët sipas ekipit" table, whose rows fill the page down
  * to the outlined footer button — the page itself never scrolls.
  *
@@ -26,20 +27,22 @@ import { useSession } from '@/lib/session';
  * "Transfero" moves the chosen player with `POST /players/{player}/transfer`.
  */
 
-const C = {
-  page: '#FAFBFA',
+const C_LIGHT = {
+  white: '#FFFFFF',
+  frame: '#DCE5DF',
+  page: '#F7F9F8',
   line: 'rgba(0,0,0,0.025)',
 
-  text: '#111111',
-  gray: '#8A8A8A',
+  text: '#17251E',
+  gray: '#52645A',
 
-  card: '#F6FBFF',
+  card: '#F7F9F8',
   border: 'rgba(100,140,190,0.30)',
   rowLine: 'rgba(100,140,190,0.22)',
   headLine: 'rgba(30,40,35,0.10)',
 
-  green: '#159447',
-  red: '#E03131',
+  green: '#2E7D5B',
+  red: '#B91C1C',
 
   ghost: '#9E9E9E',
   ghostLine: '#D6D6D6',
@@ -64,6 +67,8 @@ function errorText(error: unknown): string {
 }
 
 export default function TransferimetScreen() {
+  const C = useAppColors(C_LIGHT);
+  const styles = usePaletteStyles(createStyles, C);
   const router = useRouter();
   const { token, signOut } = useSession();
 
@@ -171,6 +176,8 @@ export default function TransferimetScreen() {
           setError('Nuk mund të lidhemi me serverin. Kontrollo lidhjen.');
         } else if (err instanceof ApiError && err.status === 422) {
           setError('Të dhënat nuk janë të vlefshme. Kontrollo fushat.');
+        } else if (err instanceof ApiError && err.status === 403) {
+          setError('Nuk ke leje për këtë veprim. Kontakto administratorin.');
         } else {
           setError('Nuk mund të transferohet lojtari.');
         }
@@ -193,7 +200,7 @@ export default function TransferimetScreen() {
                 accessibilityLabel="Kthehu prapa"
                 style={({ pressed }) => [styles.backBtn, pressed && styles.pressed]}
               >
-                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.text} />
+                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.textText} />
               </Pressable>
               <View style={styles.headerText}>
                 <Text style={styles.title} numberOfLines={1}>
@@ -234,7 +241,7 @@ export default function TransferimetScreen() {
                       <MaterialCommunityIcons
                         name={openPick === 'player' ? 'chevron-up' : 'chevron-down'}
                         size={I(13)}
-                        color={C.gray}
+                        color={C.grayText}
                       />
                     </Pressable>
                     {openPick === 'player' ? (
@@ -282,7 +289,7 @@ export default function TransferimetScreen() {
                       <MaterialCommunityIcons
                         name={openPick === 'team' ? 'chevron-up' : 'chevron-down'}
                         size={I(13)}
-                        color={C.gray}
+                        color={C.grayText}
                       />
                     </Pressable>
                     {openPick === 'team' ? (
@@ -324,7 +331,7 @@ export default function TransferimetScreen() {
                     <Text style={styles.label}>Arsye:</Text>
                     <TextInput
                       style={styles.input}
-                      placeholderTextColor={C.gray}
+                      placeholderTextColor={C.grayText}
                       value={reason}
                       onChangeText={setReason}
                     />
@@ -424,6 +431,7 @@ export default function TransferimetScreen() {
                           onPress={() => pickPlayer(p)}
                           accessibilityRole="button"
                           accessibilityLabel="Zgjidh lojtarin për transferim"
+                          hitSlop={{ top: 7, bottom: 7, left: 4, right: 4 }}
                           style={({ pressed }) => [styles.rowBtn, pressed && styles.pressed]}
                         >
                           <Text style={styles.rowBtnText}>Transfero</Text>
@@ -434,7 +442,8 @@ export default function TransferimetScreen() {
 
                   {!loaded ? (
                     <View style={styles.stateRow}>
-                      <ActivityIndicator color={C.gray} />
+                      <ActivityIndicator color={C.greenText} />
+                      <Text style={styles.stateText}>Duke ngarkuar lojtarët…</Text>
                     </View>
                   ) : loadError ? (
                     <View style={styles.stateRow}>
@@ -467,7 +476,7 @@ export default function TransferimetScreen() {
 /* Styles                                                              */
 /* ------------------------------------------------------------------ */
 
-const styles = StyleSheet.create(
+const createStyles = (C: AppColorsOf<typeof C_LIGHT>) => StyleSheet.create(
   scaled({
     safe: {
       flex: 1,
@@ -512,14 +521,14 @@ const styles = StyleSheet.create(
       fontSize: 20,
       lineHeight: 24,
       letterSpacing: -0.3,
-      color: C.text,
+      color: C.textText,
     },
 
     subtitle: {
       fontFamily: Fonts.body,
       fontSize: 12,
       lineHeight: 16,
-      color: C.gray,
+      color: C.grayText,
       marginTop: 1,
     },
 
@@ -536,9 +545,9 @@ const styles = StyleSheet.create(
 
     /* ── Shared table card ───────────────────────────────────── */
     card: {
-      backgroundColor: C.card,
+      backgroundColor: C.cardFill,
       borderWidth: 2,
-      borderColor: C.border,
+      borderColor: C.borderBorder,
       borderRadius: 7,
       overflow: 'hidden',
     },
@@ -555,14 +564,14 @@ const styles = StyleSheet.create(
       paddingHorizontal: 12,
       paddingVertical: 11,
       borderBottomWidth: 1,
-      borderBottomColor: C.headLine,
+      borderBottomColor: C.headLineBorder,
     },
 
     cardHeadText: {
       fontFamily: Fonts.bodyBold,
       fontSize: 16,
       lineHeight: 20,
-      color: C.text,
+      color: C.textText,
     },
 
     /* ── Transferim i shpejtë form ───────────────────────────── */
@@ -602,21 +611,21 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 12,
       lineHeight: 15,
-      color: C.gray,
+      color: C.grayText,
       marginBottom: 5,
     },
 
     input: {
-      height: 32,
+      height: 44,
       borderWidth: 1,
-      borderColor: '#000000',
-      borderRadius: 4,
-      paddingHorizontal: 9,
+      borderColor: C.frameBorder,
+      borderRadius: 10,
+      paddingHorizontal: 12,
       paddingVertical: 0,
       fontFamily: Fonts.body,
-      fontSize: 12,
-      lineHeight: 15,
-      color: C.text,
+      fontSize: 13.5,
+      lineHeight: 18,
+      color: C.textText,
     },
 
     /* The picker triggers reuse the input frame but lay out text + chevron. */
@@ -630,22 +639,22 @@ const styles = StyleSheet.create(
     pickText: {
       flex: 1,
       fontFamily: Fonts.body,
-      fontSize: 12,
-      lineHeight: 15,
-      color: C.text,
+      fontSize: 13.5,
+      lineHeight: 18,
+      color: C.textText,
     },
 
     pickPlaceholder: {
-      color: C.gray,
+      color: C.grayText,
     },
 
     /* The options open directly under the field. */
     opts: {
-      marginTop: 3,
-      backgroundColor: '#F5F5F5',
+      marginTop: 4,
+      backgroundColor: C.whiteFill,
       borderWidth: 1,
-      borderColor: '#000000',
-      borderRadius: 4,
+      borderColor: C.frameBorder,
+      borderRadius: 8,
       overflow: 'hidden',
     },
 
@@ -654,9 +663,9 @@ const styles = StyleSheet.create(
     },
 
     opt: {
-      minHeight: 30,
+      minHeight: 40,
       justifyContent: 'center',
-      paddingHorizontal: 9,
+      paddingHorizontal: 12,
     },
 
     optActive: {
@@ -665,8 +674,8 @@ const styles = StyleSheet.create(
 
     optText: {
       fontFamily: Fonts.body,
-      fontSize: 11.5,
-      color: C.text,
+      fontSize: 12.5,
+      color: C.textText,
     },
 
     optTextActive: {
@@ -676,18 +685,18 @@ const styles = StyleSheet.create(
     optEmpty: {
       fontFamily: Fonts.body,
       fontSize: 11.5,
-      color: C.gray,
+      color: C.grayText,
       paddingHorizontal: 9,
       paddingVertical: 8,
     },
 
     goBtn: {
-      height: 32,
+      height: 44,
       paddingHorizontal: 18,
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: C.green,
-      borderRadius: 4,
+      backgroundColor: C.greenFill,
+      borderRadius: 10,
     },
 
     goBtnOff: {
@@ -696,8 +705,9 @@ const styles = StyleSheet.create(
 
     goBtnText: {
       fontFamily: Fonts.bodySemiBold,
-      fontSize: 12.5,
-      color: '#F5F5F5',
+      fontSize: 13,
+      lineHeight: 18,
+      color: '#FFFFFF',
     },
 
     errorText: {
@@ -705,7 +715,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 11.5,
       lineHeight: 15,
-      color: C.red,
+      color: C.redText,
     },
 
     successText: {
@@ -713,7 +723,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 11.5,
       lineHeight: 15,
-      color: C.green,
+      color: C.greenText,
     },
 
     /* ── Lojtarët sipas ekipit table ─────────────────────────── */
@@ -733,7 +743,7 @@ const styles = StyleSheet.create(
       flexDirection: 'row',
       alignItems: 'center',
       gap: 6,
-      minHeight: 36,
+      minHeight: 44,
     },
 
     /* Pushes each row's action to the right end, clear of the columns. */
@@ -743,7 +753,7 @@ const styles = StyleSheet.create(
 
     trBorder: {
       borderTopWidth: 1,
-      borderTopColor: C.rowLine,
+      borderTopColor: C.rowLineBorder,
     },
 
     /* The row picked for transfer reads as selected. */
@@ -755,7 +765,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodySemiBold,
       fontSize: 11.5,
       lineHeight: 14,
-      color: C.gray,
+      color: C.grayText,
       textAlign: 'center',
     },
 
@@ -763,7 +773,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 12,
       lineHeight: 16,
-      color: C.text,
+      color: C.textText,
       textAlign: 'center',
     },
 
@@ -779,19 +789,20 @@ const styles = StyleSheet.create(
 
     /* ── Per-row outlined action ─────────────────────────────── */
     rowBtn: {
-      height: 24,
-      paddingHorizontal: 8,
+      height: 30,
+      paddingHorizontal: 10,
       alignItems: 'center',
       justifyContent: 'center',
       borderWidth: 1,
-      borderColor: C.ghostLine,
-      borderRadius: 4,
+      borderColor: C.ghostLineBorder,
+      borderRadius: 6,
     },
 
     rowBtnText: {
       fontFamily: Fonts.bodySemiBold,
-      fontSize: 10.5,
-      color: C.ghost,
+      fontSize: 11.5,
+      lineHeight: 15,
+      color: C.ghostText,
     },
 
     /* ── Loading / empty / error ─────────────────────────────── */
@@ -806,24 +817,25 @@ const styles = StyleSheet.create(
     stateText: {
       fontFamily: Fonts.body,
       fontSize: 12.5,
-      color: C.gray,
+      lineHeight: 18,
+      color: C.grayText,
       textAlign: 'center',
     },
 
     retryBtn: {
-      height: 30,
-      paddingHorizontal: 14,
+      minHeight: 44,
+      paddingHorizontal: 18,
       alignItems: 'center',
       justifyContent: 'center',
       borderWidth: 1,
-      borderColor: C.ghostLine,
-      borderRadius: 4,
+      borderColor: C.greenBorder,
+      borderRadius: 10,
     },
 
     retryText: {
       fontFamily: Fonts.bodySemiBold,
-      fontSize: 11.5,
-      color: C.text,
+      fontSize: 13,
+      color: C.greenText,
     },
 
     pressed: {

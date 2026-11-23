@@ -7,33 +7,34 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
-import { ApiError } from '@/lib/api/errors';
+import { ApiError, loadErrorMessage } from '@/lib/api/errors';
 import { activityReport } from '@/lib/api/reports';
 import type { ActivityReport } from '@/lib/api/types';
 import { I, scaled } from '@/lib/responsive';
 import { useSession } from '@/lib/session';
+import { useAppColors, usePaletteStyles, type AppColorsOf } from '@/lib/app-theme';
 
 /**
  * Aktiviteti — opened from "Vazhdo" on the Aktiviteti card over on the users
  * list. Two logs of what the club's accounts have been doing.
  */
 
-const C = {
-  page: '#FAFBFA',
+const C_LIGHT = {
+  page: '#F7F9F8',
   line: 'rgba(0,0,0,0.025)',
 
-  text: '#111111',
-  gray: '#8A8A8A',
+  text: '#17251E',
+  gray: '#52645A',
   hint: '#6E6E6E',
 
   cardBg: '#E3EEFB',
-  headBg: '#F6FBFF',
-  frame: '#000000',
+  headBg: '#F7F9F8',
+  frame: '#DCE5DF',
   headLine: 'rgba(30,40,35,0.10)',
   rowLine: 'rgba(100,140,190,0.22)',
 
-  green: '#159447',
-  orange: '#E4A000',
+  green: '#2E7D5B',
+  orange: '#B45309',
   blue: '#2F80ED',
 };
 
@@ -60,7 +61,7 @@ const ROLE_NAMES: Record<string, string> = {
 };
 
 /** Dot tint per role, so a line's colour reads as "who" before the label does. */
-const ROLE_TONES: Record<string, string> = {
+const ROLE_TONES = (C: AppColorsOf<typeof C_LIGHT>): Record<string, string> => ({
   administrator: C.green,
   trainer: C.green,
   assistant_trainer: C.green,
@@ -68,14 +69,14 @@ const ROLE_TONES: Record<string, string> = {
   player: C.orange,
   parent: C.blue,
   financier: C.blue,
-};
+});
 
 function roleName(role: string): string {
   return ROLE_NAMES[role] ?? role;
 }
 
-function roleTone(role: string): string {
-  return ROLE_TONES[role] ?? C.gray;
+function roleTone(role: string, C: AppColorsOf<typeof C_LIGHT>): string {
+  return ROLE_TONES(C)[role] ?? C.gray;
 }
 
 /**
@@ -106,6 +107,8 @@ function relativeTime(iso: string | null): string {
 
 /** One log line: tinted dot, who and what, then when. */
 function ActivityRow({ entry }: { entry: Entry }) {
+  const C = useAppColors(C_LIGHT);
+  const styles = usePaletteStyles(createStyles, C);
   return (
     <View style={styles.row}>
       <View style={[styles.dot, { backgroundColor: entry.tone }]} />
@@ -127,11 +130,14 @@ function ActivityRow({ entry }: { entry: Entry }) {
 }
 
 export default function ActivityScreen() {
+  const C = useAppColors(C_LIGHT);
+  const styles = usePaletteStyles(createStyles, C);
   const router = useRouter();
   const { token, signOut } = useSession();
 
   const [data, setData] = useState<ActivityReport | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [reload, setReload] = useState(0);
 
   useEffect(() => {
     if (!token) return;
@@ -149,25 +155,28 @@ export default function ActivityScreen() {
           router.replace('/login');
           return;
         }
-        setError(
-          err instanceof ApiError && err.status === 0
-            ? 'Nuk mund të lidhemi me serverin. Kontrollo lidhjen.'
-            : 'Nuk mund të ngarkohet aktiviteti.',
-        );
+        setError(loadErrorMessage(err, 'Nuk mund të ngarkohet aktiviteti. Kontrollo lidhjen.'));
       });
     return () => controller.abort();
-  }, [token, signOut, router]);
+  }, [token, signOut, router, reload]);
+
+  /* Refetch from the error box; the effect cannot reset state synchronously. */
+  const retry = () => {
+    setData(null);
+    setError(null);
+    setReload((value) => value + 1);
+  };
 
   const logins: Entry[] = (data?.recent_logins ?? []).map((l) => ({
     name: l.name,
     role: roleName(l.role),
     action: 'Hyrje në sistem',
     time: relativeTime(l.last_login_at),
-    tone: roleTone(l.role),
+    tone: roleTone(l.role, C),
   }));
 
   const roles = Object.entries(data?.by_role ?? {})
-    .map(([role, count]) => ({ role, label: roleName(role), tone: roleTone(role), count }))
+    .map(([role, count]) => ({ role, label: roleName(role), tone: roleTone(role, C), count }))
     .sort((a, b) => b.count - a.count);
 
   return (
@@ -186,7 +195,7 @@ export default function ActivityScreen() {
                 accessibilityLabel="Kthehu prapa"
                 style={({ pressed }) => [styles.backBtn, pressed && styles.pressed]}
               >
-                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.text} />
+                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.textText} />
               </Pressable>
               <View style={styles.headerText}>
                 <Text style={styles.title} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
@@ -218,10 +227,19 @@ export default function ActivityScreen() {
               {error ? (
                 <View style={styles.stateRow}>
                   <Text style={styles.stateText}>{error}</Text>
+                  <Pressable
+                    onPress={retry}
+                    accessibilityRole="button"
+                    accessibilityLabel="Provo përsëri"
+                    style={({ pressed }) => [styles.stateRetry, pressed && styles.pressed]}
+                  >
+                    <Text style={styles.stateRetryText}>Provo përsëri</Text>
+                  </Pressable>
                 </View>
               ) : data === null ? (
                 <View style={styles.stateRow}>
-                  <ActivityIndicator color={C.blue} />
+                  <ActivityIndicator color={C.blueText} />
+                  <Text style={styles.stateText}>Duke ngarkuar aktivitetin…</Text>
                 </View>
               ) : logins.length === 0 ? (
                 <View style={styles.stateRow}>
@@ -247,7 +265,7 @@ export default function ActivityScreen() {
 
               {data === null ? (
                 <View style={styles.stateRow}>
-                  <ActivityIndicator color={C.blue} />
+                  <ActivityIndicator color={C.blueText} />
                 </View>
               ) : roles.length === 0 ? (
                 <View style={styles.stateRow}>
@@ -278,7 +296,7 @@ export default function ActivityScreen() {
                 style={({ pressed }) => [styles.footer, pressed && styles.pressed]}
               >
                 <Text style={styles.footerText}>Shiko të gjithë përdoruesit</Text>
-                <MaterialCommunityIcons name="arrow-right" size={I(16)} color={C.text} />
+                <MaterialCommunityIcons name="arrow-right" size={I(16)} color={C.textText} />
               </Pressable>
             </View>
           </View>
@@ -292,7 +310,7 @@ export default function ActivityScreen() {
 /* Styles                                                              */
 /* ------------------------------------------------------------------ */
 
-const styles = StyleSheet.create(
+const createStyles = (C: AppColorsOf<typeof C_LIGHT>) => StyleSheet.create(
   scaled({
     safe: {
       flex: 1,
@@ -337,14 +355,14 @@ const styles = StyleSheet.create(
       fontSize: 20,
       lineHeight: 24,
       letterSpacing: -0.3,
-      color: C.text,
+      color: C.textText,
     },
 
     subtitle: {
       fontFamily: Fonts.body,
       fontSize: 12,
       lineHeight: 16,
-      color: C.gray,
+      color: C.grayText,
       marginTop: 1,
     },
 
@@ -355,9 +373,9 @@ const styles = StyleSheet.create(
     /* ── Cards ───────────────────────────────────────────────── */
     card: {
       marginTop: 6,
-      backgroundColor: C.cardBg,
+      backgroundColor: C.cardBgFill,
       borderWidth: 1,
-      borderColor: C.frame,
+      borderColor: C.frameBorder,
       borderRadius: 7,
       overflow: 'hidden',
     },
@@ -371,19 +389,19 @@ const styles = StyleSheet.create(
       justifyContent: 'center',
       paddingHorizontal: 12,
       paddingVertical: 11,
-      backgroundColor: C.headBg,
+      backgroundColor: C.headBgFill,
     },
 
     headText: {
       fontFamily: Fonts.bodyBold,
       fontSize: 15,
       lineHeight: 19,
-      color: C.text,
+      color: C.textText,
     },
 
     headLine: {
       height: 1,
-      backgroundColor: C.headLine,
+      backgroundColor: C.headLineFill,
     },
 
     /* ── Log rows ────────────────────────────────────────────── */
@@ -397,7 +415,7 @@ const styles = StyleSheet.create(
 
     rowBorder: {
       borderTopWidth: 1,
-      borderTopColor: C.rowLine,
+      borderTopColor: C.rowLineBorder,
     },
 
     /* Centred against the two text lines by the row's own alignment. */
@@ -415,14 +433,14 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodyBold,
       fontSize: 12.5,
       lineHeight: 16,
-      color: C.text,
+      color: C.textText,
     },
 
     rowMeta: {
       fontFamily: Fonts.body,
       fontSize: 10.5,
       lineHeight: 14,
-      color: C.hint,
+      color: C.hintText,
       marginTop: 1,
     },
 
@@ -430,6 +448,8 @@ const styles = StyleSheet.create(
     stateRow: {
       alignItems: 'center',
       justifyContent: 'center',
+      gap: 10,
+      minHeight: 96,
       paddingHorizontal: 12,
       paddingVertical: 18,
     },
@@ -437,8 +457,24 @@ const styles = StyleSheet.create(
     stateText: {
       fontFamily: Fonts.body,
       fontSize: 12.5,
-      color: C.hint,
+      lineHeight: 18,
+      color: C.hintText,
       textAlign: 'center',
+    },
+
+    stateRetry: {
+      minHeight: 44,
+      justifyContent: 'center',
+      paddingHorizontal: 18,
+      borderWidth: 1,
+      borderColor: C.blueBorder,
+      borderRadius: 10,
+    },
+
+    stateRetryText: {
+      fontFamily: Fonts.bodySemiBold,
+      fontSize: 13,
+      color: C.blueText,
     },
 
     rowTime: {
@@ -447,7 +483,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 10.5,
       lineHeight: 14,
-      color: C.gray,
+      color: C.grayText,
     },
 
     /* ── Footer link ─────────────────────────────────────────── */
@@ -458,13 +494,13 @@ const styles = StyleSheet.create(
       gap: 6,
       minHeight: 48,
       borderTopWidth: 1,
-      borderTopColor: C.rowLine,
+      borderTopColor: C.rowLineBorder,
     },
 
     footerText: {
       fontFamily: Fonts.bodySemiBold,
       fontSize: 12.5,
-      color: C.text,
+      color: C.textText,
     },
 
     pressed: {

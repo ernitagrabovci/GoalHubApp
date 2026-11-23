@@ -12,6 +12,7 @@ import { listMyMatches } from '@/lib/api/matches';
 import type { ApiMatch } from '@/lib/api/types';
 import { I, scaled } from '@/lib/responsive';
 import { useSession } from '@/lib/session';
+import { useAppColors, usePaletteStyles, type AppColorsOf } from '@/lib/app-theme';
 
 /**
  * Ndeshjet — the player's view of the season's matches, opened from the
@@ -21,23 +22,23 @@ import { useSession } from '@/lib/session';
  * table, each with a button through to the match itself.
  */
 
-const C = {
-  page: '#FAFBFA',
+const C_LIGHT = {
+  page: '#F7F9F8',
   line: 'rgba(0,0,0,0.025)',
 
-  text: '#111111',
-  gray: '#8A8A8A',
+  text: '#17251E',
+  gray: '#52645A',
 
-  frame: '#000000',
+  frame: '#DCE5DF',
   border: 'rgba(100,140,190,0.30)',
   rowLine: 'rgba(100,140,190,0.22)',
   headLine: 'rgba(30,40,35,0.10)',
 
   /* The pale blue the table sits on. */
-  blue2: '#F6FBFF',
+  blue2: '#F7F9F8',
 
-  green: '#159447',
-  orange: '#E4A000',
+  green: '#2E7D5B',
+  orange: '#B45309',
 
   /* The row button and the pager's squares share this one blue. */
   blue: '#86BCFD',
@@ -97,6 +98,8 @@ const COLS: { key: keyof Played; label: string; width: number }[] = [
 const ACTION_W = 56;
 
 export default function PlayerMatchesScreen() {
+  const C = useAppColors(C_LIGHT);
+  const styles = usePaletteStyles(createStyles, C);
   const router = useRouter();
   const { token, signOut } = useSession();
 
@@ -152,7 +155,7 @@ export default function PlayerMatchesScreen() {
                 accessibilityLabel="Kthehu prapa"
                 style={({ pressed }) => [styles.backBtn, pressed && styles.pressed]}
               >
-                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.text} />
+                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.textText} />
               </Pressable>
               <View style={styles.headerText}>
                 <Text
@@ -255,6 +258,7 @@ export default function PlayerMatchesScreen() {
                           }}
                           accessibilityRole="button"
                           accessibilityLabel={`Shiko ndeshjen e ${p.date}`}
+                          hitSlop={{ top: 7, bottom: 7, left: 4, right: 4 }}
                           style={({ pressed }) => [styles.actShiko, pressed && styles.pressed]}
                         >
                           <Text style={styles.actShikoText}>Shiko</Text>
@@ -289,7 +293,7 @@ export default function PlayerMatchesScreen() {
                     pressed && styles.pressed,
                   ]}
                 >
-                  <MaterialCommunityIcons name="chevron-left" size={I(22)} color={C.text} />
+                  <MaterialCommunityIcons name="chevron-left" size={I(22)} color={C.textText} />
                 </Pressable>
 
                 {pageWindow(current, lastPage).map((p) => (
@@ -319,7 +323,7 @@ export default function PlayerMatchesScreen() {
                     pressed && styles.pressed,
                   ]}
                 >
-                  <MaterialCommunityIcons name="chevron-right" size={I(22)} color={C.text} />
+                  <MaterialCommunityIcons name="chevron-right" size={I(22)} color={C.textText} />
                 </Pressable>
               </View>
             ) : null}
@@ -334,7 +338,7 @@ export default function PlayerMatchesScreen() {
 /* Styles                                                              */
 /* ------------------------------------------------------------------ */
 
-const styles = StyleSheet.create(
+const createStyles = (C: AppColorsOf<typeof C_LIGHT>) => StyleSheet.create(
   scaled({
     safe: {
       flex: 1,
@@ -379,14 +383,14 @@ const styles = StyleSheet.create(
       fontSize: 20,
       lineHeight: 24,
       letterSpacing: -0.3,
-      color: C.text,
+      color: C.textText,
     },
 
     subtitle: {
       fontFamily: Fonts.body,
       fontSize: 12,
       lineHeight: 16,
-      color: C.gray,
+      color: C.grayText,
       marginTop: 1,
     },
 
@@ -397,9 +401,9 @@ const styles = StyleSheet.create(
     /* ── Ndeshjet e luajtura ─────────────────────────────────── */
     card: {
       marginTop: 14,
-      backgroundColor: C.blue2,
+      backgroundColor: C.blue2Fill,
       borderWidth: 2,
-      borderColor: C.border,
+      borderColor: C.borderBorder,
       borderRadius: 7,
       overflow: 'hidden',
     },
@@ -410,14 +414,14 @@ const styles = StyleSheet.create(
       paddingHorizontal: 12,
       paddingVertical: 11,
       borderBottomWidth: 1,
-      borderBottomColor: C.headLine,
+      borderBottomColor: C.headLineBorder,
     },
 
     cardHeadText: {
       fontFamily: Fonts.bodyBold,
       fontSize: 16,
       lineHeight: 20,
-      color: C.text,
+      color: C.textText,
     },
 
     tblInner: {
@@ -434,7 +438,7 @@ const styles = StyleSheet.create(
       paddingTop: 9,
       paddingBottom: 7,
       borderBottomWidth: 1,
-      borderBottomColor: C.headLine,
+      borderBottomColor: C.headLineBorder,
     },
 
     tr: {
@@ -447,14 +451,14 @@ const styles = StyleSheet.create(
 
     trBorder: {
       borderTopWidth: 1,
-      borderTopColor: C.rowLine,
+      borderTopColor: C.rowLineBorder,
     },
 
     th: {
       fontFamily: Fonts.bodySemiBold,
       fontSize: 9,
       lineHeight: 12,
-      color: C.gray,
+      color: C.grayText,
       textAlign: 'center',
     },
 
@@ -462,13 +466,13 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 9.5,
       lineHeight: 12,
-      color: C.gray,
+      color: C.grayText,
       textAlign: 'center',
     },
 
     tdFixture: {
       fontFamily: Fonts.bodySemiBold,
-      color: C.text,
+      color: C.textText,
     },
 
     /* The load error / empty-list line, spanning the row. */
@@ -477,7 +481,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 9.5,
       lineHeight: 13,
-      color: C.gray,
+      color: C.grayText,
       textAlign: 'left',
     },
 
@@ -492,18 +496,19 @@ const styles = StyleSheet.create(
 
     /* Filled blue, white letters — the row's one action. */
     actShiko: {
-      height: 24,
+      height: 30,
       paddingHorizontal: 10,
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: C.blue,
-      borderRadius: 4,
+      backgroundColor: C.blueFill,
+      borderRadius: 6,
     },
 
     actShikoText: {
       fontFamily: Fonts.bodySemiBold,
-      fontSize: 10.5,
-      color: '#F5F5F5',
+      fontSize: 11.5,
+      lineHeight: 15,
+      color: '#FFFFFF',
     },
 
     /* ── Pager ───────────────────────────────────────────────── */
@@ -525,18 +530,18 @@ const styles = StyleSheet.create(
     },
 
     pageSq: {
-      width: 34,
-      height: 34,
-      borderRadius: 5,
-      backgroundColor: C.blue,
+      width: 44,
+      height: 44,
+      borderRadius: 10,
+      backgroundColor: C.blueFill,
       alignItems: 'center',
       justifyContent: 'center',
     },
 
     pageSqActive: {
-      width: 34,
-      height: 34,
-      borderRadius: 5,
+      width: 44,
+      height: 44,
+      borderRadius: 10,
       backgroundColor: '#4E90D8',
       alignItems: 'center',
       justifyContent: 'center',
@@ -545,7 +550,7 @@ const styles = StyleSheet.create(
     pageSqText: {
       fontFamily: Fonts.bodySemiBold,
       fontSize: 14,
-      color: '#F5F5F5',
+      color: '#FFFFFF',
     },
 
     pressed: {

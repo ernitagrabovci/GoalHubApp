@@ -4,17 +4,19 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
-import { ApiError } from '@/lib/api/errors';
+import { ApiError, loadErrorMessage } from '@/lib/api/errors';
 import { financeReports, listFees } from '@/lib/api/finance';
 import type { ApiFee, FinanceReports, Paginated } from '@/lib/api/types';
 import { dmy, monthLabel, payMethod, statusLabel, STATUS_TONE, usd } from '@/lib/finance';
 import { I, scaled } from '@/lib/responsive';
 import { useSession } from '@/lib/session';
+import { useAppColors, usePaletteStyles, type AppColorsOf } from '@/lib/app-theme';
+import { useGlass } from '@/lib/glass';
 
 /**
  * Kuotat e anëtarësisë — the club's collection report, opened from "Shiko të
@@ -24,26 +26,28 @@ import { useSession } from '@/lib/session';
  * the list down, and the table below shows every membership fee in it.
  */
 
-const C = {
-  page: '#FAFBFA',
+const C_LIGHT = {
+  white: '#FFFFFF',
+  glassBack: 'rgba(245,245,245,0.5)',
+  page: '#F7F9F8',
   line: 'rgba(0,0,0,0.025)',
 
-  text: '#111111',
-  gray: '#8A8A8A',
+  text: '#17251E',
+  gray: '#52645A',
   hint: '#6E6E6E',
 
-  frame: '#000000',
+  frame: '#DCE5DF',
   headLine: 'rgba(30,40,35,0.10)',
   rowLine: 'rgba(100,140,190,0.22)',
 
   blue1: '#E3EEFB',
-  blue2: '#F6FBFF',
+  blue2: '#F7F9F8',
   blueBtn: '#86BCFD',
 
   /* Every square wears the same orange rim. */
-  orange: '#E4A000',
-  green: '#159447',
-  red: '#E03131',
+  orange: '#B45309',
+  green: '#2E7D5B',
+  red: '#B91C1C',
 };
 
 /**
@@ -51,15 +55,7 @@ const C = {
  * nothing. Shading the pane instead — a very light grey at the top edge
  * sweeping down to white — is what gives the surface its glassy shape.
  */
-const SQ_GLOSS = [
-  'rgba(180,188,201,0.30)',
-  'rgba(216,222,231,0.15)',
-  'rgba(245,245,245,0.80)',
-] as const;
-
 /** Thin specular rim on the top edge — reads as the thickness of the pane. */
-const SQ_SHEEN = ['rgba(245,245,245,0.55)', 'rgba(245,245,245,0.00)'] as const;
-
 /* ── Headline squares ──────────────────────────────────────────────── */
 
 type Square = { value: string; label: string; tone: string };
@@ -98,6 +94,9 @@ function payRate(collected: number, pending: number): string {
 }
 
 export default function FinancialReportsScreen() {
+  const glass = useGlass();
+  const C = useAppColors(C_LIGHT);
+  const styles = usePaletteStyles(createStyles, C);
   const router = useRouter();
   const { token, signOut } = useSession();
 
@@ -110,6 +109,7 @@ export default function FinancialReportsScreen() {
   const [open, setOpen] = useState<'year' | 'month' | null>(null);
   const [page, setPage] = useState(1);
   const [error, setError] = useState<string | null>(null);
+  const [reload, setReload] = useState(0);
 
   useEffect(() => {
     if (!token) return;
@@ -155,15 +155,18 @@ export default function FinancialReportsScreen() {
           router.replace('/login');
           return;
         }
-        setError(
-          err instanceof ApiError && err.status === 0
-            ? 'Nuk mund të lidhemi me serverin. Kontrollo lidhjen.'
-            : 'Nuk mund të ngarkohen kuotat.',
-        );
+        setError(loadErrorMessage(err, 'Nuk mund të ngarkohet raporti.'));
       });
 
     return () => controller.abort();
-  }, [token, page, router, signOut]);
+  }, [token, page, router, signOut, reload]);
+
+  /* Refetch from the error box; the effect cannot reset state synchronously. */
+  const retry = () => {
+    setFees(null);
+    setError(null);
+    setReload((value) => value + 1);
+  };
 
   /* Season totals, or the picked month's slice of the report. */
   const monthIndex = MONTHS.indexOf(applied.month);
@@ -232,7 +235,7 @@ export default function FinancialReportsScreen() {
                 accessibilityLabel="Kthehu prapa"
                 style={({ pressed }) => [styles.backBtn, pressed && styles.pressed]}
               >
-                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.text} />
+                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.textText} />
               </Pressable>
               <View style={styles.headerText}>
                 <Text
@@ -266,13 +269,13 @@ export default function FinancialReportsScreen() {
                     <BlurView
                       pointerEvents="none"
                       intensity={50}
-                      tint="light"
+                      tint={glass.tint}
                       style={StyleSheet.absoluteFill}
                     />
                     <LinearGradient
                       pointerEvents="none"
                       style={StyleSheet.absoluteFill}
-                      colors={SQ_GLOSS}
+                      colors={glass.gloss}
                       locations={[0, 0.55, 1]}
                       start={{ x: 0, y: 0 }}
                       end={{ x: 1, y: 1 }}
@@ -280,7 +283,7 @@ export default function FinancialReportsScreen() {
                     <LinearGradient
                       pointerEvents="none"
                       style={styles.sheen}
-                      colors={SQ_SHEEN}
+                      colors={glass.sheen}
                       start={{ x: 0, y: 0 }}
                       end={{ x: 0, y: 1 }}
                     />
@@ -323,7 +326,7 @@ export default function FinancialReportsScreen() {
                     <Text style={styles.pickText} numberOfLines={1}>
                       {pick.value || '—'}
                     </Text>
-                    <MaterialCommunityIcons name="chevron-down" size={I(12)} color={C.text} />
+                    <MaterialCommunityIcons name="chevron-down" size={I(12)} color={C.textText} />
                   </Pressable>
 
                   {open === pick.key ? (
@@ -373,6 +376,11 @@ export default function FinancialReportsScreen() {
             </View>
 
             {/* ── Lista ─────────────────────────────────────────── */}
+            <View style={styles.scrollHint} accessibilityElementsHidden importantForAccessibility="no">
+              <MaterialCommunityIcons name="gesture-swipe-horizontal" size={I(14)} color={C.grayText} />
+              <Text style={styles.scrollHintText}>Rrëshqit anash për më shumë kolona</Text>
+            </View>
+
             <View style={styles.card}>
               <View style={styles.head}>
                 <Text
@@ -405,12 +413,21 @@ export default function FinancialReportsScreen() {
                   </View>
 
                   {error ? (
-                    <View style={styles.tr}>
-                      <Text style={[styles.td, styles.thLeft]}>{error}</Text>
+                    <View style={[styles.tr, styles.stateTr]}>
+                      <Text style={styles.td}>{error}</Text>
+                      <Pressable
+                        onPress={retry}
+                        accessibilityRole="button"
+                        accessibilityLabel="Provo përsëri"
+                        style={({ pressed }) => [styles.stateRetry, pressed && styles.pressed]}
+                      >
+                        <Text style={styles.stateRetryText}>Provo përsëri</Text>
+                      </Pressable>
                     </View>
                   ) : fees === null ? (
-                    <View style={styles.tr}>
-                      <Text style={[styles.td, styles.thLeft]}>…</Text>
+                    <View style={[styles.tr, styles.stateTr]}>
+                      <ActivityIndicator color={C.greenText} />
+                      <Text style={styles.td}>Duke ngarkuar kuotat…</Text>
                     </View>
                   ) : rows.length === 0 ? (
                     <View style={styles.tr}>
@@ -475,7 +492,7 @@ export default function FinancialReportsScreen() {
                       pressed && styles.pressed,
                     ]}
                   >
-                    <MaterialCommunityIcons name="chevron-left" size={I(20)} color={C.text} />
+                    <MaterialCommunityIcons name="chevron-left" size={I(20)} color={C.textText} />
                   </Pressable>
 
                   {pages.map((p) => (
@@ -506,7 +523,7 @@ export default function FinancialReportsScreen() {
                       pressed && styles.pressed,
                     ]}
                   >
-                    <MaterialCommunityIcons name="chevron-right" size={I(20)} color={C.text} />
+                    <MaterialCommunityIcons name="chevron-right" size={I(20)} color={C.textText} />
                   </Pressable>
                 </View>
               ) : null}
@@ -522,7 +539,7 @@ export default function FinancialReportsScreen() {
 /* Styles                                                              */
 /* ------------------------------------------------------------------ */
 
-const styles = StyleSheet.create(
+const createStyles = (C: AppColorsOf<typeof C_LIGHT>) => StyleSheet.create(
   scaled({
     safe: {
       flex: 1,
@@ -567,14 +584,14 @@ const styles = StyleSheet.create(
       fontSize: 20,
       lineHeight: 24,
       letterSpacing: -0.3,
-      color: C.text,
+      color: C.textText,
     },
 
     subtitle: {
       fontFamily: Fonts.body,
       fontSize: 12,
       lineHeight: 16,
-      color: C.gray,
+      color: C.grayText,
       marginTop: 1,
     },
 
@@ -599,7 +616,7 @@ const styles = StyleSheet.create(
       height: 88,
       borderRadius: 8,
       /* Translucent so the frosted pane inside has a backdrop to blur. */
-      backgroundColor: 'rgba(245,245,245,0.5)',
+      backgroundColor: C.glassBackFill,
       shadowColor: '#000000',
       shadowOffset: { width: 0, height: 2 },
       shadowOpacity: 0.04,
@@ -610,7 +627,7 @@ const styles = StyleSheet.create(
     sq: {
       flex: 1,
       borderWidth: 1,
-      borderColor: C.orange,
+      borderColor: C.orangeBorder,
       borderRadius: 8,
       overflow: 'hidden',
     },
@@ -642,7 +659,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 10.5,
       lineHeight: 13,
-      color: C.gray,
+      color: C.grayText,
       marginTop: 3,
     },
 
@@ -664,38 +681,38 @@ const styles = StyleSheet.create(
     },
 
     pickBox: {
-      height: 30,
+      height: 44,
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
       gap: 5,
-      paddingHorizontal: 8,
-      backgroundColor: C.blue1,
+      paddingHorizontal: 10,
+      backgroundColor: C.blue1Fill,
       borderWidth: 1,
-      borderColor: C.frame,
-      borderRadius: 4,
+      borderColor: C.frameBorder,
+      borderRadius: 10,
     },
 
     pickText: {
       flex: 1,
       fontFamily: Fonts.bodySemiBold,
-      fontSize: 10.5,
-      lineHeight: 13,
-      color: C.text,
+      fontSize: 12.5,
+      lineHeight: 16,
+      color: C.textText,
     },
 
     /* Floats over the table so opening it moves nothing. */
     pickOpts: {
       position: 'absolute',
-      top: 33,
+      top: 47,
       left: 0,
       zIndex: 40,
       elevation: 12,
-      minWidth: 96,
-      backgroundColor: '#F5F5F5',
+      minWidth: 110,
+      backgroundColor: C.whiteFill,
       borderWidth: 1,
-      borderColor: C.frame,
-      borderRadius: 4,
+      borderColor: C.frameBorder,
+      borderRadius: 8,
       overflow: 'hidden',
       shadowColor: '#000000',
       shadowOffset: { width: 0, height: 3 },
@@ -705,56 +722,71 @@ const styles = StyleSheet.create(
 
     /* The twelve months run past the foot of the page, so the list scrolls. */
     pickScroll: {
-      maxHeight: 190,
+      maxHeight: 210,
     },
 
     pickOpt: {
-      height: 28,
+      minHeight: 40,
       alignItems: 'center',
       justifyContent: 'center',
       paddingHorizontal: 10,
     },
 
     pickOptActive: {
-      backgroundColor: C.blue1,
+      backgroundColor: C.blue1Fill,
     },
 
     pickOptText: {
       fontFamily: Fonts.body,
-      fontSize: 10.5,
-      color: C.text,
+      fontSize: 12.5,
+      color: C.textText,
     },
 
     pickOptTextActive: {
       fontFamily: Fonts.bodyBold,
-      color: C.blueBtn,
+      color: C.blueBtnText,
     },
 
     /* Pushed to the far right, away from the two dropdowns. */
     searchBtn: {
       marginLeft: 'auto',
-      height: 30,
-      paddingHorizontal: 12,
+      height: 44,
+      paddingHorizontal: 16,
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: C.blue1,
+      backgroundColor: C.blue1Fill,
       borderWidth: 1,
-      borderColor: C.frame,
-      borderRadius: 4,
+      borderColor: C.frameBorder,
+      borderRadius: 10,
     },
 
     searchBtnText: {
       fontFamily: Fonts.bodySemiBold,
-      fontSize: 10.5,
-      color: C.text,
+      fontSize: 13,
+      lineHeight: 18,
+      color: C.textText,
+    },
+
+    scrollHint: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 5,
+      marginTop: 12,
+    },
+
+    scrollHintText: {
+      fontFamily: Fonts.body,
+      fontSize: 11.5,
+      lineHeight: 15,
+      color: C.grayText,
     },
 
     /* ── Card ────────────────────────────────────────────────── */
     card: {
       marginTop: 14,
-      backgroundColor: C.blue2,
+      backgroundColor: C.blue2Fill,
       borderWidth: 2,
-      borderColor: C.rowLine,
+      borderColor: C.rowLineBorder,
       borderRadius: 7,
       overflow: 'hidden',
     },
@@ -771,12 +803,12 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodyBold,
       fontSize: 15,
       lineHeight: 19,
-      color: C.text,
+      color: C.textText,
     },
 
     headLine: {
       height: 1,
-      backgroundColor: C.headLine,
+      backgroundColor: C.headLineFill,
     },
 
     /* ── Table ───────────────────────────────────────────────── */
@@ -801,14 +833,14 @@ const styles = StyleSheet.create(
 
     trBorder: {
       borderTopWidth: 1,
-      borderTopColor: C.rowLine,
+      borderTopColor: C.rowLineBorder,
     },
 
     th: {
       fontFamily: Fonts.bodySemiBold,
       fontSize: 10,
       lineHeight: 13,
-      color: C.gray,
+      color: C.grayText,
       textAlign: 'center',
     },
 
@@ -820,14 +852,39 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 10,
       lineHeight: 13,
-      color: C.text,
+      color: C.textText,
+    },
+
+    stateTr: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 10,
+      minHeight: 96,
+      paddingHorizontal: 16,
+      paddingVertical: 18,
+    },
+
+    stateRetry: {
+      minHeight: 44,
+      justifyContent: 'center',
+      paddingHorizontal: 18,
+      borderWidth: 1,
+      borderColor: C.greenBorder,
+      borderRadius: 10,
+    },
+
+    stateRetryText: {
+      fontFamily: Fonts.bodySemiBold,
+      fontSize: 13,
+      color: C.greenText,
     },
 
     td: {
       fontFamily: Fonts.body,
       fontSize: 10,
       lineHeight: 13,
-      color: C.hint,
+      color: C.hintText,
       textAlign: 'center',
     },
 
@@ -845,7 +902,7 @@ const styles = StyleSheet.create(
       paddingTop: 8,
       paddingBottom: 10,
       borderTopWidth: 1,
-      borderTopColor: C.rowLine,
+      borderTopColor: C.rowLineBorder,
     },
 
     pagerArrow: {
@@ -858,10 +915,10 @@ const styles = StyleSheet.create(
     },
 
     pageSq: {
-      width: 28,
-      height: 28,
-      borderRadius: 5,
-      backgroundColor: C.blueBtn,
+      width: 44,
+      height: 44,
+      borderRadius: 10,
+      backgroundColor: C.blueBtnFill,
       alignItems: 'center',
       justifyContent: 'center',
     },
@@ -873,7 +930,7 @@ const styles = StyleSheet.create(
     pageSqText: {
       fontFamily: Fonts.bodySemiBold,
       fontSize: 12,
-      color: '#F5F5F5',
+      color: '#FFFFFF',
     },
 
     pressed: {

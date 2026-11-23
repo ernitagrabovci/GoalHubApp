@@ -12,6 +12,7 @@ import { listLibrary } from '@/lib/api/library';
 import type { ApiTrainingMaterial } from '@/lib/api/types';
 import { I, scaled } from '@/lib/responsive';
 import { useSession } from '@/lib/session';
+import { useAppColors, usePaletteStyles, useThemedColor, type AppColorsOf } from '@/lib/app-theme';
 
 /**
  * Video Strategjia — opened from the card of the same name on the trainer's
@@ -19,19 +20,19 @@ import { useSession } from '@/lib/session';
  * green-ruled tray the other menus use.
  */
 
-const C = {
-  page: '#FAFBFA',
+const C_LIGHT = {
+  page: '#F7F9F8',
   line: 'rgba(0,0,0,0.025)',
 
-  text: '#111111',
-  gray: '#8A8A8A',
+  text: '#17251E',
+  gray: '#52645A',
 
   /* The thin, see-through tray and its tab. */
   tray: '#4DBB7B',
-  white: '#F5F5F5',
+  white: '#FFFFFF',
 
   /* The button rims, and the play glyph at the heart of each card. */
-  frame: '#000000',
+  frame: '#DCE5DF',
   green20: 'rgba(21,148,71,0.20)',
 };
 
@@ -41,7 +42,7 @@ const C = {
  * same tone at full strength for its rim and for the level word itself.
  */
 const TONES = {
-  green: { bg: '#CCE6D6', solid: '#159447' },
+  green: { bg: '#CCE6D6', solid: '#2E7D5B' },
   blue: { bg: '#E3EEFB', solid: '#86BCFD' },
   purple: { bg: '#EBE8FA', solid: '#B09AF9' },
 };
@@ -66,6 +67,9 @@ function pageWindow(current: number, last: number, span = 4): number[] {
 }
 
 export default function StrategicVideoScreen() {
+  const C = useAppColors(C_LIGHT);
+  const styles = usePaletteStyles(createStyles, C);
+  const themed = useThemedColor();
   const router = useRouter();
   const { token, signOut } = useSession();
 
@@ -121,7 +125,7 @@ export default function StrategicVideoScreen() {
                 accessibilityLabel="Kthehu prapa"
                 style={({ pressed }) => [styles.backBtn, pressed && styles.pressed]}
               >
-                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.text} />
+                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.textText} />
               </Pressable>
               <View style={styles.headerText}>
                 <Text style={styles.title} numberOfLines={1}>
@@ -146,6 +150,7 @@ export default function StrategicVideoScreen() {
               onPress={() => router.push('/ngarko-video-trajner' as never)}
               accessibilityRole="button"
               accessibilityLabel="Ngarko video"
+              hitSlop={{ top: 5, bottom: 5 }}
               style={({ pressed }) => [styles.addBtn, pressed && styles.pressed]}
             >
               <Text style={styles.addText} numberOfLines={1}>
@@ -182,13 +187,13 @@ export default function StrategicVideoScreen() {
                       accessibilityLabel={v.title}
                       style={({ pressed }) => [
                         styles.card,
-                        { backgroundColor: skin.bg, borderColor: skin.solid },
+                        { backgroundColor: themed(skin.bg), borderColor: themed(skin.solid) },
                         pressed && styles.pressed,
                       ]}
                     >
                       {/* The play mark sits centred in the space above the text. */}
                       <View style={styles.playArea}>
-                        <MaterialCommunityIcons name="play" size={I(36)} color={C.frame} />
+                        <MaterialCommunityIcons name="play" size={I(36)} color={C.frameText} />
                       </View>
 
                       <Text
@@ -243,7 +248,7 @@ export default function StrategicVideoScreen() {
                     pressed && styles.pressed,
                   ]}
                 >
-                  <MaterialCommunityIcons name="chevron-left" size={I(22)} color={C.text} />
+                  <MaterialCommunityIcons name="chevron-left" size={I(22)} color={C.textText} />
                 </Pressable>
 
                 {pageWindow(current, lastPage).map((p) => (
@@ -273,7 +278,7 @@ export default function StrategicVideoScreen() {
                     pressed && styles.pressed,
                   ]}
                 >
-                  <MaterialCommunityIcons name="chevron-right" size={I(22)} color={C.text} />
+                  <MaterialCommunityIcons name="chevron-right" size={I(22)} color={C.textText} />
                 </Pressable>
               </View>
             ) : null}
@@ -288,7 +293,7 @@ export default function StrategicVideoScreen() {
 /* Styles                                                              */
 /* ------------------------------------------------------------------ */
 
-const styles = StyleSheet.create(
+const createStyles = (C: AppColorsOf<typeof C_LIGHT>) => StyleSheet.create(
   scaled({
     safe: {
       flex: 1,
@@ -333,14 +338,14 @@ const styles = StyleSheet.create(
       fontSize: 20,
       lineHeight: 24,
       letterSpacing: -0.3,
-      color: C.text,
+      color: C.textText,
     },
 
     subtitle: {
       fontFamily: Fonts.body,
       fontSize: 12,
       lineHeight: 16,
-      color: C.gray,
+      color: C.grayText,
       marginTop: 1,
     },
 
@@ -357,16 +362,16 @@ const styles = StyleSheet.create(
       alignItems: 'center',
       justifyContent: 'center',
       paddingHorizontal: 12,
-      backgroundColor: C.green20,
+      backgroundColor: C.green20Fill,
       borderWidth: 1,
-      borderColor: C.frame,
+      borderColor: C.frameBorder,
       borderRadius: 4,
     },
 
     addText: {
       fontFamily: Fonts.bodyBold,
       fontSize: 12,
-      color: C.text,
+      color: C.textText,
     },
 
     /* ── Tray ────────────────────────────────────────────────── */
@@ -380,7 +385,7 @@ const styles = StyleSheet.create(
       flexDirection: 'row',
       flexWrap: 'wrap',
       borderWidth: 1,
-      borderColor: C.tray,
+      borderColor: C.trayBorder,
       backgroundColor: 'transparent',
       borderRadius: 8,
       padding: 8,
@@ -411,7 +416,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodyBold,
       fontSize: 10.5,
       lineHeight: 13,
-      color: C.text,
+      color: C.textText,
     },
 
     meta: {
@@ -430,14 +435,14 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 9.5,
       lineHeight: 12,
-      color: C.gray,
+      color: C.grayText,
     },
 
     metaCategory: {
       fontFamily: Fonts.body,
       fontSize: 9.5,
       lineHeight: 12,
-      color: C.gray,
+      color: C.grayText,
     },
 
     /* The load error / empty-list line, spanning the tray. */
@@ -447,7 +452,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 11,
       lineHeight: 15,
-      color: C.gray,
+      color: C.grayText,
       textAlign: 'center',
     },
 
@@ -464,9 +469,9 @@ const styles = StyleSheet.create(
     pill: {
       height: 28,
       paddingHorizontal: 14,
-      backgroundColor: C.white,
+      backgroundColor: C.whiteFill,
       borderWidth: 1,
-      borderColor: C.tray,
+      borderColor: C.trayBorder,
       borderTopLeftRadius: 7,
       borderTopRightRadius: 7,
       alignItems: 'center',
@@ -477,7 +482,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodySemiBold,
       fontSize: 13,
       lineHeight: 16,
-      color: C.text,
+      color: C.textText,
     },
 
     /* ── Pager ───────────────────────────────────────────────── */
@@ -499,18 +504,18 @@ const styles = StyleSheet.create(
     },
 
     pageSq: {
-      width: 34,
-      height: 34,
-      borderRadius: 5,
+      width: 44,
+      height: 44,
+      borderRadius: 10,
       backgroundColor: '#86BCFD',
       alignItems: 'center',
       justifyContent: 'center',
     },
 
     pageSqActive: {
-      width: 34,
-      height: 34,
-      borderRadius: 5,
+      width: 44,
+      height: 44,
+      borderRadius: 10,
       backgroundColor: '#4E90D8',
       alignItems: 'center',
       justifyContent: 'center',
@@ -519,7 +524,7 @@ const styles = StyleSheet.create(
     pageSqText: {
       fontFamily: Fonts.bodySemiBold,
       fontSize: 14,
-      color: '#F5F5F5',
+      color: '#FFFFFF',
     },
 
     pressed: {

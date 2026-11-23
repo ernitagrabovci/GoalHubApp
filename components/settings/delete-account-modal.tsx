@@ -9,7 +9,8 @@ import {
 } from 'react-native';
 
 import { Text } from '@/components/dashboard/dashboard-text';
-import { Fonts } from '@/constants/theme';
+import { Fonts, Semantic } from '@/constants/theme';
+import { useAppColors, usePaletteStyles, type AppColorsOf } from '@/lib/app-theme';
 import { deleteAccount } from '@/lib/api/account';
 import { ApiError } from '@/lib/api/errors';
 import { scaled } from '@/lib/responsive';
@@ -20,11 +21,12 @@ import { scaled } from '@/lib/responsive';
  * `DELETE /profile` requires it — then calls back once the account is gone.
  */
 
-const C = {
-  text: '#111111',
-  gray: '#8A8A8A',
-  frame: '#000000',
-  red: '#E03131',
+const C_LIGHT = {
+  text: '#17251E',
+  gray: '#52645A',
+  frame: '#DCE5DF',
+  red: Semantic.danger,
+  white: '#FFFFFF',
 };
 
 export function DeleteAccountModal({
@@ -36,6 +38,8 @@ export function DeleteAccountModal({
   onClose: () => void;
   onDeleted: () => void;
 }) {
+  const C = useAppColors(C_LIGHT);
+  const styles = usePaletteStyles(createStyles, C);
   const [password, setPassword] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -95,7 +99,8 @@ export function DeleteAccountModal({
               autoCorrect={false}
               allowFontScaling={false}
               placeholder="••••••••"
-              placeholderTextColor={C.gray}
+              placeholderTextColor={C.grayText}
+              accessibilityLabel="Fjalëkalimi"
               style={styles.input}
             />
 
@@ -111,6 +116,8 @@ export function DeleteAccountModal({
               onPress={onClose}
               disabled={saving}
               accessibilityRole="button"
+              accessibilityLabel="Anulo"
+              accessibilityState={{ disabled: saving }}
               style={({ pressed }) => [styles.cancel, pressed && styles.pressed]}
             >
               <Text style={styles.cancelText}>Anulo</Text>
@@ -119,6 +126,8 @@ export function DeleteAccountModal({
               onPress={confirm}
               disabled={saving}
               accessibilityRole="button"
+              accessibilityLabel="Fshij përgjithmonë"
+              accessibilityState={{ disabled: saving, busy: saving }}
               style={({ pressed }) => [
                 styles.danger,
                 saving && styles.off,
@@ -136,7 +145,7 @@ export function DeleteAccountModal({
   );
 }
 
-const styles = StyleSheet.create(
+const createStyles = (C: AppColorsOf<typeof C_LIGHT>) => StyleSheet.create(
   scaled({
     ovWrap: {
       flex: 1,
@@ -160,9 +169,9 @@ const styles = StyleSheet.create(
     card: {
       width: '86%',
       maxWidth: 340,
-      backgroundColor: '#F5F5F5',
+      backgroundColor: C.whiteFill,
       borderWidth: 1,
-      borderColor: C.red,
+      borderColor: C.redBorder,
       borderRadius: 6,
       overflow: 'hidden',
       shadowColor: '#000000',
@@ -182,7 +191,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodyBold,
       fontSize: 17,
       lineHeight: 21,
-      color: C.text,
+      color: C.textText,
     },
 
     divider: {
@@ -198,37 +207,38 @@ const styles = StyleSheet.create(
 
     warning: {
       fontFamily: Fonts.body,
-      fontSize: 11.5,
-      lineHeight: 16,
-      color: C.text,
+      fontSize: 12,
+      lineHeight: 17,
+      color: C.textText,
       marginBottom: 12,
     },
 
     label: {
       fontFamily: Fonts.body,
       fontSize: 12,
-      color: C.gray,
-      marginBottom: 4,
+      lineHeight: 16,
+      color: C.grayText,
+      marginBottom: 6,
     },
 
     input: {
-      height: 36,
+      height: 44,
       backgroundColor: 'transparent',
       borderWidth: 1,
-      borderColor: C.frame,
-      borderRadius: 2,
-      paddingHorizontal: 10,
+      borderColor: C.frameBorder,
+      borderRadius: 10,
+      paddingHorizontal: 12,
       paddingVertical: 0,
-      fontSize: 13,
+      fontSize: 14,
       fontFamily: Fonts.body,
-      color: C.text,
+      color: C.textText,
     },
 
     error: {
       fontFamily: Fonts.body,
-      fontSize: 11.5,
-      lineHeight: 15,
-      color: C.red,
+      fontSize: 12.5,
+      lineHeight: 16,
+      color: C.redText,
       marginTop: 10,
     },
 
@@ -241,34 +251,34 @@ const styles = StyleSheet.create(
     },
 
     cancel: {
-      height: 32,
-      paddingHorizontal: 16,
+      height: 44,
+      paddingHorizontal: 18,
       alignItems: 'center',
       justifyContent: 'center',
       borderWidth: 1,
-      borderColor: C.frame,
-      borderRadius: 4,
+      borderColor: C.frameBorder,
+      borderRadius: 10,
     },
 
     cancelText: {
       fontFamily: Fonts.bodySemiBold,
-      fontSize: 12.5,
-      color: C.text,
+      fontSize: 13,
+      color: C.textText,
     },
 
     danger: {
-      height: 32,
-      paddingHorizontal: 16,
+      height: 44,
+      paddingHorizontal: 18,
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: C.red,
-      borderRadius: 4,
+      backgroundColor: C.redFill,
+      borderRadius: 10,
     },
 
     dangerText: {
       fontFamily: Fonts.bodySemiBold,
-      fontSize: 12.5,
-      color: '#F5F5F5',
+      fontSize: 13,
+      color: C.whiteText,
     },
 
     off: {

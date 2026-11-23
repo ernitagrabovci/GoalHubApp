@@ -1,110 +1,62 @@
 import { useRouter } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { Screen } from '@/components/screen';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { ThemedText } from '@/components/themed-text';
 import { Fonts, Radius, Spacing, type ThemeColors } from '@/constants/theme';
 import { useLanguage } from '@/lib/i18n';
 import { ALL_MODULES, modulesForRole } from '@/lib/modules';
 import { useSession } from '@/lib/session';
-import { useTheme, useThemedStyles } from '@/lib/theme';
+import { useThemedStyles } from '@/lib/theme';
 
 export default function ModulesScreen() {
   const router = useRouter();
-  const { isDark } = useTheme();
   const styles = useThemedStyles(createStyles);
   const { user } = useSession();
   const { t } = useLanguage();
   const modules = user ? modulesForRole(user.role) : ALL_MODULES;
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
-      <StatusBar style={isDark ? 'light' : 'dark'} />
-      <ScrollView
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}>
-        {/* Header */}
-        <View style={styles.header}>
-          <View style={styles.brand}>
-            <Image
-              source={require('@/assets/images/goalhub-logo.png')}
-              style={styles.brandLogo}
-              resizeMode="contain"
-            />
-            <Text style={styles.brandText}>goalhub</Text>
-          </View>
-        </View>
+    <Screen>
+      <View style={styles.hero}>
+        <ThemedText type="label">{t('explore.kicker')}</ThemedText>
+        <Text style={styles.heroTitle}>{t('explore.title')}</Text>
+        <Text style={styles.heroSub}>
+          {t('explore.subtitle')}
+        </Text>
+      </View>
 
-        <View style={styles.hero}>
-          <ThemedText type="label">{t('explore.kicker')}</ThemedText>
-          <Text style={styles.heroTitle}>{t('explore.title')}</Text>
-          <Text style={styles.heroSub}>
-            {t('explore.subtitle')}
-          </Text>
-        </View>
-
-        {/* Module grid */}
-        <View style={styles.grid}>
-          {modules.map((module) => (
-            <Pressable
-              key={module.label}
-              style={styles.cell}
-              onPress={() => {
-                // Every module behind these tiles needs a session; send a
-                // signed-out visitor to sign in instead of into a dead route.
-                if (!user) {
-                  router.replace('/login');
-                  return;
-                }
-                if (module.route) {
-                  router.push(module.route as never);
-                } else {
-                  alert(t('common.comingSoon', { label: t(`module.${module.label}`) }));
-                }
-              }}>
-              <View style={[styles.cellIcon, { backgroundColor: `${module.color}1F` }]}>
-                <IconSymbol name={module.icon} size={24} color={module.color} />
-              </View>
-              <Text style={styles.cellLabel}>{t(`module.${module.label}`)}</Text>
-            </Pressable>
-          ))}
-        </View>
-      </ScrollView>
-    </SafeAreaView>
+      {/* Module grid */}
+      <View style={styles.grid}>
+        {modules.map((module) => (
+          <Pressable
+            key={module.label}
+            style={styles.cell}
+            onPress={() => {
+              // Every module behind these tiles needs a session; send a
+              // signed-out visitor to sign in instead of into a dead route.
+              if (!user) {
+                router.replace('/login');
+                return;
+              }
+              if (module.route) {
+                router.push(module.route as never);
+              } else {
+                alert(t('common.comingSoon', { label: t(`module.${module.label}`) }));
+              }
+            }}>
+            <View style={[styles.cellIcon, { backgroundColor: `${module.color}1F` }]}>
+              <IconSymbol name={module.icon} size={24} color={module.color} />
+            </View>
+            <Text style={styles.cellLabel}>{t(`module.${module.label}`)}</Text>
+          </Pressable>
+        ))}
+      </View>
+    </Screen>
   );
 }
 
 const createStyles = (colors: ThemeColors) => StyleSheet.create({
-  safe: {
-    flex: 1,
-    backgroundColor: 'transparent',
-  },
-  content: {
-    paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.sm,
-    paddingBottom: Spacing.xxl,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  brand: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
-  },
-  brandLogo: {
-    width: 32,
-    height: 32,
-  },
-  brandText: {
-    fontFamily: Fonts.heading,
-    fontSize: 22,
-    letterSpacing: -0.5,
-    color: colors.mint,
-    textTransform: 'lowercase',
-  },
   hero: {
     marginTop: Spacing.xl,
     marginBottom: Spacing.xl,

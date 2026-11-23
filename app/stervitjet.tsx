@@ -2,7 +2,14 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
@@ -13,7 +20,7 @@ import {
   type Booking,
 } from '@/components/trainings/training-form';
 import { Fonts } from '@/constants/theme';
-import { ApiError } from '@/lib/api/errors';
+import { ApiError, loadErrorMessage } from '@/lib/api/errors';
 import { createTraining, deleteTraining, listTrainings } from '@/lib/api/trainings';
 import { I, scaled } from '@/lib/responsive';
 import { useSession } from '@/lib/session';
@@ -25,6 +32,7 @@ import {
   type TrainingRow,
 } from '@/lib/trainings';
 import type { ApiTraining } from '@/lib/api/types';
+import { useAppColors, usePaletteStyles, type AppColorsOf } from '@/lib/app-theme';
 
 /**
  * Stërvitjet — the trainer's training list, opened from the "Stërvitjet" card
@@ -35,24 +43,24 @@ import type { ApiTraining } from '@/lib/api/types';
  * one adds the orange "Regjistro" and the red "Fshi".
  */
 
-const C = {
-  page: '#FAFBFA',
+const C_LIGHT = {
+  page: '#F7F9F8',
   line: 'rgba(0,0,0,0.025)',
 
-  text: '#111111',
-  gray: '#8A8A8A',
+  text: '#17251E',
+  gray: '#52645A',
 
-  frame: '#000000',
+  frame: '#DCE5DF',
   headLine: 'rgba(30,40,35,0.10)',
   rowLine: 'rgba(100,140,190,0.22)',
 
-  card: '#F5F5F5',
+  card: '#FFFFFF',
   blueSoft: '#E3EEFB',
 
-  green: '#159447',
+  green: '#2E7D5B',
   green20: 'rgba(21,148,71,0.20)',
-  orange: '#E4A000',
-  red: '#E03131',
+  orange: '#B45309',
+  red: '#B91C1C',
   blue: '#0766D8',
 };
 
@@ -76,18 +84,18 @@ const STATUS_OPTIONS: FilterOption[] = [
 /* The squad these sessions belong to — shown as the page subtitle. */
 const TEAM = 'Ekipi i Parë';
 
-const STATUS_TONE: Record<TrainingRow['status'], string> = {
+const STATUS_TONE = (C: AppColorsOf<typeof C_LIGHT>): Record<TrainingRow['status'], string> => ({
   'Prezenca u regjistrua': C.green,
   'Pret regjistrim': C.orange,
-};
+});
 
 /* Each kind of session carries its own colour down the Lloji column. */
-const TYPE_TONE: Record<string, string> = {
+const TYPE_TONE = (C: AppColorsOf<typeof C_LIGHT>): Record<string, string> => ({
   Taktike: C.blue,
   Rregullt: C.gray,
   Rikuperim: C.green,
   Fizike: C.orange,
-};
+});
 
 const COLS: { key: keyof TrainingRow; label: string; width: number }[] = [
   { key: 'date', label: 'Data & Ora', width: 78 },
@@ -104,6 +112,8 @@ const ACTION_W = 168;
 const ACTION_W_SETTLED = 56;
 
 export default function TrainingListScreen() {
+  const C = useAppColors(C_LIGHT);
+  const styles = usePaletteStyles(createStyles, C);
   const router = useRouter();
   const { token, signOut } = useSession();
 
@@ -113,6 +123,9 @@ export default function TrainingListScreen() {
   const [adding, setAdding] = useState(false);
   const [typeFilter, setTypeFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [reload, setReload] = useState(0);
 
   /* Only pending sessions need "Regjistro" and "Fshi" beside "Shiko". */
   const actionWidth = trainings.some((t) => t.status === 'Pret regjistrim')
@@ -137,16 +150,46 @@ export default function TrainingListScreen() {
     if (!token) return;
     const controller = new AbortController();
 
-    load(controller.signal).catch((e) => {
-      if (controller.signal.aborted) return;
-      if (e instanceof ApiError && e.status === 401) {
-        signOut();
-        router.replace('/login');
-      }
-    });
+    load(controller.signal)
+      .then(() => {
+        if (!controller.signal.aborted) setLoading(false);
+      })
+      .catch((e) => {
+        if (controller.signal.aborted) return;
+        if (e instanceof ApiError && e.status === 401) {
+          signOut();
+          router.replace('/login');
+          return;
+        }
+        setTrainings([]);
+        setLoading(false);
+        setLoadError(loadErrorMessage(e, 'Nuk mund të ngarkohen stërvitjet. Kontrollo lidhjen.'));
+      });
 
     return () => controller.abort();
-  }, [token, router, signOut, load]);
+  }, [token, router, signOut, load, reload]);
+
+  /* Refetches start from these handlers, not the effect body, so the spinner
+     flips on in the same render as the filter change. */
+  const restartLoad = () => {
+    setLoading(true);
+    setLoadError(null);
+  };
+
+  const onTypeChange = (value: string) => {
+    restartLoad();
+    setTypeFilter(value);
+  };
+
+  const onStatusChange = (value: string) => {
+    restartLoad();
+    setStatusFilter(value);
+  };
+
+  const retry = () => {
+    restartLoad();
+    setReload((value) => value + 1);
+  };
 
   /** Surfaces a failed write, sending an expired token back to login. */
   const onWriteError = (e: unknown, fallback: string) => {
@@ -214,7 +257,7 @@ export default function TrainingListScreen() {
                 accessibilityLabel="Kthehu prapa"
                 style={({ pressed }) => [styles.backBtn, pressed && styles.pressed]}
               >
-                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.text} />
+                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.textText} />
               </Pressable>
               <View style={styles.headerText}>
                 <Text
@@ -245,6 +288,7 @@ export default function TrainingListScreen() {
                 onPress={() => setAdding(true)}
                 accessibilityRole="button"
                 accessibilityLabel="Shto stërvitje"
+                hitSlop={{ top: 5, bottom: 5 }}
                 style={({ pressed }) => [styles.addBtn, pressed && styles.pressed]}
               >
                 <Text style={styles.addBtnText} numberOfLines={1}>
@@ -256,6 +300,7 @@ export default function TrainingListScreen() {
                 onPress={() => router.push('/historiku-prezences-trajner')}
                 accessibilityRole="button"
                 accessibilityLabel="Hap historikun e prezencës"
+                hitSlop={{ top: 5, bottom: 5 }}
                 style={({ pressed }) => [styles.historyBtn, pressed && styles.pressed]}
               >
                 <Text style={styles.addBtnText} numberOfLines={1}>
@@ -270,7 +315,7 @@ export default function TrainingListScreen() {
                 label="Filtro sipas llojit"
                 options={TYPE_OPTIONS}
                 value={typeFilter}
-                onChange={setTypeFilter}
+                onChange={onTypeChange}
                 boxStyle={styles.filterBox}
                 textStyle={styles.filterText}
               />
@@ -278,7 +323,7 @@ export default function TrainingListScreen() {
                 label="Filtro sipas statusit"
                 options={STATUS_OPTIONS}
                 value={statusFilter}
-                onChange={setStatusFilter}
+                onChange={onStatusChange}
                 boxStyle={styles.filterBox}
                 textStyle={styles.filterText}
               />
@@ -291,7 +336,7 @@ export default function TrainingListScreen() {
                   Lista e stërvitjeve
                 </Text>
                 <Text style={styles.cardCount} numberOfLines={1}>
-                  {trainings.length} stërvitje
+                  {loading ? '—' : `${trainings.length} stërvitje`}
                 </Text>
               </View>
 
@@ -314,7 +359,31 @@ export default function TrainingListScreen() {
                     <View style={{ width: actionWidth }} />
                   </View>
 
-                  {trainings.map((t, i) => (
+                  {loading ? (
+                    <View style={styles.stateRow}>
+                      <ActivityIndicator color={C.greenText} />
+                      <Text style={styles.stateText}>Duke ngarkuar stërvitjet…</Text>
+                    </View>
+                  ) : loadError ? (
+                    <View style={styles.stateRow}>
+                      <Text style={[styles.stateText, styles.stateErr]}>{loadError}</Text>
+                      <Pressable
+                        onPress={retry}
+                        accessibilityRole="button"
+                        accessibilityLabel="Provo përsëri"
+                        style={({ pressed }) => [styles.stateRetry, pressed && styles.pressed]}
+                      >
+                        <Text style={styles.stateRetryText}>Provo përsëri</Text>
+                      </Pressable>
+                    </View>
+                  ) : trainings.length === 0 ? (
+                    <View style={styles.stateRow}>
+                      <Text style={styles.stateText}>Nuk ka stërvitje për këta filtra.</Text>
+                    </View>
+                  ) : null}
+
+                  {!loading && !loadError
+                    ? trainings.map((t, i) => (
                     <View
                       key={t.id != null ? String(t.id) : `${t.date}-${t.time}-${i}`}
                       style={[styles.tr, styles.trBorder]}
@@ -359,8 +428,8 @@ export default function TrainingListScreen() {
                             key={c.key}
                             style={[
                               styles.td,
-                              isType ? [styles.tdStrong, { color: TYPE_TONE[t.type] }] : null,
-                              isStatus ? [styles.tdStrong, { color: STATUS_TONE[t.status] }] : null,
+                              isType ? [styles.tdStrong, { color: TYPE_TONE(C)[t.type] }] : null,
+                              isStatus ? [styles.tdStrong, { color: STATUS_TONE(C)[t.status] }] : null,
                               { width: c.width },
                             ]}
                             numberOfLines={1}
@@ -391,6 +460,7 @@ export default function TrainingListScreen() {
                           }
                           accessibilityRole="button"
                           accessibilityLabel={`Shiko stërvitjen e ${t.date}`}
+                          hitSlop={{ top: 7, bottom: 7, left: 4, right: 4 }}
                           style={({ pressed }) => [styles.actView, pressed && styles.pressed]}
                         >
                           <Text style={styles.actViewText}>Shiko</Text>
@@ -414,6 +484,7 @@ export default function TrainingListScreen() {
                               }
                               accessibilityRole="button"
                               accessibilityLabel={`Regjistro prezencën e ${t.date}`}
+                              hitSlop={{ top: 7, bottom: 7, left: 4, right: 4 }}
                               style={({ pressed }) => [
                                 styles.actFill,
                                 styles.actReg,
@@ -426,6 +497,7 @@ export default function TrainingListScreen() {
                               onPress={() => confirmDelete(t)}
                               accessibilityRole="button"
                               accessibilityLabel={`Fshi stërvitjen e ${t.date}`}
+                              hitSlop={{ top: 7, bottom: 7, left: 4, right: 4 }}
                               style={({ pressed }) => [
                                 styles.actFill,
                                 styles.actDel,
@@ -438,7 +510,8 @@ export default function TrainingListScreen() {
                         ) : null}
                       </View>
                     </View>
-                  ))}
+                  ))
+                    : null}
                 </View>
               </ScrollView>
             </View>
@@ -467,7 +540,7 @@ export default function TrainingListScreen() {
 /* Styles                                                              */
 /* ------------------------------------------------------------------ */
 
-const styles = StyleSheet.create(
+const createStyles = (C: AppColorsOf<typeof C_LIGHT>) => StyleSheet.create(
   scaled({
     safe: {
       flex: 1,
@@ -512,14 +585,14 @@ const styles = StyleSheet.create(
       fontSize: 20,
       lineHeight: 24,
       letterSpacing: -0.3,
-      color: C.text,
+      color: C.textText,
     },
 
     subtitle: {
       fontFamily: Fonts.body,
       fontSize: 12,
       lineHeight: 16,
-      color: C.gray,
+      color: C.grayText,
       marginTop: 1,
     },
 
@@ -542,9 +615,9 @@ const styles = StyleSheet.create(
       paddingHorizontal: 14,
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: C.green20,
+      backgroundColor: C.green20Fill,
       borderWidth: 1,
-      borderColor: C.frame,
+      borderColor: C.frameBorder,
       borderRadius: 4,
     },
 
@@ -554,9 +627,9 @@ const styles = StyleSheet.create(
       paddingHorizontal: 14,
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: C.blueSoft,
+      backgroundColor: C.blueSoftFill,
       borderWidth: 1,
-      borderColor: C.frame,
+      borderColor: C.frameBorder,
       borderRadius: 4,
     },
 
@@ -564,7 +637,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodySemiBold,
       fontSize: 12,
       lineHeight: 16,
-      color: C.text,
+      color: C.textText,
     },
 
     /* ── Filters ─────────────────────────────────────────────── */
@@ -581,9 +654,9 @@ const styles = StyleSheet.create(
       gap: 5,
       height: 34,
       paddingHorizontal: 10,
-      backgroundColor: C.blueSoft,
+      backgroundColor: C.blueSoftFill,
       borderWidth: 1,
-      borderColor: C.frame,
+      borderColor: C.frameBorder,
       borderRadius: 4,
     },
 
@@ -591,15 +664,15 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodyBold,
       fontSize: 11,
       lineHeight: 14,
-      color: C.text,
+      color: C.textText,
     },
 
     /* ── Training table ──────────────────────────────────────── */
     card: {
       marginTop: 14,
-      backgroundColor: C.card,
+      backgroundColor: C.cardFill,
       borderWidth: 1,
-      borderColor: C.frame,
+      borderColor: C.frameBorder,
       borderRadius: 5,
       overflow: 'hidden',
     },
@@ -619,14 +692,14 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodyBold,
       fontSize: 12.5,
       lineHeight: 16,
-      color: C.text,
+      color: C.textText,
     },
 
     cardCount: {
       fontFamily: Fonts.body,
       fontSize: 11,
       lineHeight: 15,
-      color: C.gray,
+      color: C.grayText,
     },
 
     tblInner: {
@@ -642,7 +715,7 @@ const styles = StyleSheet.create(
     thRow: {
       paddingBottom: 8,
       borderBottomWidth: 1,
-      borderBottomColor: C.headLine,
+      borderBottomColor: C.headLineBorder,
     },
 
     tr: {
@@ -654,22 +727,60 @@ const styles = StyleSheet.create(
     /* Padding as well as the rule — two lines of date need the extra air. */
     trBorder: {
       borderTopWidth: 1,
-      borderTopColor: C.rowLine,
+      borderTopColor: C.rowLineBorder,
       paddingVertical: 10,
+    },
+
+    /* Loading / empty / error occupy the table body so the card keeps its
+       shape while the data resolves. */
+    stateRow: {
+      minHeight: 120,
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 10,
+      paddingHorizontal: 16,
+      paddingVertical: 24,
+    },
+
+    stateText: {
+      fontFamily: Fonts.body,
+      fontSize: 13,
+      lineHeight: 18,
+      color: C.grayText,
+      textAlign: 'center',
+    },
+
+    stateErr: {
+      color: C.redText,
+    },
+
+    stateRetry: {
+      minHeight: 44,
+      justifyContent: 'center',
+      paddingHorizontal: 18,
+      borderWidth: 1,
+      borderColor: C.greenBorder,
+      borderRadius: 10,
+    },
+
+    stateRetryText: {
+      fontFamily: Fonts.bodySemiBold,
+      fontSize: 13,
+      color: C.greenText,
     },
 
     th: {
       fontFamily: Fonts.bodySemiBold,
-      fontSize: 10.5,
-      lineHeight: 13,
-      color: C.gray,
+      fontSize: 11,
+      lineHeight: 14,
+      color: C.grayText,
     },
 
     td: {
       fontFamily: Fonts.body,
-      fontSize: 11,
-      lineHeight: 14,
-      color: C.text,
+      fontSize: 12,
+      lineHeight: 16,
+      color: C.textText,
     },
 
     /* The coloured columns — Lloji and Statusi. */
@@ -684,7 +795,7 @@ const styles = StyleSheet.create(
 
     /* The squad members who turned up, ahead of the "/24". */
     tdAttended: {
-      color: C.green,
+      color: C.greenText,
     },
 
     actions: {
@@ -696,42 +807,44 @@ const styles = StyleSheet.create(
 
     /* Outlined, and sitting on the row itself. */
     actView: {
-      height: 24,
+      height: 30,
       paddingHorizontal: 10,
       alignItems: 'center',
       justifyContent: 'center',
       borderWidth: 1,
-      borderColor: C.frame,
-      borderRadius: 4,
+      borderColor: C.frameBorder,
+      borderRadius: 6,
     },
 
     actViewText: {
       fontFamily: Fonts.bodySemiBold,
-      fontSize: 10.5,
-      color: C.text,
+      fontSize: 11.5,
+      lineHeight: 15,
+      color: C.textText,
     },
 
     /* Filled actions carry white text. */
     actFill: {
-      height: 24,
+      height: 30,
       paddingHorizontal: 10,
       alignItems: 'center',
       justifyContent: 'center',
-      borderRadius: 4,
+      borderRadius: 6,
     },
 
     actReg: {
-      backgroundColor: C.orange,
+      backgroundColor: C.orangeFill,
     },
 
     actDel: {
-      backgroundColor: C.red,
+      backgroundColor: C.redFill,
     },
 
     actFillText: {
       fontFamily: Fonts.bodySemiBold,
-      fontSize: 10.5,
-      color: '#F5F5F5',
+      fontSize: 11.5,
+      lineHeight: 15,
+      color: '#FFFFFF',
     },
 
     pressed: {

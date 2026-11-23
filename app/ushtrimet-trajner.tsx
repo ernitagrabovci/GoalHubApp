@@ -1,32 +1,19 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import { BlurView } from 'expo-blur';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useCallback, useEffect, useState } from 'react';
-import {
-  Alert,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  TextInput,
-  View,
-} from 'react-native';
+import { useCallback, useState } from 'react';
+import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
 import { MONTHS } from '@/components/trainings/training-form';
 import { Fonts } from '@/constants/theme';
-import {
-  createDrill,
-  deleteDrill,
-  getDrill,
-  listDrills,
-  updateDrill,
-} from '@/lib/api/drills';
+import { deleteDrill, listDrills } from '@/lib/api/drills';
 import { ApiError } from '@/lib/api/errors';
-import type { ApiDrill, DrillInput } from '@/lib/api/types';
+import type { ApiDrill } from '@/lib/api/types';
 import { I, scaled } from '@/lib/responsive';
 import { useSession } from '@/lib/session';
+import { useAppColors, usePaletteStyles, type AppColorsOf } from '@/lib/app-theme';
 
 /**
  * Ushtrime — opened from "Ushtrime" on the trainer's Akademia page. The
@@ -35,25 +22,25 @@ import { useSession } from '@/lib/session';
  * the two ways into it.
  */
 
-const C = {
-  page: '#FAFBFA',
+const C_LIGHT = {
+  page: '#F7F9F8',
   line: 'rgba(0,0,0,0.025)',
 
-  text: '#111111',
-  gray: '#8A8A8A',
+  text: '#17251E',
+  gray: '#52645A',
   hint: '#6E6E6E',
 
-  frame: '#000000',
+  frame: '#DCE5DF',
   headLine: 'rgba(30,40,35,0.10)',
 
   /* The title strip sits pale; the body below it takes the deeper wash. */
   blue1: '#E3EEFB',
-  blue2: '#F6FBFF',
+  blue2: '#F7F9F8',
   blue: '#2F80ED',
 
-  green: '#159447',
+  green: '#2E7D5B',
   green20: 'rgba(21,148,71,0.20)',
-  red: '#E03131',
+  red: '#B91C1C',
 };
 
 /** `2026-08-12T…` → `12 Aug 2026`. */
@@ -72,6 +59,8 @@ function pageWindow(current: number, last: number, span = 4): number[] {
 }
 
 export default function TrainerDrillsScreen() {
+  const C = useAppColors(C_LIGHT);
+  const styles = usePaletteStyles(createStyles, C);
   const router = useRouter();
   const { token, signOut } = useSession();
 
@@ -79,10 +68,6 @@ export default function TrainerDrillsScreen() {
   const [page, setPage] = useState(1);
   const [lastPage, setLastPage] = useState(1);
   const [busyId, setBusyId] = useState<number | null>(null);
-
-  /* The create/edit popup; `drill` null means a fresh one. */
-  const [form, setForm] = useState<{ drill: ApiDrill | null } | null>(null);
-  const [opened, setOpened] = useState<ApiDrill | null>(null);
 
   const load = useCallback(
     (signal?: AbortSignal) =>
@@ -94,43 +79,29 @@ export default function TrainerDrillsScreen() {
     [token, page],
   );
 
-  useEffect(() => {
-    if (!token) return;
-    const controller = new AbortController();
+  /* Refresh on focus so a drill saved on the board shows up on the way back. */
+  useFocusEffect(
+    useCallback(() => {
+      if (!token) return;
+      const controller = new AbortController();
 
-    load(controller.signal).catch((e) => {
-      if (controller.signal.aborted) return;
-      if (e instanceof ApiError && e.status === 401) {
-        signOut();
-        router.replace('/login');
-      }
-    });
-
-    return () => controller.abort();
-  }, [token, router, signOut, load]);
-
-  const current = Math.min(page, Math.max(1, lastPage));
-
-  /** Loads the full drill (its board schema) before showing the detail popup. */
-  const open = (d: ApiDrill) => {
-    if (!token || busyId !== null) return;
-    setBusyId(d.id);
-    getDrill(token, d.id)
-      .then((res) => setOpened(res.data))
-      .catch((e) => {
+      load(controller.signal).catch((e) => {
+        if (controller.signal.aborted) return;
         if (e instanceof ApiError && e.status === 401) {
           signOut();
           router.replace('/login');
-          return;
         }
-        Alert.alert(
-          'Veprimi dështoi',
-          e instanceof ApiError && e.status !== 0 && e.message
-            ? e.message
-            : 'Nuk mund të lidhemi me serverin. Kontrollo lidhjen.',
-        );
-      })
-      .finally(() => setBusyId(null));
+      });
+
+      return () => controller.abort();
+    }, [token, router, signOut, load]),
+  );
+
+  const current = Math.min(page, Math.max(1, lastPage));
+
+  const open = (d: ApiDrill) => {
+    if (busyId !== null) return;
+    router.push({ pathname: '/taktik-bord-trajner', params: { id: String(d.id) } });
   };
 
   const confirmDelete = (d: ApiDrill) => {
@@ -179,7 +150,7 @@ export default function TrainerDrillsScreen() {
                 accessibilityLabel="Kthehu prapa"
                 style={({ pressed }) => [styles.backBtn, pressed && styles.pressed]}
               >
-                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.text} />
+                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.textText} />
               </Pressable>
               <View style={styles.headerText}>
                 <Text style={styles.title} numberOfLines={1}>
@@ -201,7 +172,7 @@ export default function TrainerDrillsScreen() {
           <View style={styles.colPad}>
             {/* ── Stërvitje e re ─────────────────────────────────── */}
             <Pressable
-              onPress={() => setForm({ drill: null })}
+              onPress={() => router.push('/taktik-bord-trajner')}
               accessibilityRole="button"
               accessibilityLabel="Stërvitje e re"
               style={({ pressed }) => [styles.addBtn, pressed && styles.pressed]}
@@ -238,7 +209,7 @@ export default function TrainerDrillsScreen() {
                         <MaterialCommunityIcons
                           name="clock-outline"
                           size={I(12)}
-                          color={C.text}
+                          color={C.textText}
                         />
                         <Text style={styles.metaLeftText} numberOfLines={1}>
                           {d.duration_minutes != null ? `${d.duration_minutes} min` : '—'}
@@ -251,7 +222,7 @@ export default function TrainerDrillsScreen() {
 
                     <View style={[styles.metaRow, styles.metaRowGap]}>
                       <View style={styles.metaLeft}>
-                        <MaterialCommunityIcons name="reload" size={I(12)} color={C.text} />
+                        <MaterialCommunityIcons name="reload" size={I(12)} color={C.textText} />
                         <Text style={styles.metaLeftText} numberOfLines={1}>
                           {d.repetitions != null ? `x${d.repetitions}` : '—'}
                         </Text>
@@ -268,6 +239,7 @@ export default function TrainerDrillsScreen() {
                         disabled={busyId !== null}
                         accessibilityRole="button"
                         accessibilityLabel={`Hap ${d.title}`}
+                        hitSlop={{ top: 7, bottom: 7, left: 4, right: 4 }}
                         style={({ pressed }) => [
                           styles.actHap,
                           busyId !== null && styles.actOff,
@@ -281,6 +253,7 @@ export default function TrainerDrillsScreen() {
                         disabled={busyId !== null}
                         accessibilityRole="button"
                         accessibilityLabel={`Fshi ${d.title}`}
+                        hitSlop={{ top: 7, bottom: 7, left: 4, right: 4 }}
                         style={({ pressed }) => [
                           styles.actDel,
                           busyId !== null && styles.actOff,
@@ -310,7 +283,7 @@ export default function TrainerDrillsScreen() {
                     pressed && styles.pressed,
                   ]}
                 >
-                  <MaterialCommunityIcons name="chevron-left" size={I(22)} color={C.text} />
+                  <MaterialCommunityIcons name="chevron-left" size={I(22)} color={C.textText} />
                 </Pressable>
 
                 {pageWindow(current, lastPage).map((p) => (
@@ -340,321 +313,14 @@ export default function TrainerDrillsScreen() {
                     pressed && styles.pressed,
                   ]}
                 >
-                  <MaterialCommunityIcons name="chevron-right" size={I(22)} color={C.text} />
+                  <MaterialCommunityIcons name="chevron-right" size={I(22)} color={C.textText} />
                 </Pressable>
               </View>
             ) : null}
           </View>
         </ScrollView>
       </View>
-
-      {/* Overlays on the SafeAreaView so the blur covers the whole screen */}
-      {form ? (
-        <DrillFormModal
-          token={token}
-          drill={form.drill}
-          onClose={() => setForm(null)}
-          onSaved={() => {
-            setForm(null);
-            load().catch(() => setForm(null));
-          }}
-        />
-      ) : null}
-
-      {opened ? (
-        <DrillDetailModal
-          drill={opened}
-          onClose={() => setOpened(null)}
-          onEdit={() => {
-            setOpened(null);
-            setForm({ drill: opened });
-          }}
-        />
-      ) : null}
     </SafeAreaView>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/* Create / edit popup                                                 */
-/* ------------------------------------------------------------------ */
-
-function DrillFormModal({
-  token,
-  drill,
-  onClose,
-  onSaved,
-}: {
-  token: string | null;
-  /* The drill being edited; null creates a new one. */
-  drill: ApiDrill | null;
-  onClose: () => void;
-  onSaved: () => void;
-}) {
-  const editing = drill != null;
-
-  const [title, setTitle] = useState(drill?.title ?? '');
-  const [description, setDescription] = useState(drill?.description ?? '');
-  const [category, setCategory] = useState(drill?.category ?? '');
-  const [minutes, setMinutes] = useState(
-    drill?.duration_minutes != null ? String(drill.duration_minutes) : '',
-  );
-  const [reps, setReps] = useState(
-    drill?.repetitions != null ? String(drill.repetitions) : '',
-  );
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const save = () => {
-    if (!token || saving) return;
-
-    const trimmedTitle = title.trim();
-    if (!trimmedTitle) {
-      setError('Shkruaj titullin e ushtrimit.');
-      return;
-    }
-
-    const input: DrillInput = {
-      title: trimmedTitle,
-      description: description.trim() || null,
-      category: category.trim() || null,
-      duration_minutes: minutes.trim() ? Number(minutes.trim()) : null,
-      repetitions: reps.trim() ? Number(reps.trim()) : null,
-    };
-
-    setSaving(true);
-    setError(null);
-
-    const request = drill
-      ? updateDrill(token, drill.id, input)
-      : createDrill(token, input);
-
-    request
-      .then(() => onSaved())
-      .catch((e) => {
-        setSaving(false);
-        if (e instanceof ApiError && e.status === 422 && e.fieldErrors) {
-          setError(Object.values(e.fieldErrors)[0]?.[0] ?? 'Të dhënat nuk janë të vlefshme.');
-        } else if (e instanceof ApiError && e.status === 0) {
-          setError('Nuk mund të lidhemi me serverin. Kontrollo lidhjen.');
-        } else {
-          setError(
-            editing ? 'Ushtrimi nuk mund të përditësohet.' : 'Ushtrimi nuk mund të krijohet.',
-          );
-        }
-      });
-  };
-
-  return (
-    <View style={styles.ovWrap}>
-      <BlurView style={styles.ovFill} intensity={45} tint="dark" />
-      <Pressable
-        style={[styles.ovFill, styles.ovDim]}
-        onPress={onClose}
-        accessibilityRole="button"
-        accessibilityLabel="Mbylle dritaren"
-      />
-
-      <View style={styles.nsCard}>
-        <View style={styles.nsHeader}>
-          <Text style={styles.nsTitle}>
-            {editing ? 'Edito ushtrimin' : 'Stërvitje e re'}
-          </Text>
-        </View>
-        <View style={styles.nsDivider} />
-
-        <View style={styles.nsBody}>
-          <View>
-            <Text style={styles.nsLabel}>Titulli:</Text>
-            <TextInput
-              value={title}
-              onChangeText={setTitle}
-              autoCorrect={false}
-              allowFontScaling={false}
-              placeholder="Rondo 5v2"
-              placeholderTextColor={C.gray}
-              style={styles.nsInput}
-            />
-          </View>
-
-          <View style={styles.nsRow}>
-            <View style={styles.nsCol}>
-              <Text style={styles.nsLabel}>Kategoria:</Text>
-              <TextInput
-                value={category}
-                onChangeText={setCategory}
-                autoCorrect={false}
-                allowFontScaling={false}
-                placeholder="Pasim"
-                placeholderTextColor={C.gray}
-                style={styles.nsInput}
-              />
-            </View>
-            <View style={styles.nsCol}>
-              <Text style={styles.nsLabel}>Kohëzgjatja (min):</Text>
-              <TextInput
-                value={minutes}
-                onChangeText={setMinutes}
-                keyboardType="number-pad"
-                allowFontScaling={false}
-                placeholder="15"
-                placeholderTextColor={C.gray}
-                style={styles.nsInput}
-              />
-            </View>
-            <View style={styles.nsCol}>
-              <Text style={styles.nsLabel}>Përsëritje:</Text>
-              <TextInput
-                value={reps}
-                onChangeText={setReps}
-                keyboardType="number-pad"
-                allowFontScaling={false}
-                placeholder="4"
-                placeholderTextColor={C.gray}
-                style={styles.nsInput}
-              />
-            </View>
-          </View>
-
-          <View>
-            <Text style={styles.nsLabel}>Përshkrimi:</Text>
-            <TextInput
-              value={description}
-              onChangeText={setDescription}
-              autoCorrect={false}
-              allowFontScaling={false}
-              multiline
-              placeholder="Shkruaj një përshkrim të shkurtër..."
-              placeholderTextColor={C.gray}
-              style={[styles.nsInput, styles.nsTextarea]}
-            />
-          </View>
-
-          {error ? (
-            <Text style={styles.nsError} numberOfLines={3}>
-              {error}
-            </Text>
-          ) : null}
-        </View>
-
-        <View style={styles.nsActions}>
-          <Pressable
-            onPress={onClose}
-            disabled={saving}
-            accessibilityRole="button"
-            style={({ pressed }) => [styles.nsCancel, pressed && styles.pressed]}
-          >
-            <Text style={styles.nsBtnText}>Anulo</Text>
-          </Pressable>
-          <Pressable
-            onPress={save}
-            disabled={saving}
-            accessibilityRole="button"
-            style={({ pressed }) => [
-              styles.nsSave,
-              saving && styles.nsSaveOff,
-              pressed && styles.pressed,
-            ]}
-          >
-            <Text style={styles.nsBtnText}>
-              {saving
-                ? editing
-                  ? 'Duke ruajtur…'
-                  : 'Duke krijuar…'
-                : editing
-                  ? 'Ruaj ndryshimet'
-                  : 'Krijo ushtrimin'}
-            </Text>
-          </Pressable>
-        </View>
-      </View>
-    </View>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/* "Hap" popup — the drill in full                                     */
-/* ------------------------------------------------------------------ */
-
-function DrillDetailModal({
-  drill,
-  onClose,
-  onEdit,
-}: {
-  drill: ApiDrill;
-  onClose: () => void;
-  onEdit: () => void;
-}) {
-  return (
-    <View style={styles.ovWrap}>
-      <BlurView style={styles.ovFill} intensity={45} tint="dark" />
-      <Pressable
-        style={[styles.ovFill, styles.ovDim]}
-        onPress={onClose}
-        accessibilityRole="button"
-        accessibilityLabel="Mbylle dritaren"
-      />
-
-      <View style={styles.dtCard}>
-        <View style={styles.dtHeader}>
-          <Text style={styles.dtTitle} numberOfLines={2}>
-            {drill.title}
-          </Text>
-        </View>
-        <View style={styles.dtDivider} />
-
-        <ScrollView
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.dtBody}
-        >
-          <DetailRow label="Kategoria" value={drill.category ?? '—'} />
-          <DetailRow
-            label="Kohëzgjatja"
-            value={drill.duration_minutes != null ? `${drill.duration_minutes} min` : '—'}
-          />
-          <DetailRow
-            label="Përsëritje"
-            value={drill.repetitions != null ? `x${drill.repetitions}` : '—'}
-          />
-          <DetailRow label="Shtuar" value={drillDate(drill.created_at)} />
-
-          <Text style={styles.dtLabel}>Përshkrimi</Text>
-          <Text style={styles.dtParagraph}>
-            {drill.description || 'Pa përshkrim.'}
-          </Text>
-        </ScrollView>
-
-        <View style={styles.nsActions}>
-          <Pressable
-            onPress={onEdit}
-            accessibilityRole="button"
-            style={({ pressed }) => [styles.nsEdit, pressed && styles.pressed]}
-          >
-            <Text style={styles.nsBtnText}>Edito</Text>
-          </Pressable>
-          <Pressable
-            onPress={onClose}
-            accessibilityRole="button"
-            style={({ pressed }) => [styles.nsSave, pressed && styles.pressed]}
-          >
-            <Text style={styles.nsBtnText}>Mbyll</Text>
-          </Pressable>
-        </View>
-      </View>
-    </View>
-  );
-}
-
-function DetailRow({ label, value }: { label: string; value: string }) {
-  return (
-    <View style={styles.dtRow}>
-      <Text style={styles.dtRowLabel} numberOfLines={1}>
-        {label}
-      </Text>
-      <Text style={styles.dtRowValue} numberOfLines={1}>
-        {value}
-      </Text>
-    </View>
   );
 }
 
@@ -662,7 +328,7 @@ function DetailRow({ label, value }: { label: string; value: string }) {
 /* Styles                                                              */
 /* ------------------------------------------------------------------ */
 
-const styles = StyleSheet.create(
+const createStyles = (C: AppColorsOf<typeof C_LIGHT>) => StyleSheet.create(
   scaled({
     safe: {
       flex: 1,
@@ -707,14 +373,14 @@ const styles = StyleSheet.create(
       fontSize: 20,
       lineHeight: 24,
       letterSpacing: -0.3,
-      color: C.text,
+      color: C.textText,
     },
 
     subtitle: {
       fontFamily: Fonts.body,
       fontSize: 12,
       lineHeight: 16,
-      color: C.gray,
+      color: C.grayText,
       marginTop: 1,
     },
 
@@ -731,16 +397,16 @@ const styles = StyleSheet.create(
       alignItems: 'center',
       justifyContent: 'center',
       paddingHorizontal: 12,
-      backgroundColor: C.green20,
+      backgroundColor: C.green20Fill,
       borderWidth: 1,
-      borderColor: C.frame,
+      borderColor: C.frameBorder,
       borderRadius: 4,
     },
 
     addText: {
       fontFamily: Fonts.bodyBold,
       fontSize: 12,
-      color: C.text,
+      color: C.textText,
     },
 
     /* ── Ushtrimet grid ──────────────────────────────────────── */
@@ -757,7 +423,7 @@ const styles = StyleSheet.create(
     card: {
       width: '48%',
       borderWidth: 1,
-      borderColor: C.frame,
+      borderColor: C.frameBorder,
       borderRadius: 7,
       overflow: 'hidden',
     },
@@ -766,33 +432,33 @@ const styles = StyleSheet.create(
       paddingHorizontal: 10,
       paddingTop: 9,
       paddingBottom: 8,
-      backgroundColor: C.blue2,
+      backgroundColor: C.blue2Fill,
     },
 
     cardTitle: {
       fontFamily: Fonts.bodyBold,
       fontSize: 13,
       lineHeight: 17,
-      color: C.text,
+      color: C.textText,
     },
 
     headLine: {
       height: 1,
-      backgroundColor: C.headLine,
+      backgroundColor: C.headLineFill,
     },
 
     cardBody: {
       paddingHorizontal: 10,
       paddingTop: 8,
       paddingBottom: 9,
-      backgroundColor: C.blue1,
+      backgroundColor: C.blue1Fill,
     },
 
     summary: {
       fontFamily: Fonts.body,
       fontSize: 10.5,
       lineHeight: 14,
-      color: C.text,
+      color: C.textText,
     },
 
     metaRow: {
@@ -816,7 +482,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodySemiBold,
       fontSize: 10.5,
       lineHeight: 13,
-      color: C.text,
+      color: C.textText,
     },
 
     metaRight: {
@@ -824,7 +490,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 10.5,
       lineHeight: 13,
-      color: C.hint,
+      color: C.hintText,
     },
 
     /* Both buttons ride the card's right edge, clear of the meta above. */
@@ -837,35 +503,37 @@ const styles = StyleSheet.create(
     },
 
     actHap: {
-      height: 24,
+      height: 30,
       paddingHorizontal: 10,
       alignItems: 'center',
       justifyContent: 'center',
       borderWidth: 1,
-      borderColor: C.blue,
-      borderRadius: 4,
+      borderColor: C.blueBorder,
+      borderRadius: 6,
     },
 
     actHapText: {
       fontFamily: Fonts.bodySemiBold,
-      fontSize: 10.5,
-      color: C.blue,
+      fontSize: 11.5,
+      lineHeight: 15,
+      color: C.blueText,
     },
 
     actDel: {
-      height: 24,
+      height: 30,
       paddingHorizontal: 10,
       alignItems: 'center',
       justifyContent: 'center',
       borderWidth: 1,
-      borderColor: C.red,
-      borderRadius: 4,
+      borderColor: C.redBorder,
+      borderRadius: 6,
     },
 
     actDelText: {
       fontFamily: Fonts.bodySemiBold,
-      fontSize: 10.5,
-      color: C.red,
+      fontSize: 11.5,
+      lineHeight: 15,
+      color: C.redText,
     },
 
     /* A disabled card action — one mid-request. */
@@ -892,18 +560,18 @@ const styles = StyleSheet.create(
     },
 
     pageSq: {
-      width: 34,
-      height: 34,
-      borderRadius: 5,
-      backgroundColor: C.blue,
+      width: 44,
+      height: 44,
+      borderRadius: 10,
+      backgroundColor: C.blueFill,
       alignItems: 'center',
       justifyContent: 'center',
     },
 
     pageSqActive: {
-      width: 34,
-      height: 34,
-      borderRadius: 5,
+      width: 44,
+      height: 44,
+      borderRadius: 10,
       backgroundColor: '#4E90D8',
       alignItems: 'center',
       justifyContent: 'center',
@@ -912,250 +580,12 @@ const styles = StyleSheet.create(
     pageSqText: {
       fontFamily: Fonts.bodySemiBold,
       fontSize: 14,
-      color: '#F5F5F5',
+      color: '#FFFFFF',
     },
 
     pressed: {
       opacity: 0.5,
     },
 
-    /* ── Overlay (full-screen blur + dim + centered popup) ───── */
-    ovWrap: {
-      position: 'absolute',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      zIndex: 20,
-      alignItems: 'center',
-      justifyContent: 'center',
-      paddingBottom: 150,
-    },
-
-    ovFill: {
-      position: 'absolute',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-    },
-
-    ovDim: {
-      backgroundColor: 'rgba(0,0,0,0.42)',
-    },
-
-    /* ── Popups ──────────────────────────────────────────────── */
-    nsCard: {
-      width: '88%',
-      maxWidth: 360,
-      backgroundColor: '#F5F5F5',
-      borderWidth: 1,
-      borderColor: C.green,
-      borderRadius: 6,
-      overflow: 'hidden',
-      shadowColor: '#000000',
-      shadowOffset: { width: 0, height: 5 },
-      shadowOpacity: 0.15,
-      shadowRadius: 20,
-      elevation: 8,
-    },
-
-    nsHeader: {
-      alignItems: 'center',
-      justifyContent: 'center',
-      paddingVertical: 12,
-    },
-
-    nsTitle: {
-      fontFamily: Fonts.bodyBold,
-      fontSize: 17,
-      lineHeight: 21,
-      color: C.text,
-    },
-
-    nsDivider: {
-      height: 1,
-      backgroundColor: C.green20,
-    },
-
-    nsBody: {
-      paddingHorizontal: 14,
-      paddingTop: 14,
-      paddingBottom: 2,
-      gap: 12,
-    },
-
-    nsRow: {
-      flexDirection: 'row',
-      gap: 10,
-    },
-
-    nsCol: {
-      flex: 1,
-    },
-
-    nsLabel: {
-      fontFamily: Fonts.body,
-      fontSize: 12,
-      lineHeight: 15,
-      color: C.gray,
-      marginBottom: 5,
-    },
-
-    nsInput: {
-      height: 32,
-      borderWidth: 1,
-      borderColor: '#000000',
-      borderRadius: 4,
-      paddingHorizontal: 9,
-      paddingVertical: 0,
-      fontFamily: Fonts.body,
-      fontSize: 12,
-      lineHeight: 15,
-      color: C.text,
-    },
-
-    nsTextarea: {
-      height: 64,
-      paddingTop: 7,
-      paddingBottom: 7,
-    },
-
-    nsActions: {
-      flexDirection: 'row',
-      justifyContent: 'flex-end',
-      gap: 8,
-      padding: 14,
-      paddingTop: 12,
-    },
-
-    nsCancel: {
-      height: 32,
-      paddingHorizontal: 16,
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: C.red,
-      borderRadius: 4,
-    },
-
-    nsSave: {
-      height: 32,
-      paddingHorizontal: 16,
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: C.green,
-      borderRadius: 4,
-    },
-
-    nsEdit: {
-      height: 32,
-      paddingHorizontal: 16,
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: C.blue,
-      borderRadius: 4,
-    },
-
-    nsSaveOff: {
-      opacity: 0.6,
-    },
-
-    nsError: {
-      fontFamily: Fonts.body,
-      fontSize: 11.5,
-      lineHeight: 15,
-      color: C.red,
-    },
-
-    nsBtnText: {
-      fontFamily: Fonts.bodySemiBold,
-      fontSize: 12.5,
-      color: '#F5F5F5',
-    },
-
-    /* ── "Hap" popup ─────────────────────────────────────────── */
-    dtCard: {
-      width: '88%',
-      maxWidth: 360,
-      maxHeight: '70%',
-      backgroundColor: '#F5F5F5',
-      borderWidth: 1,
-      borderColor: C.blue,
-      borderRadius: 6,
-      overflow: 'hidden',
-      shadowColor: '#000000',
-      shadowOffset: { width: 0, height: 5 },
-      shadowOpacity: 0.15,
-      shadowRadius: 20,
-      elevation: 8,
-    },
-
-    dtHeader: {
-      alignItems: 'center',
-      justifyContent: 'center',
-      paddingHorizontal: 14,
-      paddingVertical: 12,
-    },
-
-    dtTitle: {
-      textAlign: 'center',
-      fontFamily: Fonts.bodyBold,
-      fontSize: 17,
-      lineHeight: 21,
-      color: C.text,
-    },
-
-    dtDivider: {
-      height: 1,
-      backgroundColor: C.headLine,
-    },
-
-    dtBody: {
-      paddingHorizontal: 14,
-      paddingTop: 12,
-      paddingBottom: 2,
-    },
-
-    dtRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      gap: 8,
-      paddingVertical: 6,
-      borderBottomWidth: 1,
-      borderBottomColor: C.headLine,
-    },
-
-    dtRowLabel: {
-      fontFamily: Fonts.body,
-      fontSize: 12,
-      lineHeight: 15,
-      color: C.hint,
-    },
-
-    dtRowValue: {
-      flexShrink: 1,
-      fontFamily: Fonts.bodySemiBold,
-      fontSize: 12,
-      lineHeight: 15,
-      color: C.text,
-    },
-
-    dtLabel: {
-      fontFamily: Fonts.bodySemiBold,
-      fontSize: 12,
-      lineHeight: 15,
-      color: C.text,
-      marginTop: 12,
-      marginBottom: 4,
-    },
-
-    dtParagraph: {
-      fontFamily: Fonts.body,
-      fontSize: 12,
-      lineHeight: 17,
-      color: C.text,
-      paddingBottom: 4,
-    },
   }),
 );

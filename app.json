@@ -3,7 +3,7 @@
     "name": "GoalHubApp",
     "slug": "GoalHubApp",
     "version": "1.0.0",
-    "orientation": "portrait",
+    "orientation": "default",
     "icon": "./assets/images/goalhub-logo.png",
     "scheme": "goalhubapp",
     "userInterfaceStyle": "light",

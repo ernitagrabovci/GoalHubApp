@@ -13,6 +13,7 @@ import type { ApiTrainingMaterial } from '@/lib/api/types';
 import { levelLabel } from '@/lib/library';
 import { I, scaled } from '@/lib/responsive';
 import { useSession } from '@/lib/session';
+import { useAppColors, usePaletteStyles, type AppColorsOf } from '@/lib/app-theme';
 
 /**
  * Akademia — the player's own view, opened from the "Akademia" card on the
@@ -22,16 +23,20 @@ import { useSession } from '@/lib/session';
  * arrives there: nothing yet, which the card says outright.
  */
 
-const C = {
-  page: '#FAFBFA',
+const C_LIGHT = {
+  page: '#F7F9F8',
   line: 'rgba(0,0,0,0.025)',
 
-  text: '#111111',
-  gray: '#8A8A8A',
+  text: '#17251E',
+  gray: '#52645A',
 
   /* The card's pale wash and its blue rim. */
-  blue2: '#F6FBFF',
+  blue2: '#F7F9F8',
   border: 'rgba(100,140,190,0.30)',
+
+  /* Shared material badge (mint pill with deep-green label). */
+  mintBg: '#DCEEE8',
+  mintInk: '#0F3D2E',
 };
 
 const MONTHS = [
@@ -60,6 +65,8 @@ function formatDate(iso: string | null): string {
 }
 
 export default function PlayerAcademyScreen() {
+  const C = useAppColors(C_LIGHT);
+  const styles = usePaletteStyles(createStyles, C);
   const router = useRouter();
   const { token, signOut } = useSession();
 
@@ -116,7 +123,7 @@ export default function PlayerAcademyScreen() {
                 accessibilityLabel="Kthehu prapa"
                 style={({ pressed }) => [styles.backBtn, pressed && styles.pressed]}
               >
-                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.text} />
+                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.textText} />
               </Pressable>
               <View style={styles.headerText}>
                 <Text
@@ -175,7 +182,7 @@ export default function PlayerAcademyScreen() {
                     pressed && styles.pressed,
                   ]}
                 >
-                  <MaterialCommunityIcons name="chevron-left" size={I(18)} color={C.text} />
+                  <MaterialCommunityIcons name="chevron-left" size={I(18)} color={C.textText} />
                 </Pressable>
                 <Text style={styles.pagerText}>
                   {current} / {lastPage}
@@ -192,7 +199,7 @@ export default function PlayerAcademyScreen() {
                     pressed && styles.pressed,
                   ]}
                 >
-                  <MaterialCommunityIcons name="chevron-right" size={I(18)} color={C.text} />
+                  <MaterialCommunityIcons name="chevron-right" size={I(18)} color={C.textText} />
                 </Pressable>
               </View>
             ) : null}
@@ -208,6 +215,8 @@ export default function PlayerAcademyScreen() {
 /* ------------------------------------------------------------------ */
 
 function MaterialCard({ material }: { material: ApiTrainingMaterial }) {
+  const C = useAppColors(C_LIGHT);
+  const styles = usePaletteStyles(createStyles, C);
   return (
     <View style={styles.material}>
       <Text style={styles.materialTitle} numberOfLines={2}>
@@ -239,7 +248,7 @@ function MaterialCard({ material }: { material: ApiTrainingMaterial }) {
 /* Styles                                                              */
 /* ------------------------------------------------------------------ */
 
-const styles = StyleSheet.create(
+const createStyles = (C: AppColorsOf<typeof C_LIGHT>) => StyleSheet.create(
   scaled({
     safe: {
       flex: 1,
@@ -284,14 +293,14 @@ const styles = StyleSheet.create(
       fontSize: 20,
       lineHeight: 24,
       letterSpacing: -0.3,
-      color: C.text,
+      color: C.textText,
     },
 
     subtitle: {
       fontFamily: Fonts.body,
       fontSize: 12,
       lineHeight: 16,
-      color: C.gray,
+      color: C.grayText,
       marginTop: 1,
     },
 
@@ -306,9 +315,9 @@ const styles = StyleSheet.create(
       justifyContent: 'center',
       paddingHorizontal: 20,
       paddingVertical: 34,
-      backgroundColor: C.blue2,
+      backgroundColor: C.blue2Fill,
       borderWidth: 2,
-      borderColor: C.border,
+      borderColor: C.borderBorder,
       borderRadius: 7,
     },
 
@@ -316,7 +325,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodyBold,
       fontSize: 13.5,
       lineHeight: 18,
-      color: C.text,
+      color: C.textText,
       textAlign: 'center',
     },
 
@@ -324,7 +333,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 11.5,
       lineHeight: 16,
-      color: C.gray,
+      color: C.grayText,
       textAlign: 'center',
       marginTop: 5,
     },
@@ -332,9 +341,9 @@ const styles = StyleSheet.create(
     /* ── Material cards ──────────────────────────────────────── */
     material: {
       marginTop: 10,
-      backgroundColor: C.blue2,
+      backgroundColor: C.blue2Fill,
       borderWidth: 1,
-      borderColor: C.border,
+      borderColor: C.borderBorder,
       borderRadius: 7,
       paddingHorizontal: 14,
       paddingVertical: 12,
@@ -344,7 +353,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodyBold,
       fontSize: 14,
       lineHeight: 18,
-      color: C.text,
+      color: C.textText,
     },
 
     badgeRow: {
@@ -358,8 +367,8 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodySemiBold,
       fontSize: 10,
       lineHeight: 13,
-      color: '#0F3D2E',
-      backgroundColor: '#DCEEE8',
+      color: C.mintInkText,
+      backgroundColor: C.mintBgFill,
       borderRadius: 3,
       paddingHorizontal: 7,
       paddingVertical: 2,
@@ -370,7 +379,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 11.5,
       lineHeight: 16,
-      color: C.gray,
+      color: C.grayText,
       marginTop: 8,
     },
 
@@ -382,14 +391,14 @@ const styles = StyleSheet.create(
       marginTop: 10,
       paddingTop: 8,
       borderTopWidth: 1,
-      borderTopColor: C.border,
+      borderTopColor: C.borderBorder,
     },
 
     materialFootText: {
       fontFamily: Fonts.body,
       fontSize: 10.5,
       lineHeight: 14,
-      color: C.gray,
+      color: C.grayText,
       flexShrink: 1,
     },
 
@@ -408,9 +417,9 @@ const styles = StyleSheet.create(
       alignItems: 'center',
       justifyContent: 'center',
       borderWidth: 1,
-      borderColor: C.border,
+      borderColor: C.borderBorder,
       borderRadius: 4,
-      backgroundColor: C.blue2,
+      backgroundColor: C.blue2Fill,
     },
 
     pagerDisabled: {
@@ -420,7 +429,7 @@ const styles = StyleSheet.create(
     pagerText: {
       fontFamily: Fonts.bodySemiBold,
       fontSize: 12,
-      color: C.gray,
+      color: C.grayText,
     },
 
     pressed: {

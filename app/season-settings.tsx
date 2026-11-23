@@ -20,23 +20,27 @@ import { ApiError } from '@/lib/api/errors';
 import type { ApiSeason } from '@/lib/api/types';
 import { I, scaled } from '@/lib/responsive';
 import { useSession } from '@/lib/session';
+import { useAppColors, usePaletteStyles, type AppColorsOf } from '@/lib/app-theme';
+import { useGlass } from '@/lib/glass';
 
 /**
  * Cilësimet e sezonit — the third settings sub-page.
  *
- * Same light #FAFBFA canvas. A glassy green "active season" banner, a
+ * Same light #F7F9F8 canvas. A glassy green "active season" banner, a
  * "+ Sezoni i ri" button, then the blue "Të gjitha sezonat" table which
  * scrolls sideways (too many columns to fit the screen).
  */
 
-const C = {
-  page: '#FAFBFA',
+const C_LIGHT = {
+  white: '#FFFFFF',
+  frame: '#DCE5DF',
+  page: '#F7F9F8',
   line: 'rgba(0,0,0,0.025)',
 
-  text: '#111111',
-  gray: '#8A8A8A',
+  text: '#17251E',
+  gray: '#52645A',
 
-  card: '#F6FBFF',
+  card: '#F7F9F8',
   border: 'rgba(100,140,190,0.30)',
   headLine: 'rgba(30,40,35,0.10)',
   rowLine: 'rgba(100,140,190,0.22)',
@@ -49,7 +53,7 @@ const C = {
   newBtnBorder: '#000000',
 
   actGreen: '#059C57',
-  red: '#E03131',
+  red: '#B91C1C',
 };
 
 type Col = { key: string; label: string; width: number };
@@ -83,6 +87,9 @@ function durationDays(start: string | null | undefined, end: string | null | und
 }
 
 export default function SeasonSettingsScreen() {
+  const glass = useGlass();
+  const C = useAppColors(C_LIGHT);
+  const styles = usePaletteStyles(createStyles, C);
   const router = useRouter();
   const { token, signOut } = useSession();
   // The rows area measures itself so the blank rows can fill it exactly —
@@ -181,7 +188,7 @@ export default function SeasonSettingsScreen() {
                 accessibilityLabel="Kthehu prapa"
                 style={({ pressed }) => [styles.backBtn, pressed && styles.pressed]}
               >
-                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.text} />
+                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.textText} />
               </Pressable>
               <View style={styles.headerText}>
                 <Text style={styles.title}>Cilësimet e sezonit</Text>
@@ -195,7 +202,7 @@ export default function SeasonSettingsScreen() {
           <View style={[styles.colPad, styles.bodyCol]}>
             {/* ── Active season banner (glassy green) ──────────── */}
             <View style={styles.banner}>
-              <BlurView intensity={40} tint="light" style={StyleSheet.absoluteFill} />
+              <BlurView intensity={40} tint={glass.tint} style={StyleSheet.absoluteFill} />
               <View pointerEvents="none" style={styles.bannerTint} />
               <View style={styles.bannerText}>
                 <Text style={styles.bannerTitle} numberOfLines={1}>
@@ -214,6 +221,7 @@ export default function SeasonSettingsScreen() {
             <Pressable
               onPress={() => setCreating(true)}
               accessibilityRole="button"
+              hitSlop={{ top: 3, bottom: 3 }}
               style={({ pressed }) => [styles.newBtn, pressed && styles.pressed]}
             >
               <Text style={styles.newBtnText}>+ Sezoni i ri</Text>
@@ -276,6 +284,7 @@ export default function SeasonSettingsScreen() {
                                   disabled={s.is_active || busyId !== null}
                                   accessibilityRole="button"
                                   accessibilityLabel={`Aktivizo sezonin ${s.name}`}
+                                  hitSlop={{ top: 7, bottom: 7, left: 4, right: 4 }}
                                   style={({ pressed }) => [
                                     styles.actBtn,
                                     (s.is_active || busyId !== null) && styles.actOff,
@@ -289,6 +298,7 @@ export default function SeasonSettingsScreen() {
                                   disabled={s.is_active || busyId !== null}
                                   accessibilityRole="button"
                                   accessibilityLabel={`Fshi sezonin ${s.name}`}
+                                  hitSlop={{ top: 7, bottom: 7, left: 4, right: 4 }}
                                   style={({ pressed }) => [
                                     styles.delBtn,
                                     (s.is_active || busyId !== null) && styles.actOff,
@@ -346,6 +356,8 @@ function NewSeasonModal({
   onClose: () => void;
   onCreated: () => void;
 }) {
+  const C = useAppColors(C_LIGHT);
+  const styles = usePaletteStyles(createStyles, C);
   const [name, setName] = useState('');
   const [start, setStart] = useState('');
   const [end, setEnd] = useState('');
@@ -415,7 +427,7 @@ function NewSeasonModal({
               autoCorrect={false}
               allowFontScaling={false}
               placeholder="2025/2026"
-              placeholderTextColor={C.gray}
+              placeholderTextColor={C.grayText}
               style={styles.nsInput}
             />
           </View>
@@ -429,7 +441,7 @@ function NewSeasonModal({
                 autoCorrect={false}
                 allowFontScaling={false}
                 placeholder="VVVV-MM-DD"
-                placeholderTextColor={C.gray}
+                placeholderTextColor={C.grayText}
                 style={styles.nsInput}
               />
             </View>
@@ -441,7 +453,7 @@ function NewSeasonModal({
                 autoCorrect={false}
                 allowFontScaling={false}
                 placeholder="VVVV-MM-DD"
-                placeholderTextColor={C.gray}
+                placeholderTextColor={C.grayText}
                 style={styles.nsInput}
               />
             </View>
@@ -485,7 +497,7 @@ function NewSeasonModal({
 /* Styles                                                              */
 /* ------------------------------------------------------------------ */
 
-const styles = StyleSheet.create(
+const createStyles = (C: AppColorsOf<typeof C_LIGHT>) => StyleSheet.create(
   scaled({
     safe: {
       flex: 1,
@@ -530,14 +542,14 @@ const styles = StyleSheet.create(
       fontSize: 20,
       lineHeight: 24,
       letterSpacing: -0.3,
-      color: C.text,
+      color: C.textText,
     },
 
     subtitle: {
       fontFamily: Fonts.body,
       fontSize: 12,
       lineHeight: 16,
-      color: C.gray,
+      color: C.grayText,
       marginTop: 1,
     },
 
@@ -558,7 +570,7 @@ const styles = StyleSheet.create(
       flexDirection: 'row',
       alignItems: 'center',
       borderWidth: 1,
-      borderColor: C.green,
+      borderColor: C.greenBorder,
       borderRadius: 6,
       paddingHorizontal: 13,
       paddingVertical: 11,
@@ -571,7 +583,7 @@ const styles = StyleSheet.create(
       left: 0,
       right: 0,
       bottom: 0,
-      backgroundColor: C.greenSoft,
+      backgroundColor: C.greenSoftFill,
     },
 
     bannerText: {
@@ -583,19 +595,19 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodyBold,
       fontSize: 14.5,
       lineHeight: 18,
-      color: C.green,
+      color: C.greenText,
     },
 
     bannerDates: {
       fontFamily: Fonts.body,
       fontSize: 12.5,
       lineHeight: 16,
-      color: C.green,
+      color: C.greenText,
       marginTop: 2,
     },
 
     activeBtn: {
-      backgroundColor: C.green,
+      backgroundColor: C.greenFill,
       borderRadius: 4,
       paddingHorizontal: 15,
       paddingVertical: 8,
@@ -604,7 +616,7 @@ const styles = StyleSheet.create(
     activeBtnText: {
       fontFamily: Fonts.bodySemiBold,
       fontSize: 12.5,
-      color: '#F5F5F5',
+      color: '#FFFFFF',
     },
 
     /* + Sezoni i ri */
@@ -615,16 +627,16 @@ const styles = StyleSheet.create(
       paddingHorizontal: 18,
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: C.newBtnBg,
+      backgroundColor: C.newBtnBgFill,
       borderWidth: 1,
-      borderColor: C.newBtnBorder,
+      borderColor: C.newBtnBorderBorder,
       borderRadius: 4,
     },
 
     newBtnText: {
       fontFamily: Fonts.bodySemiBold,
       fontSize: 13,
-      color: '#000000',
+      color: C.textText,
     },
 
     /* Të gjitha sezonat table */
@@ -632,9 +644,9 @@ const styles = StyleSheet.create(
       flex: 1,
       minHeight: 0,
       marginTop: 14,
-      backgroundColor: C.card,
+      backgroundColor: C.cardFill,
       borderWidth: 2,
-      borderColor: C.border,
+      borderColor: C.borderBorder,
       borderRadius: 7,
       overflow: 'hidden',
     },
@@ -645,14 +657,14 @@ const styles = StyleSheet.create(
       paddingHorizontal: 12,
       paddingVertical: 11,
       borderBottomWidth: 1,
-      borderBottomColor: C.headLine,
+      borderBottomColor: C.headLineBorder,
     },
 
     cardHeadText: {
       fontFamily: Fonts.bodyBold,
       fontSize: 16,
       lineHeight: 20,
-      color: C.text,
+      color: C.textText,
     },
 
     /* Rows area — measured so the blank rows can fill it exactly. */
@@ -678,19 +690,19 @@ const styles = StyleSheet.create(
     },
 
     thRow: {
-      backgroundColor: C.thBg,
+      backgroundColor: C.thBgFill,
     },
 
     trBorder: {
       borderTopWidth: 1,
-      borderTopColor: C.rowLine,
+      borderTopColor: C.rowLineBorder,
     },
 
     th: {
       fontFamily: Fonts.bodySemiBold,
       fontSize: 11.5,
       lineHeight: 14,
-      color: C.gray,
+      color: C.grayText,
       textAlign: 'center',
     },
 
@@ -703,7 +715,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 11.5,
       lineHeight: 14,
-      color: C.text,
+      color: C.textText,
       textAlign: 'center',
     },
 
@@ -715,19 +727,20 @@ const styles = StyleSheet.create(
     },
 
     actBtn: {
-      height: 24,
-      paddingHorizontal: 9,
+      height: 30,
+      paddingHorizontal: 10,
       alignItems: 'center',
       justifyContent: 'center',
       borderWidth: 1,
-      borderColor: C.actGreen,
-      borderRadius: 3,
+      borderColor: C.actGreenBorder,
+      borderRadius: 6,
     },
 
     actBtnText: {
       fontFamily: Fonts.bodySemiBold,
-      fontSize: 10.5,
-      color: C.actGreen,
+      fontSize: 11.5,
+      lineHeight: 15,
+      color: C.actGreenText,
     },
 
     /* A disabled row action — the active season, or one mid-request. */
@@ -736,19 +749,20 @@ const styles = StyleSheet.create(
     },
 
     delBtn: {
-      height: 24,
-      paddingHorizontal: 9,
+      height: 30,
+      paddingHorizontal: 10,
       alignItems: 'center',
       justifyContent: 'center',
       borderWidth: 1,
-      borderColor: C.red,
-      borderRadius: 3,
+      borderColor: C.redBorder,
+      borderRadius: 6,
     },
 
     delBtnText: {
       fontFamily: Fonts.bodySemiBold,
-      fontSize: 10.5,
-      color: C.red,
+      fontSize: 11.5,
+      lineHeight: 15,
+      color: C.redText,
     },
 
     pressed: {
@@ -786,9 +800,9 @@ const styles = StyleSheet.create(
     nsCard: {
       width: '86%',
       maxWidth: 340,
-      backgroundColor: '#F5F5F5',
+      backgroundColor: C.whiteFill,
       borderWidth: 1,
-      borderColor: C.green,
+      borderColor: C.greenBorder,
       borderRadius: 6,
       overflow: 'hidden',
       shadowColor: '#000000',
@@ -808,12 +822,12 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodyBold,
       fontSize: 17,
       lineHeight: 21,
-      color: C.text,
+      color: C.textText,
     },
 
     nsDivider: {
       height: 1,
-      backgroundColor: C.greenSoft,
+      backgroundColor: C.greenSoftFill,
     },
 
     nsBody: {
@@ -836,21 +850,21 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 12,
       lineHeight: 15,
-      color: C.gray,
+      color: C.grayText,
       marginBottom: 5,
     },
 
     nsInput: {
       height: 32,
       borderWidth: 1,
-      borderColor: '#000000',
+      borderColor: C.frameBorder,
       borderRadius: 4,
       paddingHorizontal: 9,
       paddingVertical: 0,
       fontFamily: Fonts.body,
       fontSize: 12,
       lineHeight: 15,
-      color: C.text,
+      color: C.textText,
     },
 
     nsActions: {
@@ -862,21 +876,21 @@ const styles = StyleSheet.create(
     },
 
     nsCancel: {
-      height: 32,
+      height: 44,
       paddingHorizontal: 16,
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: C.red,
-      borderRadius: 4,
+      backgroundColor: C.redFill,
+      borderRadius: 10,
     },
 
     nsSave: {
-      height: 32,
+      height: 44,
       paddingHorizontal: 16,
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: C.green,
-      borderRadius: 4,
+      backgroundColor: C.greenFill,
+      borderRadius: 10,
     },
 
     nsSaveOff: {
@@ -887,13 +901,14 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 11.5,
       lineHeight: 15,
-      color: C.red,
+      color: C.redText,
     },
 
     nsBtnText: {
       fontFamily: Fonts.bodySemiBold,
-      fontSize: 12.5,
-      color: '#F5F5F5',
+      fontSize: 13,
+      lineHeight: 18,
+      color: '#FFFFFF',
     },
   }),
 );

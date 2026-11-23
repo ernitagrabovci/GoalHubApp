@@ -14,8 +14,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
 import { DashboardHero } from '@/components/dashboard/dashboard-hero';
+import { DashboardC } from '@/constants/dashboard-theme';
+import { useAppColors, usePaletteStyles, useThemedColor, type AppColorsOf } from '@/lib/app-theme';
+import { useGlass } from '@/lib/glass';
 import { Fonts } from '@/constants/theme';
-import { ApiError } from '@/lib/api/errors';
+import { ApiError, loadErrorMessage } from '@/lib/api/errors';
 import { listMyMatches } from '@/lib/api/matches';
 import { badges } from '@/lib/api/notifications';
 import { myPlayer, myStatistics } from '@/lib/api/players';
@@ -39,32 +42,6 @@ import { durationLabel, trainingDate, trainingTime, typeName } from '@/lib/train
  * - Main menu is a compact 2-column grid (6 items).
  * - Bottom Home / Chat navigation remains in the (tabs) layout.
  */
-
-const C = {
-  bg: '#FAFBFA',
-  line: 'rgba(0,0,0,0.025)',
-
-  white: '#F5F5F5',
-  text: '#111111',
-
-  gray: '#666666',
-  muted: '#888888',
-  faint: '#9E9E9E',
-
-  border: '#D9DEDB',
-  cardBorder: 'rgba(30,40,35,0.10)',
-
-  green: '#159447',
-  greenDark: '#0C6C36',
-  greenBorder: '#4DBB7B',
-  lightGreen: '#DDF6E7',
-  veryLightGreen: '#F1FBF5',
-  matchBg: '#F2FBF5',
-  matchBorder: '#69C894',
-  profileBg: '#E0F6E9',
-
-  red: '#D94B4B',
-};
 
 /* =========================================================
    ASSETS
@@ -90,6 +67,10 @@ const IMG = {
    ========================================================= */
 
 export function PlayerHome() {
+  const glass = useGlass();
+  const C = useAppColors(DashboardC);
+  const styles = usePaletteStyles(createStyles, C);
+  const themed = useThemedColor();
   const router = useRouter();
   const { token, signOut, user } = useSession();
 
@@ -102,6 +83,7 @@ export function PlayerHome() {
   const [rating, setRating] = useState<number | null>(null);
   const [unread, setUnread] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     if (!token) return;
@@ -148,15 +130,16 @@ export function PlayerHome() {
           router.replace('/login');
           return;
         }
-        setError(
-          err instanceof ApiError && err.status === 0
-            ? 'Nuk mund të lidhemi me serverin. Kontrollo lidhjen.'
-            : 'Nuk mund të ngarkohen të dhënat.',
-        );
+        setError(loadErrorMessage(err, 'Nuk mund të ngarkohen të dhënat.'));
       });
 
     return () => controller.abort();
-  }, [token, router, signOut]);
+  }, [token, router, signOut, reloadKey]);
+
+  const retry = () => {
+    setError(null);
+    setReloadKey((value) => value + 1);
+  };
 
   const open = (route: string) => {
     router.push(route as never);
@@ -194,6 +177,20 @@ export function PlayerHome() {
                 {user?.name ? `Mirë se vini, ${user.name}` : 'Mirë se vini'}
               </Text>
             </View>
+
+            {error ? (
+              <View style={styles.loadError}>
+                <Text style={styles.loadErrorText}>{error}</Text>
+                <Pressable
+                  onPress={retry}
+                  accessibilityRole="button"
+                  accessibilityLabel="Provo përsëri"
+                  style={({ pressed }) => [styles.loadRetry, pressed && styles.pressed]}
+                >
+                  <Text style={styles.loadRetryText}>Provo përsëri</Text>
+                </Pressable>
+              </View>
+            ) : null}
           </View>
 
           {/* =================================================
@@ -204,25 +201,20 @@ export function PlayerHome() {
             <View style={styles.statsCard}>
               <BlurView
                 intensity={55}
-                tint="light"
+                tint={glass.tint}
                 experimentalBlurMethod="dimezisBlurView"
                 style={StyleSheet.absoluteFill}
                 pointerEvents="none"
               />
               <LinearGradient
-                colors={['rgba(255,255,255,0.38)', 'rgba(255,255,255,0.04)', 'rgba(255,255,255,0.24)']}
+                colors={glass.highlight}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={StyleSheet.absoluteFill}
                 pointerEvents="none"
               />
               <LinearGradient
-                colors={[
-                  'rgba(255,255,255,0)',
-                  'rgba(255,255,255,0.78)',
-                  'rgba(255,255,255,0.55)',
-                  'rgba(255,255,255,0)',
-                ]}
+                colors={glass.sweep}
                 locations={[0, 0.38, 0.62, 1]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
@@ -230,7 +222,7 @@ export function PlayerHome() {
                 pointerEvents="none"
               />
               <LinearGradient
-                colors={['rgba(255,255,255,0)', 'rgba(255,255,255,0.55)', 'rgba(255,255,255,0)']}
+                colors={glass.sweepSoft}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={styles.statsGloss2}
@@ -304,7 +296,7 @@ export function PlayerHome() {
                   <MaterialCommunityIcons
                     name="calendar-month-outline"
                     size={I(18)}
-                    color={C.green}
+                    color={C.greenText}
                   />
                 </View>
 
@@ -324,7 +316,7 @@ export function PlayerHome() {
                 <MaterialCommunityIcons
                   name="chevron-right"
                   size={I(21)}
-                  color={C.green}
+                  color={C.greenText}
                 />
               </Pressable>
             ) : null}
@@ -352,7 +344,7 @@ export function PlayerHome() {
               {upcoming.length === 0 ? (
                 <View style={styles.matchRow}>
                   <Text style={styles.empty} numberOfLines={2}>
-                    {error ?? 'Nuk ka ndeshje të ardhshme.'}
+                    Nuk ka ndeshje të ardhshme.
                   </Text>
                 </View>
               ) : (
@@ -405,15 +397,15 @@ export function PlayerHome() {
 
               <View style={styles.menuContainer}>
 
-                {MENU.map((card) => (
+                {MENU(styles).map((card) => (
                   <Pressable
                     key={card.id}
                     onPress={() => open(card.route)}
                     style={({ pressed }) => [
                       styles.menuCard,
                       {
-                        backgroundColor: card.bg,
-                        borderColor: card.border,
+                        backgroundColor: themed(card.bg),
+                        borderColor: themed(card.border),
                       },
                       pressed && styles.pressed,
                     ]}
@@ -439,7 +431,7 @@ export function PlayerHome() {
                       <MaterialCommunityIcons
                         name="soccer"
                         size={I(17)}
-                        color={C.red}
+                        color={C.redText}
                         style={styles.menuIcon}
                       />
                     ) : null}
@@ -518,6 +510,8 @@ function HeaderBlock({
   onBell: () => void;
   onSettings: () => void;
 }) {
+  const C = useAppColors(DashboardC);
+  const styles = usePaletteStyles(createStyles, C);
   return (
     <View style={styles.header}>
 
@@ -544,7 +538,7 @@ function HeaderBlock({
           <MaterialCommunityIcons
             name="chevron-down"
             size={I(12)}
-            color="rgba(12,37,27,0.65)"
+            color={C.heroMutedText}
           />
         </View>
       </View>
@@ -566,7 +560,7 @@ function HeaderBlock({
           <MaterialCommunityIcons
             name="bell-outline"
             size={I(20)}
-            color={C.text}
+            color={C.textText}
           />
 
           {unread > 0 ? (
@@ -591,7 +585,7 @@ function HeaderBlock({
           <MaterialCommunityIcons
             name="cog-outline"
             size={I(20)}
-            color={C.green}
+            color={C.greenText}
           />
         </Pressable>
 
@@ -621,6 +615,8 @@ function StatCard({
   imgStyle,
   imgCover,
 }: StatCardProps) {
+  const C = useAppColors(DashboardC);
+  const styles = usePaletteStyles(createStyles, C);
   return (
     <View style={styles.statItem}>
 
@@ -656,7 +652,7 @@ function StatCard({
    STYLES
    ========================================================= */
 
-const styles = StyleSheet.create(scaled({
+const createStyles = (C: AppColorsOf<typeof DashboardC>) => StyleSheet.create(scaled({
 
   /* =======================================================
      PAGE
@@ -681,6 +677,45 @@ const styles = StyleSheet.create(scaled({
 
   pressed: {
     opacity: 0.65,
+  },
+
+  /* Compact failure strip: the feeds are independent, so it sits under the
+     greeting and clears on retry. */
+  loadError: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+    marginTop: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: C.whiteFill,
+    borderWidth: 1,
+    borderColor: C.borderBorder,
+    borderRadius: 10,
+  },
+
+  loadErrorText: {
+    flex: 1,
+    fontFamily: Fonts.body,
+    fontSize: 12.5,
+    lineHeight: 18,
+    color: C.textText,
+  },
+
+  loadRetry: {
+    minHeight: 44,
+    justifyContent: 'center',
+    paddingHorizontal: 14,
+    borderWidth: 1,
+    borderColor: C.greenBorder,
+    borderRadius: 10,
+  },
+
+  loadRetryText: {
+    fontFamily: Fonts.bodySemiBold,
+    fontSize: 13,
+    color: C.greenText,
   },
 
   /* =======================================================
@@ -717,7 +752,7 @@ const styles = StyleSheet.create(scaled({
 
     letterSpacing: -0.35,
 
-    color: '#0C251B',
+    color: C.textText,
   },
 
   clubRow: {
@@ -733,7 +768,7 @@ const styles = StyleSheet.create(scaled({
 
     lineHeight: 16,
 
-    color: 'rgba(12,37,27,0.65)',
+    color: C.heroMutedText,
   },
 
   headerRight: {
@@ -752,7 +787,7 @@ const styles = StyleSheet.create(scaled({
 
     borderRadius: 18,
 
-    backgroundColor: C.white,
+    backgroundColor: C.whiteFill,
 
     borderWidth: 1,
     borderColor: 'rgba(30,40,35,0.10)',
@@ -777,7 +812,7 @@ const styles = StyleSheet.create(scaled({
 
     borderRadius: 18,
 
-    backgroundColor: C.profileBg,
+    backgroundColor: C.profileBgFill,
 
     alignItems: 'center',
     justifyContent: 'center',
@@ -794,7 +829,7 @@ const styles = StyleSheet.create(scaled({
 
     borderRadius: 8,
 
-    backgroundColor: C.green,
+    backgroundColor: C.greenFill,
 
     alignItems: 'center',
     justifyContent: 'center',
@@ -802,7 +837,7 @@ const styles = StyleSheet.create(scaled({
     paddingHorizontal: 3,
 
     borderWidth: 1.5,
-    borderColor: C.bg,
+    borderColor: C.bgBorder,
   },
 
   badgeText: {
@@ -811,7 +846,7 @@ const styles = StyleSheet.create(scaled({
 
     lineHeight: 11,
 
-    color: C.white,
+    color: C.whiteText,
   },
 
   /* =======================================================
@@ -830,7 +865,7 @@ const styles = StyleSheet.create(scaled({
 
     letterSpacing: -0.45,
 
-    color: '#0C251B',
+    color: C.textText,
   },
 
   welcomeSub: {
@@ -839,7 +874,7 @@ const styles = StyleSheet.create(scaled({
     fontSize: 12,
     lineHeight: 16,
 
-    color: 'rgba(12,37,27,0.7)',
+    color: C.heroSubText,
 
     marginTop: 1,
   },
@@ -861,9 +896,9 @@ const styles = StyleSheet.create(scaled({
 
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#BC6C25',
+    borderColor: C.statBorderBorder,
 
-    backgroundColor: 'rgba(255,255,255,0.12)',
+    backgroundColor: C.glassBaseFill,
 
     overflow: 'hidden',
 
@@ -896,7 +931,7 @@ const styles = StyleSheet.create(scaled({
     width: StyleSheet.hairlineWidth,
     alignSelf: 'stretch',
     marginVertical: 12,
-    backgroundColor: 'rgba(16,51,38,0.18)',
+    backgroundColor: C.glassDividerFill,
   },
 
   statsGloss: {
@@ -924,7 +959,7 @@ const styles = StyleSheet.create(scaled({
     right: 10,
     height: 1.5,
     borderRadius: 1,
-    backgroundColor: 'rgba(255,255,255,0.95)',
+    backgroundColor: C.glassEdgeFill,
   },
 
   statLabel: {
@@ -933,7 +968,7 @@ const styles = StyleSheet.create(scaled({
     fontSize: 9.5,
     lineHeight: 12,
 
-    color: '#5B6663',
+    color: C.statLabelSoftText,
 
     zIndex: 3,
   },
@@ -946,7 +981,7 @@ const styles = StyleSheet.create(scaled({
 
     letterSpacing: -0.5,
 
-    color: C.text,
+    color: C.textText,
 
     marginTop: 0,
 
@@ -1017,7 +1052,7 @@ const styles = StyleSheet.create(scaled({
 
     minHeight: 40,
 
-    backgroundColor: C.veryLightGreen,
+    backgroundColor: C.veryLightGreenFill,
 
     borderWidth: 1,
     borderColor: '#69C894',
@@ -1035,7 +1070,7 @@ const styles = StyleSheet.create(scaled({
 
     borderRadius: 6,
 
-    backgroundColor: '#E2F5E9',
+    backgroundColor: C.eventIconBgFill,
 
     alignItems: 'center',
     justifyContent: 'center',
@@ -1053,7 +1088,7 @@ const styles = StyleSheet.create(scaled({
     fontSize: 10.5,
     lineHeight: 13,
 
-    color: C.muted,
+    color: C.mutedText,
   },
 
   eventText: {
@@ -1062,7 +1097,7 @@ const styles = StyleSheet.create(scaled({
     fontSize: 12.5,
     lineHeight: 16,
 
-    color: C.text,
+    color: C.textText,
 
     marginTop: 0,
   },
@@ -1083,19 +1118,19 @@ const styles = StyleSheet.create(scaled({
     fontFamily: Fonts.bodyBold,
     fontSize: 16.5,
     letterSpacing: -0.2,
-    color: '#0C251B',
+    color: C.textText,
   },
 
   seeAll: {
     fontFamily: Fonts.bodySemiBold,
     fontSize: 13.5,
-    color: '#1F6B4F',
+    color: C.seeAllText,
   },
 
   matchesCard: {
-    backgroundColor: C.matchBg,
+    backgroundColor: C.matchBgFill,
     borderWidth: 1,
-    borderColor: C.matchBorder,
+    borderColor: C.matchBorderBorder,
     borderRadius: 7,
     overflow: 'hidden',
   },
@@ -1109,7 +1144,7 @@ const styles = StyleSheet.create(scaled({
 
   matchRowSep: {
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#F5F5F5',
+    borderTopColor: '#FFFFFF',
   },
 
   /* The load error / empty-fixtures line, spanning the row. */
@@ -1118,7 +1153,7 @@ const styles = StyleSheet.create(scaled({
     fontFamily: Fonts.body,
     fontSize: 12,
     lineHeight: 16,
-    color: C.muted,
+    color: C.mutedText,
   },
 
   teamHome: {
@@ -1144,14 +1179,14 @@ const styles = StyleSheet.create(scaled({
   teamName: {
     fontFamily: Fonts.bodyMedium,
     fontSize: 13.5,
-    color: '#3A3A3A',
+    color: C.teamNameText,
     flexShrink: 1,
   },
 
   teamNameAway: {
     fontFamily: Fonts.bodyMedium,
     fontSize: 13.5,
-    color: '#3A3A3A',
+    color: C.teamNameText,
     flexShrink: 1,
   },
 
@@ -1163,7 +1198,7 @@ const styles = StyleSheet.create(scaled({
   vsText: {
     fontFamily: Fonts.bodyMedium,
     fontSize: 12,
-    color: C.faint,
+    color: C.faintText,
     textTransform: 'uppercase',
     lineHeight: 15,
   },
@@ -1171,7 +1206,7 @@ const styles = StyleSheet.create(scaled({
   timeText: {
     fontFamily: Fonts.bodySemiBold,
     fontSize: 12,
-    color: C.muted,
+    color: C.mutedText,
     lineHeight: 15,
   },
 
@@ -1193,10 +1228,10 @@ const styles = StyleSheet.create(scaled({
     flexDirection: 'row',
     flexWrap: 'wrap',
 
-    backgroundColor: C.white,
+    backgroundColor: C.whiteFill,
 
     borderWidth: 1,
-    borderColor: C.greenBorder,
+    borderColor: C.greenBorderBorder,
 
     borderRadius: 8,
 
@@ -1242,7 +1277,7 @@ const styles = StyleSheet.create(scaled({
 
     letterSpacing: 0.5,
 
-    color: C.text,
+    color: C.textText,
 
     zIndex: 3,
   },
@@ -1404,10 +1439,10 @@ const styles = StyleSheet.create(scaled({
     width: 100,
     height: 28,
 
-    backgroundColor: C.white,
+    backgroundColor: C.whiteFill,
 
     borderWidth: 1,
-    borderColor: C.border,
+    borderColor: C.borderBorder,
 
     /* Open at the bottom so the pill and the frame share one line. */
     borderBottomWidth: 0,
@@ -1426,7 +1461,7 @@ const styles = StyleSheet.create(scaled({
 
     lineHeight: 16,
 
-    color: C.text,
+    color: C.textText,
   },
 }));
 
@@ -1459,7 +1494,7 @@ type MenuCard = {
  * Akademia
  */
 
-const MENU: MenuCard[] = [
+const MENU = (styles: ReturnType<typeof createStyles>): MenuCard[] => ([
 
   /* =======================================================
      1. NDESHJET
@@ -1476,7 +1511,7 @@ const MENU: MenuCard[] = [
     border: '#F0D9AE',
 
     btnBg: '#D99A4A',
-    btnColor: '#F5F5F5',
+    btnColor: '#FFFFFF',
 
     img: IMG.ndeshjet,
     imgStyle: styles.menuImgNdeshjet,
@@ -1497,7 +1532,7 @@ const MENU: MenuCard[] = [
     border: '#C6E0FA',
 
     btnBg: '#78B8F5',
-    btnColor: '#F5F5F5',
+    btnColor: '#FFFFFF',
 
     img: IMG.trajnimet,
     imgStyle: styles.menuImgTrajnimet,
@@ -1518,9 +1553,9 @@ const MENU: MenuCard[] = [
     border: '#F3C2D2',
 
     btnBg: '#E34D63',
-    btnColor: '#F5F5F5',
+    btnColor: '#FFFFFF',
 
     img: IMG.akademia,
     imgStyle: styles.menuImgAkademia,
   },
-];
+]);

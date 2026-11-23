@@ -6,7 +6,8 @@ import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
-import { Fonts } from '@/constants/theme';
+import { Brand, Fonts, Semantic } from '@/constants/theme';
+import { useAppColors, usePaletteStyles, type AppColorsOf } from '@/lib/app-theme';
 import { ApiError } from '@/lib/api/errors';
 import {
   createPlayer,
@@ -30,24 +31,25 @@ import { useSession } from '@/lib/session';
  * the one it was given.
  */
 
-const C = {
-  page: '#FAFBFA',
-  line: 'rgba(0,0,0,0.025)',
+const C_LIGHT = {
+  page: '#F7F9F8',
+  line: 'rgba(23,37,30,0.03)',
 
-  card: '#F6FBFF',
-  border: 'rgba(100,140,190,0.30)',
-  headLine: 'rgba(30,40,35,0.10)',
+  card: '#FFFFFF',
+  border: Brand[200],
+  headLine: Brand[100],
 
-  input: '#F5F5F5',
-  inputBorder: '#000000',
-  hint: '#C9C9C9',
+  input: '#F7F9F8',
+  inputBorder: '#DCE5DF',
+  hint: '#5F7268',
 
-  text: '#111111',
-  gray: '#8A8A8A',
+  text: '#17251E',
+  gray: '#52645A',
 
-  green: '#159447',
-  greenSoft: '#DDF6E7',
-  red: '#ED5050',
+  green: Brand[600],
+  greenSoft: Brand[100],
+  red: Semantic.danger,
+  white: '#FFFFFF',
 };
 
 /** The selector's resting text while nothing is picked yet. */
@@ -66,6 +68,8 @@ export function PlayerForm({
   player?: ApiPlayer;
   mode?: 'create' | 'edit';
 }) {
+  const C = useAppColors(C_LIGHT);
+  const styles = usePaletteStyles(createStyles, C);
   const router = useRouter();
   const { token, signOut } = useSession();
 
@@ -75,7 +79,7 @@ export function PlayerForm({
   /* Personal data */
   const [name, setName] = useState(player?.name ?? '');
   const [email, setEmail] = useState(player?.email ?? '');
-  const [dateOfBirth, setDateOfBirth] = useState(player?.date_of_birth ?? '');
+  const [dateOfBirth, setDateOfBirth] = useState<DateParts>(parseDateParts(player?.date_of_birth));
   const [nationality, setNationality] = useState('');
   const [password, setPassword] = useState('');
   const [passwordConfirmation, setPasswordConfirmation] = useState('');
@@ -205,7 +209,7 @@ export function PlayerForm({
       team_id: teamId,
       position: positionName,
       jersey_number: jersey != null && Number.isFinite(jersey) ? jersey : null,
-      date_of_birth: dateOfBirth.trim() || null,
+      date_of_birth: composeDate(dateOfBirth),
       nationality: nationality.trim() || null,
       contract_start:
         mode === 'create' ? composeDate(contractStart) ?? today() : composeDate(contractStart),
@@ -265,7 +269,7 @@ export function PlayerForm({
                 accessibilityLabel="Kthehu prapa"
                 style={({ pressed }) => [styles.backBtn, pressed && styles.pressed]}
               >
-                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.text} />
+                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.textText} />
               </Pressable>
               {avatarInitials ? (
                 <View style={styles.avatar}>
@@ -302,7 +306,8 @@ export function PlayerForm({
                     <Text style={styles.label}>Emri i plotë:</Text>
                     <TextInput
                       style={styles.input}
-                      placeholderTextColor={C.gray}
+                      accessibilityLabel="Emri i plotë"
+                      placeholderTextColor={C.grayText}
                       value={name}
                       onChangeText={setName}
                       autoCapitalize="words"
@@ -312,8 +317,9 @@ export function PlayerForm({
                     <Text style={styles.label}>Email:</Text>
                     <TextInput
                       style={styles.input}
+                      accessibilityLabel="Email"
                       keyboardType="email-address"
-                      placeholderTextColor={C.gray}
+                      placeholderTextColor={C.grayText}
                       value={email}
                       onChangeText={setEmail}
                       autoCapitalize="none"
@@ -325,19 +331,14 @@ export function PlayerForm({
                 <View style={[styles.row, mode !== 'create' && styles.rowLast]}>
                   <View style={styles.col}>
                     <Text style={styles.label}>Data e lindjes:</Text>
-                    <TextInput
-                      style={styles.input}
-                      placeholderTextColor={C.gray}
-                      placeholder="YYYY-MM-DD"
-                      value={dateOfBirth}
-                      onChangeText={setDateOfBirth}
-                    />
+                    <DateGroup value={dateOfBirth} onChange={setDateOfBirth} />
                   </View>
                   <View style={styles.col}>
                     <Text style={styles.label}>Nacionaliteti:</Text>
                     <TextInput
                       style={styles.input}
-                      placeholderTextColor={C.gray}
+                      accessibilityLabel="Nacionaliteti"
+                      placeholderTextColor={C.grayText}
                       value={nationality}
                       onChangeText={setNationality}
                     />
@@ -350,8 +351,9 @@ export function PlayerForm({
                       <Text style={styles.label}>Fjalëkalimi:</Text>
                       <TextInput
                         style={styles.input}
+                        accessibilityLabel="Fjalëkalimi"
                         secureTextEntry
-                        placeholderTextColor={C.gray}
+                        placeholderTextColor={C.grayText}
                         value={password}
                         onChangeText={setPassword}
                         autoCapitalize="none"
@@ -362,8 +364,9 @@ export function PlayerForm({
                       <Text style={styles.label}>Konfirmo:</Text>
                       <TextInput
                         style={styles.input}
+                        accessibilityLabel="Konfirmo fjalëkalimin"
                         secureTextEntry
-                        placeholderTextColor={C.gray}
+                        placeholderTextColor={C.grayText}
                         value={passwordConfirmation}
                         onChangeText={setPasswordConfirmation}
                         autoCapitalize="none"
@@ -385,11 +388,14 @@ export function PlayerForm({
                 {/* Nr. i fanellës + Pozicioni + "e re" */}
                 <View style={[styles.row, styles.rowPos]}>
                   <View style={styles.nrCol}>
-                    <Text style={styles.label}>Nr. i fanellës:</Text>
+                    <Text style={styles.label} numberOfLines={1}>
+                      Nr. fanellës:
+                    </Text>
                     <TextInput
                       style={[styles.input, styles.nrInput]}
+                      accessibilityLabel="Numri i fanellës"
                       keyboardType="number-pad"
-                      placeholderTextColor={C.gray}
+                      placeholderTextColor={C.grayText}
                       value={jerseyNumber}
                       onChangeText={setJerseyNumber}
                     />
@@ -412,7 +418,7 @@ export function PlayerForm({
                     accessibilityLabel="Shto pozicion të re"
                     style={({ pressed }) => [styles.newPosBtn, pressed && styles.pressed]}
                   >
-                    <MaterialCommunityIcons name="plus" size={I(13)} color={C.text} />
+                    <MaterialCommunityIcons name="plus" size={I(13)} color={C.textText} />
                     <Text style={styles.newPosText}>e re</Text>
                   </Pressable>
                 </View>
@@ -421,10 +427,11 @@ export function PlayerForm({
                   <View style={styles.newPosRow}>
                     <TextInput
                       style={[styles.input, styles.newPosInput]}
+                      accessibilityLabel="Emri i pozicionit të re"
                       value={newPosName}
                       onChangeText={setNewPosName}
                       placeholder="Emri i pozicionit të re"
-                      placeholderTextColor={C.gray}
+                      placeholderTextColor={C.grayText}
                       autoFocus
                     />
                     <Pressable
@@ -438,7 +445,7 @@ export function PlayerForm({
                         pressed && styles.pressed,
                       ]}
                     >
-                      <MaterialCommunityIcons name="check" size={I(13)} color={C.text} />
+                      <MaterialCommunityIcons name="check" size={I(13)} color={C.textText} />
                       <Text style={styles.newPosText}>Ruaj</Text>
                     </Pressable>
                   </View>
@@ -476,7 +483,8 @@ export function PlayerForm({
                     <Text style={styles.label}>Licensa FFK:</Text>
                     <TextInput
                       style={styles.input}
-                      placeholderTextColor={C.gray}
+                      accessibilityLabel="Licensa FFK"
+                      placeholderTextColor={C.grayText}
                       value={ffkLicense}
                       onChangeText={setFfkLicense}
                     />
@@ -520,8 +528,9 @@ export function PlayerForm({
                     <Text style={styles.label}>{amountLabel}</Text>
                     <TextInput
                       style={styles.input}
+                      accessibilityLabel={amountLabel}
                       keyboardType="number-pad"
-                      placeholderTextColor={C.gray}
+                      placeholderTextColor={C.grayText}
                       value={monthlyAmount}
                       onChangeText={setMonthlyAmount}
                     />
@@ -530,8 +539,9 @@ export function PlayerForm({
                     <Text style={styles.label}>Afati i pagesës (ditë)</Text>
                     <TextInput
                       style={styles.input}
+                      accessibilityLabel="Afati i pagesës në ditë"
                       keyboardType="number-pad"
-                      placeholderTextColor={C.gray}
+                      placeholderTextColor={C.grayText}
                       value={paymentDeadlineDays}
                       onChangeText={setPaymentDeadlineDays}
                     />
@@ -627,6 +637,8 @@ function Select<T extends string | number>({
   onSelect: (value: T) => void;
   accessibilityLabel: string;
 }) {
+  const C = useAppColors(C_LIGHT);
+  const styles = usePaletteStyles(createStyles, C);
   const [open, setOpen] = useState(false);
 
   return (
@@ -635,12 +647,13 @@ function Select<T extends string | number>({
         onPress={() => setOpen((v) => !v)}
         accessibilityRole="button"
         accessibilityLabel={accessibilityLabel}
+        accessibilityState={{ expanded: open }}
         style={({ pressed }) => [styles.sel, pressed && styles.pressed]}
       >
         <Text style={styles.selText} numberOfLines={1}>
           {value ?? placeholder}
         </Text>
-        <MaterialCommunityIcons name="chevron-down" size={I(15)} color={C.gray} />
+        <MaterialCommunityIcons name="chevron-down" size={I(15)} color={C.grayText} />
       </Pressable>
 
       {open ? (
@@ -656,6 +669,7 @@ function Select<T extends string | number>({
                 }}
                 accessibilityRole="button"
                 accessibilityLabel={o.label}
+                accessibilityState={{ selected: active }}
                 style={[styles.selOpt, active && styles.selOptActive]}
               >
                 <Text
@@ -711,12 +725,15 @@ function toNumber(value: string, fallback: number): number {
 
 /** DD / MM / YYYY entry group used for both contract dates. */
 function DateGroup({ value, onChange }: { value: DateParts; onChange: (next: DateParts) => void }) {
+  const C = useAppColors(C_LIGHT);
+  const styles = usePaletteStyles(createStyles, C);
   return (
     <View style={styles.dateGroup}>
       <TextInput
         style={[styles.input, styles.dateSq]}
+        accessibilityLabel="Dita"
         placeholder="DD"
-        placeholderTextColor={C.hint}
+        placeholderTextColor={C.hintText}
         keyboardType="number-pad"
         maxLength={2}
         value={value.d}
@@ -725,8 +742,9 @@ function DateGroup({ value, onChange }: { value: DateParts; onChange: (next: Dat
       <Text style={styles.dateSlash}>/</Text>
       <TextInput
         style={[styles.input, styles.dateSq]}
+        accessibilityLabel="Muaji"
         placeholder="MM"
-        placeholderTextColor={C.hint}
+        placeholderTextColor={C.hintText}
         keyboardType="number-pad"
         maxLength={2}
         value={value.m}
@@ -734,8 +752,9 @@ function DateGroup({ value, onChange }: { value: DateParts; onChange: (next: Dat
       />
       <TextInput
         style={[styles.input, styles.dateYear]}
+        accessibilityLabel="Viti"
         placeholder="YYYY"
-        placeholderTextColor={C.hint}
+        placeholderTextColor={C.hintText}
         keyboardType="number-pad"
         maxLength={4}
         value={value.y}
@@ -749,7 +768,7 @@ function DateGroup({ value, onChange }: { value: DateParts; onChange: (next: Dat
 /* Styles                                                              */
 /* ------------------------------------------------------------------ */
 
-const styles = StyleSheet.create(
+const createStyles = (C: AppColorsOf<typeof C_LIGHT>) => StyleSheet.create(
   scaled({
     safe: {
       flex: 1,
@@ -790,7 +809,7 @@ const styles = StyleSheet.create(
       height: 38,
       borderRadius: 19,
       marginRight: 10,
-      backgroundColor: C.red,
+      backgroundColor: C.redFill,
       alignItems: 'center',
       justifyContent: 'center',
     },
@@ -799,7 +818,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodyBold,
       fontSize: 13,
       letterSpacing: 0.2,
-      color: '#F5F5F5',
+      color: C.whiteText,
     },
 
     headerText: {
@@ -812,14 +831,14 @@ const styles = StyleSheet.create(
       fontSize: 20,
       lineHeight: 24,
       letterSpacing: -0.3,
-      color: C.text,
+      color: C.textText,
     },
 
     subtitle: {
       fontFamily: Fonts.body,
-      fontSize: 12,
-      lineHeight: 16,
-      color: C.gray,
+      fontSize: 13,
+      lineHeight: 18,
+      color: C.grayText,
       marginTop: 1,
     },
 
@@ -829,10 +848,10 @@ const styles = StyleSheet.create(
 
     /* ── Cards ───────────────────────────────────────────────── */
     card: {
-      backgroundColor: C.card,
-      borderWidth: 2,
-      borderColor: C.border,
-      borderRadius: 7,
+      backgroundColor: C.cardFill,
+      borderWidth: 1,
+      borderColor: C.borderBorder,
+      borderRadius: 12,
       overflow: 'hidden',
     },
 
@@ -846,14 +865,14 @@ const styles = StyleSheet.create(
       paddingHorizontal: 12,
       paddingVertical: 11,
       borderBottomWidth: 1,
-      borderBottomColor: C.headLine,
+      borderBottomColor: C.headLineBorder,
     },
 
     cardHeadText: {
       fontFamily: Fonts.bodyBold,
       fontSize: 16,
       lineHeight: 20,
-      color: C.text,
+      color: C.textText,
     },
 
     cardBody: {
@@ -893,29 +912,29 @@ const styles = StyleSheet.create(
     },
 
     nrCol: {
-      width: 62,
+      width: 76,
     },
 
     label: {
-      fontFamily: Fonts.body,
+      fontFamily: Fonts.bodySemiBold,
       fontSize: 12,
-      lineHeight: 15,
-      color: C.text,
-      marginBottom: 7,
+      lineHeight: 16,
+      color: C.grayText,
+      marginBottom: 6,
     },
 
     input: {
-      height: 30,
-      backgroundColor: 'transparent',
+      height: 44,
+      backgroundColor: C.inputFill,
       borderWidth: 1,
       borderColor: C.inputBorder,
-      borderRadius: 4,
-      paddingHorizontal: 9,
+      borderRadius: 10,
+      paddingHorizontal: 12,
       paddingVertical: 0,
       fontFamily: Fonts.body,
-      fontSize: 12,
-      lineHeight: 16,
-      color: C.text,
+      fontSize: 14,
+      lineHeight: 18,
+      color: C.textText,
     },
 
     nrInput: {
@@ -955,15 +974,15 @@ const styles = StyleSheet.create(
     },
 
     dateYear: {
-      width: 62,
+      width: 56,
       textAlign: 'center',
       paddingHorizontal: 0,
     },
 
     dateSlash: {
       fontFamily: Fonts.body,
-      fontSize: 12,
-      color: C.text,
+      fontSize: 13,
+      color: C.grayText,
     },
 
     /* ── Selects ─────────────────────────────────────────────── */
@@ -972,19 +991,19 @@ const styles = StyleSheet.create(
       alignItems: 'center',
       justifyContent: 'space-between',
       gap: 6,
-      height: 30,
-      backgroundColor: 'transparent',
+      height: 44,
+      backgroundColor: C.inputFill,
       borderWidth: 1,
       borderColor: C.inputBorder,
-      borderRadius: 4,
-      paddingHorizontal: 9,
+      borderRadius: 10,
+      paddingHorizontal: 12,
     },
 
     selText: {
       flexShrink: 1,
       fontFamily: Fonts.body,
-      fontSize: 12,
-      color: C.text,
+      fontSize: 14,
+      color: C.textText,
     },
 
     /* Holds the control while its option list floats beneath it. */
@@ -995,36 +1014,36 @@ const styles = StyleSheet.create(
 
     selOpts: {
       position: 'absolute',
-      top: 32,
+      top: 46,
       left: 0,
       right: 0,
       zIndex: 40,
       elevation: 12,
-      backgroundColor: '#F5F5F5',
+      backgroundColor: C.whiteFill,
       borderWidth: 1,
       borderColor: C.inputBorder,
-      borderRadius: 4,
+      borderRadius: 10,
       overflow: 'hidden',
       shadowColor: '#000000',
-      shadowOffset: { width: 0, height: 3 },
-      shadowOpacity: 0.18,
-      shadowRadius: 8,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.16,
+      shadowRadius: 12,
     },
 
     selOpt: {
-      minHeight: 28,
+      minHeight: 44,
       justifyContent: 'center',
-      paddingHorizontal: 9,
+      paddingHorizontal: 12,
     },
 
     selOptActive: {
-      backgroundColor: 'rgba(21,148,71,0.10)',
+      backgroundColor: Brand[50],
     },
 
     selOptText: {
       fontFamily: Fonts.body,
-      fontSize: 11,
-      color: C.text,
+      fontSize: 13,
+      color: C.textText,
     },
 
     selOptTextActive: {
@@ -1034,19 +1053,19 @@ const styles = StyleSheet.create(
     newPosBtn: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 3,
-      height: 30,
-      paddingHorizontal: 10,
-      backgroundColor: C.greenSoft,
+      gap: 4,
+      height: 44,
+      paddingHorizontal: 12,
+      backgroundColor: C.greenSoftFill,
       borderWidth: 1,
-      borderColor: '#000000',
-      borderRadius: 4,
+      borderColor: C.borderBorder,
+      borderRadius: 10,
     },
 
     newPosText: {
       fontFamily: Fonts.bodySemiBold,
-      fontSize: 12,
-      color: C.text,
+      fontSize: 13,
+      color: C.textText,
     },
 
     /* The inline "e re" entry that opens beneath the sports row. */
@@ -1063,31 +1082,32 @@ const styles = StyleSheet.create(
 
     /* ── Radio circles ───────────────────────────────────────── */
     circle: {
-      width: 16,
-      height: 16,
-      borderRadius: 8,
+      width: 18,
+      height: 18,
+      borderRadius: 9,
       borderWidth: 1.5,
-      borderColor: '#000000',
+      borderColor: C.grayBorder,
       backgroundColor: 'transparent',
     },
 
     circleOn: {
-      borderColor: C.green,
-      backgroundColor: C.green,
+      borderColor: C.greenBorder,
+      backgroundColor: C.greenFill,
     },
 
     /* ── Membership type ─────────────────────────────────────── */
     optCard: {
       flex: 1,
+      minHeight: 56,
       flexDirection: 'row',
       alignItems: 'center',
       gap: 8,
-      paddingHorizontal: 9,
+      paddingHorizontal: 12,
       paddingVertical: 10,
-      backgroundColor: C.input,
+      backgroundColor: C.inputFill,
       borderWidth: 1,
-      borderColor: C.border,
-      borderRadius: 5,
+      borderColor: C.borderBorder,
+      borderRadius: 10,
     },
 
     optText: {
@@ -1096,16 +1116,16 @@ const styles = StyleSheet.create(
 
     optTitle: {
       fontFamily: Fonts.bodyBold,
-      fontSize: 12.5,
-      lineHeight: 16,
-      color: C.text,
+      fontSize: 13.5,
+      lineHeight: 18,
+      color: C.textText,
     },
 
     optSub: {
       fontFamily: Fonts.body,
-      fontSize: 10.5,
-      lineHeight: 13,
-      color: C.text,
+      fontSize: 11.5,
+      lineHeight: 15,
+      color: C.grayText,
       marginTop: 1,
     },
 
@@ -1122,39 +1142,40 @@ const styles = StyleSheet.create(
 
     cycleCard: {
       flex: 1,
+      minHeight: 56,
       flexDirection: 'row',
       alignItems: 'center',
       gap: 8,
-      paddingHorizontal: 9,
-      paddingVertical: 9,
-      backgroundColor: C.input,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      backgroundColor: C.inputFill,
       borderWidth: 1,
-      borderColor: '#000000',
-      borderRadius: 5,
+      borderColor: C.borderBorder,
+      borderRadius: 10,
     },
 
     cycleTitle: {
       fontFamily: Fonts.bodySemiBold,
-      fontSize: 12.5,
-      lineHeight: 16,
-      color: C.text,
+      fontSize: 13,
+      lineHeight: 17,
+      color: C.textText,
     },
 
     cycleSub: {
       fontFamily: Fonts.body,
       fontSize: 11,
-      lineHeight: 14,
-      color: C.text,
+      lineHeight: 15,
+      color: C.grayText,
       marginTop: 1,
     },
 
     /* ── Actions ─────────────────────────────────────────────── */
     errorText: {
       marginTop: 12,
-      fontFamily: Fonts.body,
-      fontSize: 11,
-      lineHeight: 15,
-      color: C.red,
+      fontFamily: Fonts.bodySemiBold,
+      fontSize: 12.5,
+      lineHeight: 17,
+      color: C.redText,
     },
 
     actions: {
@@ -1165,19 +1186,19 @@ const styles = StyleSheet.create(
     },
 
     btn: {
-      height: 44,
-      borderRadius: 3,
+      height: 48,
+      borderRadius: 10,
       alignItems: 'center',
       justifyContent: 'center',
-      paddingHorizontal: 22,
+      paddingHorizontal: 24,
     },
 
     btnCancel: {
-      backgroundColor: C.red,
+      backgroundColor: C.redFill,
     },
 
     btnConfirm: {
-      backgroundColor: C.green,
+      backgroundColor: C.greenFill,
     },
 
     btnConfirmOff: {
@@ -1185,9 +1206,9 @@ const styles = StyleSheet.create(
     },
 
     btnText: {
-      fontFamily: Fonts.bodySemiBold,
-      fontSize: 13.5,
-      color: '#F5F5F5',
+      fontFamily: Fonts.bodyBold,
+      fontSize: 14,
+      color: C.whiteText,
     },
 
     pressed: {

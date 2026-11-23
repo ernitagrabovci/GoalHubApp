@@ -2,13 +2,13 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
 import { TrainingFormModal, parseWhen, type TrainingDraft } from '@/components/trainings/training-form';
 import { Fonts } from '@/constants/theme';
-import { ApiError } from '@/lib/api/errors';
+import { ApiError, loadErrorMessage } from '@/lib/api/errors';
 import {
   deleteTraining,
   getTraining,
@@ -24,6 +24,7 @@ import {
   trainingTime,
   typeName,
 } from '@/lib/trainings';
+import { useAppColors, usePaletteStyles, type AppColorsOf } from '@/lib/app-theme';
 
 /**
  * Regjistro prezencën — the trainer marks who turned up, opened from the
@@ -34,24 +35,24 @@ import {
  * pair of marks, and the sheet ends with the running tally and the save button.
  */
 
-const C = {
-  page: '#FAFBFA',
+const C_LIGHT = {
+  page: '#F7F9F8',
   line: 'rgba(0,0,0,0.025)',
 
-  text: '#111111',
-  gray: '#8A8A8A',
+  text: '#17251E',
+  gray: '#52645A',
   hint: '#6E6E6E',
 
-  frame: '#000000',
+  frame: '#DCE5DF',
   headLine: 'rgba(30,40,35,0.10)',
   rowLine: 'rgba(100,140,190,0.22)',
 
   /* The table ground is the palest blue; the edit button one step deeper. */
-  card: '#F6FBFF',
+  card: '#F7F9F8',
   blueSoft: '#E3EEFB',
 
-  green: '#159447',
-  red: '#E03131',
+  green: '#2E7D5B',
+  red: '#B91C1C',
 };
 
 /* ── Attendance sheet ──────────────────────────────────────────────── */
@@ -83,6 +84,8 @@ const W = {
 };
 
 export default function RegisterAttendanceScreen() {
+  const C = useAppColors(C_LIGHT);
+  const styles = usePaletteStyles(createStyles, C);
   const router = useRouter();
   const { token, signOut } = useSession();
 
@@ -111,6 +114,8 @@ export default function RegisterAttendanceScreen() {
 
   const [roster, setRoster] = useState<Roster[]>([]);
   const [marks, setMarks] = useState<(Mark | null)[]>([]);
+  const [loading, setLoading] = useState(validId);
+  const [reloadKey, setReloadKey] = useState(0);
   const [saving, setSaving] = useState(false);
   const [editing, setEditing] = useState(false);
   const [error, setError] = useState<string | null>(
@@ -142,6 +147,8 @@ export default function RegisterAttendanceScreen() {
           })),
         );
         setMarks(rows.map((a) => statusToMark(a.status)));
+        setError(null);
+        setLoading(false);
       })
       .catch((err) => {
         if (controller.signal.aborted) return;
@@ -150,11 +157,20 @@ export default function RegisterAttendanceScreen() {
           router.replace('/login');
           return;
         }
-        setError('Nuk mund të ngarkohet lista e lojtarëve.');
+        setError(loadErrorMessage(err, 'Nuk mund të ngarkohet lista e lojtarëve. Kontrollo lidhjen.'));
+        setLoading(false);
       });
 
     return () => controller.abort();
-  }, [token, trainingId, validId, signOut, router]);
+  }, [token, trainingId, validId, signOut, router, reloadKey]);
+
+  /* Refetch the roster from the error row; the resets run here, not in the
+     effect, so the hook rules stay satisfied. */
+  const retry = () => {
+    setLoading(true);
+    setError(null);
+    setReloadKey((value) => value + 1);
+  };
 
   /** Re-reads the session after a write. */
   const reload = () =>
@@ -279,7 +295,7 @@ export default function RegisterAttendanceScreen() {
                 accessibilityLabel="Kthehu prapa"
                 style={({ pressed }) => [styles.backBtn, pressed && styles.pressed]}
               >
-                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.text} />
+                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.textText} />
               </Pressable>
               <View style={styles.headerText}>
                 <Text
@@ -312,7 +328,7 @@ export default function RegisterAttendanceScreen() {
                 accessibilityLabel="Edito stërvitjen"
                 style={({ pressed }) => [styles.editBtn, pressed && styles.pressed]}
               >
-                <MaterialCommunityIcons name="pencil" size={I(14)} color={C.text} />
+                <MaterialCommunityIcons name="pencil" size={I(14)} color={C.textText} />
                 <Text style={styles.editBtnText} numberOfLines={1}>
                   Edito stërvitjen
                 </Text>
@@ -324,7 +340,7 @@ export default function RegisterAttendanceScreen() {
                 accessibilityLabel="Fshi stërvitjen"
                 style={({ pressed }) => [styles.delBtn, pressed && styles.pressed]}
               >
-                <MaterialCommunityIcons name="trash-can-outline" size={I(14)} color={C.text} />
+                <MaterialCommunityIcons name="trash-can-outline" size={I(14)} color={C.textText} />
                 <Text style={styles.delBtnText} numberOfLines={1}>
                   Fshi
                 </Text>
@@ -413,6 +429,7 @@ export default function RegisterAttendanceScreen() {
                         onPress={() => setAll('prezent')}
                         accessibilityRole="button"
                         accessibilityLabel="Shëno të gjithë prezent"
+                        hitSlop={{ top: 6, bottom: 6 }}
                         style={({ pressed }) => [
                           styles.allBtn,
                           styles.allPresent,
@@ -431,6 +448,7 @@ export default function RegisterAttendanceScreen() {
                         onPress={() => setAll('mungon')}
                         accessibilityRole="button"
                         accessibilityLabel="Shëno të gjithë mungesë"
+                        hitSlop={{ top: 6, bottom: 6 }}
                         style={({ pressed }) => [
                           styles.allBtn,
                           styles.allAbsent,
@@ -445,7 +463,35 @@ export default function RegisterAttendanceScreen() {
                     </View>
                   </View>
 
-                  {roster.map((p, i) => (
+                  {loading ? (
+                    <View style={[styles.tr, styles.stateRow]}>
+                      <ActivityIndicator color={C.greenText} />
+                      <Text style={styles.stateText}>Duke ngarkuar listën e lojtarëve…</Text>
+                    </View>
+                  ) : error ? (
+                    <View style={[styles.tr, styles.stateRow]}>
+                      <Text style={[styles.stateText, styles.stateErr]} numberOfLines={2}>
+                        {error}
+                      </Text>
+                      {validId ? (
+                        <Pressable
+                          onPress={retry}
+                          accessibilityRole="button"
+                          accessibilityLabel="Provo përsëri"
+                          style={({ pressed }) => [styles.stateRetry, pressed && styles.pressed]}
+                        >
+                          <Text style={styles.stateRetryText}>Provo përsëri</Text>
+                        </Pressable>
+                      ) : null}
+                    </View>
+                  ) : roster.length === 0 ? (
+                    <View style={styles.tr}>
+                      <Text style={styles.stateEmpty} numberOfLines={2}>
+                        Nuk ka lojtarë për këtë stërvitje.
+                      </Text>
+                    </View>
+                  ) : (
+                    roster.map((p, i) => (
                     <View key={p.playerId} style={[styles.tr, styles.trBorder]}>
                       <Text
                         style={[styles.td, styles.tdName, { width: W.name }]}
@@ -472,6 +518,7 @@ export default function RegisterAttendanceScreen() {
                           onPress={() => toggle(i, 'prezent')}
                           accessibilityRole="button"
                           accessibilityLabel={`${p.name} prezent`}
+                          hitSlop={{ top: 6, bottom: 6 }}
                           style={({ pressed }) => [
                             styles.markBtn,
                             marks[i] === 'prezent' ? styles.markOn : styles.markOff,
@@ -495,6 +542,7 @@ export default function RegisterAttendanceScreen() {
                           onPress={() => toggle(i, 'mungon')}
                           accessibilityRole="button"
                           accessibilityLabel={`${p.name} mungesë`}
+                          hitSlop={{ top: 6, bottom: 6 }}
                           style={({ pressed }) => [
                             styles.markBtn,
                             marks[i] === 'mungon' ? styles.markOn : styles.markOff,
@@ -510,18 +558,13 @@ export default function RegisterAttendanceScreen() {
                         </Pressable>
                       </View>
                     </View>
-                  ))}
+                    ))
+                  )}
                 </View>
               </ScrollView>
             </View>
 
             {/* ── Tally and save — under the table, on the page ────── */}
-            {error ? (
-              <Text style={styles.errorText} numberOfLines={2}>
-                {error}
-              </Text>
-            ) : null}
-
             <View style={styles.footRow}>
               <Text style={styles.footText} numberOfLines={1}>
                 {`${present} prezent • ${absent} mungesë`}
@@ -572,7 +615,7 @@ export default function RegisterAttendanceScreen() {
 /* Styles                                                              */
 /* ------------------------------------------------------------------ */
 
-const styles = StyleSheet.create(
+const createStyles = (C: AppColorsOf<typeof C_LIGHT>) => StyleSheet.create(
   scaled({
     safe: {
       flex: 1,
@@ -617,14 +660,14 @@ const styles = StyleSheet.create(
       fontSize: 20,
       lineHeight: 24,
       letterSpacing: -0.3,
-      color: C.text,
+      color: C.textText,
     },
 
     subtitle: {
       fontFamily: Fonts.body,
       fontSize: 12,
       lineHeight: 16,
-      color: C.gray,
+      color: C.grayText,
       marginTop: 1,
     },
 
@@ -644,12 +687,12 @@ const styles = StyleSheet.create(
       flexDirection: 'row',
       alignItems: 'center',
       gap: 6,
-      height: 32,
-      paddingHorizontal: 12,
-      backgroundColor: C.blueSoft,
+      height: 44,
+      paddingHorizontal: 14,
+      backgroundColor: C.blueSoftFill,
       borderWidth: 1,
-      borderColor: C.frame,
-      borderRadius: 4,
+      borderColor: C.frameBorder,
+      borderRadius: 10,
     },
 
     /* The whole phrase reads as a link, icon included. */
@@ -657,7 +700,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodySemiBold,
       fontSize: 11.5,
       lineHeight: 15,
-      color: C.text,
+      color: C.textText,
       textDecorationLine: 'underline',
     },
 
@@ -665,27 +708,27 @@ const styles = StyleSheet.create(
       flexDirection: 'row',
       alignItems: 'center',
       gap: 6,
-      height: 32,
-      paddingHorizontal: 12,
-      backgroundColor: C.red,
+      height: 44,
+      paddingHorizontal: 14,
+      backgroundColor: C.redFill,
       borderWidth: 1,
-      borderColor: C.frame,
-      borderRadius: 4,
+      borderColor: C.frameBorder,
+      borderRadius: 10,
     },
 
     delBtnText: {
       fontFamily: Fonts.bodySemiBold,
       fontSize: 11.5,
       lineHeight: 15,
-      color: C.text,
+      color: C.textText,
     },
 
     /* ── Cards ───────────────────────────────────────────────── */
     card: {
       marginTop: 14,
-      backgroundColor: C.card,
+      backgroundColor: C.cardFill,
       borderWidth: 1,
-      borderColor: C.frame,
+      borderColor: C.frameBorder,
       borderRadius: 5,
       overflow: 'hidden',
     },
@@ -700,7 +743,7 @@ const styles = StyleSheet.create(
       paddingTop: 10,
       paddingBottom: 9,
       borderBottomWidth: 1,
-      borderBottomColor: C.headLine,
+      borderBottomColor: C.headLineBorder,
     },
 
     cardTitle: {
@@ -708,7 +751,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodyBold,
       fontSize: 12.5,
       lineHeight: 16,
-      color: C.text,
+      color: C.textText,
     },
 
     /* ── Session details ─────────────────────────────────────── */
@@ -727,14 +770,14 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 10.5,
       lineHeight: 13,
-      color: C.hint,
+      color: C.hintText,
     },
 
     detailValue: {
       fontFamily: Fonts.bodyBold,
       fontSize: 11.5,
       lineHeight: 16,
-      color: C.text,
+      color: C.textText,
       marginTop: 2,
     },
 
@@ -753,7 +796,7 @@ const styles = StyleSheet.create(
       paddingTop: 10,
       paddingBottom: 8,
       borderBottomWidth: 1,
-      borderBottomColor: C.headLine,
+      borderBottomColor: C.headLineBorder,
     },
 
     tr: {
@@ -764,21 +807,21 @@ const styles = StyleSheet.create(
 
     trBorder: {
       borderTopWidth: 1,
-      borderTopColor: C.rowLine,
+      borderTopColor: C.rowLineBorder,
     },
 
     th: {
       fontFamily: Fonts.bodySemiBold,
       fontSize: 10.5,
       lineHeight: 13,
-      color: C.gray,
+      color: C.grayText,
     },
 
     td: {
       fontFamily: Fonts.body,
       fontSize: 11,
       lineHeight: 14,
-      color: C.text,
+      color: C.textText,
     },
 
     tdName: {
@@ -789,12 +832,12 @@ const styles = StyleSheet.create(
     /* The header's shortcuts and every player's pair share one shape, so the
        two columns line up straight down the sheet. */
     allBtn: {
-      height: 24,
+      height: 32,
       alignItems: 'center',
       justifyContent: 'center',
       paddingHorizontal: 6,
       borderWidth: 1,
-      borderRadius: 4,
+      borderRadius: 6,
     },
 
     allBtnHead: {
@@ -802,61 +845,102 @@ const styles = StyleSheet.create(
     },
 
     allPresent: {
-      borderColor: C.green,
+      borderColor: C.greenBorder,
     },
 
     allAbsent: {
-      borderColor: C.red,
+      borderColor: C.redBorder,
     },
 
     /* The row of shortcuts is a heading, so its text stays quiet. */
     allText: {
       fontFamily: Fonts.bodySemiBold,
-      fontSize: 9.5,
-      color: C.hint,
+      fontSize: 10.5,
+      color: C.hintText,
     },
 
     markBtn: {
-      height: 24,
+      height: 32,
       alignItems: 'center',
       justifyContent: 'center',
       paddingHorizontal: 6,
       borderWidth: 1,
-      borderRadius: 4,
+      borderRadius: 6,
     },
 
     /* The rows carry no colour of their own — a mark reads from its weight,
        not its hue. The coloured pair only heads the sheet. */
     markOff: {
       backgroundColor: 'transparent',
-      borderColor: C.frame,
+      borderColor: C.frameBorder,
     },
 
     markOn: {
-      backgroundColor: C.frame,
-      borderColor: C.frame,
+      backgroundColor: C.frameFill,
+      borderColor: C.frameBorder,
     },
 
     /* The row marks read as a choice, so they carry the full text colour; only
        the heading's two shortcuts stay quiet. */
     markText: {
       fontFamily: Fonts.bodySemiBold,
-      fontSize: 10,
-      color: C.text,
+      fontSize: 10.5,
+      color: C.textText,
     },
 
     markTextOn: {
-      color: '#F5F5F5',
+      color: '#FFFFFF',
+    },
+
+    /* ── Load / failure rows ─────────────────────────────────── */
+    stateRow: {
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 10,
+      minHeight: 110,
+      paddingVertical: 20,
+      paddingHorizontal: 12,
+    },
+
+    stateText: {
+      fontFamily: Fonts.body,
+      fontSize: 12.5,
+      lineHeight: 18,
+      color: C.hintText,
+      textAlign: 'center',
+    },
+
+    stateErr: {
+      color: C.redText,
+    },
+
+    stateEmpty: {
+      paddingVertical: 22,
+      paddingHorizontal: 12,
+      fontFamily: Fonts.body,
+      fontSize: 12.5,
+      lineHeight: 18,
+      color: C.hintText,
+      textAlign: 'center',
+    },
+
+    stateRetry: {
+      minHeight: 44,
+      justifyContent: 'center',
+      paddingHorizontal: 18,
+      borderWidth: 1,
+      borderColor: C.greenBorder,
+      borderRadius: 10,
+    },
+
+    stateRetryText: {
+      fontFamily: Fonts.bodySemiBold,
+      fontSize: 13,
+      color: C.greenText,
     },
 
     /* ── Tally and save ──────────────────────────────────────── */
-    errorText: {
-      marginTop: 10,
-      fontFamily: Fonts.body,
-      fontSize: 11,
-      lineHeight: 15,
-      color: C.red,
-    },
 
     /* Sits under the table's frame, on the page itself. */
     footRow: {
@@ -871,16 +955,16 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 10,
       lineHeight: 13,
-      color: C.hint,
+      color: C.hintText,
     },
 
     saveBtn: {
-      height: 28,
+      height: 44,
       alignItems: 'center',
       justifyContent: 'center',
-      paddingHorizontal: 12,
-      backgroundColor: C.green,
-      borderRadius: 4,
+      paddingHorizontal: 18,
+      backgroundColor: C.greenFill,
+      borderRadius: 10,
     },
 
     saveBtnOff: {
@@ -889,8 +973,9 @@ const styles = StyleSheet.create(
 
     saveBtnText: {
       fontFamily: Fonts.bodySemiBold,
-      fontSize: 10.5,
-      color: '#F5F5F5',
+      fontSize: 13,
+      lineHeight: 18,
+      color: '#FFFFFF',
     },
 
     pressed: {

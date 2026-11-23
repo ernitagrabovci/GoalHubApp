@@ -2,16 +2,17 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
-import { ApiError } from '@/lib/api/errors';
+import { ApiError, loadErrorMessage } from '@/lib/api/errors';
 import { listNotifications } from '@/lib/api/notifications';
 import type { ApiNotification, Paginated } from '@/lib/api/types';
 import { I, scaled } from '@/lib/responsive';
 import { useSession } from '@/lib/session';
+import { useAppColors, usePaletteStyles, type AppColorsOf } from '@/lib/app-theme';
 
 /**
  * Njoftimet — the parent's own inbox, opened from the bell in the parent home
@@ -24,21 +25,21 @@ import { useSession } from '@/lib/session';
  * Mirrors the player's page (njoftimet-lojtarit); keep the two in step.
  */
 
-const C = {
-  page: '#FAFBFA',
+const C_LIGHT = {
+  page: '#F7F9F8',
   line: 'rgba(0,0,0,0.025)',
 
-  text: '#111111',
-  gray: '#8A8A8A',
+  text: '#17251E',
+  gray: '#52645A',
   hint: '#6E6E6E',
 
-  frame: '#000000',
+  frame: '#DCE5DF',
   headLine: 'rgba(30,40,35,0.10)',
   rowLine: 'rgba(100,140,190,0.22)',
 
-  card: '#F6FBFF',
+  card: '#F7F9F8',
 
-  green: '#159447',
+  green: '#2E7D5B',
   blue: '#0766D8',
 };
 
@@ -49,12 +50,12 @@ const SOURCE_LABEL: Record<string, string> = {
   platform: 'Platformë',
 };
 
-const SENDER_TONE: Record<string, string> = {
+const SENDER_TONE = (C: AppColorsOf<typeof C_LIGHT>): Record<string, string> => ({
   Admin: C.blue,
   Trajneri: C.green,
   Platformë: C.text,
   Sistemi: C.text,
-};
+});
 
 function sourceLabel(source: string | null): string {
   return source ? (SOURCE_LABEL[source] ?? source) : 'Sistemi';
@@ -73,11 +74,14 @@ function stamp(iso: string | null): string {
 }
 
 export default function ParentNotificationsScreen() {
+  const C = useAppColors(C_LIGHT);
+  const styles = usePaletteStyles(createStyles, C);
   const router = useRouter();
   const { token, signOut } = useSession();
 
   const [list, setList] = useState<Paginated<ApiNotification> | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [reload, setReload] = useState(0);
 
   useEffect(() => {
     if (!token) return;
@@ -96,15 +100,18 @@ export default function ParentNotificationsScreen() {
           router.replace('/login');
           return;
         }
-        setError(
-          err instanceof ApiError && err.status === 0
-            ? 'Nuk mund të lidhemi me serverin. Kontrollo lidhjen.'
-            : 'Nuk mund të ngarkohen njoftimet.',
-        );
+        setError(loadErrorMessage(err, 'Nuk mund të ngarkohen njoftimet. Kontrollo lidhjen.'));
       });
 
     return () => controller.abort();
-  }, [token, router, signOut]);
+  }, [token, router, signOut, reload]);
+
+  /* Refetch from the error box; the effect cannot reset state synchronously. */
+  const retry = () => {
+    setList(null);
+    setError(null);
+    setReload((value) => value + 1);
+  };
 
   const items = list?.data ?? [];
 
@@ -124,7 +131,7 @@ export default function ParentNotificationsScreen() {
                 accessibilityLabel="Kthehu prapa"
                 style={({ pressed }) => [styles.backBtn, pressed && styles.pressed]}
               >
-                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.text} />
+                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.textText} />
               </Pressable>
               <View style={styles.headerText}>
                 <Text
@@ -151,11 +158,28 @@ export default function ParentNotificationsScreen() {
           <View style={styles.colPad}>
             {/* ── Received notices ────────────────────────────────── */}
             <View style={styles.card}>
-              {items.length === 0 ? (
+              {error ? (
+                <View style={[styles.tr, styles.stateRow]}>
+                  <Text style={styles.nMeta}>{error}</Text>
+                  <Pressable
+                    onPress={retry}
+                    accessibilityRole="button"
+                    accessibilityLabel="Provo përsëri"
+                    style={({ pressed }) => [styles.stateRetry, pressed && styles.pressed]}
+                  >
+                    <Text style={styles.stateRetryText}>Provo përsëri</Text>
+                  </Pressable>
+                </View>
+              ) : items.length === 0 && !list ? (
+                <View style={[styles.tr, styles.stateRow]}>
+                  <ActivityIndicator color={C.blueText} />
+                  <Text style={styles.nMeta}>Duke ngarkuar njoftimet…</Text>
+                </View>
+              ) : items.length === 0 ? (
                 <View style={styles.tr}>
                   <View style={styles.body}>
                     <Text style={styles.nMeta} numberOfLines={2}>
-                      {error ?? (list ? 'Nuk ka njoftime.' : '…')}
+                      Nuk ka njoftime.
                     </Text>
                   </View>
                 </View>
@@ -172,7 +196,7 @@ export default function ParentNotificationsScreen() {
                           {n.title}
                         </Text>
                         <Text style={styles.nMeta} numberOfLines={2}>
-                          <Text style={{ color: SENDER_TONE[sender] ?? C.text }}>{sender}</Text>
+                          <Text style={{ color: SENDER_TONE(C)[sender] ?? C.text }}>{sender}</Text>
                           {n.body ? ` · ${n.body}` : ''}
                         </Text>
                       </View>
@@ -196,7 +220,7 @@ export default function ParentNotificationsScreen() {
 /* Styles                                                              */
 /* ------------------------------------------------------------------ */
 
-const styles = StyleSheet.create(
+const createStyles = (C: AppColorsOf<typeof C_LIGHT>) => StyleSheet.create(
   scaled({
     safe: {
       flex: 1,
@@ -241,14 +265,14 @@ const styles = StyleSheet.create(
       fontSize: 20,
       lineHeight: 24,
       letterSpacing: -0.3,
-      color: C.text,
+      color: C.textText,
     },
 
     subtitle: {
       fontFamily: Fonts.body,
       fontSize: 12,
       lineHeight: 16,
-      color: C.gray,
+      color: C.grayText,
       marginTop: 1,
     },
 
@@ -259,9 +283,9 @@ const styles = StyleSheet.create(
     /* ── Notices ─────────────────────────────────────────────── */
     card: {
       marginTop: 20,
-      backgroundColor: C.card,
+      backgroundColor: C.cardFill,
       borderWidth: 1,
-      borderColor: C.frame,
+      borderColor: C.frameBorder,
       borderRadius: 5,
       overflow: 'hidden',
     },
@@ -278,7 +302,7 @@ const styles = StyleSheet.create(
     /* Every row but the first is ruled off from the one above it. */
     trBorder: {
       borderTopWidth: 1,
-      borderTopColor: C.rowLine,
+      borderTopColor: C.rowLineBorder,
     },
 
     dot: {
@@ -286,7 +310,7 @@ const styles = StyleSheet.create(
       height: 7,
       borderRadius: 4,
       marginTop: 5,
-      backgroundColor: C.frame,
+      backgroundColor: C.frameFill,
     },
 
     body: {
@@ -297,14 +321,14 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodyBold,
       fontSize: 11.5,
       lineHeight: 15,
-      color: C.text,
+      color: C.textText,
     },
 
     nMeta: {
       fontFamily: Fonts.body,
       fontSize: 10,
       lineHeight: 13,
-      color: C.hint,
+      color: C.hintText,
       marginTop: 2,
     },
 
@@ -316,7 +340,31 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 9.5,
       lineHeight: 12,
-      color: C.gray,
+      color: C.grayText,
+    },
+
+    stateRow: {
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 10,
+      minHeight: 120,
+      paddingVertical: 22,
+    },
+
+    stateRetry: {
+      minHeight: 44,
+      justifyContent: 'center',
+      paddingHorizontal: 18,
+      borderWidth: 1,
+      borderColor: C.blueBorder,
+      borderRadius: 10,
+    },
+
+    stateRetryText: {
+      fontFamily: Fonts.bodySemiBold,
+      fontSize: 13,
+      color: C.blueText,
     },
 
     pressed: {

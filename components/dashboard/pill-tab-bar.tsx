@@ -1,39 +1,25 @@
-import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useRouter, type Href } from 'expo-router';
 import type { BottomTabBarProps } from 'expo-router/js-tabs';
-import type { ComponentProps } from 'react';
 import { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
-import { Text } from '@/components/dashboard/dashboard-text';
 import { HomeBackdrop } from '@/components/dashboard/home-backdrop';
-import { Fonts } from '@/constants/theme';
+import { NavPillItem, type NavIconName } from '@/components/dashboard/nav-pill-item';
+import { NavC } from '@/constants/dashboard-theme';
+import { useAppColors, usePaletteStyles, type AppColorsOf } from '@/lib/app-theme';
+import { Elevation } from '@/constants/theme';
 import { badges } from '@/lib/api/notifications';
-import { I, scaled } from '@/lib/responsive';
+import { scaled } from '@/lib/responsive';
 import { useSession } from '@/lib/session';
 
 /**
  * Floating pill bottom navigation for the administrator dashboard.
- * Matches the reference: rounded floating container with Home (active,
- * pale-green capsule) / Përdoruesit / Pagesat / Chat / Profili.
  *
  * "Përdoruesit", "Profili" and "Mesazhet" are not tabs — tapping them opens a
  * full-screen root route, so the pill bar disappears and a back arrow returns.
  */
 
-const C = {
-  bg: '#FAFBFA',
-  pillBg: '#F5F5F5',
-  frame: '#000000',
-  activeBg: '#DDF8E9',
-  green: '#159447',
-  muted: '#9A9A9A',
-  text: '#111111',
-};
-
-type MciName = ComponentProps<typeof MaterialCommunityIcons>['name'];
-
-type Item = { name: string; label: string; icon: MciName };
+type Item = { name: string; label: string; icon: NavIconName };
 
 const ITEMS: Item[] = [
   { name: 'index', label: 'Kryesorja', icon: 'home-variant' },
@@ -51,6 +37,8 @@ const FULL_SCREEN: Record<string, { path: Href; label: string }> = {
 };
 
 export function PillTabBar({ state, emitter, navigateToTab, insets }: BottomTabBarProps) {
+  const C = useAppColors(NavC);
+  const styles = usePaletteStyles(createStyles, C);
   const router = useRouter();
   const { token } = useSession();
   const [unread, setUnread] = useState(0);
@@ -95,35 +83,21 @@ export function PillTabBar({ state, emitter, navigateToTab, insets }: BottomTabB
           const full = FULL_SCREEN[item.name];
           if (full) {
             return (
-              <Pressable
+              <NavPillItem
                 key={item.name}
+                label={item.label}
+                icon={item.icon}
+                focused={false}
+                unread={item.name === 'chat' ? unread : 0}
                 onPress={() => router.push(full.path)}
-                style={styles.wrap}
-                accessibilityRole="button"
-                accessibilityLabel={full.label}
-              >
-                <View style={styles.item}>
-                  <View style={styles.iconWrap}>
-                    <MaterialCommunityIcons name={item.icon} size={I(21)} color={C.muted} />
-                    {item.name === 'chat' && unread > 0 ? (
-                      <View style={styles.badge}>
-                        <Text style={styles.badgeText}>
-                          {unread > 99 ? '99+' : unread}
-                        </Text>
-                      </View>
-                    ) : null}
-                  </View>
-                  <Text style={[styles.label, { color: C.muted }]} numberOfLines={1}>
-                    {item.label}
-                  </Text>
-                </View>
-              </Pressable>
+                iconSize={21}
+                labelSize={9.5}
+              />
             );
           }
 
           const route = state.routes.find((r) => r.name === item.name);
           const focused = !!route && state.index === state.routes.indexOf(route);
-          const color = focused ? C.green : C.muted;
           const onPress = () => {
             if (!route) return;
             const event = emitter.emit({
@@ -135,15 +109,17 @@ export function PillTabBar({ state, emitter, navigateToTab, insets }: BottomTabB
               navigateToTab(route.key);
             }
           };
+
           return (
-            <Pressable key={item.name} onPress={onPress} style={styles.wrap} accessibilityRole="button">
-              <View style={[styles.item, focused && styles.itemActive]}>
-                <MaterialCommunityIcons name={item.icon} size={I(21)} color={color} />
-                <Text style={[styles.label, { color }]} numberOfLines={1}>
-                  {item.label}
-                </Text>
-              </View>
-            </Pressable>
+            <NavPillItem
+              key={item.name}
+              label={item.label}
+              icon={item.icon}
+              focused={focused}
+              onPress={onPress}
+              iconSize={21}
+              labelSize={9.5}
+            />
           );
         })}
       </View>
@@ -151,7 +127,7 @@ export function PillTabBar({ state, emitter, navigateToTab, insets }: BottomTabB
   );
 }
 
-const styles = StyleSheet.create(scaled({
+const createStyles = (C: AppColorsOf<typeof NavC>) => StyleSheet.create(scaled({
   area: {
     paddingTop: 8,
     paddingHorizontal: 27,
@@ -168,56 +144,12 @@ const styles = StyleSheet.create(scaled({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: C.pillBg,
+    backgroundColor: C.pillBgFill,
     borderWidth: 1,
-    borderColor: C.frame,
+    borderColor: C.frameBorder,
     borderRadius: 16,
     paddingVertical: 8,
     paddingHorizontal: 6,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.07,
-    shadowRadius: 10,
-    elevation: 3,
-  },
-  wrap: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  item: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 12,
-    paddingHorizontal: 7,
-    paddingVertical: 6,
-    gap: 2,
-  },
-  itemActive: {
-    backgroundColor: C.activeBg,
-  },
-  iconWrap: {
-    position: 'relative',
-  },
-  badge: {
-    position: 'absolute',
-    top: -4,
-    right: -9,
-    minWidth: 15,
-    height: 15,
-    borderRadius: 8,
-    paddingHorizontal: 3,
-    backgroundColor: '#E03131',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  badgeText: {
-    fontFamily: Fonts.bodyBold,
-    fontSize: 8,
-    lineHeight: 10,
-    color: '#FFFFFF',
-  },
-  label: {
-    fontFamily: Fonts.bodySemiBold,
-    fontSize: 9.5,
+    ...Elevation.md,
   },
 }));

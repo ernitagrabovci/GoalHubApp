@@ -34,25 +34,27 @@ import type {
 } from '@/lib/api/types';
 import { I, scaled } from '@/lib/responsive';
 import { useSession, type Role } from '@/lib/session';
+import { useAppColors, usePaletteStyles, type AppColorsOf } from '@/lib/app-theme';
+import { useGlass } from '@/lib/glass';
 
 /**
  * Siguria — the fifth settings sub-page.
  *
- * Same light #FAFBFA canvas as the other sub-pages. Five stacked sections:
+ * Same light #F7F9F8 canvas as the other sub-pages. Five stacked sections:
  * the security score card, the current session details, the (empty) login
  * history, the quick actions list and the danger zone banner.
  */
 
-const C = {
-  page: '#FAFBFA',
+const C_LIGHT = {
+  page: '#F7F9F8',
   line: 'rgba(0,0,0,0.025)',
 
-  text: '#111111',
-  gray: '#8A8A8A',
-  frame: '#000000',
-  white: '#F5F5F5',
+  text: '#17251E',
+  gray: '#52645A',
+  frame: '#DCE5DF',
+  white: '#FFFFFF',
 
-  card: '#F6FBFF',
+  card: '#F7F9F8',
   cardBorder: 'rgba(100,140,190,0.30)',
   rowLine: 'rgba(100,140,190,0.22)',
   headLine: 'rgba(100,140,190,0.25)',
@@ -65,7 +67,7 @@ const C = {
   badgeBg: '#E7EEF4',
   emptyBorder: '#D5E0E9',
 
-  red: '#E03131',
+  red: '#B91C1C',
   dangerBg: '#FDF3F3',
   dangerBorder: 'rgba(224,49,49,0.35)',
 };
@@ -100,18 +102,20 @@ function panelErrorMessage(error: unknown): string {
   return 'Diçka shkoi keq. Provo përsëri.';
 }
 
-const QUICK_ACTIONS: { label: string; color: string; route?: string }[] = [
-  { label: 'Ndrysho fjalëkalimin', color: C.ok, route: '/account-settings' },
-  { label: 'Ndrysho email adresën', color: C.blue, route: '/account-settings' },
-  { label: 'Menaxho lojtarët', color: C.text, route: '/players' },
-  { label: 'Menaxho përdoruesit', color: C.text, route: '/perdoruesit' },
-];
+const QUICK_ACTIONS = (C: AppColorsOf<typeof C_LIGHT>): { label: string; color: string; route?: string }[] => ([
+  { label: 'Ndrysho fjalëkalimin', color: C.okText, route: '/account-settings' },
+  { label: 'Ndrysho email adresën', color: C.blueText, route: '/account-settings' },
+  { label: 'Menaxho lojtarët', color: C.textText, route: '/players' },
+  { label: 'Menaxho përdoruesit', color: C.textText, route: '/perdoruesit' },
+]);
 
 /* ------------------------------------------------------------------ */
 /* Small pieces                                                        */
 /* ------------------------------------------------------------------ */
 
 function Card({ title, children }: { title: string; children: ReactNode }) {
+  const C = useAppColors(C_LIGHT);
+  const styles = usePaletteStyles(createStyles, C);
   return (
     <View style={styles.card}>
       <View style={styles.cardHead}>
@@ -137,6 +141,8 @@ function StatusRow({
   onAction?: () => void;
   last?: boolean;
 }) {
+  const C = useAppColors(C_LIGHT);
+  const styles = usePaletteStyles(createStyles, C);
   return (
     <View style={[styles.row, last && styles.rowLast]}>
       <View style={[styles.dot, { backgroundColor: tone }]} />
@@ -167,6 +173,8 @@ function InfoRow({
   value: string;
   last?: boolean;
 }) {
+  const C = useAppColors(C_LIGHT);
+  const styles = usePaletteStyles(createStyles, C);
   return (
     <View style={[styles.kvRow, last && styles.rowLast]}>
       <Text style={styles.kvLabel}>{label}</Text>
@@ -186,6 +194,8 @@ function ActionRow({
   onPress?: () => void;
   last?: boolean;
 }) {
+  const C = useAppColors(C_LIGHT);
+  const styles = usePaletteStyles(createStyles, C);
   return (
     <Pressable
       onPress={onPress}
@@ -197,7 +207,7 @@ function ActionRow({
       ]}
     >
       <Text style={[styles.actionLabel, { color }]}>{label}</Text>
-      <MaterialCommunityIcons name="chevron-right" size={I(20)} color={C.gray} />
+      <MaterialCommunityIcons name="chevron-right" size={I(20)} color={C.grayText} />
     </Pressable>
   );
 }
@@ -207,6 +217,9 @@ function ActionRow({
 /* ------------------------------------------------------------------ */
 
 export default function SecuritySettingsScreen() {
+  const glass = useGlass();
+  const C = useAppColors(C_LIGHT);
+  const styles = usePaletteStyles(createStyles, C);
   const router = useRouter();
   const { token, user, signOut } = useSession();
 
@@ -421,7 +434,7 @@ export default function SecuritySettingsScreen() {
                 accessibilityLabel="Kthehu prapa"
                 style={({ pressed }) => [styles.backBtn, pressed && styles.pressed]}
               >
-                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.text} />
+                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.textText} />
               </Pressable>
               <View style={styles.headerText}>
                 <Text style={styles.title}>Siguria</Text>
@@ -544,7 +557,7 @@ export default function SecuritySettingsScreen() {
                       <TextInput
                         style={styles.panelField}
                         placeholder="000000"
-                        placeholderTextColor={C.gray}
+                        placeholderTextColor={C.grayText}
                         value={code}
                         onChangeText={(value) => setCode(value.replace(/[^0-9]/g, ''))}
                         keyboardType="number-pad"
@@ -582,7 +595,7 @@ export default function SecuritySettingsScreen() {
                           ]}
                         >
                           {panelBusy ? (
-                            <ActivityIndicator color={C.text} size="small" />
+                            <ActivityIndicator color={C.textText} size="small" />
                           ) : (
                             <Text style={styles.panelPrimaryText}>Konfirmo</Text>
                           )}
@@ -603,7 +616,7 @@ export default function SecuritySettingsScreen() {
                   <TextInput
                     style={styles.panelField}
                     placeholder="Fjalëkalimi"
-                    placeholderTextColor={C.gray}
+                    placeholderTextColor={C.grayText}
                     value={password}
                     onChangeText={setPassword}
                     secureTextEntry
@@ -615,7 +628,7 @@ export default function SecuritySettingsScreen() {
                   <TextInput
                     style={styles.panelField}
                     placeholder="Kodi 6-shifror ose kod rikuperimi"
-                    placeholderTextColor={C.gray}
+                    placeholderTextColor={C.grayText}
                     value={code}
                     onChangeText={setCode}
                     autoCapitalize="characters"
@@ -653,7 +666,7 @@ export default function SecuritySettingsScreen() {
                       ]}
                     >
                       {panelBusy ? (
-                        <ActivityIndicator color={C.white} size="small" />
+                        <ActivityIndicator color={C.whiteText} size="small" />
                       ) : (
                         <Text style={styles.panelSolidText}>Çaktivizo</Text>
                       )}
@@ -736,19 +749,19 @@ export default function SecuritySettingsScreen() {
               </View>
 
               <View style={styles.rows}>
-                {QUICK_ACTIONS.map((a, i) => (
+                {QUICK_ACTIONS(C).map((a, i) => (
                   <ActionRow
                     key={a.label}
                     label={a.label}
                     color={a.color}
                     onPress={a.route ? () => router.push(a.route as never) : undefined}
-                    last={i === QUICK_ACTIONS.length - 1}
+                    last={i === QUICK_ACTIONS(C).length - 1}
                   />
                 ))}
               </View>
 
               <View style={styles.danger}>
-                <BlurView intensity={40} tint="light" style={StyleSheet.absoluteFill} />
+                <BlurView intensity={40} tint={glass.tint} style={StyleSheet.absoluteFill} />
                 <View pointerEvents="none" style={styles.dangerTint} />
 
                 <Text style={styles.dangerTitle}>Zona e rrezikut</Text>
@@ -810,7 +823,7 @@ export default function SecuritySettingsScreen() {
 /* Styles                                                              */
 /* ------------------------------------------------------------------ */
 
-const styles = StyleSheet.create(
+const createStyles = (C: AppColorsOf<typeof C_LIGHT>) => StyleSheet.create(
   scaled({
     safe: {
       flex: 1,
@@ -855,14 +868,14 @@ const styles = StyleSheet.create(
       fontSize: 20,
       lineHeight: 24,
       letterSpacing: -0.3,
-      color: C.text,
+      color: C.textText,
     },
 
     subtitle: {
       fontFamily: Fonts.body,
       fontSize: 12,
       lineHeight: 16,
-      color: C.gray,
+      color: C.grayText,
       marginTop: 1,
     },
 
@@ -873,9 +886,9 @@ const styles = StyleSheet.create(
     /* ── Card ────────────────────────────────────────────────── */
     card: {
       marginTop: 18,
-      backgroundColor: C.card,
+      backgroundColor: C.cardFill,
       borderWidth: 2,
-      borderColor: C.cardBorder,
+      borderColor: C.cardBorderBorder,
       borderRadius: 8,
       overflow: 'hidden',
     },
@@ -886,7 +899,7 @@ const styles = StyleSheet.create(
       paddingHorizontal: 12,
       paddingVertical: 11,
       borderBottomWidth: 1,
-      borderBottomColor: C.headLine,
+      borderBottomColor: C.headLineBorder,
     },
 
     cardHeadSplit: {
@@ -896,7 +909,7 @@ const styles = StyleSheet.create(
       paddingHorizontal: 14,
       paddingVertical: 11,
       borderBottomWidth: 1,
-      borderBottomColor: C.headLine,
+      borderBottomColor: C.headLineBorder,
     },
 
     cardHeadText: {
@@ -904,7 +917,7 @@ const styles = StyleSheet.create(
       fontSize: 16,
       lineHeight: 20,
       letterSpacing: -0.2,
-      color: C.text,
+      color: C.textText,
     },
 
     badge: {
@@ -913,7 +926,7 @@ const styles = StyleSheet.create(
       paddingHorizontal: 6,
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: C.badgeBg,
+      backgroundColor: C.badgeBgFill,
       borderRadius: 999,
     },
 
@@ -921,7 +934,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodySemiBold,
       fontSize: 11,
       lineHeight: 13,
-      color: C.gray,
+      color: C.grayText,
     },
 
     /* ── Security score ──────────────────────────────────────── */
@@ -933,7 +946,7 @@ const styles = StyleSheet.create(
     scoreDivider: {
       height: 1,
       marginTop: 14,
-      backgroundColor: C.rowLine,
+      backgroundColor: C.rowLineFill,
     },
 
     scoreRow: {
@@ -946,27 +959,27 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodySemiBold,
       fontSize: 13,
       lineHeight: 17,
-      color: C.text,
+      color: C.textText,
     },
 
     scoreValue: {
       fontFamily: Fonts.bodyBold,
       fontSize: 13,
       lineHeight: 17,
-      color: C.ok,
+      color: C.okText,
     },
 
     track: {
       height: 7,
       marginTop: 9,
-      backgroundColor: C.track,
+      backgroundColor: C.trackFill,
       borderRadius: 999,
       overflow: 'hidden',
     },
 
     trackFill: {
       height: 7,
-      backgroundColor: C.ok,
+      backgroundColor: C.okFill,
       borderRadius: 999,
     },
 
@@ -981,7 +994,7 @@ const styles = StyleSheet.create(
       minHeight: 44,
       paddingVertical: 6,
       borderBottomWidth: 1,
-      borderBottomColor: C.rowLine,
+      borderBottomColor: C.rowLineBorder,
     },
 
     rowLast: {
@@ -1005,14 +1018,14 @@ const styles = StyleSheet.create(
       fontSize: 14,
       lineHeight: 18,
       letterSpacing: -0.2,
-      color: C.text,
+      color: C.textText,
     },
 
     rowDesc: {
       fontFamily: Fonts.body,
       fontSize: 12,
       lineHeight: 16,
-      color: C.gray,
+      color: C.grayText,
       marginTop: 1,
     },
 
@@ -1020,7 +1033,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodySemiBold,
       fontSize: 13,
       lineHeight: 17,
-      color: C.red,
+      color: C.redText,
     },
 
     /* ── 2FA inline panel ────────────────────────────────────── */
@@ -1029,14 +1042,14 @@ const styles = StyleSheet.create(
       paddingVertical: 14,
       backgroundColor: 'rgba(27,111,191,0.06)',
       borderTopWidth: 1,
-      borderTopColor: C.rowLine,
+      borderTopColor: C.rowLineBorder,
     },
 
     panelTitle: {
       fontFamily: Fonts.bodyBold,
       fontSize: 14,
       lineHeight: 18,
-      color: C.text,
+      color: C.textText,
     },
 
     panelHint: {
@@ -1044,7 +1057,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 12,
       lineHeight: 16,
-      color: C.gray,
+      color: C.grayText,
     },
 
     secret: {
@@ -1056,33 +1069,33 @@ const styles = StyleSheet.create(
       lineHeight: 20,
       letterSpacing: 1.5,
       textAlign: 'center',
-      color: C.text,
-      backgroundColor: C.white,
+      color: C.textText,
+      backgroundColor: C.whiteFill,
       borderWidth: 1,
-      borderColor: C.frame,
-      borderRadius: 5,
+      borderColor: C.frameBorder,
+      borderRadius: 10,
     },
 
     link: {
       marginTop: 6,
       fontFamily: Fonts.body,
-      fontSize: 10,
-      lineHeight: 14,
-      color: C.blue,
+      fontSize: 12,
+      lineHeight: 16,
+      color: C.blueText,
     },
 
     panelField: {
-      height: 40,
+      height: 44,
       marginTop: 10,
       paddingHorizontal: 12,
       paddingVertical: 0,
       fontFamily: Fonts.body,
-      fontSize: 13,
-      color: C.text,
-      backgroundColor: C.white,
+      fontSize: 14,
+      color: C.textText,
+      backgroundColor: C.whiteFill,
       borderWidth: 1,
-      borderColor: C.frame,
-      borderRadius: 5,
+      borderColor: C.frameBorder,
+      borderRadius: 10,
     },
 
     panelError: {
@@ -1090,7 +1103,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodySemiBold,
       fontSize: 12,
       lineHeight: 16,
-      color: C.red,
+      color: C.redText,
     },
 
     panelBtns: {
@@ -1101,62 +1114,62 @@ const styles = StyleSheet.create(
 
     panelGhost: {
       flex: 1,
-      height: 36,
+      height: 44,
       alignItems: 'center',
       justifyContent: 'center',
       borderWidth: 1,
-      borderColor: C.frame,
-      borderRadius: 4,
+      borderColor: C.frameBorder,
+      borderRadius: 10,
     },
 
     panelGhostText: {
       fontFamily: Fonts.bodySemiBold,
-      fontSize: 12,
-      lineHeight: 16,
-      color: C.text,
+      fontSize: 13,
+      lineHeight: 17,
+      color: C.textText,
     },
 
     panelPrimary: {
       flex: 1,
-      height: 36,
+      height: 44,
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: 'rgba(54,172,107,0.20)',
       borderWidth: 1,
-      borderColor: C.ok,
-      borderRadius: 4,
+      borderColor: C.okBorder,
+      borderRadius: 10,
     },
 
     panelPrimaryText: {
       fontFamily: Fonts.bodyBold,
-      fontSize: 12,
-      lineHeight: 16,
-      color: C.text,
+      fontSize: 13,
+      lineHeight: 17,
+      color: C.textText,
     },
 
     panelSolid: {
       flex: 1,
-      height: 36,
+      height: 44,
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: C.red,
-      borderRadius: 4,
+      backgroundColor: C.redFill,
+      borderRadius: 10,
     },
 
     panelSolidText: {
       fontFamily: Fonts.bodyBold,
-      fontSize: 12,
-      lineHeight: 16,
-      color: C.white,
+      fontSize: 13,
+      lineHeight: 17,
+      color: C.whiteText,
     },
 
     codes: {
       marginTop: 10,
       paddingHorizontal: 12,
       paddingVertical: 8,
-      backgroundColor: C.white,
+      backgroundColor: C.whiteFill,
       borderWidth: 1,
-      borderColor: C.frame,
+      borderColor: C.frameBorder,
       borderRadius: 5,
     },
 
@@ -1167,7 +1180,7 @@ const styles = StyleSheet.create(
       lineHeight: 18,
       letterSpacing: 1,
       textAlign: 'center',
-      color: C.text,
+      color: C.textText,
     },
 
     /* ── Key / value rows ────────────────────────────────────── */
@@ -1177,14 +1190,14 @@ const styles = StyleSheet.create(
       minHeight: 36,
       paddingVertical: 6,
       borderBottomWidth: 1,
-      borderBottomColor: C.rowLine,
+      borderBottomColor: C.rowLineBorder,
     },
 
     kvLabel: {
       fontFamily: Fonts.bodySemiBold,
       fontSize: 13,
       lineHeight: 17,
-      color: C.text,
+      color: C.textText,
       paddingRight: 12,
     },
 
@@ -1193,7 +1206,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 13,
       lineHeight: 17,
-      color: C.gray,
+      color: C.grayText,
       textAlign: 'right',
     },
 
@@ -1209,7 +1222,7 @@ const styles = StyleSheet.create(
       fontSize: 12,
       lineHeight: 16,
       letterSpacing: 0.2,
-      color: C.gray,
+      color: C.grayText,
     },
 
     /* ── Fade cast downward from the session table ───────────── */
@@ -1221,20 +1234,20 @@ const styles = StyleSheet.create(
     /* Clear button sitting inside that fade */
     wipeBtn: {
       marginHorizontal: 14,
-      height: 36,
+      height: 44,
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: 'transparent',
       borderWidth: 1,
-      borderColor: C.red,
-      borderRadius: 4,
+      borderColor: C.redBorder,
+      borderRadius: 10,
     },
 
     wipeBtnText: {
       fontFamily: Fonts.bodySemiBold,
       fontSize: 13,
       lineHeight: 17,
-      color: C.red,
+      color: C.redText,
     },
 
     /* ── Empty state ─────────────────────────────────────────── */
@@ -1248,7 +1261,7 @@ const styles = StyleSheet.create(
       justifyContent: 'center',
       borderWidth: 1,
       borderStyle: 'dashed',
-      borderColor: C.emptyBorder,
+      borderColor: C.emptyBorderBorder,
       borderRadius: 6,
       paddingHorizontal: 14,
       paddingVertical: 14,
@@ -1258,7 +1271,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 12,
       lineHeight: 16,
-      color: C.gray,
+      color: C.grayText,
       textAlign: 'center',
     },
 
@@ -1270,7 +1283,7 @@ const styles = StyleSheet.create(
       minHeight: 40,
       paddingVertical: 6,
       borderBottomWidth: 1,
-      borderBottomColor: C.rowLine,
+      borderBottomColor: C.rowLineBorder,
     },
 
     actionLabel: {
@@ -1285,9 +1298,9 @@ const styles = StyleSheet.create(
     /* ── Danger zone — attached to the bottom of the table, glassy */
     danger: {
       overflow: 'hidden',
-      backgroundColor: C.dangerBg,
+      backgroundColor: C.dangerBgFill,
       borderTopWidth: 1,
-      borderTopColor: C.dangerBorder,
+      borderTopColor: C.dangerBorderBorder,
       paddingHorizontal: 16,
       paddingVertical: 12,
     },
@@ -1306,14 +1319,14 @@ const styles = StyleSheet.create(
       fontSize: 15,
       lineHeight: 19,
       letterSpacing: -0.2,
-      color: C.text,
+      color: C.textText,
     },
 
     dangerDesc: {
       fontFamily: Fonts.body,
       fontSize: 12,
       lineHeight: 16,
-      color: C.text,
+      color: C.textText,
       marginTop: 3,
     },
 
@@ -1325,38 +1338,38 @@ const styles = StyleSheet.create(
 
     dangerGhost: {
       flex: 1,
-      height: 34,
+      height: 44,
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: 'rgba(224,49,49,0.18)',
       borderWidth: 1,
-      borderColor: C.red,
-      borderRadius: 4,
+      borderColor: C.redBorder,
+      borderRadius: 10,
       paddingHorizontal: 6,
     },
 
     dangerGhostText: {
       fontFamily: Fonts.bodySemiBold,
-      fontSize: 11.5,
-      lineHeight: 15,
-      color: C.text,
+      fontSize: 13,
+      lineHeight: 17,
+      color: C.textText,
     },
 
     dangerSolid: {
       flex: 1,
-      height: 34,
+      height: 44,
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: C.red,
-      borderRadius: 4,
+      backgroundColor: C.redFill,
+      borderRadius: 10,
       paddingHorizontal: 6,
     },
 
     dangerSolidText: {
       fontFamily: Fonts.bodyBold,
-      fontSize: 11.5,
-      lineHeight: 15,
-      color: '#F5F5F5',
+      fontSize: 13,
+      lineHeight: 17,
+      color: '#FFFFFF',
     },
 
     /* A dimmed danger action while a request is in flight. */

@@ -23,6 +23,7 @@ import { type PickedFile } from '@/lib/api/upload';
 import { LEVELS, levelCode } from '@/lib/library';
 import { I, scaled } from '@/lib/responsive';
 import { useSession } from '@/lib/session';
+import { useAppColors, usePaletteStyles, type AppColorsOf } from '@/lib/app-theme';
 
 /**
  * Shto material të ri — opened from "+ Ngarko video" on Video Strategjia.
@@ -30,25 +31,26 @@ import { useSession } from '@/lib/session';
  * Mosha rather than Kategoria: a clip is filed by age band, not by subject.
  */
 
-const C = {
-  page: '#FAFBFA',
+const C_LIGHT = {
+  white: '#FFFFFF',
+  page: '#F7F9F8',
   line: 'rgba(0,0,0,0.025)',
 
-  text: '#111111',
-  gray: '#8A8A8A',
+  text: '#17251E',
+  gray: '#52645A',
   hint: '#6E6E6E',
 
-  frame: '#000000',
+  frame: '#DCE5DF',
   headLine: 'rgba(30,40,35,0.10)',
   border: 'rgba(100,140,190,0.30)',
 
   /* blue1 = the deeper card body; blue2 = the pale title strip. */
   blue1: '#E3EEFB',
-  blue2: '#F6FBFF',
+  blue2: '#F7F9F8',
   blue: '#2F80ED',
 
-  green: '#159447',
-  red: '#E03131',
+  green: '#2E7D5B',
+  red: '#B91C1C',
 };
 
 /* A clip is filed by age band, which the API stores as the free-text category. */
@@ -62,6 +64,8 @@ const now = new Date();
 const TODAY = `${now.getDate()} ${MONTHS[now.getMonth()]} ${now.getFullYear()}`;
 
 export default function UploadVideoScreen() {
+  const C = useAppColors(C_LIGHT);
+  const styles = usePaletteStyles(createStyles, C);
   const router = useRouter();
   const { token, user, signOut } = useSession();
 
@@ -176,7 +180,7 @@ export default function UploadVideoScreen() {
                 accessibilityLabel="Kthehu prapa"
                 style={({ pressed }) => [styles.backBtn, pressed && styles.pressed]}
               >
-                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.text} />
+                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.textText} />
               </Pressable>
               <View style={styles.headerText}>
                 <Text style={styles.title} numberOfLines={1}>
@@ -211,7 +215,7 @@ export default function UploadVideoScreen() {
                   value={title}
                   onChangeText={setTitle}
                   placeholder="Shkruaj titullin e materialit..."
-                  placeholderTextColor={C.gray}
+                  placeholderTextColor={C.grayText}
                   accessibilityLabel="Titulli"
                   style={styles.input}
                 />
@@ -252,7 +256,7 @@ export default function UploadVideoScreen() {
                   value={description}
                   onChangeText={setDescription}
                   placeholder="Shkruaj një përshkrim të shkurtër..."
-                  placeholderTextColor={C.gray}
+                  placeholderTextColor={C.grayText}
                   multiline
                   textAlignVertical="top"
                   accessibilityLabel="Përshkrimi"
@@ -312,7 +316,7 @@ export default function UploadVideoScreen() {
                   style={({ pressed }) => [styles.upload, pressed && styles.pressed]}
                 >
                   <View style={styles.uploadCircle}>
-                    <MaterialCommunityIcons name="video-plus" size={I(30)} color="#F5F5F5" />
+                    <MaterialCommunityIcons name="video-plus" size={I(30)} color="#FFFFFF" />
                   </View>
                   <Text style={styles.uploadText} numberOfLines={1}>
                     {file ? file.name ?? 'Video u zgjodh' : 'Kliko për të ngarkuar'}
@@ -380,6 +384,8 @@ function Select({
   setOpen: (open: boolean) => void;
   onChange: (v: string) => void;
 }) {
+  const C = useAppColors(C_LIGHT);
+  const styles = usePaletteStyles(createStyles, C);
   return (
     <View style={[styles.selectWrap, open && styles.fieldOpen]}>
       <Pressable
@@ -391,7 +397,7 @@ function Select({
         <Text style={styles.selectText} numberOfLines={1}>
           {value}
         </Text>
-        <MaterialCommunityIcons name="chevron-down" size={I(14)} color={C.text} />
+        <MaterialCommunityIcons name="chevron-down" size={I(14)} color={C.textText} />
       </Pressable>
 
       {open ? (
@@ -428,7 +434,7 @@ function Select({
 /* Styles                                                              */
 /* ------------------------------------------------------------------ */
 
-const styles = StyleSheet.create(
+const createStyles = (C: AppColorsOf<typeof C_LIGHT>) => StyleSheet.create(
   scaled({
     safe: {
       flex: 1,
@@ -473,14 +479,14 @@ const styles = StyleSheet.create(
       fontSize: 20,
       lineHeight: 24,
       letterSpacing: -0.3,
-      color: C.text,
+      color: C.textText,
     },
 
     subtitle: {
       fontFamily: Fonts.body,
       fontSize: 12,
       lineHeight: 16,
-      color: C.gray,
+      color: C.grayText,
       marginTop: 1,
     },
 
@@ -492,9 +498,9 @@ const styles = StyleSheet.create(
     /* Nothing may clip — a picker's options hang past the card's foot. */
     card: {
       marginTop: 14,
-      backgroundColor: C.blue2,
+      backgroundColor: C.blue2Fill,
       borderWidth: 2,
-      borderColor: C.border,
+      borderColor: C.borderBorder,
       borderRadius: 7,
       overflow: 'visible',
     },
@@ -503,7 +509,7 @@ const styles = StyleSheet.create(
       alignItems: 'flex-start',
       paddingHorizontal: 12,
       paddingVertical: 11,
-      backgroundColor: C.blue2,
+      backgroundColor: C.blue2Fill,
       borderTopLeftRadius: 5,
       borderTopRightRadius: 5,
     },
@@ -512,16 +518,16 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodyBold,
       fontSize: 14,
       lineHeight: 18,
-      color: C.text,
+      color: C.textText,
     },
 
     headLine: {
       height: 1,
-      backgroundColor: C.headLine,
+      backgroundColor: C.headLineFill,
     },
 
     body: {
-      backgroundColor: C.blue1,
+      backgroundColor: C.blue1Fill,
       paddingHorizontal: 12,
       paddingTop: 12,
       paddingBottom: 14,
@@ -534,7 +540,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodySemiBold,
       fontSize: 11.5,
       lineHeight: 15,
-      color: C.text,
+      color: C.textText,
       marginBottom: 5,
     },
 
@@ -544,16 +550,16 @@ const styles = StyleSheet.create(
     },
 
     input: {
-      height: 38,
-      paddingHorizontal: 10,
+      height: 44,
+      paddingHorizontal: 12,
       paddingVertical: 0,
       backgroundColor: 'transparent',
       borderWidth: 1,
-      borderColor: C.frame,
-      borderRadius: 4,
+      borderColor: C.frameBorder,
+      borderRadius: 10,
       fontFamily: Fonts.body,
-      fontSize: 12,
-      color: C.text,
+      fontSize: 13.5,
+      color: C.textText,
     },
 
     textarea: {
@@ -591,7 +597,7 @@ const styles = StyleSheet.create(
     },
 
     select: {
-      height: 38,
+      height: 44,
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
@@ -599,29 +605,29 @@ const styles = StyleSheet.create(
       paddingHorizontal: 10,
       backgroundColor: 'transparent',
       borderWidth: 1,
-      borderColor: C.frame,
-      borderRadius: 4,
+      borderColor: C.frameBorder,
+      borderRadius: 10,
     },
 
     selectText: {
       flex: 1,
       fontFamily: Fonts.body,
-      fontSize: 12,
-      lineHeight: 15,
-      color: C.text,
+      fontSize: 13.5,
+      lineHeight: 18,
+      color: C.textText,
     },
 
     /* Floats over the fields below, so opening it moves nothing. */
     opts: {
       position: 'absolute',
-      top: 41,
+      top: 47,
       left: 0,
       right: 0,
       zIndex: 40,
       elevation: 12,
-      backgroundColor: '#F5F5F5',
+      backgroundColor: C.whiteFill,
       borderWidth: 1,
-      borderColor: C.frame,
+      borderColor: C.frameBorder,
       borderRadius: 4,
       overflow: 'hidden',
       shadowColor: '#000000',
@@ -631,24 +637,24 @@ const styles = StyleSheet.create(
     },
 
     opt: {
-      height: 32,
+      minHeight: 40,
       alignItems: 'center',
       justifyContent: 'center',
     },
 
     optActive: {
-      backgroundColor: C.blue1,
+      backgroundColor: C.blue1Fill,
     },
 
     optText: {
       fontFamily: Fonts.body,
       fontSize: 12,
-      color: C.text,
+      color: C.textText,
     },
 
     optTextActive: {
       fontFamily: Fonts.bodyBold,
-      color: C.blue,
+      color: C.blueText,
     },
 
     /* ── Publikimi ───────────────────────────────────────────── */
@@ -656,7 +662,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 11,
       lineHeight: 15,
-      color: C.hint,
+      color: C.hintText,
       marginTop: 10,
     },
 
@@ -668,7 +674,7 @@ const styles = StyleSheet.create(
       alignItems: 'center',
       backgroundColor: 'rgba(227,227,227,0.50)',
       borderWidth: 1,
-      borderColor: C.gray,
+      borderColor: C.grayBorder,
       borderRadius: 4,
     },
 
@@ -676,7 +682,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodySemiBold,
       fontSize: 12,
       lineHeight: 16,
-      color: C.text,
+      color: C.textText,
     },
 
     stampName: {
@@ -684,7 +690,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodyBold,
       fontSize: 17,
       lineHeight: 21,
-      color: C.text,
+      color: C.textText,
       marginTop: 3,
     },
 
@@ -693,7 +699,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodySemiBold,
       fontSize: 12.5,
       lineHeight: 16,
-      color: C.text,
+      color: C.textText,
       marginTop: 3,
     },
 
@@ -704,7 +710,7 @@ const styles = StyleSheet.create(
       paddingVertical: 20,
       backgroundColor: 'transparent',
       borderWidth: 1,
-      borderColor: C.frame,
+      borderColor: C.frameBorder,
       borderRadius: 4,
     },
 
@@ -715,20 +721,20 @@ const styles = StyleSheet.create(
       borderRadius: 32,
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: C.green,
+      backgroundColor: C.greenFill,
     },
 
     uploadText: {
       fontFamily: Fonts.bodySemiBold,
       fontSize: 11.5,
-      color: C.text,
+      color: C.textText,
       marginTop: 8,
     },
 
     uploadHint: {
       fontFamily: Fonts.body,
       fontSize: 10.5,
-      color: C.gray,
+      color: C.grayText,
       marginTop: 2,
     },
 
@@ -737,7 +743,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 11.5,
       lineHeight: 15,
-      color: C.red,
+      color: C.redText,
       marginTop: 12,
     },
 
@@ -751,21 +757,21 @@ const styles = StyleSheet.create(
 
     /* Solid fills, no rim — the label carries the weight instead. */
     cancelBtn: {
-      height: 34,
-      paddingHorizontal: 16,
+      height: 44,
+      paddingHorizontal: 18,
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: C.red,
-      borderRadius: 4,
+      backgroundColor: C.redFill,
+      borderRadius: 10,
     },
 
     saveBtn: {
-      height: 34,
-      paddingHorizontal: 16,
+      height: 44,
+      paddingHorizontal: 18,
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: C.green,
-      borderRadius: 4,
+      backgroundColor: C.greenFill,
+      borderRadius: 10,
     },
 
     saveBtnOff: {
@@ -774,8 +780,9 @@ const styles = StyleSheet.create(
 
     actionText: {
       fontFamily: Fonts.bodySemiBold,
-      fontSize: 11.5,
-      color: '#F5F5F5',
+      fontSize: 13,
+      lineHeight: 18,
+      color: '#FFFFFF',
     },
 
     pressed: {

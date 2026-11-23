@@ -3,10 +3,11 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Animated,
   Image,
   KeyboardAvoidingView,
   Platform,
-  Pressable,
+  ScrollView,
   StyleSheet,
   TextInput,
   View,
@@ -14,12 +15,15 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
-import { Fonts } from '@/constants/theme';
+import { AnimatedPressable } from '@/components/ui/animated-pressable';
+import { Brand, Elevation, Fonts, Radius, Semantic } from '@/constants/theme';
 import * as auth from '@/lib/api/auth';
 import { ApiError } from '@/lib/api/errors';
 import { useLanguage } from '@/lib/i18n';
+import { Easings, Motion, useReducedMotion } from '@/lib/motion';
 import { scaled } from '@/lib/responsive';
 import { useSession } from '@/lib/session';
+import { useAppColors, usePaletteStyles, type AppColorsOf } from '@/lib/app-theme';
 
 /**
  * Login. Credentials are exchanged for a Sanctum token against the API; a
@@ -27,20 +31,20 @@ import { useSession } from '@/lib/session';
  * one already exists. New administrators can create an account from here.
  */
 
-const C = {
-  page: '#FAFBFA',
-  line: 'rgba(0,0,0,0.025)',
+const C_LIGHT = {
+  page: '#F7F9F8',
 
-  text: '#111111',
-  gray: '#8A8A8A',
-  hint: '#6E6E6E',
+  text: '#17251E',
+  gray: '#52645A',
+  hint: '#5F7268',
 
-  frame: '#000000',
-  white: '#F5F5F5',
+  surface: '#FFFFFF',
+  border: '#DCE5DF',
 
-  green: '#36AC6B',
-  greenSoft: 'rgba(54,172,107,0.20)',
-  danger: '#D64545',
+  green: Brand[600],
+  greenSoft: Brand[50],
+  danger: Semantic.danger,
+  dangerSoft: Semantic.dangerSoft,
 };
 
 const IMG_PLAYER = require('@/assets/dashboard/lojtaret.png');
@@ -56,19 +60,45 @@ function errorMessage(error: unknown, t: (key: string) => string): string {
 }
 
 export default function LoginScreen() {
+  const C = useAppColors(C_LIGHT);
+  const styles = usePaletteStyles(createStyles, C);
   const router = useRouter();
   const { t } = useLanguage();
   const { user, completeSignIn } = useSession();
+  const reduced = useReducedMotion();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [focused, setFocused] = useState<'email' | 'password' | null>(null);
+
+  const [heroIn] = useState(() => new Animated.Value(0));
+  const [formIn] = useState(() => new Animated.Value(0));
 
   // Already signed in (e.g. restored from storage) — skip the form.
   useEffect(() => {
     if (user) router.replace('/');
   }, [user, router]);
+
+  // Restrained entrance: hero, then form. Reduced motion snaps to the end.
+  useEffect(() => {
+    const duration = reduced ? 0 : Motion.complex;
+    Animated.stagger(reduced ? 0 : 80, [
+      Animated.timing(heroIn, {
+        toValue: 1,
+        duration,
+        easing: Easings.enter,
+        useNativeDriver: true,
+      }),
+      Animated.timing(formIn, {
+        toValue: 1,
+        duration,
+        easing: Easings.enter,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [reduced, heroIn, formIn]);
 
   const submit = async () => {
     if (busy) return;
@@ -102,6 +132,13 @@ export default function LoginScreen() {
     }
   };
 
+  const rise = (value: Animated.Value) => ({
+    opacity: value,
+    transform: [
+      { translateY: value.interpolate({ inputRange: [0, 1], outputRange: [8, 0] }) },
+    ],
+  });
+
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <StatusBar style="dark" />
@@ -110,100 +147,121 @@ export default function LoginScreen() {
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <View style={styles.body}>
-          {/* Hero — the player is mirrored so he faces back into the page. */}
-          <View style={styles.hero}>
-            <Image source={IMG_PLAYER} style={styles.heroPlayer} resizeMode="contain" />
-            <Image source={IMG_BALL} style={styles.heroBall} resizeMode="contain" />
+        <ScrollView
+          contentContainerStyle={styles.scroll}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.body}>
+            {/* Hero — the player is mirrored so he faces back into the page. */}
+            <Animated.View style={[styles.hero, rise(heroIn)]}>
+              <Image source={IMG_PLAYER} style={styles.heroPlayer} resizeMode="contain" />
+              <Image source={IMG_BALL} style={styles.heroBall} resizeMode="contain" />
 
-            <View style={styles.heroText}>
-              <Text
-                style={styles.wordmark}
-                numberOfLines={1}
-                adjustsFontSizeToFit
-                minimumFontScale={0.7}
+              <View style={styles.heroText}>
+                <Text
+                  style={styles.wordmark}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.7}
+                >
+                  GOALHUB
+                </Text>
+                <Text style={styles.heroSubtitle} numberOfLines={1}>
+                  {t('login.subtitle')}
+                </Text>
+              </View>
+            </Animated.View>
+
+            {/* Fields */}
+            <Animated.View style={rise(formIn)}>
+              <Text style={styles.label}>{t('login.email')}</Text>
+              <TextInput
+                style={[styles.field, focused === 'email' && styles.fieldFocused]}
+                placeholder={t('login.email')}
+                placeholderTextColor={C.hintText}
+                value={email}
+                onChangeText={setEmail}
+                onFocus={() => setFocused('email')}
+                onBlur={() => setFocused(null)}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+                editable={!busy}
+                accessibilityLabel={t('login.email')}
+              />
+
+              <Text style={[styles.label, styles.labelSpaced]}>{t('login.password')}</Text>
+              <TextInput
+                style={[styles.field, focused === 'password' && styles.fieldFocused]}
+                placeholder={t('login.password')}
+                placeholderTextColor={C.hintText}
+                value={password}
+                onChangeText={setPassword}
+                onFocus={() => setFocused('password')}
+                onBlur={() => setFocused(null)}
+                secureTextEntry
+                autoCapitalize="none"
+                autoCorrect={false}
+                editable={!busy}
+                onSubmitEditing={submit}
+                accessibilityLabel={t('login.password')}
+              />
+
+              {error ? (
+                <View style={styles.errorBox}>
+                  <Text style={styles.error} accessibilityRole="alert" accessibilityLiveRegion="polite">
+                    {error}
+                  </Text>
+                </View>
+              ) : null}
+
+              <AnimatedPressable
+                style={styles.forgotRow}
+                hitSlop={8}
+                onPress={() => router.push('/forgot-password')}
+                accessibilityRole="button"
               >
-                GOALHUB
-              </Text>
-              <Text style={styles.heroSubtitle} numberOfLines={1}>
-                {t('login.subtitle')}
-              </Text>
+                <Text style={styles.forgot}>{t('login.forgot')}</Text>
+              </AnimatedPressable>
+
+              <AnimatedPressable
+                style={[styles.primary, busy && styles.primaryBusy]}
+                onPress={submit}
+                disabled={busy}
+                accessibilityRole="button"
+                accessibilityLabel={t('login.submit')}
+                accessibilityState={{ disabled: busy, busy }}
+              >
+                {busy ? (
+                  <ActivityIndicator color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.primaryText}>{t('login.submit')}</Text>
+                )}
+              </AnimatedPressable>
+
+              <View style={styles.signupRow}>
+                <Text style={styles.signupText}>{t('login.noAccount')}</Text>
+                <AnimatedPressable
+                  onPress={() => router.push('/signup')}
+                  hitSlop={8}
+                  accessibilityRole="link"
+                >
+                  <Text style={styles.signupLink}>{t('login.signup')}</Text>
+                </AnimatedPressable>
+              </View>
+            </Animated.View>
+
+            {/* Everything the two modes share stays up here; the slack pushed
+                below keeps the form high and the photo on the bottom edge. */}
+            <View style={styles.spacer} />
+
+            {/* The team photo closes the page. */}
+            <View style={styles.teamWrap}>
+              <Image source={IMG_TEAM} style={styles.team} resizeMode="contain" />
             </View>
           </View>
-
-          {/* Fields */}
-          <TextInput
-            style={styles.field}
-            placeholder={t('login.email')}
-            placeholderTextColor={C.gray}
-            value={email}
-            onChangeText={setEmail}
-            keyboardType="email-address"
-            autoCapitalize="none"
-            autoCorrect={false}
-            editable={!busy}
-          />
-
-          <TextInput
-            style={styles.field}
-            placeholder={t('login.password')}
-            placeholderTextColor={C.gray}
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-            autoCapitalize="none"
-            autoCorrect={false}
-            editable={!busy}
-            onSubmitEditing={submit}
-          />
-
-          {error ? (
-            <Text style={styles.error} accessibilityRole="alert">
-              {error}
-            </Text>
-          ) : null}
-
-          <Pressable
-            style={styles.forgotRow}
-            hitSlop={8}
-            onPress={() => router.push('/forgot-password')}
-            accessibilityRole="button"
-          >
-            <Text style={styles.forgot}>{t('login.forgot')}</Text>
-          </Pressable>
-
-          <Pressable
-            style={[styles.primary, busy && styles.primaryBusy]}
-            onPress={submit}
-            disabled={busy}
-          >
-            {busy ? (
-              <ActivityIndicator color={C.green} />
-            ) : (
-              <Text style={styles.primaryText}>{t('login.submit')}</Text>
-            )}
-          </Pressable>
-
-          <View style={styles.signupRow}>
-            <Text style={styles.signupText}>{t('login.noAccount')}</Text>
-            <Pressable
-              onPress={() => router.push('/signup')}
-              hitSlop={8}
-              accessibilityRole="link"
-            >
-              <Text style={styles.signupLink}>{t('login.signup')}</Text>
-            </Pressable>
-          </View>
-
-          {/* Everything the two modes share stays up here; the slack pushed
-              below keeps the form high and the photo on the bottom edge. */}
-          <View style={styles.spacer} />
-
-          {/* The team photo closes the page. */}
-          <View style={styles.teamWrap}>
-            <Image source={IMG_TEAM} style={styles.team} resizeMode="contain" />
-          </View>
-        </View>
+        </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -213,14 +271,19 @@ export default function LoginScreen() {
 /* Styles                                                              */
 /* ------------------------------------------------------------------ */
 
-const styles = StyleSheet.create(
+const createStyles = (C: AppColorsOf<typeof C_LIGHT>) => StyleSheet.create(
   scaled({
     safe: {
       flex: 1,
+      backgroundColor: C.pageFill,
     },
 
     flex: {
       flex: 1,
+    },
+
+    scroll: {
+      flexGrow: 1,
     },
 
     body: {
@@ -264,7 +327,7 @@ const styles = StyleSheet.create(
       fontSize: 36,
       lineHeight: 40,
       letterSpacing: -0.6,
-      color: C.text,
+      color: C.textText,
     },
 
     heroSubtitle: {
@@ -272,34 +335,64 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 14,
       lineHeight: 18,
-      color: C.gray,
+      color: C.grayText,
     },
 
     /* ── Fields ──────────────────────────────────────────────── */
-    field: {
-      height: 46,
+    label: {
       marginTop: 10,
-      paddingHorizontal: 14,
-      paddingVertical: 0,
-      backgroundColor: C.white,
-      borderWidth: 1,
-      borderColor: C.frame,
-      borderRadius: 5,
-      fontFamily: Fonts.body,
-      fontSize: 13,
-      color: C.text,
-    },
-
-    error: {
-      marginTop: 10,
+      marginBottom: 6,
       fontFamily: Fonts.bodySemiBold,
       fontSize: 12,
       lineHeight: 16,
-      color: C.danger,
+      letterSpacing: 0.2,
+      color: C.grayText,
+    },
+
+    labelSpaced: {
+      marginTop: 14,
+    },
+
+    field: {
+      height: 50,
+      paddingHorizontal: 14,
+      paddingVertical: 0,
+      backgroundColor: C.surfaceFill,
+      borderWidth: 1,
+      borderColor: C.borderBorder,
+      borderRadius: Radius.md,
+      fontFamily: Fonts.body,
+      fontSize: 15,
+      color: C.textText,
+    },
+
+    fieldFocused: {
+      borderColor: C.greenBorder,
+      shadowColor: C.green,
+      shadowOffset: { width: 0, height: 0 },
+      shadowOpacity: 0.18,
+      shadowRadius: 6,
+      elevation: 2,
+    },
+
+    errorBox: {
+      marginTop: 12,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      borderRadius: Radius.sm,
+      backgroundColor: C.dangerSoftFill,
+    },
+
+    error: {
+      fontFamily: Fonts.bodySemiBold,
+      fontSize: 12,
+      lineHeight: 16,
+      color: C.dangerText,
     },
 
     forgotRow: {
-      marginTop: 8,
+      minHeight: 44,
+      justifyContent: 'center',
       alignItems: 'flex-end',
     },
 
@@ -307,19 +400,19 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodySemiBold,
       fontSize: 12,
       lineHeight: 16,
-      color: C.hint,
+      color: C.hintText,
     },
 
     /* ── Submit ──────────────────────────────────────────────── */
     primary: {
-      height: 48,
-      marginTop: 14,
+      height: 52,
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: C.greenSoft,
+      backgroundColor: C.greenFill,
       borderWidth: 1,
-      borderColor: C.green,
-      borderRadius: 5,
+      borderColor: C.greenBorder,
+      borderRadius: Radius.md,
+      ...Elevation.sm,
     },
 
     primaryBusy: {
@@ -329,7 +422,8 @@ const styles = StyleSheet.create(
     primaryText: {
       fontFamily: Fonts.bodyBold,
       fontSize: 16,
-      color: C.green,
+      lineHeight: 22,
+      color: '#FFFFFF',
     },
 
     /* ── Signup link ─────────────────────────────────────────── */
@@ -344,19 +438,20 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 13,
       lineHeight: 18,
-      color: C.gray,
+      color: C.grayText,
     },
 
     signupLink: {
       fontFamily: Fonts.bodySemiBold,
       fontSize: 13,
       lineHeight: 18,
-      color: C.green,
+      color: C.greenText,
     },
 
     /* ── Team photo ──────────────────────────────────────────── */
     spacer: {
       flex: 1,
+      minHeight: 16,
     },
 
     /* Same size in both modes — the slack sits above it, so the photo's bottom
@@ -369,6 +464,7 @@ const styles = StyleSheet.create(
     team: {
       flex: 1,
       width: '80%',
+      alignSelf: 'center',
     },
   })
 );

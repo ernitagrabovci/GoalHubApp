@@ -20,30 +20,32 @@ import { deactivateAccount } from '@/lib/api/account';
 import { ApiError } from '@/lib/api/errors';
 import { I, scaled } from '@/lib/responsive';
 import { useSession, type SessionUser } from '@/lib/session';
+import { useAppColors, usePaletteStyles, type AppColorsOf } from '@/lib/app-theme';
 
 /**
- * Cilësimet e llogarisë — one shell (light #FAFBFA canvas, pinned header) over
+ * Cilësimet e llogarisë — one shell (light #F7F9F8 canvas, pinned header) over
  * a body that depends on the role: the administrator gets the club-facing
  * panels, everyone else the narrower account-and-danger-zone page.
  */
 
-const C = {
-  page: '#FAFBFA',
+const C_LIGHT = {
+  white: '#FFFFFF',
+  page: '#F7F9F8',
   line: 'rgba(0,0,0,0.025)',
 
-  text: '#111111',
-  gray: '#8A8A8A',
+  text: '#17251E',
+  gray: '#52645A',
 
-  card: '#F6FBFF',
+  card: '#F7F9F8',
   border: 'rgba(100,140,190,0.30)',
   headLine: 'rgba(100,140,190,0.25)',
   formLine: 'rgba(100,140,190,0.22)',
 
-  inputBorder: '#000000',
+  inputBorder: '#DCE5DF',
 
-  green: '#159447',
+  green: '#2E7D5B',
   greenPressed: '#0E7430',
-  red: '#E03131',
+  red: '#B91C1C',
 };
 
 const FCP = require('@/assets/dashboard/fcp.png');
@@ -64,6 +66,8 @@ function errorText(e: unknown): string {
 }
 
 function MsgLine({ msg }: { msg: Msg | null }) {
+  const C = useAppColors(C_LIGHT);
+  const styles = usePaletteStyles(createStyles, C);
   if (!msg) return null;
   return <Text style={[styles.msg, { color: msg.ok ? C.green : C.red }]}>{msg.text}</Text>;
 }
@@ -93,6 +97,8 @@ function Field({
   keyboardType = 'default',
   autoCapitalize = 'sentences',
 }: FieldProps) {
+  const C = useAppColors(C_LIGHT);
+  const styles = usePaletteStyles(createStyles, C);
   return (
     <View style={[styles.fieldWrap, flex && styles.fieldFlex]}>
       <Text style={styles.label}>{label}</Text>
@@ -119,6 +125,8 @@ type SelectFieldProps = {
 };
 
 function SelectField({ label, value, options, onChange }: SelectFieldProps) {
+  const C = useAppColors(C_LIGHT);
+  const styles = usePaletteStyles(createStyles, C);
   const [open, setOpen] = useState(false);
   return (
     <View>
@@ -131,7 +139,7 @@ function SelectField({ label, value, options, onChange }: SelectFieldProps) {
         <Text style={styles.selectText} numberOfLines={1}>
           {value}
         </Text>
-        <MaterialCommunityIcons name="chevron-down" size={I(16)} color={C.gray} />
+        <MaterialCommunityIcons name="chevron-down" size={I(16)} color={C.grayText} />
       </Pressable>
       {open ? (
         <View style={styles.optBox}>
@@ -169,6 +177,8 @@ function PrimaryButton({
   onPress: () => void;
   loading?: boolean;
 }) {
+  const C = useAppColors(C_LIGHT);
+  const styles = usePaletteStyles(createStyles, C);
   return (
     <Pressable
       onPress={onPress}
@@ -190,6 +200,8 @@ function PrimaryButton({
 /* ------------------------------------------------------------------ */
 
 function AdminAccountBody({ user }: { user: SessionUser }) {
+  const C = useAppColors(C_LIGHT);
+  const styles = usePaletteStyles(createStyles, C);
   const router = useRouter();
   const { signOut, updateProfile, changePassword } = useSession();
 
@@ -401,6 +413,8 @@ function AdminAccountBody({ user }: { user: SessionUser }) {
 /* ------------------------------------------------------------------ */
 
 function TrainerAccountBody({ user }: { user: SessionUser }) {
+  const C = useAppColors(C_LIGHT);
+  const styles = usePaletteStyles(createStyles, C);
   const router = useRouter();
   const { token, signOut, updateProfile, changePassword } = useSession();
 
@@ -633,6 +647,8 @@ function TrainerAccountBody({ user }: { user: SessionUser }) {
 /* ------------------------------------------------------------------ */
 
 export default function AccountSettingsScreen() {
+  const C = useAppColors(C_LIGHT);
+  const styles = usePaletteStyles(createStyles, C);
   const router = useRouter();
   const { user } = useSession();
 
@@ -654,7 +670,7 @@ export default function AccountSettingsScreen() {
                 accessibilityLabel="Kthehu prapa"
                 style={({ pressed }) => [styles.backBtn, pressed && styles.pressed]}
               >
-                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.text} />
+                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.textText} />
               </Pressable>
               <View style={styles.headerText}>
                 <Text style={styles.title} numberOfLines={1}>
@@ -692,7 +708,7 @@ export default function AccountSettingsScreen() {
 /* Styles                                                              */
 /* ------------------------------------------------------------------ */
 
-const styles = StyleSheet.create(
+const createStyles = (C: AppColorsOf<typeof C_LIGHT>) => StyleSheet.create(
   scaled({
     safe: {
       flex: 1,
@@ -738,14 +754,14 @@ const styles = StyleSheet.create(
       fontSize: 20,
       lineHeight: 24,
       letterSpacing: -0.3,
-      color: C.text,
+      color: C.textText,
     },
 
     subtitle: {
       fontFamily: Fonts.body,
       fontSize: 12,
       lineHeight: 16,
-      color: C.gray,
+      color: C.grayText,
       marginTop: 1,
     },
 
@@ -755,9 +771,9 @@ const styles = StyleSheet.create(
 
     /* Light-blue card */
     card: {
-      backgroundColor: C.card,
+      backgroundColor: C.cardFill,
       borderWidth: 2,
-      borderColor: C.border,
+      borderColor: C.borderBorder,
       borderRadius: 8,
     },
 
@@ -775,7 +791,7 @@ const styles = StyleSheet.create(
       paddingHorizontal: 12,
       paddingVertical: 11,
       borderBottomWidth: 1,
-      borderBottomColor: C.headLine,
+      borderBottomColor: C.headLineBorder,
     },
 
     cardTitle: {
@@ -783,7 +799,7 @@ const styles = StyleSheet.create(
       fontSize: 16,
       lineHeight: 20,
       letterSpacing: -0.2,
-      color: C.text,
+      color: C.textText,
     },
 
     /* Account / avatar block */
@@ -796,9 +812,9 @@ const styles = StyleSheet.create(
       width: 72,
       height: 72,
       borderRadius: 36,
-      backgroundColor: '#F5F5F5',
+      backgroundColor: C.whiteFill,
       borderWidth: 1,
-      borderColor: C.border,
+      borderColor: C.borderBorder,
       alignItems: 'center',
       justifyContent: 'center',
       overflow: 'hidden',
@@ -813,7 +829,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodyBold,
       fontSize: 17,
       lineHeight: 22,
-      color: C.text,
+      color: C.textText,
       marginTop: 9,
     },
 
@@ -821,13 +837,13 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 13,
       lineHeight: 17,
-      color: C.gray,
+      color: C.grayText,
       marginTop: 1,
     },
 
     formDivider: {
       height: 1,
-      backgroundColor: C.formLine,
+      backgroundColor: C.formLineFill,
       marginHorizontal: 15,
     },
 
@@ -863,57 +879,58 @@ const styles = StyleSheet.create(
     label: {
       fontFamily: Fonts.body,
       fontSize: 12,
-      color: C.gray,
-      marginBottom: 4,
+      lineHeight: 16,
+      color: C.grayText,
+      marginBottom: 6,
     },
 
     /* Transparent, so the card's own fill shows through. */
     input: {
-      height: 36,
+      height: 44,
       backgroundColor: 'transparent',
       borderWidth: 1,
-      borderColor: C.inputBorder,
-      borderRadius: 2,
-      paddingHorizontal: 10,
+      borderColor: C.inputBorderBorder,
+      borderRadius: 10,
+      paddingHorizontal: 12,
       paddingVertical: 0,
-      fontSize: 13,
+      fontSize: 14,
       fontFamily: Fonts.body,
-      color: C.text,
+      color: C.textText,
     },
 
     select: {
-      height: 36,
+      height: 44,
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
       backgroundColor: 'transparent',
       borderWidth: 1,
-      borderColor: C.inputBorder,
-      borderRadius: 2,
-      paddingHorizontal: 10,
+      borderColor: C.inputBorderBorder,
+      borderRadius: 10,
+      paddingHorizontal: 12,
     },
 
     selectText: {
       flex: 1,
       fontFamily: Fonts.body,
-      fontSize: 13,
-      color: C.text,
+      fontSize: 14,
+      color: C.textText,
       marginRight: 6,
     },
 
     optBox: {
       marginTop: 4,
-      backgroundColor: '#F5F5F5',
+      backgroundColor: C.whiteFill,
       borderWidth: 1,
-      borderColor: C.inputBorder,
-      borderRadius: 3,
+      borderColor: C.inputBorderBorder,
+      borderRadius: 10,
       overflow: 'hidden',
     },
 
     opt: {
-      height: 34,
+      height: 44,
       justifyContent: 'center',
-      paddingHorizontal: 10,
+      paddingHorizontal: 12,
     },
 
     optActive: {
@@ -923,17 +940,17 @@ const styles = StyleSheet.create(
     optText: {
       fontFamily: Fonts.body,
       fontSize: 13,
-      color: C.text,
+      color: C.textText,
     },
 
     optTextActive: {
       fontFamily: Fonts.bodyBold,
-      color: C.green,
+      color: C.greenText,
     },
 
     button: {
-      height: 40,
-      borderRadius: 3,
+      height: 44,
+      borderRadius: 10,
       alignItems: 'center',
       justifyContent: 'center',
       marginTop: 16,
@@ -942,14 +959,14 @@ const styles = StyleSheet.create(
     buttonText: {
       fontFamily: Fonts.bodySemiBold,
       fontSize: 14,
-      color: '#F5F5F5',
+      color: '#FFFFFF',
     },
 
     /* Result line under a form, and the dimmed state while a save is in flight. */
     msg: {
       fontFamily: Fonts.bodySemiBold,
-      fontSize: 11.5,
-      lineHeight: 15,
+      fontSize: 12.5,
+      lineHeight: 16,
       textAlign: 'center',
       marginTop: 10,
     },
@@ -960,8 +977,8 @@ const styles = StyleSheet.create(
 
     /* Trainer's save — a touch taller and earlier than the card buttons. */
     save: {
-      height: 42,
-      borderRadius: 3,
+      height: 44,
+      borderRadius: 10,
       alignItems: 'center',
       justifyContent: 'center',
       marginTop: 14,
@@ -970,7 +987,7 @@ const styles = StyleSheet.create(
     saveText: {
       fontFamily: Fonts.bodySemiBold,
       fontSize: 14,
-      color: '#F5F5F5',
+      color: '#FFFFFF',
     },
 
     /* ── Zona e rrezikut ─────────────────────────────────────── */
@@ -980,7 +997,7 @@ const styles = StyleSheet.create(
       paddingVertical: 15,
       backgroundColor: 'rgba(224,49,49,0.20)',
       borderWidth: 1,
-      borderColor: C.green,
+      borderColor: C.greenBorder,
       borderRadius: 8,
     },
 
@@ -989,15 +1006,15 @@ const styles = StyleSheet.create(
       fontSize: 16,
       lineHeight: 20,
       letterSpacing: -0.2,
-      color: '#000000',
+      color: C.textText,
       textAlign: 'center',
     },
 
     dangerText: {
       fontFamily: Fonts.body,
-      fontSize: 10.5,
-      lineHeight: 14,
-      color: '#000000',
+      fontSize: 12,
+      lineHeight: 16,
+      color: C.textText,
       textAlign: 'center',
       marginTop: 3,
     },
@@ -1011,34 +1028,34 @@ const styles = StyleSheet.create(
     },
 
     dangerGhost: {
-      height: 33,
-      paddingHorizontal: 13,
+      height: 44,
+      paddingHorizontal: 18,
       alignItems: 'center',
       justifyContent: 'center',
       borderWidth: 1.5,
-      borderColor: C.red,
-      borderRadius: 6,
+      borderColor: C.redBorder,
+      borderRadius: 10,
     },
 
     dangerGhostText: {
       fontFamily: Fonts.bodySemiBold,
-      fontSize: 11.5,
-      color: '#000000',
+      fontSize: 13,
+      color: C.textText,
     },
 
     dangerFill: {
-      height: 33,
-      paddingHorizontal: 13,
+      height: 44,
+      paddingHorizontal: 18,
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: C.red,
-      borderRadius: 6,
+      backgroundColor: C.redFill,
+      borderRadius: 10,
     },
 
     dangerFillText: {
       fontFamily: Fonts.bodySemiBold,
-      fontSize: 11.5,
-      color: '#F5F5F5',
+      fontSize: 13,
+      color: '#FFFFFF',
     },
 
     pressed: {

@@ -4,18 +4,20 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
 import { RegisterPaymentModal } from '@/components/finance/register-payment-modal';
 import { Fonts } from '@/constants/theme';
-import { ApiError } from '@/lib/api/errors';
+import { ApiError, loadErrorMessage } from '@/lib/api/errors';
 import { listFees } from '@/lib/api/finance';
 import type { ApiFee, Paginated } from '@/lib/api/types';
 import { dmy, monthLabel, statusLabel, STATUS_TONE, usd } from '@/lib/finance';
 import { I, scaled } from '@/lib/responsive';
 import { useSession } from '@/lib/session';
+import { useAppColors, usePaletteStyles, type AppColorsOf } from '@/lib/app-theme';
+import { useGlass } from '@/lib/glass';
 
 /**
  * One player's membership quota — opened from "Shiko" on the Pagesat table.
@@ -23,26 +25,30 @@ import { useSession } from '@/lib/session';
  * was opened from.
  */
 
-const C = {
-  page: '#FAFBFA',
+const C_LIGHT = {
+  frame: '#DCE5DF',
+  glassBase: 'rgba(255,255,255,0.12)',
+  glassEdge: 'rgba(255,255,255,0.95)',
+  glassDivider: 'rgba(16,51,38,0.18)',
+  page: '#F7F9F8',
   line: 'rgba(0,0,0,0.025)',
 
-  text: '#111111',
-  gray: '#8A8A8A',
+  text: '#17251E',
+  gray: '#52645A',
   hint: '#6E6E6E',
 
   /* blueSoft = the pale fill of the control buttons; blueBtn = the solid blue. */
   blueSoft: '#E3EEFB',
   blueBtn: '#86BCFD',
-  blue2: '#F6FBFF',
+  blue2: '#F7F9F8',
 
   border: 'rgba(100,140,190,0.30)',
   rowLine: 'rgba(100,140,190,0.22)',
   headLine: 'rgba(30,40,35,0.10)',
 
-  green: '#159447',
-  red: '#E03131',
-  orange: '#E4A000',
+  green: '#2E7D5B',
+  red: '#B91C1C',
+  orange: '#B45309',
 };
 
 /**
@@ -50,12 +56,6 @@ const C = {
  * nothing. Shading the pane instead — a very light grey at the top edge
  * sweeping down to white — is what gives the surface its glassy shape.
  */
-const SQ_GLOSS = [
-  'rgba(180,188,201,0.30)',
-  'rgba(216,222,231,0.15)',
-  'rgba(245,245,245,0.80)',
-] as const;
-
 type FeeStatus = 'paid' | 'unpaid' | 'overdue';
 
 /* The top filter narrows the table server-side; the first keeps it whole. */
@@ -75,6 +75,9 @@ const COL_STATUS = 66;
 const COL_ACTION = 62;
 
 export default function PlayerQuotaScreen() {
+  const glass = useGlass();
+  const C = useAppColors(C_LIGHT);
+  const styles = usePaletteStyles(createStyles, C);
   const router = useRouter();
   const { token, signOut } = useSession();
 
@@ -131,15 +134,18 @@ export default function PlayerQuotaScreen() {
           router.replace('/login');
           return;
         }
-        setError(
-          err instanceof ApiError && err.status === 0
-            ? 'Nuk mund të lidhemi me serverin. Kontrollo lidhjen.'
-            : 'Nuk mund të ngarkohen kuotat.',
-        );
+        setError(loadErrorMessage(err, 'Nuk mund të ngarkohen kuotat.'));
       });
 
     return () => controller.abort();
   }, [token, playerId, filter, page, version, router, signOut]);
+
+  /* Refetch from the error box; the effect cannot reset state synchronously. */
+  const retry = () => {
+    setFees(null);
+    setError(null);
+    setVersion((value) => value + 1);
+  };
 
   const picked = (status: FeeStatus) => (summary ?? []).filter((f) => f.status === status);
   const total = (rows: ApiFee[]) =>
@@ -209,7 +215,7 @@ export default function PlayerQuotaScreen() {
                 accessibilityLabel="Kthehu prapa"
                 style={({ pressed }) => [styles.backBtn, pressed && styles.pressed]}
               >
-                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.text} />
+                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.textText} />
               </Pressable>
               <View style={styles.headerText}>
                 <Text
@@ -242,14 +248,14 @@ export default function PlayerQuotaScreen() {
               <BlurView
                 pointerEvents="none"
                 intensity={55}
-                tint="light"
+                tint={glass.tint}
                 experimentalBlurMethod="dimezisBlurView"
                 style={StyleSheet.absoluteFill}
               />
               <LinearGradient
                 pointerEvents="none"
                 style={StyleSheet.absoluteFill}
-                colors={SQ_GLOSS}
+                colors={glass.gloss}
                 locations={[0, 0.55, 1]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
@@ -257,12 +263,7 @@ export default function PlayerQuotaScreen() {
               <LinearGradient
                 pointerEvents="none"
                 style={styles.statsGloss}
-                colors={[
-                  'rgba(255,255,255,0)',
-                  'rgba(255,255,255,0.78)',
-                  'rgba(255,255,255,0.55)',
-                  'rgba(255,255,255,0)',
-                ]}
+                colors={glass.sweep}
                 locations={[0, 0.38, 0.62, 1]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
@@ -270,11 +271,7 @@ export default function PlayerQuotaScreen() {
               <LinearGradient
                 pointerEvents="none"
                 style={styles.statsGloss2}
-                colors={[
-                  'rgba(255,255,255,0)',
-                  'rgba(255,255,255,0.55)',
-                  'rgba(255,255,255,0)',
-                ]}
+                colors={glass.sweepSoft}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
               />
@@ -324,7 +321,7 @@ export default function PlayerQuotaScreen() {
                 ]}
               >
                 <View style={styles.plusCircle}>
-                  <MaterialCommunityIcons name="plus" size={I(15)} color="#F5F5F5" />
+                  <MaterialCommunityIcons name="plus" size={I(15)} color="#FFFFFF" />
                 </View>
                 <Text style={styles.controlText}>Regjistro pagesën</Text>
               </Pressable>
@@ -338,6 +335,7 @@ export default function PlayerQuotaScreen() {
                   onPress={() => pickFilter(i)}
                   accessibilityRole="button"
                   accessibilityLabel={f.label}
+                  hitSlop={{ top: 4, bottom: 4, left: 2, right: 2 }}
                   style={({ pressed }) => [
                     styles.filterBtn,
                     i === filter && styles.filterBtnOn,
@@ -357,6 +355,11 @@ export default function PlayerQuotaScreen() {
             </View>
 
             {/* ── Kuota e lojtarit ──────────────────────────────── */}
+            <View style={styles.scrollHint} accessibilityElementsHidden importantForAccessibility="no">
+              <MaterialCommunityIcons name="gesture-swipe-horizontal" size={I(14)} color={C.grayText} />
+              <Text style={styles.scrollHintText}>Rrëshqit anash për më shumë kolona</Text>
+            </View>
+
             <View style={styles.card}>
               <View style={styles.head}>
                 <Text style={styles.headText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
@@ -383,12 +386,21 @@ export default function PlayerQuotaScreen() {
                   </View>
 
                   {error ? (
-                    <View style={styles.tr}>
-                      <Text style={[styles.td, styles.thLeft]}>{error}</Text>
+                    <View style={[styles.tr, styles.stateTr]}>
+                      <Text style={styles.td}>{error}</Text>
+                      <Pressable
+                        onPress={retry}
+                        accessibilityRole="button"
+                        accessibilityLabel="Provo përsëri"
+                        style={({ pressed }) => [styles.stateRetry, pressed && styles.pressed]}
+                      >
+                        <Text style={styles.stateRetryText}>Provo përsëri</Text>
+                      </Pressable>
                     </View>
                   ) : fees === null ? (
-                    <View style={styles.tr}>
-                      <Text style={[styles.td, styles.thLeft]}>…</Text>
+                    <View style={[styles.tr, styles.stateTr]}>
+                      <ActivityIndicator color={C.greenText} />
+                      <Text style={styles.td}>Duke ngarkuar kuotat…</Text>
                     </View>
                   ) : rows.length === 0 ? (
                     <View style={styles.tr}>
@@ -441,6 +453,7 @@ export default function PlayerQuotaScreen() {
                             }
                             accessibilityRole="button"
                             accessibilityLabel={`Detajet e ${q.period}`}
+                            hitSlop={{ top: 7, bottom: 7, left: 4, right: 4 }}
                             style={({ pressed }) => [styles.viewBtn, pressed && styles.pressed]}
                           >
                             <Text style={styles.viewBtnText}>Detajet</Text>
@@ -468,7 +481,7 @@ export default function PlayerQuotaScreen() {
                     pressed && styles.pressed,
                   ]}
                 >
-                  <MaterialCommunityIcons name="chevron-left" size={I(22)} color={C.text} />
+                  <MaterialCommunityIcons name="chevron-left" size={I(22)} color={C.textText} />
                 </Pressable>
 
                 {pages.map((p) => (
@@ -499,7 +512,7 @@ export default function PlayerQuotaScreen() {
                     pressed && styles.pressed,
                   ]}
                 >
-                  <MaterialCommunityIcons name="chevron-right" size={I(22)} color={C.text} />
+                  <MaterialCommunityIcons name="chevron-right" size={I(22)} color={C.textText} />
                 </Pressable>
               </View>
             ) : null}
@@ -534,7 +547,7 @@ export default function PlayerQuotaScreen() {
 /* Styles                                                              */
 /* ------------------------------------------------------------------ */
 
-const styles = StyleSheet.create(
+const createStyles = (C: AppColorsOf<typeof C_LIGHT>) => StyleSheet.create(
   scaled({
     safe: {
       flex: 1,
@@ -579,14 +592,14 @@ const styles = StyleSheet.create(
       fontSize: 20,
       lineHeight: 24,
       letterSpacing: -0.3,
-      color: C.text,
+      color: C.textText,
     },
 
     subtitle: {
       fontFamily: Fonts.body,
       fontSize: 12,
       lineHeight: 16,
-      color: C.gray,
+      color: C.grayText,
       marginTop: 1,
     },
 
@@ -610,8 +623,8 @@ const styles = StyleSheet.create(
       height: 122,
       borderRadius: 16,
       borderWidth: 1,
-      borderColor: C.orange,
-      backgroundColor: 'rgba(255,255,255,0.12)',
+      borderColor: C.orangeBorder,
+      backgroundColor: C.glassBaseFill,
       overflow: 'hidden',
       shadowColor: '#0B3B33',
       shadowOffset: { width: 0, height: 6 },
@@ -645,7 +658,7 @@ const styles = StyleSheet.create(
       right: 10,
       height: 1.5,
       borderRadius: 1,
-      backgroundColor: 'rgba(255,255,255,0.95)',
+      backgroundColor: C.glassEdgeFill,
     },
 
     statItem: {
@@ -660,7 +673,7 @@ const styles = StyleSheet.create(
       top: 10,
       bottom: 10,
       width: StyleSheet.hairlineWidth,
-      backgroundColor: 'rgba(16,51,38,0.18)',
+      backgroundColor: C.glassDividerFill,
     },
 
     /* Content rides above the frost and gloss overlays. */
@@ -675,7 +688,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodyBold,
       fontSize: 12,
       lineHeight: 15,
-      color: C.gray,
+      color: C.grayText,
     },
 
     sqValue: {
@@ -683,7 +696,7 @@ const styles = StyleSheet.create(
       fontSize: 26,
       lineHeight: 32,
       letterSpacing: -0.5,
-      color: C.text,
+      color: C.textText,
       marginTop: 4,
     },
 
@@ -691,7 +704,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 10.5,
       lineHeight: 13,
-      color: C.gray,
+      color: C.grayText,
       marginTop: 4,
     },
 
@@ -707,19 +720,19 @@ const styles = StyleSheet.create(
       flexDirection: 'row',
       alignItems: 'center',
       gap: 7,
-      height: 34,
-      paddingHorizontal: 10,
-      backgroundColor: C.blueSoft,
+      height: 44,
+      paddingHorizontal: 12,
+      backgroundColor: C.blueSoftFill,
       borderWidth: 1,
-      borderColor: '#000000',
-      borderRadius: 4,
+      borderColor: C.frameBorder,
+      borderRadius: 10,
     },
 
     plusCircle: {
       width: 23,
       height: 23,
       borderRadius: 12,
-      backgroundColor: C.blueBtn,
+      backgroundColor: C.blueBtnFill,
       alignItems: 'center',
       justifyContent: 'center',
     },
@@ -727,7 +740,7 @@ const styles = StyleSheet.create(
     controlText: {
       fontFamily: Fonts.bodySemiBold,
       fontSize: 12,
-      color: '#000000',
+      color: C.textText,
     },
 
     /* ── Status filters ──────────────────────────────────────── */
@@ -739,34 +752,48 @@ const styles = StyleSheet.create(
     },
 
     filterBtn: {
-      height: 30,
-      paddingHorizontal: 10,
-      backgroundColor: C.blueSoft,
+      height: 36,
+      paddingHorizontal: 12,
+      backgroundColor: C.blueSoftFill,
       borderWidth: 1,
-      borderColor: '#000000',
-      borderRadius: 4,
+      borderColor: C.frameBorder,
+      borderRadius: 18,
       alignItems: 'center',
       justifyContent: 'center',
     },
 
     /* The one chip currently narrowing the table floods the solid blue. */
     filterBtnOn: {
-      backgroundColor: C.blueBtn,
+      backgroundColor: C.blueBtnFill,
     },
 
     filterText: {
       fontFamily: Fonts.bodySemiBold,
-      fontSize: 11,
-      lineHeight: 14,
-      color: '#000000',
+      fontSize: 12,
+      lineHeight: 16,
+      color: C.textText,
+    },
+
+    scrollHint: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 5,
+      marginTop: 12,
+    },
+
+    scrollHintText: {
+      fontFamily: Fonts.body,
+      fontSize: 11.5,
+      lineHeight: 15,
+      color: C.grayText,
     },
 
     /* ── Card ────────────────────────────────────────────────── */
     card: {
       marginTop: 14,
-      backgroundColor: C.blue2,
+      backgroundColor: C.blue2Fill,
       borderWidth: 2,
-      borderColor: C.border,
+      borderColor: C.borderBorder,
       borderRadius: 7,
       overflow: 'hidden',
     },
@@ -783,12 +810,12 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodyBold,
       fontSize: 15,
       lineHeight: 19,
-      color: C.text,
+      color: C.textText,
     },
 
     headLine: {
       height: 1,
-      backgroundColor: C.headLine,
+      backgroundColor: C.headLineFill,
     },
 
     /* ── Table ───────────────────────────────────────────────── */
@@ -812,7 +839,7 @@ const styles = StyleSheet.create(
 
     trBorder: {
       borderTopWidth: 1,
-      borderTopColor: C.rowLine,
+      borderTopColor: C.rowLineBorder,
     },
 
     colAction: {
@@ -823,7 +850,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodySemiBold,
       fontSize: 10.5,
       lineHeight: 13,
-      color: C.gray,
+      color: C.grayText,
       textAlign: 'center',
     },
 
@@ -835,14 +862,39 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 10.5,
       lineHeight: 13,
-      color: C.text,
+      color: C.textText,
+    },
+
+    stateTr: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 10,
+      minHeight: 96,
+      paddingHorizontal: 16,
+      paddingVertical: 18,
+    },
+
+    stateRetry: {
+      minHeight: 44,
+      justifyContent: 'center',
+      paddingHorizontal: 18,
+      borderWidth: 1,
+      borderColor: C.greenBorder,
+      borderRadius: 10,
+    },
+
+    stateRetryText: {
+      fontFamily: Fonts.bodySemiBold,
+      fontSize: 13,
+      color: C.greenText,
     },
 
     td: {
       fontFamily: Fonts.body,
       fontSize: 10.5,
       lineHeight: 13,
-      color: C.hint,
+      color: C.hintText,
       textAlign: 'center',
     },
 
@@ -852,19 +904,20 @@ const styles = StyleSheet.create(
 
     /* Clear fill, black rim and black label. */
     viewBtn: {
-      height: 22,
-      paddingHorizontal: 8,
+      height: 30,
+      paddingHorizontal: 10,
       alignItems: 'center',
       justifyContent: 'center',
       borderWidth: 1,
-      borderColor: '#000000',
-      borderRadius: 4,
+      borderColor: C.frameBorder,
+      borderRadius: 6,
     },
 
     viewBtnText: {
       fontFamily: Fonts.bodySemiBold,
-      fontSize: 10,
-      color: '#000000',
+      fontSize: 11.5,
+      lineHeight: 15,
+      color: C.textText,
     },
 
     /* ── Pager ───────────────────────────────────────────────── */
@@ -886,10 +939,10 @@ const styles = StyleSheet.create(
     },
 
     pageSq: {
-      width: 34,
-      height: 34,
-      borderRadius: 5,
-      backgroundColor: C.blueBtn,
+      width: 44,
+      height: 44,
+      borderRadius: 10,
+      backgroundColor: C.blueBtnFill,
       alignItems: 'center',
       justifyContent: 'center',
     },
@@ -901,7 +954,7 @@ const styles = StyleSheet.create(
     pageSqText: {
       fontFamily: Fonts.bodySemiBold,
       fontSize: 14,
-      color: '#F5F5F5',
+      color: '#FFFFFF',
     },
 
     controlBtnOff: {

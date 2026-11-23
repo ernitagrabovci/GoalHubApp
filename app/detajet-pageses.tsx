@@ -23,6 +23,7 @@ import type { PickedFile } from '@/lib/api/upload';
 import { dmy, monthLabel, statusLabel, STATUS_TONE, usd } from '@/lib/finance';
 import { I, scaled } from '@/lib/responsive';
 import { useSession } from '@/lib/session';
+import { useAppColors, usePaletteStyles, type AppColorsOf } from '@/lib/app-theme';
 
 /**
  * One payment — opened from "Detajet" on the player's quota table. The row's
@@ -30,18 +31,19 @@ import { useSession } from '@/lib/session';
  * was opened from.
  */
 
-const C = {
-  page: '#FAFBFA',
+const C_LIGHT = {
+  white: '#FFFFFF',
+  page: '#F7F9F8',
   line: 'rgba(0,0,0,0.025)',
 
-  text: '#111111',
-  gray: '#8A8A8A',
+  text: '#17251E',
+  gray: '#52645A',
   hint: '#6E6E6E',
 
   /* Cards are two-tone: a lighter title strip over a deeper body. */
   cardBg: '#E3EEFB',
-  headBg: '#F6FBFF',
-  frame: '#000000',
+  headBg: '#F7F9F8',
+  frame: '#DCE5DF',
   rowLine: 'rgba(100,140,190,0.22)',
   headLine: 'rgba(30,40,35,0.10)',
   /* The trailing quota list sits on the palest card, where the faint rules
@@ -49,12 +51,13 @@ const C = {
   tableLine: 'rgba(0,0,0,0.35)',
 
   link: '#2F80ED',
-  green: '#159447',
-  greenBtn: '#16A51D',
-  red: '#E03131',
-  orange: '#E4A000',
+  green: '#2E7D5B',
+  greenBtn: '#2E7D5B',
+  red: '#B91C1C',
+  orange: '#B45309',
 
   inputBorder: '#777777',
+  chevron: '#777777',
   /* Fields sit straight on the card, so they show its fill. */
   fieldBg: 'transparent',
   ph: '#A8A8A8',
@@ -87,6 +90,8 @@ const CONTRACT_TYPE: Record<string, string> = {
 };
 
 export default function PaymentDetailScreen() {
+  const C = useAppColors(C_LIGHT);
+  const styles = usePaletteStyles(createStyles, C);
   const router = useRouter();
   const { token, signOut } = useSession();
 
@@ -287,7 +292,7 @@ export default function PaymentDetailScreen() {
                 accessibilityLabel="Kthehu prapa"
                 style={({ pressed }) => [styles.backBtn, pressed && styles.pressed]}
               >
-                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.text} />
+                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.textText} />
               </Pressable>
               <View style={styles.headerText}>
                 <Text
@@ -437,7 +442,7 @@ export default function PaymentDetailScreen() {
                         value={day}
                         onChangeText={setDay}
                         placeholder="DD"
-                        placeholderTextColor={C.ph}
+                        placeholderTextColor={C.phText}
                         maxLength={2}
                         keyboardType="number-pad"
                         allowFontScaling={false}
@@ -448,7 +453,7 @@ export default function PaymentDetailScreen() {
                         value={month}
                         onChangeText={setMonth}
                         placeholder="MM"
-                        placeholderTextColor={C.ph}
+                        placeholderTextColor={C.phText}
                         maxLength={2}
                         keyboardType="number-pad"
                         allowFontScaling={false}
@@ -459,7 +464,7 @@ export default function PaymentDetailScreen() {
                         value={year}
                         onChangeText={setYear}
                         placeholder="YYYY"
-                        placeholderTextColor={C.ph}
+                        placeholderTextColor={C.phText}
                         maxLength={4}
                         keyboardType="number-pad"
                         allowFontScaling={false}
@@ -496,7 +501,7 @@ export default function PaymentDetailScreen() {
                       <MaterialCommunityIcons
                         name="cloud-upload-outline"
                         size={I(22)}
-                        color="#F5F5F5"
+                        color="#FFFFFF"
                       />
                     </View>
                   </Pressable>
@@ -629,6 +634,8 @@ function PSelect({
   options: string[];
   onChange: (v: string) => void;
 }) {
+  const C = useAppColors(C_LIGHT);
+  const styles = usePaletteStyles(createStyles, C);
   const [open, setOpen] = useState(false);
 
   return (
@@ -641,7 +648,7 @@ function PSelect({
         <Text style={styles.selText} numberOfLines={1}>
           {value}
         </Text>
-        <MaterialCommunityIcons name="chevron-down" size={I(11)} color="#777777" />
+        <MaterialCommunityIcons name="chevron-down" size={I(11)} color={C.chevronText} />
       </Pressable>
       {open ? (
         <View style={styles.opts}>
@@ -672,7 +679,7 @@ function PSelect({
 /* Styles                                                              */
 /* ------------------------------------------------------------------ */
 
-const styles = StyleSheet.create(
+const createStyles = (C: AppColorsOf<typeof C_LIGHT>) => StyleSheet.create(
   scaled({
     safe: {
       flex: 1,
@@ -717,14 +724,14 @@ const styles = StyleSheet.create(
       fontSize: 20,
       lineHeight: 24,
       letterSpacing: -0.3,
-      color: C.text,
+      color: C.textText,
     },
 
     subtitle: {
       fontFamily: Fonts.body,
       fontSize: 12,
       lineHeight: 16,
-      color: C.gray,
+      color: C.grayText,
       marginTop: 1,
     },
 
@@ -735,16 +742,16 @@ const styles = StyleSheet.create(
     /* ── Card shell ──────────────────────────────────────────── */
     card: {
       marginTop: 14,
-      backgroundColor: C.cardBg,
+      backgroundColor: C.cardBgFill,
       borderWidth: 1,
-      borderColor: C.frame,
+      borderColor: C.frameBorder,
       borderRadius: 7,
       overflow: 'hidden',
     },
 
     /* Lighter than the card body, so the title reads as its own strip. */
     head: {
-      backgroundColor: C.headBg,
+      backgroundColor: C.headBgFill,
       alignItems: 'center',
       justifyContent: 'center',
       paddingHorizontal: 8,
@@ -756,18 +763,18 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodyBold,
       fontSize: 14,
       lineHeight: 18,
-      color: C.text,
+      color: C.textText,
     },
 
     headLine: {
       height: 1,
-      backgroundColor: C.headLine,
+      backgroundColor: C.headLineFill,
     },
 
     /* Same rule, but for the pale trailing card where C.headLine disappears. */
     headLineTable: {
       height: 1,
-      backgroundColor: C.tableLine,
+      backgroundColor: C.tableLineFill,
     },
 
     /* ── Two columns ─────────────────────────────────────────── */
@@ -779,16 +786,16 @@ const styles = StyleSheet.create(
 
     colCard: {
       flex: 1,
-      backgroundColor: C.cardBg,
+      backgroundColor: C.cardBgFill,
       borderWidth: 1,
-      borderColor: C.frame,
+      borderColor: C.frameBorder,
       borderRadius: 7,
       overflow: 'hidden',
     },
 
     /* The trailing quota list carries no fields, so it stays light throughout. */
     lightCard: {
-      backgroundColor: C.headBg,
+      backgroundColor: C.headBgFill,
     },
 
     /* ── Player profile rows ─────────────────────────────────── */
@@ -810,7 +817,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 9,
       lineHeight: 12,
-      color: C.hint,
+      color: C.hintText,
     },
 
     pValue: {
@@ -819,15 +826,16 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodyBold,
       fontSize: 9,
       lineHeight: 12,
-      color: C.text,
+      color: C.textText,
     },
 
     pLine: {
       height: 1,
-      backgroundColor: C.rowLine,
+      backgroundColor: C.rowLineFill,
     },
 
     pLinkWrap: {
+      minHeight: 44,
       alignItems: 'center',
       justifyContent: 'center',
       paddingHorizontal: 6,
@@ -837,9 +845,9 @@ const styles = StyleSheet.create(
     pLink: {
       textAlign: 'center',
       fontFamily: Fonts.bodySemiBold,
-      fontSize: 10,
-      lineHeight: 13,
-      color: C.link,
+      fontSize: 11.5,
+      lineHeight: 15,
+      color: C.linkText,
     },
 
     /* ── Quota boxes ─────────────────────────────────────────── */
@@ -858,7 +866,7 @@ const styles = StyleSheet.create(
       width: '82%',
       minHeight: 58,
       borderWidth: 1,
-      borderColor: '#000000',
+      borderColor: C.frameBorder,
       borderRadius: 4,
       paddingHorizontal: 6,
       paddingVertical: 5,
@@ -871,7 +879,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 9,
       lineHeight: 12,
-      color: C.hint,
+      color: C.hintText,
     },
 
     qBoxAmount: {
@@ -879,7 +887,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodyBold,
       fontSize: 24,
       lineHeight: 28,
-      color: C.green,
+      color: C.greenText,
       marginTop: 1,
     },
 
@@ -888,12 +896,12 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodyBold,
       fontSize: 15,
       lineHeight: 19,
-      color: C.text,
+      color: C.textText,
       marginTop: 2,
     },
 
     qBoxValueOrange: {
-      color: C.orange,
+      color: C.orangeText,
     },
 
     /* ── Register form ───────────────────────────────────────── */
@@ -907,7 +915,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 10,
       lineHeight: 13,
-      color: C.hint,
+      color: C.hintText,
       marginBottom: 4,
     },
 
@@ -932,72 +940,72 @@ const styles = StyleSheet.create(
     },
 
     dateBox: {
-      width: 32,
-      height: 30,
-      backgroundColor: C.fieldBg,
+      width: 36,
+      height: 44,
+      backgroundColor: C.fieldBgFill,
       borderWidth: 1,
-      borderColor: C.inputBorder,
-      borderRadius: 4,
+      borderColor: C.inputBorderBorder,
+      borderRadius: 8,
       textAlign: 'center',
       paddingVertical: 0,
       fontFamily: Fonts.body,
-      fontSize: 11,
-      color: C.text,
+      fontSize: 13,
+      color: C.textText,
     },
 
     yearBox: {
-      width: 52,
-      height: 30,
-      backgroundColor: C.fieldBg,
+      width: 60,
+      height: 44,
+      backgroundColor: C.fieldBgFill,
       borderWidth: 1,
-      borderColor: C.inputBorder,
-      borderRadius: 4,
+      borderColor: C.inputBorderBorder,
+      borderRadius: 8,
       textAlign: 'center',
       paddingVertical: 0,
       fontFamily: Fonts.body,
-      fontSize: 11,
-      color: C.text,
+      fontSize: 13,
+      color: C.textText,
     },
 
     sep: {
       fontFamily: Fonts.body,
       fontSize: 12,
-      color: C.hint,
+      color: C.hintText,
     },
 
     sel: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      height: 31,
-      gap: 4,
-      paddingHorizontal: 8,
-      backgroundColor: C.fieldBg,
+      height: 44,
+      gap: 6,
+      paddingHorizontal: 12,
+      backgroundColor: C.fieldBgFill,
       borderWidth: 1,
-      borderColor: C.inputBorder,
-      borderRadius: 4,
+      borderColor: C.inputBorderBorder,
+      borderRadius: 10,
     },
 
     selText: {
       flex: 1,
       fontFamily: Fonts.body,
-      fontSize: 11.5,
-      color: C.text,
+      fontSize: 13,
+      color: C.textText,
     },
 
     opts: {
-      marginTop: 3,
-      backgroundColor: '#F5F5F5',
+      marginTop: 4,
+      backgroundColor: C.whiteFill,
       borderWidth: 1,
-      borderColor: C.inputBorder,
-      borderRadius: 4,
+      borderColor: C.inputBorderBorder,
+      borderRadius: 8,
       overflow: 'hidden',
     },
 
     opt: {
-      height: 25,
+      minHeight: 40,
       justifyContent: 'center',
-      paddingHorizontal: 8,
+      paddingHorizontal: 12,
     },
 
     optActive: {
@@ -1006,8 +1014,8 @@ const styles = StyleSheet.create(
 
     optText: {
       fontFamily: Fonts.body,
-      fontSize: 10,
-      color: C.text,
+      fontSize: 12.5,
+      color: C.textText,
     },
 
     optTextActive: {
@@ -1015,16 +1023,16 @@ const styles = StyleSheet.create(
     },
 
     input: {
-      height: 31,
-      backgroundColor: C.fieldBg,
+      height: 44,
+      backgroundColor: C.fieldBgFill,
       borderWidth: 1,
-      borderColor: C.inputBorder,
-      borderRadius: 4,
-      paddingHorizontal: 8,
+      borderColor: C.inputBorderBorder,
+      borderRadius: 10,
+      paddingHorizontal: 12,
       paddingVertical: 0,
       fontFamily: Fonts.body,
-      fontSize: 11.5,
-      color: C.text,
+      fontSize: 13.5,
+      color: C.textText,
     },
 
     /* Mirrors the register-payment popup's upload zone, hugging the left edge. */
@@ -1042,7 +1050,7 @@ const styles = StyleSheet.create(
       width: 52,
       height: 52,
       borderRadius: 26,
-      backgroundColor: C.green,
+      backgroundColor: C.greenFill,
       alignItems: 'center',
       justifyContent: 'center',
     },
@@ -1051,15 +1059,15 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 12,
       lineHeight: 15,
-      color: C.text,
+      color: C.textText,
       marginTop: 8,
     },
 
     greenBtn: {
-      height: 38,
+      height: 44,
       marginTop: 12,
-      borderRadius: 5,
-      backgroundColor: C.greenBtn,
+      borderRadius: 10,
+      backgroundColor: C.greenBtnFill,
       alignItems: 'center',
       justifyContent: 'center',
     },
@@ -1067,8 +1075,8 @@ const styles = StyleSheet.create(
     greenBtnText: {
       fontFamily: Fonts.bodySemiBold,
       fontSize: 13,
-      lineHeight: 16,
-      color: '#F5F5F5',
+      lineHeight: 18,
+      color: '#FFFFFF',
     },
 
     btnOff: {
@@ -1079,7 +1087,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 11,
       lineHeight: 14,
-      color: C.red,
+      color: C.redText,
       marginTop: 10,
     },
 
@@ -1118,14 +1126,14 @@ const styles = StyleSheet.create(
 
     trBorder: {
       borderTopWidth: 1,
-      borderTopColor: C.tableLine,
+      borderTopColor: C.tableLineBorder,
     },
 
     th: {
       fontFamily: Fonts.bodySemiBold,
       fontSize: 12,
       lineHeight: 15,
-      color: C.gray,
+      color: C.grayText,
       textAlign: 'center',
     },
 
@@ -1137,7 +1145,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 12,
       lineHeight: 15,
-      color: C.text,
+      color: C.textText,
     },
 
     tdLeft: {
@@ -1148,7 +1156,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 12,
       lineHeight: 15,
-      color: C.hint,
+      color: C.hintText,
       textAlign: 'center',
     },
 
@@ -1157,18 +1165,19 @@ const styles = StyleSheet.create(
     },
 
     allRow: {
+      minHeight: 44,
       alignItems: 'center',
       justifyContent: 'center',
       paddingVertical: 11,
       borderTopWidth: 1,
-      borderTopColor: C.tableLine,
+      borderTopColor: C.tableLineBorder,
     },
 
     allText: {
       fontFamily: Fonts.bodyBold,
       fontSize: 13,
       lineHeight: 16,
-      color: C.text,
+      color: C.textText,
     },
 
     pressed: {

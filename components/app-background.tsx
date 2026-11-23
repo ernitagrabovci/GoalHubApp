@@ -1,5 +1,8 @@
 import { Image, StyleSheet, View, useWindowDimensions } from 'react-native';
 
+import { DarkColors } from '@/constants/theme';
+import { useTheme } from '@/lib/theme';
+
 const BACKGROUND = require('@/assets/images/background.jpg');
 
 /** Natural width / height of the artwork. */
@@ -20,9 +23,8 @@ const TILE_SCALE = 1.45;
 
 /** 1 draws the artwork exactly as it is; lower fades it into the page. */
 const OPACITY = 0.12;
-
-/** Colour behind the artwork — the artwork's own background field. */
-const FIELD = '#F5F5F5';
+/** The artwork is light; fade it further over the dark page tone. */
+const OPACITY_DARK = 0.06;
 
 /* ------------------------------------------------------------------- */
 
@@ -36,18 +38,34 @@ const FIELD = '#F5F5F5';
  */
 export function AppBackground() {
   const { width, height } = useWindowDimensions();
+  const { isDark } = useTheme();
   const tileWidth = width * TILE_SCALE;
   const tileHeight = tileWidth / TILE_RATIO;
   const left = (width - tileWidth) / 2;
   const tiles = Math.ceil(height / tileHeight)  + 1;
 
   return (
-    <View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.field]}>
+    <View
+      pointerEvents="none"
+      style={[
+        StyleSheet.absoluteFill,
+        { backgroundColor: isDark ? DarkColors.background : '#FFFFFF' },
+      ]}
+    >
       {Array.from({ length: tiles }, (_, i) => (
         <Image
           key={i}
           source={BACKGROUND}
-          style={[styles.tile, { left, top: i * tileHeight, width: tileWidth, height: tileHeight }]}
+          style={[
+            styles.tile,
+            {
+              left,
+              top: i * tileHeight,
+              width: tileWidth,
+              height: tileHeight,
+              opacity: isDark ? OPACITY_DARK : OPACITY,
+            },
+          ]}
         />
       ))}
     </View>
@@ -55,11 +73,7 @@ export function AppBackground() {
 }
 
 const styles = StyleSheet.create({
-  field: {
-    backgroundColor: FIELD,
-  },
   tile: {
     position: 'absolute',
-    opacity: OPACITY,
   },
 });

@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
 import { I, scaled } from '@/lib/responsive';
+import { useAppColors, usePaletteStyles, type AppColorsOf } from '@/lib/app-theme';
 
 /**
  * One clip, opened from the play mark on a Video Strategjia card. The
@@ -17,21 +18,21 @@ import { I, scaled } from '@/lib/responsive';
  * endpoint, so the list hands everything this page needs.
  */
 
-const C = {
-  page: '#FAFBFA',
+const C_LIGHT = {
+  page: '#F7F9F8',
   line: 'rgba(0,0,0,0.025)',
 
-  text: '#111111',
-  gray: '#8A8A8A',
+  text: '#17251E',
+  gray: '#52645A',
 
-  frame: '#000000',
+  frame: '#DCE5DF',
   headLine: 'rgba(30,40,35,0.10)',
 
   /* blue1 = the deeper card body; blue2 = the pale title strip. */
   blue1: '#E3EEFB',
-  blue2: '#F6FBFF',
+  blue2: '#F7F9F8',
 
-  green: '#159447',
+  green: '#2E7D5B',
 };
 
 /* The library's `level`, mapped onto its label. */
@@ -49,7 +50,7 @@ const TYPE_LABEL: Record<string, string> = { mp4: 'Video', gif: 'Video', pdf: 'P
  * level card reads its tone from here, keyed by the stored level code.
  */
 const LEVEL_TONES: Record<string, { rim: string; wash: string }> = {
-  beginner: { rim: '#159447', wash: 'rgba(21,148,71,0.20)' },
+  beginner: { rim: '#2E7D5B', wash: 'rgba(21,148,71,0.20)' },
   intermediate: { rim: '#2F80ED', wash: 'rgba(47,128,237,0.20)' },
   advanced: { rim: '#B09AF9', wash: 'rgba(176,154,249,0.20)' },
 };
@@ -67,6 +68,8 @@ function dmy(iso: string | null): string {
 }
 
 export default function VideoDetailScreen() {
+  const C = useAppColors(C_LIGHT);
+  const styles = usePaletteStyles(createStyles, C);
   const router = useRouter();
 
   const params = useLocalSearchParams<{
@@ -118,11 +121,11 @@ export default function VideoDetailScreen() {
                 accessibilityLabel="Kthehu prapa"
                 style={({ pressed }) => [styles.backBtn, pressed && styles.pressed]}
               >
-                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.text} />
+                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.textText} />
               </Pressable>
               <View style={styles.headerText}>
                 <View style={styles.titleRow}>
-                  <MaterialCommunityIcons name="play" size={I(20)} color={C.text} />
+                  <MaterialCommunityIcons name="play" size={I(20)} color={C.textText} />
                   <Text style={styles.title} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
                     {title}
                   </Text>
@@ -205,6 +208,8 @@ function DetailRow({
   value: string;
   green?: boolean;
 }) {
+  const C = useAppColors(C_LIGHT);
+  const styles = usePaletteStyles(createStyles, C);
   return (
     <View style={styles.dRow}>
       <Text style={styles.dLabel} numberOfLines={1}>
@@ -221,7 +226,7 @@ function DetailRow({
 /* Styles                                                              */
 /* ------------------------------------------------------------------ */
 
-const styles = StyleSheet.create(
+const createStyles = (C: AppColorsOf<typeof C_LIGHT>) => StyleSheet.create(
   scaled({
     safe: {
       flex: 1,
@@ -274,14 +279,14 @@ const styles = StyleSheet.create(
       fontSize: 20,
       lineHeight: 24,
       letterSpacing: -0.3,
-      color: C.text,
+      color: C.textText,
     },
 
     subtitle: {
       fontFamily: Fonts.body,
       fontSize: 12,
       lineHeight: 16,
-      color: C.gray,
+      color: C.grayText,
       marginTop: 1,
     },
 
@@ -293,9 +298,9 @@ const styles = StyleSheet.create(
     /* A hairline rim — the black should read as an edge, not a frame. */
     card: {
       marginTop: 14,
-      backgroundColor: C.blue2,
+      backgroundColor: C.blue2Fill,
       borderWidth: 1,
-      borderColor: C.frame,
+      borderColor: C.frameBorder,
       borderRadius: 7,
       overflow: 'visible',
     },
@@ -304,7 +309,7 @@ const styles = StyleSheet.create(
       alignItems: 'flex-start',
       paddingHorizontal: 12,
       paddingVertical: 11,
-      backgroundColor: C.blue2,
+      backgroundColor: C.blue2Fill,
       borderTopLeftRadius: 6,
       borderTopRightRadius: 6,
     },
@@ -313,16 +318,16 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodyBold,
       fontSize: 14,
       lineHeight: 18,
-      color: C.text,
+      color: C.textText,
     },
 
     headLine: {
       height: 1,
-      backgroundColor: C.headLine,
+      backgroundColor: C.headLineFill,
     },
 
     body: {
-      backgroundColor: C.blue1,
+      backgroundColor: C.blue1Fill,
       paddingHorizontal: 12,
       paddingTop: 12,
       paddingBottom: 14,
@@ -334,7 +339,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 12,
       lineHeight: 18,
-      color: C.text,
+      color: C.textText,
     },
 
     /* ── Detajet beside the level ────────────────────────────── */
@@ -370,7 +375,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 11,
       lineHeight: 14,
-      color: C.gray,
+      color: C.grayText,
     },
 
     dValue: {
@@ -379,12 +384,12 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodyBold,
       fontSize: 11,
       lineHeight: 14,
-      color: C.text,
+      color: C.textText,
     },
 
     /* Only the shared-with-the-team flag is coloured. */
     dValueGreen: {
-      color: C.green,
+      color: C.greenText,
     },
 
     /* Rim and wash both come from the level's tone, applied inline. */
@@ -403,7 +408,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodyBold,
       fontSize: 20,
       lineHeight: 24,
-      color: C.text,
+      color: C.textText,
     },
 
     levelLabel: {
@@ -411,7 +416,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 12.5,
       lineHeight: 16,
-      color: C.text,
+      color: C.textText,
       marginTop: 6,
     },
 

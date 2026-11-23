@@ -29,9 +29,37 @@ export function listDrills(
   });
 }
 
-/** A drill with its full board schema — `GET /drills/{drill}`. */
-export function getDrill(token: string, id: number, signal?: AbortSignal) {
-  return request<{ data: ApiDrill }>(`/drills/${id}`, { token, signal });
+/**
+ * A drill with its full board schema — `GET /drills/{drill}`. The deployed
+ * API answers with the bare resource while the latest backend wraps it in
+ * `data`; accept both so a backend rollout doesn't break opening a drill.
+ */
+export async function getDrill(
+  token: string,
+  id: number,
+  signal?: AbortSignal,
+): Promise<ApiDrill> {
+  const res = await request<ApiDrill | { data: ApiDrill }>(`/drills/${id}`, {
+    token,
+    signal,
+  });
+  return 'title' in res ? res : res.data;
+}
+
+/**
+ * A short-lived signed web URL that signs the trainer in and opens the drill
+ * editor (`drill` omitted → a blank one). The mobile app renders the real web
+ * board in a WebView instead of a native re-implementation.
+ */
+export function getDrillWebUrl(
+  token: string,
+  drillId: number | null,
+  signal?: AbortSignal,
+) {
+  return request<{ url: string }>(
+    `/drills/web-session${toQuery({ drill: drillId ?? undefined })}`,
+    { token, signal },
+  );
 }
 
 export function createDrill(token: string, input: DrillInput, signal?: AbortSignal) {

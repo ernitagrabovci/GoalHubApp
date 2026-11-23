@@ -17,6 +17,7 @@ import { ApiError } from '@/lib/api/errors';
 import { getMatch, saveMatchResult, type MatchStatInput } from '@/lib/api/matches';
 import { I, scaled } from '@/lib/responsive';
 import { useSession } from '@/lib/session';
+import { useAppColors, usePaletteStyles, type AppColorsOf } from '@/lib/app-theme';
 
 /**
  * Fut rezultatin — opened from the button of the same name on the trainer's
@@ -24,24 +25,25 @@ import { useSession } from '@/lib/session';
  * trainer sets the final score and each player's line, then saves.
  */
 
-const C = {
-  page: '#FAFBFA',
+const C_LIGHT = {
+  white: '#FFFFFF',
+  page: '#F7F9F8',
   line: 'rgba(0,0,0,0.025)',
 
-  text: '#111111',
-  gray: '#8A8A8A',
+  text: '#17251E',
+  gray: '#52645A',
   hint: '#6E6E6E',
 
   /* Every card and control is rimmed in a thin black line. */
-  frame: '#000000',
+  frame: '#DCE5DF',
   headLine: 'rgba(30,40,35,0.10)',
   rowLine: 'rgba(100,140,190,0.22)',
 
   blue1: '#E3EEFB',
-  blue2: '#F6FBFF',
+  blue2: '#F7F9F8',
 
-  green: '#159447',
-  red: '#E03131',
+  green: '#2E7D5B',
+  red: '#B91C1C',
   green10: 'rgba(21,148,71,0.10)',
   green20: 'rgba(21,148,71,0.20)',
 };
@@ -80,6 +82,8 @@ function numOr(value: string, fallback: number): number {
 }
 
 export default function EnterResultScreen() {
+  const C = useAppColors(C_LIGHT);
+  const styles = usePaletteStyles(createStyles, C);
   const router = useRouter();
   const { token, signOut } = useSession();
 
@@ -236,7 +240,7 @@ export default function EnterResultScreen() {
                 accessibilityLabel="Kthehu prapa"
                 style={({ pressed }) => [styles.backBtn, pressed && styles.pressed]}
               >
-                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.text} />
+                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.textText} />
               </Pressable>
               <View style={styles.headerText}>
                 <Text
@@ -437,6 +441,8 @@ function ScoreBox({
   setOpen: (open: boolean) => void;
   onChange: (v: string) => void;
 }) {
+  const C = useAppColors(C_LIGHT);
+  const styles = usePaletteStyles(createStyles, C);
   return (
     <View style={styles.scoreWrap}>
       <Pressable
@@ -448,7 +454,7 @@ function ScoreBox({
         <Text style={styles.scoreValue} numberOfLines={1}>
           {value}
         </Text>
-        <MaterialCommunityIcons name="chevron-down" size={I(13)} color={C.text} />
+        <MaterialCommunityIcons name="chevron-down" size={I(13)} color={C.textText} />
       </Pressable>
 
       {open ? (
@@ -485,7 +491,7 @@ function ScoreBox({
 /* Styles                                                              */
 /* ------------------------------------------------------------------ */
 
-const styles = StyleSheet.create(
+const createStyles = (C: AppColorsOf<typeof C_LIGHT>) => StyleSheet.create(
   scaled({
     safe: {
       flex: 1,
@@ -530,7 +536,7 @@ const styles = StyleSheet.create(
       fontSize: 20,
       lineHeight: 24,
       letterSpacing: -0.3,
-      color: C.text,
+      color: C.textText,
     },
 
     scroll: {
@@ -539,9 +545,9 @@ const styles = StyleSheet.create(
 
     /* ── Cards ───────────────────────────────────────────────── */
     card: {
-      backgroundColor: C.blue2,
+      backgroundColor: C.blue2Fill,
       borderWidth: 1,
-      borderColor: C.frame,
+      borderColor: C.frameBorder,
       borderRadius: 5,
       overflow: 'hidden',
     },
@@ -572,17 +578,17 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodyBold,
       fontSize: 13,
       lineHeight: 17,
-      color: C.text,
+      color: C.textText,
     },
 
     headLine: {
       height: 1,
-      backgroundColor: C.headLine,
+      backgroundColor: C.headLineFill,
     },
 
     /* ── Rezultati final ─────────────────────────────────────── */
     scoreBody: {
-      backgroundColor: C.blue1,
+      backgroundColor: C.blue1Fill,
       borderBottomLeftRadius: 4,
       borderBottomRightRadius: 4,
     },
@@ -601,7 +607,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodyBold,
       fontSize: 12.5,
       lineHeight: 16,
-      color: C.text,
+      color: C.textText,
     },
 
     dashGap: {
@@ -626,7 +632,7 @@ const styles = StyleSheet.create(
       textAlign: 'center',
       fontFamily: Fonts.bodyBold,
       fontSize: 15,
-      color: C.text,
+      color: C.textText,
     },
 
     /* The two rectangles carry the tone on their rim only — the inside stays
@@ -636,34 +642,34 @@ const styles = StyleSheet.create(
     },
 
     scoreBox: {
-      height: 42,
+      height: 44,
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
       gap: 6,
       backgroundColor: 'transparent',
       borderWidth: 1,
-      borderRadius: 4,
+      borderRadius: 10,
     },
 
     scoreValue: {
       fontFamily: Fonts.bodyBold,
       fontSize: 16,
-      color: C.text,
+      color: C.textText,
     },
 
     /* Floats over the statistics table so opening it moves nothing. */
     scoreOpts: {
       position: 'absolute',
-      top: 45,
+      top: 46,
       left: 0,
       right: 0,
       zIndex: 40,
       elevation: 12,
-      backgroundColor: '#F5F5F5',
+      backgroundColor: C.whiteFill,
       borderWidth: 1,
-      borderColor: C.frame,
-      borderRadius: 4,
+      borderColor: C.frameBorder,
+      borderRadius: 8,
       overflow: 'hidden',
       shadowColor: '#000000',
       shadowOffset: { width: 0, height: 3 },
@@ -672,24 +678,24 @@ const styles = StyleSheet.create(
     },
 
     scoreOpt: {
-      height: 28,
+      minHeight: 40,
       alignItems: 'center',
       justifyContent: 'center',
     },
 
     scoreOptActive: {
-      backgroundColor: C.green10,
+      backgroundColor: C.green10Fill,
     },
 
     scoreOptText: {
       fontFamily: Fonts.body,
-      fontSize: 12,
-      color: C.text,
+      fontSize: 12.5,
+      color: C.textText,
     },
 
     scoreOptTextActive: {
       fontFamily: Fonts.bodyBold,
-      color: C.green,
+      color: C.greenText,
     },
 
     /* ── Statistikat e lojtarëve ─────────────────────────────── */
@@ -707,7 +713,7 @@ const styles = StyleSheet.create(
       paddingTop: 9,
       paddingBottom: 7,
       borderBottomWidth: 1,
-      borderBottomColor: C.headLine,
+      borderBottomColor: C.headLineBorder,
     },
 
     tr: {
@@ -720,21 +726,21 @@ const styles = StyleSheet.create(
 
     trBorder: {
       borderTopWidth: 1,
-      borderTopColor: C.rowLine,
+      borderTopColor: C.rowLineBorder,
     },
 
     th: {
       fontFamily: Fonts.bodySemiBold,
       fontSize: 10,
       lineHeight: 13,
-      color: C.hint,
+      color: C.hintText,
     },
 
     tdName: {
       fontFamily: Fonts.bodySemiBold,
       fontSize: 11,
       lineHeight: 14,
-      color: C.text,
+      color: C.textText,
     },
 
     /* A bare box per figure, ruled in grey so the rows read lighter than the
@@ -746,10 +752,10 @@ const styles = StyleSheet.create(
       textAlign: 'center',
       fontFamily: Fonts.body,
       fontSize: 11,
-      color: C.text,
+      color: C.textText,
       backgroundColor: 'transparent',
       borderWidth: 1,
-      borderColor: C.gray,
+      borderColor: C.grayBorder,
       borderRadius: 3,
     },
 
@@ -760,7 +766,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 11,
       lineHeight: 15,
-      color: C.red,
+      color: C.redText,
     },
 
     saveBtnOff: {
@@ -768,21 +774,22 @@ const styles = StyleSheet.create(
     },
 
     saveBtn: {
-      minHeight: 34,
+      minHeight: 44,
       marginTop: 14,
       alignItems: 'center',
       justifyContent: 'center',
       paddingHorizontal: 12,
-      backgroundColor: C.green20,
+      backgroundColor: C.green20Fill,
       borderWidth: 1,
-      borderColor: C.frame,
-      borderRadius: 4,
+      borderColor: C.frameBorder,
+      borderRadius: 10,
     },
 
     saveText: {
       fontFamily: Fonts.bodyBold,
-      fontSize: 12,
-      color: C.text,
+      fontSize: 13,
+      lineHeight: 18,
+      color: C.textText,
     },
 
     pressed: {

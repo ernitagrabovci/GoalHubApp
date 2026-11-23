@@ -4,19 +4,28 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Image,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
 import { FilterSelect, type FilterOption } from '@/components/filters/filter-select';
 import { Fonts } from '@/constants/theme';
-import { ApiError } from '@/lib/api/errors';
+import { ApiError, loadErrorMessage } from '@/lib/api/errors';
 import { listPlayers, playerStats } from '@/lib/api/players';
 import { listTeams } from '@/lib/api/teams';
 import type { ApiPlayer, ApiTeam, PlayerStats } from '@/lib/api/types';
 import { POSITIONS, positionLabel } from '@/lib/player-position';
 import { I, scaled } from '@/lib/responsive';
 import { useSession } from '@/lib/session';
+import { useAppColors, usePaletteStyles, type AppColorsOf } from '@/lib/app-theme';
+import { useGlass } from '@/lib/glass';
 
 /**
  * Lista e lojtarëve — the trainer's squad, opened from the "Lojtarët" card on
@@ -26,21 +35,25 @@ import { useSession } from '@/lib/session';
  * the Vlerësimet card.
  */
 
-const C = {
-  page: '#FAFBFA',
+const C_LIGHT = {
+  white: '#FFFFFF',
+  glassBase: 'rgba(255,255,255,0.12)',
+  glassEdge: 'rgba(255,255,255,0.95)',
+  glassDivider: 'rgba(16,51,38,0.18)',
+  page: '#F7F9F8',
   line: 'rgba(0,0,0,0.025)',
 
-  text: '#111111',
-  gray: '#8A8A8A',
+  text: '#17251E',
+  gray: '#52645A',
 
-  frame: '#000000',
+  frame: '#DCE5DF',
   headLine: 'rgba(30,40,35,0.10)',
   rowLine: 'rgba(100,140,190,0.22)',
 
   blueSoft: '#E3EEFB',
-  orange: '#E4A000',
-  green: '#159447',
-  red: '#E03131',
+  orange: '#B45309',
+  green: '#2E7D5B',
+  red: '#B91C1C',
 
   /* The ratings card borrows the "Ndeshjet" card's palette from the trainer
      home — cream ground, sand frame, amber button. */
@@ -59,12 +72,6 @@ const IMG = {
  * nothing. Shading the pane instead — a very light grey at the top edge
  * sweeping down to white — is what gives the surface its glassy shape.
  */
-const SQ_GLOSS = [
-  'rgba(180,188,201,0.30)',
-  'rgba(216,222,231,0.15)',
-  'rgba(245,245,245,0.80)',
-] as const;
-
 /* ── Headline squares ──────────────────────────────────────────────── */
 
 type Square = { label: string; value: string };
@@ -89,11 +96,11 @@ type Player = {
   status: Status;
 };
 
-const STATUS_TONE: Record<Status, string> = {
+const STATUS_TONE = (C: AppColorsOf<typeof C_LIGHT>): Record<Status, string> => ({
   Aktiv: C.green,
   'I lënduar': C.red,
   'I pezulluar': C.orange,
-};
+});
 
 const COLS: { key: keyof Player; label: string; width: number }[] = [
   { key: 'nr', label: 'NR', width: 38 },
@@ -131,6 +138,8 @@ function toRow(p: ApiPlayer): Player {
 
 /** One cell of the shared summary pane. */
 function SummarySquare({ square }: { square: Square }) {
+  const C = useAppColors(C_LIGHT);
+  const styles = usePaletteStyles(createStyles, C);
   return (
     <View style={styles.sqBody}>
       <Text
@@ -154,6 +163,9 @@ function SummarySquare({ square }: { square: Square }) {
 }
 
 export default function PlayerListScreen() {
+  const glass = useGlass();
+  const C = useAppColors(C_LIGHT);
+  const styles = usePaletteStyles(createStyles, C);
   const router = useRouter();
   const { token, signOut } = useSession();
   const [rows, setRows] = useState<Player[]>([]);
@@ -162,6 +174,9 @@ export default function PlayerListScreen() {
   const [stats, setStats] = useState<PlayerStats | null>(null);
   const [teamFilter, setTeamFilter] = useState('');
   const [positionFilter, setPositionFilter] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [reload, setReload] = useState(0);
 
   useEffect(() => {
     if (!token) return;
@@ -186,6 +201,7 @@ export default function PlayerListScreen() {
   useEffect(() => {
     if (!token) return;
     const controller = new AbortController();
+
     listPlayers(
       token,
       {
@@ -198,16 +214,21 @@ export default function PlayerListScreen() {
         if (controller.signal.aborted) return;
         setRows(res.data.map(toRow));
         setTotal(res.meta.total);
+        setLoading(false);
       })
       .catch((e) => {
         if (controller.signal.aborted) return;
         if (e instanceof ApiError && e.status === 401) {
           signOut();
           router.replace('/login');
+          return;
         }
+        setRows([]);
+        setLoading(false);
+        setLoadError(loadErrorMessage(e, 'Nuk mund të ngarkohen lojtarët. Kontrollo lidhjen.'));
       });
     return () => controller.abort();
-  }, [token, router, signOut, teamFilter, positionFilter]);
+  }, [token, router, signOut, teamFilter, positionFilter, reload]);
 
   /* The teams fill the first filter's options. */
   useEffect(() => {
@@ -234,6 +255,28 @@ export default function PlayerListScreen() {
   ];
 
   const teamName = teams.find((t) => String(t.id) === teamFilter)?.name;
+
+  /* A refetch is triggered from an event, not the effect body, so the table
+     can show its spinner immediately without a cascading render. */
+  const restartLoad = () => {
+    setLoading(true);
+    setLoadError(null);
+  };
+
+  const onTeamChange = (value: string) => {
+    restartLoad();
+    setTeamFilter(value);
+  };
+
+  const onPositionChange = (value: string) => {
+    restartLoad();
+    setPositionFilter(value);
+  };
+
+  const retry = () => {
+    restartLoad();
+    setReload((value) => value + 1);
+  };
 
   /* Every number here is black — no tone colour, unlike the other squares.
      Rehabilitation counts as injured, the same way the table's status does. */
@@ -263,7 +306,7 @@ export default function PlayerListScreen() {
                 accessibilityLabel="Kthehu prapa"
                 style={({ pressed }) => [styles.backBtn, pressed && styles.pressed]}
               >
-                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.text} />
+                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.textText} />
               </Pressable>
               <View style={styles.headerText}>
                 <Text
@@ -297,14 +340,14 @@ export default function PlayerListScreen() {
               <BlurView
                 pointerEvents="none"
                 intensity={55}
-                tint="light"
+                tint={glass.tint}
                 experimentalBlurMethod="dimezisBlurView"
                 style={StyleSheet.absoluteFill}
               />
               <LinearGradient
                 pointerEvents="none"
                 style={StyleSheet.absoluteFill}
-                colors={SQ_GLOSS}
+                colors={glass.gloss}
                 locations={[0, 0.55, 1]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
@@ -312,12 +355,7 @@ export default function PlayerListScreen() {
               <LinearGradient
                 pointerEvents="none"
                 style={styles.statsGloss}
-                colors={[
-                  'rgba(255,255,255,0)',
-                  'rgba(255,255,255,0.78)',
-                  'rgba(255,255,255,0.55)',
-                  'rgba(255,255,255,0)',
-                ]}
+                colors={glass.sweep}
                 locations={[0, 0.38, 0.62, 1]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
@@ -325,11 +363,7 @@ export default function PlayerListScreen() {
               <LinearGradient
                 pointerEvents="none"
                 style={styles.statsGloss2}
-                colors={[
-                  'rgba(255,255,255,0)',
-                  'rgba(255,255,255,0.55)',
-                  'rgba(255,255,255,0)',
-                ]}
+                colors={glass.sweepSoft}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
               />
@@ -351,7 +385,7 @@ export default function PlayerListScreen() {
                 label="Filtro sipas ekipit"
                 options={teamOptions}
                 value={teamFilter}
-                onChange={setTeamFilter}
+                onChange={onTeamChange}
                 boxStyle={styles.filterBox}
                 textStyle={styles.filterText}
               />
@@ -359,14 +393,48 @@ export default function PlayerListScreen() {
                 label="Filtro sipas pozicionit"
                 options={POSITION_OPTIONS}
                 value={positionFilter}
-                onChange={setPositionFilter}
+                onChange={onPositionChange}
                 boxStyle={styles.filterBox}
                 textStyle={styles.filterText}
               />
             </View>
 
+            {rows.length > 0 && !loading && !loadError ? (
+              <View style={styles.scrollHint} accessibilityElementsHidden importantForAccessibility="no">
+                <MaterialCommunityIcons name="gesture-swipe-horizontal" size={I(14)} color={C.grayText} />
+                <Text style={styles.scrollHintText}>Rrëshqit anash për më shumë kolona</Text>
+              </View>
+            ) : null}
+
             {/* ── Squad table ───────────────────────────────────── */}
             <View style={styles.card}>
+              {/* The table is wider than the phone. States sit directly in the
+                  card so they centre in the viewport; only the data grid
+                  scrolls sideways. */}
+              {loading || loadError || rows.length === 0 ? (
+                <View style={styles.stateRow}>
+                  {loading ? (
+                    <>
+                      <ActivityIndicator color={C.greenText} />
+                      <Text style={styles.stateText}>Duke ngarkuar lojtarët…</Text>
+                    </>
+                  ) : loadError ? (
+                    <>
+                      <Text style={[styles.stateText, styles.stateErr]}>{loadError}</Text>
+                      <Pressable
+                        onPress={retry}
+                        accessibilityRole="button"
+                        accessibilityLabel="Provo përsëri"
+                        style={({ pressed }) => [styles.stateRetry, pressed && styles.pressed]}
+                      >
+                        <Text style={styles.stateRetryText}>Provo përsëri</Text>
+                      </Pressable>
+                    </>
+                  ) : (
+                    <Text style={styles.stateText}>Nuk u gjet asnjë lojtar.</Text>
+                  )}
+                </View>
+              ) : (
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
@@ -396,7 +464,7 @@ export default function PlayerListScreen() {
                             style={[
                               styles.td,
                               c.key === 'name' ? styles.tdName : null,
-                              isStatus ? [styles.tdStatus, { color: STATUS_TONE[p.status] }] : null,
+                              isStatus ? [styles.tdStatus, { color: STATUS_TONE(C)[p.status] }] : null,
                               { width: c.width },
                             ]}
                             numberOfLines={1}
@@ -424,6 +492,7 @@ export default function PlayerListScreen() {
                           }
                           accessibilityRole="button"
                           accessibilityLabel={`Shiko ${p.name}`}
+                          hitSlop={10}
                           style={({ pressed }) => [styles.actView, pressed && styles.pressed]}
                         >
                           <Text style={styles.actViewText}>Shiko</Text>
@@ -433,6 +502,7 @@ export default function PlayerListScreen() {
                   ))}
                 </View>
               </ScrollView>
+              )}
             </View>
 
             {/* ── Vlerësimet e lojtarëve ────────────────────────── */}
@@ -466,7 +536,7 @@ export default function PlayerListScreen() {
 /* Styles                                                              */
 /* ------------------------------------------------------------------ */
 
-const styles = StyleSheet.create(
+const createStyles = (C: AppColorsOf<typeof C_LIGHT>) => StyleSheet.create(
   scaled({
     safe: {
       flex: 1,
@@ -511,14 +581,14 @@ const styles = StyleSheet.create(
       fontSize: 20,
       lineHeight: 24,
       letterSpacing: -0.3,
-      color: C.text,
+      color: C.textText,
     },
 
     subtitle: {
       fontFamily: Fonts.body,
       fontSize: 12,
       lineHeight: 16,
-      color: C.gray,
+      color: C.grayText,
       marginTop: 1,
     },
 
@@ -541,8 +611,8 @@ const styles = StyleSheet.create(
       height: 92,
       borderRadius: 16,
       borderWidth: 1,
-      borderColor: C.orange,
-      backgroundColor: 'rgba(255,255,255,0.12)',
+      borderColor: C.orangeBorder,
+      backgroundColor: C.glassBaseFill,
       overflow: 'hidden',
       shadowColor: '#0B3B33',
       shadowOffset: { width: 0, height: 6 },
@@ -576,7 +646,7 @@ const styles = StyleSheet.create(
       right: 10,
       height: 1.5,
       borderRadius: 1,
-      backgroundColor: 'rgba(255,255,255,0.95)',
+      backgroundColor: C.glassEdgeFill,
     },
 
     statItem: {
@@ -591,7 +661,7 @@ const styles = StyleSheet.create(
       top: 10,
       bottom: 10,
       width: StyleSheet.hairlineWidth,
-      backgroundColor: 'rgba(16,51,38,0.18)',
+      backgroundColor: C.glassDividerFill,
     },
 
     /* Content rides above the frost and gloss overlays. */
@@ -601,11 +671,11 @@ const styles = StyleSheet.create(
     },
 
     sqLabel: {
-      minHeight: 24,
+      minHeight: 26,
       fontFamily: Fonts.bodyBold,
-      fontSize: 9.5,
-      lineHeight: 11.5,
-      color: C.gray,
+      fontSize: 10,
+      lineHeight: 12.5,
+      color: C.grayText,
     },
 
     sqValue: {
@@ -613,7 +683,7 @@ const styles = StyleSheet.create(
       fontSize: 17,
       lineHeight: 21,
       letterSpacing: -0.5,
-      color: C.text,
+      color: C.textText,
       marginTop: 2,
     },
 
@@ -629,27 +699,42 @@ const styles = StyleSheet.create(
       flexDirection: 'row',
       alignItems: 'center',
       gap: 5,
-      height: 32,
-      paddingHorizontal: 8,
-      backgroundColor: C.blueSoft,
+      height: 44,
+      paddingHorizontal: 11,
+      backgroundColor: C.blueSoftFill,
       borderWidth: 1,
-      borderColor: C.frame,
-      borderRadius: 4,
+      borderColor: C.frameBorder,
+      borderRadius: 10,
     },
 
     filterText: {
       fontFamily: Fonts.bodyBold,
-      fontSize: 11,
-      lineHeight: 14,
-      color: C.text,
+      fontSize: 12.5,
+      lineHeight: 16,
+      color: C.textText,
     },
 
     /* ── Squad table ─────────────────────────────────────────── */
+    /* Tells sighted users the grid continues sideways on narrow phones. */
+    scrollHint: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 5,
+      marginTop: 12,
+    },
+
+    scrollHintText: {
+      fontFamily: Fonts.body,
+      fontSize: 11.5,
+      lineHeight: 15,
+      color: C.grayText,
+    },
+
     card: {
       marginTop: 14,
-      backgroundColor: '#F5F5F5',
+      backgroundColor: C.whiteFill,
       borderWidth: 1,
-      borderColor: C.frame,
+      borderColor: C.frameBorder,
       borderRadius: 5,
       overflow: 'hidden',
     },
@@ -668,7 +753,7 @@ const styles = StyleSheet.create(
       paddingTop: 10,
       paddingBottom: 8,
       borderBottomWidth: 1,
-      borderBottomColor: C.headLine,
+      borderBottomColor: C.headLineBorder,
     },
 
     tr: {
@@ -679,21 +764,59 @@ const styles = StyleSheet.create(
 
     trBorder: {
       borderTopWidth: 1,
-      borderTopColor: C.rowLine,
+      borderTopColor: C.rowLineBorder,
+    },
+
+    /* Loading / empty / error occupy the table body so the card keeps its
+       shape while the data resolves. */
+    stateRow: {
+      minHeight: 120,
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 10,
+      paddingHorizontal: 16,
+      paddingVertical: 24,
+    },
+
+    stateText: {
+      fontFamily: Fonts.body,
+      fontSize: 13,
+      lineHeight: 18,
+      color: C.grayText,
+      textAlign: 'center',
+    },
+
+    stateErr: {
+      color: C.redText,
+    },
+
+    stateRetry: {
+      minHeight: 44,
+      justifyContent: 'center',
+      paddingHorizontal: 18,
+      borderWidth: 1,
+      borderColor: C.greenBorder,
+      borderRadius: 10,
+    },
+
+    stateRetryText: {
+      fontFamily: Fonts.bodySemiBold,
+      fontSize: 13,
+      color: C.greenText,
     },
 
     th: {
       fontFamily: Fonts.bodySemiBold,
-      fontSize: 10.5,
-      lineHeight: 13,
-      color: C.gray,
+      fontSize: 11,
+      lineHeight: 14,
+      color: C.grayText,
     },
 
     td: {
       fontFamily: Fonts.body,
-      fontSize: 11,
-      lineHeight: 14,
-      color: C.text,
+      fontSize: 12,
+      lineHeight: 16,
+      color: C.textText,
     },
 
     tdName: {
@@ -713,19 +836,19 @@ const styles = StyleSheet.create(
 
     /* Transparent, outlined, and sitting on the row itself. */
     actView: {
-      height: 24,
-      paddingHorizontal: 10,
+      height: 32,
+      paddingHorizontal: 12,
       alignItems: 'center',
       justifyContent: 'center',
       borderWidth: 1,
-      borderColor: C.frame,
-      borderRadius: 4,
+      borderColor: C.frameBorder,
+      borderRadius: 6,
     },
 
     actViewText: {
       fontFamily: Fonts.bodySemiBold,
-      fontSize: 10.5,
-      color: C.text,
+      fontSize: 11.5,
+      color: C.textText,
     },
 
     /* ── Vlerësimet e lojtarëve ──────────────────────────────── */
@@ -734,8 +857,8 @@ const styles = StyleSheet.create(
       height: 92,
       borderRadius: 9,
       borderWidth: 1,
-      borderColor: C.sandBorder,
-      backgroundColor: C.sand,
+      borderColor: C.sandBorderBorder,
+      backgroundColor: C.sandFill,
       overflow: 'hidden',
     },
 
@@ -748,7 +871,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodyBold,
       fontSize: 22,
       lineHeight: 26,
-      color: C.text,
+      color: C.textText,
       zIndex: 3,
     },
 
@@ -781,7 +904,7 @@ const styles = StyleSheet.create(
     },
 
     rateBtn: {
-      backgroundColor: C.sandBtn,
+      backgroundColor: C.sandBtnFill,
       borderRadius: 6,
       paddingHorizontal: 18,
       paddingVertical: 7,
@@ -790,7 +913,7 @@ const styles = StyleSheet.create(
     rateBtnText: {
       fontFamily: Fonts.bodyBold,
       fontSize: 12.5,
-      color: '#F5F5F5',
+      color: '#FFFFFF',
     },
 
     pressed: {

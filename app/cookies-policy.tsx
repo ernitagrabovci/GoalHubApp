@@ -5,10 +5,11 @@ import { LegalPage, type LegalSection } from '@/components/legal/legal-page';
 import { Fonts } from '@/constants/theme';
 import { scaled } from '@/lib/responsive';
 import { usePersistedState } from '@/lib/storage';
+import { useAppColors, usePaletteStyles, type AppColorsOf } from '@/lib/app-theme';
 
-const C = {
-  green: '#159447',
-  red: '#ED5050',
+const C_LIGHT = {
+  green: '#2E7D5B',
+  red: '#B91C1C',
 };
 
 const SECTIONS: LegalSection[] = [
@@ -61,6 +62,8 @@ const CHOICE_LABEL: Record<CookieChoice, string> = {
 };
 
 export default function CookiesPolicyScreen() {
+  const C = useAppColors(C_LIGHT);
+  const styles = usePaletteStyles(createStyles, C);
   const [choice, setChoice] = usePersistedState<CookieChoice | null>(
     'cookie-consent',
     null,
@@ -112,7 +115,7 @@ export default function CookiesPolicyScreen() {
   );
 }
 
-const styles = StyleSheet.create(
+const createStyles = (C: AppColorsOf<typeof C_LIGHT>) => StyleSheet.create(
   scaled({
     actions: {
       marginTop: 26,
@@ -123,43 +126,43 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodyMedium,
       fontSize: 12.5,
       lineHeight: 17,
-      color: C.green,
+      color: C.greenText,
       textAlign: 'center',
       marginBottom: 2,
     },
 
     btn: {
-      height: 42,
+      height: 44,
       alignItems: 'center',
       justifyContent: 'center',
-      borderRadius: 4,
+      borderRadius: 10,
       paddingHorizontal: 14,
     },
 
     allowAll: {
-      backgroundColor: C.green,
+      backgroundColor: C.greenFill,
     },
 
     necessary: {
       backgroundColor: 'transparent',
       borderWidth: 1.5,
-      borderColor: C.green,
+      borderColor: C.greenBorder,
     },
 
     denyAll: {
-      backgroundColor: C.red,
+      backgroundColor: C.redFill,
     },
 
     btnLight: {
       fontFamily: Fonts.bodySemiBold,
       fontSize: 13.5,
-      color: '#F5F5F5',
+      color: '#FFFFFF',
     },
 
     btnGreen: {
       fontFamily: Fonts.bodySemiBold,
       fontSize: 13.5,
-      color: C.green,
+      color: C.greenText,
     },
 
     pressed: {

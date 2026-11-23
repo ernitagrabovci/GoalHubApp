@@ -61,11 +61,13 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
 
   if (!response.ok) {
     const errorBody = (data ?? {}) as ErrorBody;
-    throw new ApiError(
-      errorBody.message || `Request failed (${response.status}).`,
-      response.status,
-      errorBody.errors
-    );
+    /* A role denial is the user's cue, not a server fault; give it copy they
+       can act on instead of Laravel's "This action is unauthorized." */
+    const message =
+      response.status === 403
+        ? 'Nuk ke leje për këtë faqe. Kontakto administratorin.'
+        : errorBody.message || `Request failed (${response.status}).`;
+    throw new ApiError(message, response.status, errorBody.errors);
   }
 
   return data as T;

@@ -14,9 +14,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
 import { DashboardHero } from '@/components/dashboard/dashboard-hero';
+import { DashboardC } from '@/constants/dashboard-theme';
+import { useAppColors, usePaletteStyles, type AppColorsOf } from '@/lib/app-theme';
+import { useGlass } from '@/lib/glass';
 import { Fonts } from '@/constants/theme';
 import { listMyChildren } from '@/lib/api/children';
-import { ApiError } from '@/lib/api/errors';
+import { ApiError, loadErrorMessage } from '@/lib/api/errors';
 import { badges } from '@/lib/api/notifications';
 import type { ApiChild, ChildrenResponse } from '@/lib/api/types';
 import { statusLabel } from '@/lib/player-status';
@@ -41,29 +44,6 @@ import { trainingDate, trainingTime, typeName } from '@/lib/trainings';
  * - Content is intentionally compact so it fits without scrolling.
  */
 
-const C = {
-  bg: '#FAFBFA',
-  line: 'rgba(0,0,0,0.025)',
-
-  white: '#F5F5F5',
-  text: '#111111',
-
-  gray: '#666666',
-  muted: '#888888',
-
-  border: '#D9DEDB',
-  cardBorder: 'rgba(30,40,35,0.10)',
-
-  green: '#159447',
-  greenBorder: '#4DBB7B',
-  lightGreen: '#DDF6E7',
-  veryLightGreen: '#F1FBF5',
-  profileBg: '#E0F6E9',
-
-  greenDeep: '#14734F',
-  greenDark: '#0C6C36',
-};
-
 /* =========================================================
    ASSETS
    ========================================================= */
@@ -84,6 +64,9 @@ const IMG = {
    ========================================================= */
 
 export function ParentHome() {
+  const glass = useGlass();
+  const C = useAppColors(DashboardC);
+  const styles = usePaletteStyles(createStyles, C);
   const router = useRouter();
   const { token, signOut, user } = useSession();
 
@@ -91,6 +74,7 @@ export function ParentHome() {
   const [totals, setTotals] = useState<ChildrenResponse['totals'] | null>(null);
   const [unread, setUnread] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     if (!token) return;
@@ -115,15 +99,16 @@ export function ParentHome() {
           router.replace('/login');
           return;
         }
-        setError(
-          err instanceof ApiError && err.status === 0
-            ? 'Nuk mund të lidhemi me serverin. Kontrollo lidhjen.'
-            : 'Nuk mund të ngarkohen fëmijët.',
-        );
+        setError(loadErrorMessage(err, 'Nuk mund të ngarkohen fëmijët.'));
       });
 
     return () => controller.abort();
-  }, [token, router, signOut]);
+  }, [token, router, signOut, reloadKey]);
+
+  const retry = () => {
+    setError(null);
+    setReloadKey((value) => value + 1);
+  };
 
   const open = (route: string) => {
     router.push(route as never);
@@ -196,25 +181,20 @@ export function ParentHome() {
             <View style={styles.statsCard}>
               <BlurView
                 intensity={55}
-                tint="light"
+                tint={glass.tint}
                 experimentalBlurMethod="dimezisBlurView"
                 style={StyleSheet.absoluteFill}
                 pointerEvents="none"
               />
               <LinearGradient
-                colors={['rgba(255,255,255,0.38)', 'rgba(255,255,255,0.04)', 'rgba(255,255,255,0.24)']}
+                colors={glass.highlight}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={StyleSheet.absoluteFill}
                 pointerEvents="none"
               />
               <LinearGradient
-                colors={[
-                  'rgba(255,255,255,0)',
-                  'rgba(255,255,255,0.78)',
-                  'rgba(255,255,255,0.55)',
-                  'rgba(255,255,255,0)',
-                ]}
+                colors={glass.sweep}
                 locations={[0, 0.38, 0.62, 1]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
@@ -222,7 +202,7 @@ export function ParentHome() {
                 pointerEvents="none"
               />
               <LinearGradient
-                colors={['rgba(255,255,255,0)', 'rgba(255,255,255,0.55)', 'rgba(255,255,255,0)']}
+                colors={glass.sweepSoft}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={styles.statsGloss2}
@@ -298,7 +278,7 @@ export function ParentHome() {
                   <MaterialCommunityIcons
                     name="calendar-month-outline"
                     size={I(18)}
-                    color={C.green}
+                    color={C.greenText}
                   />
                 </View>
 
@@ -318,7 +298,7 @@ export function ParentHome() {
                 <MaterialCommunityIcons
                   name="chevron-right"
                   size={I(21)}
-                  color={C.green}
+                  color={C.greenText}
                 />
               </Pressable>
             </View>
@@ -330,9 +310,17 @@ export function ParentHome() {
 
           <View style={styles.padded}>
             {error ? (
-              <Text style={styles.listNote} numberOfLines={2}>
-                {error}
-              </Text>
+              <View style={styles.loadError}>
+                <Text style={styles.loadErrorText}>{error}</Text>
+                <Pressable
+                  onPress={retry}
+                  accessibilityRole="button"
+                  accessibilityLabel="Provo përsëri"
+                  style={({ pressed }) => [styles.loadRetry, pressed && styles.pressed]}
+                >
+                  <Text style={styles.loadRetryText}>Provo përsëri</Text>
+                </Pressable>
+              </View>
             ) : null}
 
             {list.map((child) => {
@@ -435,6 +423,8 @@ function HeaderBlock({
   onBell: () => void;
   onSettings: () => void;
 }) {
+  const C = useAppColors(DashboardC);
+  const styles = usePaletteStyles(createStyles, C);
   return (
     <View style={styles.header}>
 
@@ -461,7 +451,7 @@ function HeaderBlock({
           <MaterialCommunityIcons
             name="chevron-down"
             size={I(12)}
-            color="rgba(12,37,27,0.65)"
+            color={C.heroMutedText}
           />
         </View>
       </View>
@@ -483,7 +473,7 @@ function HeaderBlock({
           <MaterialCommunityIcons
             name="bell-outline"
             size={I(20)}
-            color={C.text}
+            color={C.textText}
           />
 
           {unread > 0 ? (
@@ -508,7 +498,7 @@ function HeaderBlock({
           <MaterialCommunityIcons
             name="cog-outline"
             size={I(20)}
-            color={C.green}
+            color={C.greenText}
           />
         </Pressable>
 
@@ -538,6 +528,8 @@ function StatCard({
   imgStyle,
   imgCover,
 }: StatCardProps) {
+  const C = useAppColors(DashboardC);
+  const styles = usePaletteStyles(createStyles, C);
   return (
     <View style={styles.statItem}>
 
@@ -573,7 +565,7 @@ function StatCard({
    STYLES
    ========================================================= */
 
-const styles = StyleSheet.create(scaled({
+const createStyles = (C: AppColorsOf<typeof DashboardC>) => StyleSheet.create(scaled({
 
   /* =======================================================
      PAGE
@@ -598,6 +590,44 @@ const styles = StyleSheet.create(scaled({
 
   pressed: {
     opacity: 0.65,
+  },
+
+  /* Compact failure strip above the child cards; clears on retry. */
+  loadError: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+    marginTop: 24,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: C.whiteFill,
+    borderWidth: 1,
+    borderColor: C.borderBorder,
+    borderRadius: 10,
+  },
+
+  loadErrorText: {
+    flex: 1,
+    fontFamily: Fonts.body,
+    fontSize: 12.5,
+    lineHeight: 18,
+    color: C.textText,
+  },
+
+  loadRetry: {
+    minHeight: 44,
+    justifyContent: 'center',
+    paddingHorizontal: 14,
+    borderWidth: 1,
+    borderColor: C.greenBorder,
+    borderRadius: 10,
+  },
+
+  loadRetryText: {
+    fontFamily: Fonts.bodySemiBold,
+    fontSize: 13,
+    color: C.greenText,
   },
 
   /* =======================================================
@@ -634,7 +664,7 @@ const styles = StyleSheet.create(scaled({
 
     letterSpacing: -0.35,
 
-    color: '#0C251B',
+    color: C.textText,
   },
 
   clubRow: {
@@ -650,7 +680,7 @@ const styles = StyleSheet.create(scaled({
 
     lineHeight: 16,
 
-    color: 'rgba(12,37,27,0.65)',
+    color: C.heroMutedText,
   },
 
   headerRight: {
@@ -669,7 +699,7 @@ const styles = StyleSheet.create(scaled({
 
     borderRadius: 18,
 
-    backgroundColor: C.white,
+    backgroundColor: C.whiteFill,
 
     borderWidth: 1,
     borderColor: 'rgba(30,40,35,0.10)',
@@ -694,7 +724,7 @@ const styles = StyleSheet.create(scaled({
 
     borderRadius: 18,
 
-    backgroundColor: C.profileBg,
+    backgroundColor: C.profileBgFill,
 
     alignItems: 'center',
     justifyContent: 'center',
@@ -711,7 +741,7 @@ const styles = StyleSheet.create(scaled({
 
     borderRadius: 8,
 
-    backgroundColor: C.green,
+    backgroundColor: C.greenFill,
 
     alignItems: 'center',
     justifyContent: 'center',
@@ -719,7 +749,7 @@ const styles = StyleSheet.create(scaled({
     paddingHorizontal: 3,
 
     borderWidth: 1.5,
-    borderColor: C.bg,
+    borderColor: C.bgBorder,
   },
 
   badgeText: {
@@ -728,7 +758,7 @@ const styles = StyleSheet.create(scaled({
 
     lineHeight: 11,
 
-    color: C.white,
+    color: C.whiteText,
   },
 
   /* =======================================================
@@ -747,7 +777,7 @@ const styles = StyleSheet.create(scaled({
 
     letterSpacing: -0.45,
 
-    color: '#0C251B',
+    color: C.textText,
   },
 
   welcomeSub: {
@@ -756,7 +786,7 @@ const styles = StyleSheet.create(scaled({
     fontSize: 12,
     lineHeight: 16,
 
-    color: 'rgba(12,37,27,0.7)',
+    color: C.heroSubText,
 
     marginTop: 1,
   },
@@ -778,9 +808,9 @@ const styles = StyleSheet.create(scaled({
 
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#BC6C25',
+    borderColor: C.statBorderBorder,
 
-    backgroundColor: 'rgba(255,255,255,0.12)',
+    backgroundColor: C.glassBaseFill,
 
     overflow: 'hidden',
 
@@ -813,7 +843,7 @@ const styles = StyleSheet.create(scaled({
     width: StyleSheet.hairlineWidth,
     alignSelf: 'stretch',
     marginVertical: 12,
-    backgroundColor: 'rgba(16,51,38,0.18)',
+    backgroundColor: C.glassDividerFill,
   },
 
   statsGloss: {
@@ -841,7 +871,7 @@ const styles = StyleSheet.create(scaled({
     right: 10,
     height: 1.5,
     borderRadius: 1,
-    backgroundColor: 'rgba(255,255,255,0.95)',
+    backgroundColor: C.glassEdgeFill,
   },
 
   statLabel: {
@@ -850,7 +880,7 @@ const styles = StyleSheet.create(scaled({
     fontSize: 9.5,
     lineHeight: 11,
 
-    color: '#5B6663',
+    color: C.statLabelSoftText,
 
     zIndex: 3,
   },
@@ -863,7 +893,7 @@ const styles = StyleSheet.create(scaled({
 
     letterSpacing: -0.5,
 
-    color: C.text,
+    color: C.textText,
 
     marginTop: 0,
 
@@ -934,7 +964,7 @@ const styles = StyleSheet.create(scaled({
 
     minHeight: 53,
 
-    backgroundColor: C.veryLightGreen,
+    backgroundColor: C.veryLightGreenFill,
 
     borderWidth: 1,
     borderColor: '#69C894',
@@ -952,7 +982,7 @@ const styles = StyleSheet.create(scaled({
 
     borderRadius: 6,
 
-    backgroundColor: '#E2F5E9',
+    backgroundColor: C.eventIconBgFill,
 
     alignItems: 'center',
     justifyContent: 'center',
@@ -970,7 +1000,7 @@ const styles = StyleSheet.create(scaled({
     fontSize: 10.5,
     lineHeight: 13,
 
-    color: C.muted,
+    color: C.mutedText,
   },
 
   eventText: {
@@ -979,7 +1009,7 @@ const styles = StyleSheet.create(scaled({
     fontSize: 12.5,
     lineHeight: 16,
 
-    color: C.text,
+    color: C.textText,
 
     marginTop: 0,
   },
@@ -998,7 +1028,7 @@ const styles = StyleSheet.create(scaled({
 
     position: 'relative',
 
-    backgroundColor: C.greenDeep,
+    backgroundColor: C.greenDeepFill,
 
     borderRadius: 12,
 
@@ -1059,7 +1089,7 @@ const styles = StyleSheet.create(scaled({
 
     letterSpacing: -0.4,
 
-    color: C.white,
+    color: C.whiteText,
 
     marginTop: 10,
   },
@@ -1074,7 +1104,7 @@ const styles = StyleSheet.create(scaled({
   },
 
   chipAktiv: {
-    backgroundColor: '#DDF8E9',
+    backgroundColor: C.chipAktivBgFill,
 
     borderRadius: 99,
 
@@ -1088,7 +1118,7 @@ const styles = StyleSheet.create(scaled({
     fontSize: 10.5,
     lineHeight: 13,
 
-    color: C.greenDark,
+    color: C.greenDarkText,
   },
 
   chipRating: {
@@ -1113,7 +1143,7 @@ const styles = StyleSheet.create(scaled({
     fontSize: 10.5,
     lineHeight: 13,
 
-    color: C.white,
+    color: C.whiteText,
   },
 
   childChevron: {
@@ -1126,6 +1156,6 @@ const styles = StyleSheet.create(scaled({
     fontFamily: Fonts.body,
     fontSize: 12,
     lineHeight: 16,
-    color: C.muted,
+    color: C.mutedText,
   },
 }));

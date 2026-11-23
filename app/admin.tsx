@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Screen, DetailHead } from '@/components/screen';
 import { IconSymbol, type IconSymbolName } from '@/components/ui/icon-symbol';
+import { SurfaceCard } from '@/components/ui/surface-card';
 import { Fonts, Radius, Spacing, type ThemeColors } from '@/constants/theme';
 import { useLanguage } from '@/lib/i18n';
 import { useTheme, useThemedStyles } from '@/lib/theme';
@@ -153,7 +154,7 @@ export default function AdminScreen() {
         {SECTIONS.map((section) => {
           const expanded = open === section.key;
           return (
-            <View key={section.key} style={styles.card}>
+            <SurfaceCard key={section.key} padding="none">
               <Pressable style={styles.head} onPress={() => toggle(section.key)}>
                 <View style={[styles.headIcon, { backgroundColor: `${colors.mint}1f` }]}>
                   <IconSymbol name={section.icon} size={18} color={colors.mint} />
@@ -179,7 +180,7 @@ export default function AdminScreen() {
                   ))}
                 </View>
               ) : null}
-            </View>
+            </SurfaceCard>
           );
         })}
       </View>
@@ -191,13 +192,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   list: {
     gap: Spacing.sm,
     marginTop: Spacing.sm,
-  },
-  card: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderWidth: 1,
-    borderRadius: Radius.lg,
-    overflow: 'hidden',
   },
   head: {
     flexDirection: 'row',

@@ -2,17 +2,18 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
-import { ApiError } from '@/lib/api/errors';
+import { ApiError, loadErrorMessage } from '@/lib/api/errors';
 import { attendanceHistory } from '@/lib/api/trainings';
 import type { ApiTraining } from '@/lib/api/types';
 import { I, scaled } from '@/lib/responsive';
 import { useSession } from '@/lib/session';
 import { durationLabel, trainingDate, trainingTime, typeName } from '@/lib/trainings';
+import { useAppColors, usePaletteStyles, type AppColorsOf } from '@/lib/app-theme';
 
 /**
  * Historiku i prezencës — the trainer's finalized sessions, newest first.
@@ -22,22 +23,22 @@ import { durationLabel, trainingDate, trainingTime, typeName } from '@/lib/train
  * can be corrected without re-finalizing.
  */
 
-const C = {
-  page: '#FAFBFA',
+const C_LIGHT = {
+  page: '#F7F9F8',
 
-  text: '#111111',
-  gray: '#8A8A8A',
+  text: '#17251E',
+  gray: '#52645A',
 
-  frame: '#000000',
+  frame: '#DCE5DF',
   headLine: 'rgba(30,40,35,0.10)',
   rowLine: 'rgba(100,140,190,0.22)',
 
-  card: '#F5F5F5',
+  card: '#FFFFFF',
   blueSoft: '#E3EEFB',
   blueBtn: '#86BCFD',
 
-  green: '#159447',
-  red: '#E03131',
+  green: '#2E7D5B',
+  red: '#B91C1C',
 };
 
 type HistoryRow = {
@@ -83,6 +84,8 @@ const COLS: { key: keyof HistoryRow; label: string; width: number }[] = [
 const ACTION_W = 56;
 
 export default function TrainerAttendanceHistoryScreen() {
+  const C = useAppColors(C_LIGHT);
+  const styles = usePaletteStyles(createStyles, C);
   const router = useRouter();
   const { token, signOut } = useSession();
 
@@ -90,6 +93,7 @@ export default function TrainerAttendanceHistoryScreen() {
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [lastPage, setLastPage] = useState(1);
+  const [reload, setReload] = useState(0);
 
   useEffect(() => {
     if (!token) return;
@@ -109,15 +113,18 @@ export default function TrainerAttendanceHistoryScreen() {
           router.replace('/login');
           return;
         }
-        setError(
-          err instanceof ApiError && err.status === 0
-            ? 'Nuk mund të lidhemi me serverin. Kontrollo lidhjen.'
-            : 'Nuk mund të ngarkohet historiku.',
-        );
+        setError(loadErrorMessage(err, 'Nuk mund të ngarkohet historiku. Kontrollo lidhjen.'));
       });
 
     return () => controller.abort();
-  }, [token, router, signOut, page]);
+  }, [token, router, signOut, page, reload]);
+
+  /* Refetch from the error box; the effect cannot reset state synchronously. */
+  const retry = () => {
+    setRows(null);
+    setError(null);
+    setReload((value) => value + 1);
+  };
 
   const list = rows ?? [];
   const current = Math.min(page, Math.max(1, lastPage));
@@ -138,7 +145,7 @@ export default function TrainerAttendanceHistoryScreen() {
                 accessibilityLabel="Kthehu prapa"
                 style={({ pressed }) => [styles.backBtn, pressed && styles.pressed]}
               >
-                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.text} />
+                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.textText} />
               </Pressable>
               <View style={styles.headerText}>
                 <Text style={styles.title} numberOfLines={1}>
@@ -158,6 +165,11 @@ export default function TrainerAttendanceHistoryScreen() {
           contentContainerStyle={styles.scroll}
         >
           <View style={styles.colPad}>
+            <View style={styles.scrollHint} accessibilityElementsHidden importantForAccessibility="no">
+              <MaterialCommunityIcons name="gesture-swipe-horizontal" size={I(14)} color={C.grayText} />
+              <Text style={styles.scrollHintText}>Rrëshqit anash për më shumë kolona</Text>
+            </View>
+
             <View style={styles.card}>
               <View style={styles.cardHead}>
                 <Text style={styles.cardTitle} numberOfLines={1}>
@@ -244,6 +256,7 @@ export default function TrainerAttendanceHistoryScreen() {
                           }
                           accessibilityRole="button"
                           accessibilityLabel={`Hap prezencën e ${r.date}`}
+                          hitSlop={{ top: 7, bottom: 7, left: 4, right: 4 }}
                           style={({ pressed }) => [styles.actView, pressed && styles.pressed]}
                         >
                           <Text style={styles.actViewText}>Hap</Text>
@@ -252,10 +265,27 @@ export default function TrainerAttendanceHistoryScreen() {
                     </View>
                   ))}
 
-                  {list.length === 0 ? (
+                  {error ? (
+                    <View style={[styles.tr, styles.stateRow]}>
+                      <Text style={[styles.empty, styles.stateText]}>{error}</Text>
+                      <Pressable
+                        onPress={retry}
+                        accessibilityRole="button"
+                        accessibilityLabel="Provo përsëri"
+                        style={({ pressed }) => [styles.stateRetry, pressed && styles.pressed]}
+                      >
+                        <Text style={styles.stateRetryText}>Provo përsëri</Text>
+                      </Pressable>
+                    </View>
+                  ) : rows === null ? (
+                    <View style={[styles.tr, styles.stateRow]}>
+                      <ActivityIndicator color={C.greenText} />
+                      <Text style={[styles.empty, styles.stateText]}>Duke ngarkuar historikun…</Text>
+                    </View>
+                  ) : list.length === 0 ? (
                     <View style={styles.tr}>
                       <Text style={styles.empty} numberOfLines={2}>
-                        {error ?? (rows ? 'Nuk ka sesione të përfunduara.' : '…')}
+                        Nuk ka sesione të përfunduara.
                       </Text>
                     </View>
                   ) : null}
@@ -278,7 +308,7 @@ export default function TrainerAttendanceHistoryScreen() {
                     pressed && styles.pressed,
                   ]}
                 >
-                  <MaterialCommunityIcons name="chevron-left" size={I(22)} color={C.text} />
+                  <MaterialCommunityIcons name="chevron-left" size={I(22)} color={C.textText} />
                 </Pressable>
 
                 {pageWindow(current, lastPage).map((p) => (
@@ -308,7 +338,7 @@ export default function TrainerAttendanceHistoryScreen() {
                     pressed && styles.pressed,
                   ]}
                 >
-                  <MaterialCommunityIcons name="chevron-right" size={I(22)} color={C.text} />
+                  <MaterialCommunityIcons name="chevron-right" size={I(22)} color={C.textText} />
                 </Pressable>
               </View>
             ) : null}
@@ -323,7 +353,7 @@ export default function TrainerAttendanceHistoryScreen() {
 /* Styles                                                              */
 /* ------------------------------------------------------------------ */
 
-const styles = StyleSheet.create(
+const createStyles = (C: AppColorsOf<typeof C_LIGHT>) => StyleSheet.create(
   scaled({
     safe: {
       flex: 1,
@@ -368,14 +398,14 @@ const styles = StyleSheet.create(
       fontSize: 20,
       lineHeight: 24,
       letterSpacing: -0.3,
-      color: C.text,
+      color: C.textText,
     },
 
     subtitle: {
       fontFamily: Fonts.body,
       fontSize: 12,
       lineHeight: 16,
-      color: C.gray,
+      color: C.grayText,
       marginTop: 1,
     },
 
@@ -383,12 +413,26 @@ const styles = StyleSheet.create(
       paddingBottom: 24,
     },
 
+    scrollHint: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 5,
+      marginTop: 12,
+    },
+
+    scrollHintText: {
+      fontFamily: Fonts.body,
+      fontSize: 11.5,
+      lineHeight: 15,
+      color: C.grayText,
+    },
+
     /* ── History table ───────────────────────────────────────── */
     card: {
       marginTop: 14,
-      backgroundColor: C.card,
+      backgroundColor: C.cardFill,
       borderWidth: 1,
-      borderColor: C.frame,
+      borderColor: C.frameBorder,
       borderRadius: 5,
       overflow: 'hidden',
     },
@@ -408,14 +452,14 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodyBold,
       fontSize: 12.5,
       lineHeight: 16,
-      color: C.text,
+      color: C.textText,
     },
 
     cardCount: {
       fontFamily: Fonts.body,
       fontSize: 11,
       lineHeight: 15,
-      color: C.gray,
+      color: C.grayText,
     },
 
     tblInner: {
@@ -431,7 +475,7 @@ const styles = StyleSheet.create(
     thRow: {
       paddingBottom: 8,
       borderBottomWidth: 1,
-      borderBottomColor: C.headLine,
+      borderBottomColor: C.headLineBorder,
     },
 
     tr: {
@@ -442,7 +486,7 @@ const styles = StyleSheet.create(
 
     trBorder: {
       borderTopWidth: 1,
-      borderTopColor: C.rowLine,
+      borderTopColor: C.rowLineBorder,
       paddingVertical: 10,
     },
 
@@ -450,14 +494,14 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodySemiBold,
       fontSize: 10.5,
       lineHeight: 13,
-      color: C.gray,
+      color: C.grayText,
     },
 
     td: {
       fontFamily: Fonts.body,
       fontSize: 11,
       lineHeight: 14,
-      color: C.text,
+      color: C.textText,
     },
 
     tdStrong: {
@@ -469,7 +513,36 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 11,
       lineHeight: 15,
-      color: C.gray,
+      color: C.grayText,
+    },
+
+    stateText: {
+      flex: 0,
+      textAlign: 'center',
+    },
+
+    stateRow: {
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 10,
+      minHeight: 120,
+      paddingVertical: 22,
+    },
+
+    stateRetry: {
+      minHeight: 44,
+      justifyContent: 'center',
+      paddingHorizontal: 18,
+      borderWidth: 1,
+      borderColor: C.greenBorder,
+      borderRadius: 10,
+    },
+
+    stateRetryText: {
+      fontFamily: Fonts.bodySemiBold,
+      fontSize: 13,
+      color: C.greenText,
     },
 
     actions: {
@@ -480,20 +553,21 @@ const styles = StyleSheet.create(
     },
 
     actView: {
-      height: 24,
+      height: 30,
       paddingHorizontal: 10,
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: C.blueSoft,
+      backgroundColor: C.blueSoftFill,
       borderWidth: 1,
-      borderColor: C.frame,
-      borderRadius: 4,
+      borderColor: C.frameBorder,
+      borderRadius: 6,
     },
 
     actViewText: {
       fontFamily: Fonts.bodySemiBold,
-      fontSize: 10.5,
-      color: C.text,
+      fontSize: 11.5,
+      lineHeight: 15,
+      color: C.textText,
     },
 
     /* ── Pager ───────────────────────────────────────────────── */
@@ -515,18 +589,18 @@ const styles = StyleSheet.create(
     },
 
     pageSq: {
-      width: 34,
-      height: 34,
-      borderRadius: 5,
-      backgroundColor: C.blueBtn,
+      width: 44,
+      height: 44,
+      borderRadius: 10,
+      backgroundColor: C.blueBtnFill,
       alignItems: 'center',
       justifyContent: 'center',
     },
 
     pageSqActive: {
-      width: 34,
-      height: 34,
-      borderRadius: 5,
+      width: 44,
+      height: 44,
+      borderRadius: 10,
       backgroundColor: '#4E90D8',
       alignItems: 'center',
       justifyContent: 'center',
@@ -535,7 +609,7 @@ const styles = StyleSheet.create(
     pageSqText: {
       fontFamily: Fonts.bodySemiBold,
       fontSize: 14,
-      color: '#F5F5F5',
+      color: '#FFFFFF',
     },
 
     pressed: {

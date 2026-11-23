@@ -15,10 +15,12 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
-import { Fonts } from '@/constants/theme';
+import { Brand, Fonts, Semantic } from '@/constants/theme';
 import { forgotPassword } from '@/lib/api/auth';
 import { ApiError } from '@/lib/api/errors';
+import { useLanguage } from '@/lib/i18n';
 import { I, scaled } from '@/lib/responsive';
+import { useAppColors, usePaletteStyles, type AppColorsOf } from '@/lib/app-theme';
 
 /**
  * Forgot password — asks the API to mail a reset link. The backend always
@@ -26,21 +28,21 @@ import { I, scaled } from '@/lib/responsive';
  * verbatim so the screen can't be used to enumerate accounts.
  */
 
-const C = {
-  page: '#FAFBFA',
-  line: 'rgba(0,0,0,0.025)',
+const C_LIGHT = {
+  page: '#F7F9F8',
+  line: 'rgba(23,37,30,0.03)',
 
-  text: '#111111',
-  gray: '#8A8A8A',
-  hint: '#6E6E6E',
+  text: '#17251E',
+  gray: '#52645A',
+  hint: '#5F7268',
 
-  frame: '#000000',
-  white: '#F5F5F5',
+  frame: '#DCE5DF',
+  white: '#FFFFFF',
 
-  green: '#36AC6B',
-  /* The card's 20% green, flattened to an opaque tone. */
-  greenTint: '#D7EEE1',
-  danger: '#D64545',
+  green: Brand[600],
+  /* The card's brand wash, flattened to an opaque tone. */
+  greenTint: Brand[50],
+  danger: Semantic.danger,
 };
 
 const IMG_PLAYER = require('@/assets/dashboard/lojtaret.png');
@@ -48,7 +50,10 @@ const IMG_BALL = require('@/assets/dashboard/ndeshjet.png');
 const IMG_TEAM = require('@/assets/dashboard/grupet.png');
 
 export default function ForgotPasswordScreen() {
+  const C = useAppColors(C_LIGHT);
+  const styles = usePaletteStyles(createStyles, C);
   const router = useRouter();
+  const { t } = useLanguage();
 
   const [email, setEmail] = useState('');
   const [busy, setBusy] = useState(false);
@@ -103,7 +108,7 @@ export default function ForgotPasswordScreen() {
             accessibilityRole="button"
             accessibilityLabel="Kthehu"
           >
-            <MaterialCommunityIcons name="chevron-left" size={I(26)} color={C.text} />
+            <MaterialCommunityIcons name="chevron-left" size={I(26)} color={C.textText} />
             <Text style={styles.backText}>Kthehu</Text>
           </Pressable>
 
@@ -144,7 +149,7 @@ export default function ForgotPasswordScreen() {
                 <TextInput
                   style={styles.field}
                   placeholder="email@goalhub.com"
-                  placeholderTextColor={C.gray}
+                  placeholderTextColor={C.grayText}
                   value={email}
                   onChangeText={setEmail}
                   keyboardType="email-address"
@@ -152,6 +157,7 @@ export default function ForgotPasswordScreen() {
                   autoCorrect={false}
                   editable={!busy}
                   onSubmitEditing={submit}
+                  accessibilityLabel="Email"
                 />
 
                 {error ? (
@@ -166,9 +172,9 @@ export default function ForgotPasswordScreen() {
                   disabled={busy}
                 >
                   {busy ? (
-                    <ActivityIndicator color={C.white} />
+                    <ActivityIndicator color={C.whiteText} />
                   ) : (
-                    <Text style={styles.primaryText}>Send link</Text>
+                    <Text style={styles.primaryText}>{t('forgot.send')}</Text>
                   )}
                 </Pressable>
               </>
@@ -189,7 +195,7 @@ export default function ForgotPasswordScreen() {
 /* Styles                                                              */
 /* ------------------------------------------------------------------ */
 
-const styles = StyleSheet.create(
+const createStyles = (C: AppColorsOf<typeof C_LIGHT>) => StyleSheet.create(
   scaled({
     safe: {
       flex: 1,
@@ -231,6 +237,7 @@ const styles = StyleSheet.create(
       flexDirection: 'row',
       alignItems: 'center',
       gap: 4,
+      minHeight: 44,
       marginTop: 2,
       marginLeft: -6,
       alignSelf: 'flex-start',
@@ -240,7 +247,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodyBold,
       fontSize: 18,
       lineHeight: 22,
-      color: C.text,
+      color: C.textText,
     },
 
     /* ── Reset card ──────────────────────────────────────────── */
@@ -248,9 +255,9 @@ const styles = StyleSheet.create(
       marginTop: 14,
       paddingHorizontal: 16,
       paddingVertical: 16,
-      backgroundColor: C.greenTint,
+      backgroundColor: C.greenTintFill,
       borderWidth: 1,
-      borderColor: C.frame,
+      borderColor: C.frameBorder,
       borderRadius: 7,
     },
 
@@ -260,7 +267,7 @@ const styles = StyleSheet.create(
       fontSize: 34,
       lineHeight: 38,
       letterSpacing: -0.6,
-      color: C.text,
+      color: C.textText,
     },
 
     resetTitle: {
@@ -270,7 +277,7 @@ const styles = StyleSheet.create(
       fontSize: 20,
       lineHeight: 25,
       letterSpacing: -0.3,
-      color: C.text,
+      color: C.textText,
     },
 
     ask: {
@@ -279,7 +286,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodyBold,
       fontSize: 13.5,
       lineHeight: 18,
-      color: C.text,
+      color: C.textText,
     },
 
     help: {
@@ -288,7 +295,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 12,
       lineHeight: 17,
-      color: C.text,
+      color: C.textText,
     },
 
     label: {
@@ -296,21 +303,21 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodySemiBold,
       fontSize: 12,
       lineHeight: 16,
-      color: C.text,
+      color: C.textText,
     },
 
     field: {
-      height: 38,
+      height: 50,
       marginTop: 6,
       paddingHorizontal: 14,
       paddingVertical: 0,
-      backgroundColor: 'transparent',
+      backgroundColor: C.whiteFill,
       borderWidth: 1,
-      borderColor: C.frame,
-      borderRadius: 5,
+      borderColor: C.frameBorder,
+      borderRadius: 12,
       fontFamily: Fonts.body,
-      fontSize: 13,
-      color: C.text,
+      fontSize: 15,
+      color: C.textText,
     },
 
     error: {
@@ -319,22 +326,22 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodySemiBold,
       fontSize: 12,
       lineHeight: 16,
-      color: C.danger,
+      color: C.dangerText,
     },
 
     primary: {
-      height: 40,
+      height: 50,
       marginTop: 14,
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: C.green,
-      borderRadius: 5,
+      backgroundColor: C.greenFill,
+      borderRadius: 12,
     },
 
     primaryText: {
       fontFamily: Fonts.bodyBold,
       fontSize: 15,
-      color: C.white,
+      color: C.whiteText,
     },
 
     /* ── Team photo ──────────────────────────────────────────── */

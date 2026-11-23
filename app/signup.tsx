@@ -15,11 +15,13 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
-import { Fonts } from '@/constants/theme';
+import { Brand, Fonts, Semantic } from '@/constants/theme';
 import * as auth from '@/lib/api/auth';
 import { ApiError } from '@/lib/api/errors';
+import { useLanguage } from '@/lib/i18n';
 import { scaled } from '@/lib/responsive';
 import { useSession } from '@/lib/session';
+import { useAppColors, usePaletteStyles, type AppColorsOf } from '@/lib/app-theme';
 
 /**
  * Self-service signup. Creates an administrator account plus a 14-day-trial
@@ -27,37 +29,39 @@ import { useSession } from '@/lib/session';
  * requires a lowercase email, so it is normalised before sending.
  */
 
-const C = {
-  page: '#FAFBFA',
-  line: 'rgba(0,0,0,0.025)',
+const C_LIGHT = {
+  page: '#F7F9F8',
+  line: 'rgba(23,37,30,0.03)',
 
-  text: '#111111',
-  gray: '#8A8A8A',
-  hint: '#6E6E6E',
+  text: '#17251E',
+  gray: '#52645A',
+  hint: '#5F7268',
 
-  frame: '#000000',
-  white: '#F5F5F5',
+  frame: '#DCE5DF',
+  white: '#FFFFFF',
 
-  green: '#36AC6B',
-  greenSoft: 'rgba(54,172,107,0.20)',
-  danger: '#D64545',
+  green: Brand[600],
+  danger: Semantic.danger,
 };
 
 const IMG_PLAYER = require('@/assets/dashboard/lojtaret.png');
 const IMG_BALL = require('@/assets/dashboard/ndeshjet.png');
 
-function errorMessage(error: unknown): string {
-  if (error instanceof ApiError) {
-    if (error.status === 429) return 'Too many attempts. Please wait a minute and try again.';
-    const first = error.fieldErrors ? Object.values(error.fieldErrors)[0]?.[0] : undefined;
-    return first ?? error.message;
-  }
-  return 'Something went wrong. Please try again.';
-}
-
 export default function SignupScreen() {
+  const C = useAppColors(C_LIGHT);
+  const styles = usePaletteStyles(createStyles, C);
   const router = useRouter();
+  const { t } = useLanguage();
   const { user, completeSignIn } = useSession();
+
+  const errorMessage = (error: unknown): string => {
+    if (error instanceof ApiError) {
+      if (error.status === 429) return t('signup.errTooMany');
+      const first = error.fieldErrors ? Object.values(error.fieldErrors)[0]?.[0] : undefined;
+      return first ?? error.message;
+    }
+    return t('signup.errGeneric');
+  };
 
   const [name, setName] = useState('');
   const [clubName, setClubName] = useState('');
@@ -85,19 +89,19 @@ export default function SignupScreen() {
     const trimmedEmail = email.trim().toLowerCase();
 
     if (!trimmedName || !trimmedClub || !trimmedEmail) {
-      setError('Fill in your name, club name and email.');
+      setError(t('signup.errRequired'));
       return;
     }
     if (!/^\S+@\S+\.\S+$/.test(trimmedEmail)) {
-      setError('Enter a valid email address.');
+      setError(t('signup.errEmail'));
       return;
     }
     if (password.length < 8) {
-      setError('Use at least 8 characters for your password.');
+      setError(t('signup.errPassword'));
       return;
     }
     if (password !== confirm) {
-      setError('The passwords do not match.');
+      setError(t('signup.errMismatch'));
       return;
     }
 
@@ -148,15 +152,17 @@ export default function SignupScreen() {
                 GOALHUB
               </Text>
               <Text style={styles.heroSubtitle} numberOfLines={1}>
-                Create your club account
+                {t('signup.subtitle')}
               </Text>
             </View>
           </View>
 
+          <Text style={styles.label}>{t('signup.name')}</Text>
           <TextInput
             style={styles.field}
-            placeholder="Full name"
-            placeholderTextColor={C.gray}
+            placeholder={t('signup.name')}
+            accessibilityLabel={t('signup.name')}
+            placeholderTextColor={C.grayText}
             value={name}
             onChangeText={setName}
             autoCapitalize="words"
@@ -165,10 +171,12 @@ export default function SignupScreen() {
             editable={!busy}
           />
 
+          <Text style={styles.label}>{t('signup.clubName')}</Text>
           <TextInput
             style={styles.field}
-            placeholder="Club name"
-            placeholderTextColor={C.gray}
+            placeholder={t('signup.clubName')}
+            accessibilityLabel={t('signup.clubName')}
+            placeholderTextColor={C.grayText}
             value={clubName}
             onChangeText={setClubName}
             autoCapitalize="words"
@@ -176,10 +184,12 @@ export default function SignupScreen() {
             editable={!busy}
           />
 
+          <Text style={styles.label}>{t('signup.email')}</Text>
           <TextInput
             style={styles.field}
-            placeholder="Email"
-            placeholderTextColor={C.gray}
+            placeholder={t('signup.email')}
+            accessibilityLabel={t('signup.email')}
+            placeholderTextColor={C.grayText}
             value={email}
             onChangeText={setEmail}
             keyboardType="email-address"
@@ -190,10 +200,12 @@ export default function SignupScreen() {
             editable={!busy}
           />
 
+          <Text style={styles.label}>{t('signup.password')}</Text>
           <TextInput
             style={styles.field}
-            placeholder="Password"
-            placeholderTextColor={C.gray}
+            placeholder={t('signup.password')}
+            accessibilityLabel={t('signup.password')}
+            placeholderTextColor={C.grayText}
             value={password}
             onChangeText={setPassword}
             secureTextEntry
@@ -204,10 +216,12 @@ export default function SignupScreen() {
             editable={!busy}
           />
 
+          <Text style={styles.label}>{t('signup.confirm')}</Text>
           <TextInput
             style={styles.field}
-            placeholder="Confirm password"
-            placeholderTextColor={C.gray}
+            placeholder={t('signup.confirm')}
+            accessibilityLabel={t('signup.confirm')}
+            placeholderTextColor={C.grayText}
             value={confirm}
             onChangeText={setConfirm}
             secureTextEntry
@@ -225,25 +239,27 @@ export default function SignupScreen() {
             </Text>
           ) : null}
 
-          <Text style={styles.trial}>Your club starts on a 14-day free trial.</Text>
+          <Text style={styles.trial}>{t('signup.trial')}</Text>
 
           <Pressable
             style={[styles.primary, busy && styles.primaryBusy]}
             onPress={submit}
             disabled={busy}
             accessibilityRole="button"
+            accessibilityLabel={t('signup.submit')}
+            accessibilityState={{ disabled: busy, busy }}
           >
             {busy ? (
-              <ActivityIndicator color={C.green} />
+              <ActivityIndicator color={C.whiteText} />
             ) : (
-              <Text style={styles.primaryText}>Create account</Text>
+              <Text style={styles.primaryText}>{t('signup.submit')}</Text>
             )}
           </Pressable>
 
           <View style={styles.footer}>
-            <Text style={styles.footerText}>Already have an account? </Text>
+            <Text style={styles.footerText}>{t('signup.haveAccount')}</Text>
             <Pressable onPress={goToLogin} hitSlop={8} accessibilityRole="link">
-              <Text style={styles.footerLink}>Log in</Text>
+              <Text style={styles.footerLink}>{t('signup.login')}</Text>
             </Pressable>
           </View>
         </ScrollView>
@@ -256,7 +272,7 @@ export default function SignupScreen() {
 /* Styles                                                              */
 /* ------------------------------------------------------------------ */
 
-const styles = StyleSheet.create(
+const createStyles = (C: AppColorsOf<typeof C_LIGHT>) => StyleSheet.create(
   scaled({
     safe: {
       flex: 1,
@@ -307,7 +323,7 @@ const styles = StyleSheet.create(
       fontSize: 36,
       lineHeight: 40,
       letterSpacing: -0.6,
-      color: C.text,
+      color: C.textText,
     },
 
     heroSubtitle: {
@@ -315,22 +331,31 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 14,
       lineHeight: 18,
-      color: C.gray,
+      color: C.grayText,
     },
 
     /* ── Fields ──────────────────────────────────────────────── */
+    label: {
+      marginTop: 12,
+      marginBottom: 6,
+      fontFamily: Fonts.bodySemiBold,
+      fontSize: 12,
+      lineHeight: 16,
+      letterSpacing: 0.2,
+      color: C.grayText,
+    },
+
     field: {
-      height: 46,
-      marginTop: 10,
+      height: 50,
       paddingHorizontal: 14,
       paddingVertical: 0,
-      backgroundColor: C.white,
+      backgroundColor: C.whiteFill,
       borderWidth: 1,
-      borderColor: C.frame,
-      borderRadius: 5,
+      borderColor: C.frameBorder,
+      borderRadius: 12,
       fontFamily: Fonts.body,
-      fontSize: 13,
-      color: C.text,
+      fontSize: 15,
+      color: C.textText,
     },
 
     error: {
@@ -338,7 +363,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodySemiBold,
       fontSize: 12,
       lineHeight: 16,
-      color: C.danger,
+      color: C.dangerText,
     },
 
     trial: {
@@ -346,19 +371,19 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 12,
       lineHeight: 16,
-      color: C.hint,
+      color: C.hintText,
     },
 
     /* ── Submit ──────────────────────────────────────────────── */
     primary: {
-      height: 48,
+      height: 52,
       marginTop: 14,
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: C.greenSoft,
+      backgroundColor: C.greenFill,
       borderWidth: 1,
-      borderColor: C.green,
-      borderRadius: 5,
+      borderColor: C.greenBorder,
+      borderRadius: 12,
     },
 
     primaryBusy: {
@@ -368,7 +393,7 @@ const styles = StyleSheet.create(
     primaryText: {
       fontFamily: Fonts.bodyBold,
       fontSize: 16,
-      color: C.green,
+      color: '#FFFFFF',
     },
 
     footer: {
@@ -382,14 +407,14 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 13,
       lineHeight: 18,
-      color: C.gray,
+      color: C.grayText,
     },
 
     footerLink: {
       fontFamily: Fonts.bodySemiBold,
       fontSize: 13,
       lineHeight: 18,
-      color: C.green,
+      color: C.greenText,
     },
   })
 );

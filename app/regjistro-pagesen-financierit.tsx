@@ -13,6 +13,7 @@ import { registerPayment } from '@/lib/api/finance';
 import type { PickedFile } from '@/lib/api/upload';
 import { I, scaled } from '@/lib/responsive';
 import { useSession } from '@/lib/session';
+import { useAppColors, usePaletteStyles, type AppColorsOf } from '@/lib/app-theme';
 
 /**
  * Regjistro pagesën — opened from "Regjistro pagesën" on an unpaid row of the
@@ -23,33 +24,34 @@ import { useSession } from '@/lib/session';
  * there is one, and save.
  */
 
-const C = {
-  page: '#FAFBFA',
+const C_LIGHT = {
+  white: '#FFFFFF',
+  page: '#F7F9F8',
   line: 'rgba(0,0,0,0.025)',
 
-  text: '#111111',
-  gray: '#8A8A8A',
+  text: '#17251E',
+  gray: '#52645A',
   hint: '#6E6E6E',
 
   /* Cards are two-tone: a lighter title strip over a deeper body. */
   cardBg: '#E3EEFB',
-  headBg: '#F6FBFF',
-  frame: '#000000',
+  headBg: '#F7F9F8',
+  frame: '#DCE5DF',
   headLine: 'rgba(30,40,35,0.10)',
 
-  green: '#159447',
-  greenBtn: '#16A51D',
-  red: '#E03131',
-  orange: '#E4A000',
+  green: '#2E7D5B',
+  greenBtn: '#2E7D5B',
+  red: '#B91C1C',
+  orange: '#B45309',
 
   inputBorder: '#777777',
 };
 
-const STATUS_TONE: Record<string, string> = {
+const STATUS_TONE = (C: AppColorsOf<typeof C_LIGHT>): Record<string, string> => ({
   Paguar: C.green,
   Papaguar: C.orange,
   Skaduar: C.red,
-};
+});
 
 /* The three ways the backend accepts a payment, in the label the form shows. */
 const PAY_METHODS = ['Kesh', 'Transfer bankar', 'Kartë bankare'];
@@ -69,6 +71,8 @@ function today(): string {
 }
 
 export default function RegisterPaymentScreen() {
+  const C = useAppColors(C_LIGHT);
+  const styles = usePaletteStyles(createStyles, C);
   const router = useRouter();
   const { token, signOut } = useSession();
 
@@ -174,7 +178,7 @@ export default function RegisterPaymentScreen() {
                 accessibilityLabel="Kthehu prapa"
                 style={({ pressed }) => [styles.backBtn, pressed && styles.pressed]}
               >
-                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.text} />
+                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.textText} />
               </Pressable>
               <View style={styles.headerText}>
                 <Text
@@ -230,7 +234,7 @@ export default function RegisterPaymentScreen() {
                       <Text
                         style={[
                           styles.dValue,
-                          isStatus && { color: STATUS_TONE[status] ?? C.hint },
+                          isStatus && { color: STATUS_TONE(C)[status] ?? C.hint },
                         ]}
                         numberOfLines={1}
                         adjustsFontSizeToFit
@@ -274,7 +278,7 @@ export default function RegisterPaymentScreen() {
                     <MaterialCommunityIcons
                       name="cloud-upload-outline"
                       size={I(24)}
-                      color="#F5F5F5"
+                      color="#FFFFFF"
                     />
                   </Pressable>
 
@@ -325,6 +329,8 @@ function Select({
   options: string[];
   onChange: (v: string) => void;
 }) {
+  const C = useAppColors(C_LIGHT);
+  const styles = usePaletteStyles(createStyles, C);
   const [open, setOpen] = useState(false);
 
   return (
@@ -338,7 +344,7 @@ function Select({
         <Text style={styles.selText} numberOfLines={1}>
           {value}
         </Text>
-        <MaterialCommunityIcons name="chevron-down" size={I(13)} color={C.hint} />
+        <MaterialCommunityIcons name="chevron-down" size={I(13)} color={C.hintText} />
       </Pressable>
       {open ? (
         <View style={styles.opts}>
@@ -371,7 +377,7 @@ function Select({
 /* Styles                                                              */
 /* ------------------------------------------------------------------ */
 
-const styles = StyleSheet.create(
+const createStyles = (C: AppColorsOf<typeof C_LIGHT>) => StyleSheet.create(
   scaled({
     safe: {
       flex: 1,
@@ -416,14 +422,14 @@ const styles = StyleSheet.create(
       fontSize: 20,
       lineHeight: 24,
       letterSpacing: -0.3,
-      color: C.text,
+      color: C.textText,
     },
 
     subtitle: {
       fontFamily: Fonts.body,
       fontSize: 12,
       lineHeight: 16,
-      color: C.gray,
+      color: C.grayText,
       marginTop: 1,
     },
 
@@ -434,16 +440,16 @@ const styles = StyleSheet.create(
     /* ── Card shell ──────────────────────────────────────────── */
     card: {
       marginTop: 14,
-      backgroundColor: C.cardBg,
+      backgroundColor: C.cardBgFill,
       borderWidth: 1,
-      borderColor: C.frame,
+      borderColor: C.frameBorder,
       borderRadius: 7,
       overflow: 'hidden',
     },
 
     /* Lighter than the card body, so the title reads as its own strip. */
     head: {
-      backgroundColor: C.headBg,
+      backgroundColor: C.headBgFill,
       alignItems: 'center',
       justifyContent: 'center',
       paddingHorizontal: 8,
@@ -455,12 +461,12 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodyBold,
       fontSize: 14,
       lineHeight: 18,
-      color: C.text,
+      color: C.textText,
     },
 
     headLine: {
       height: 1,
-      backgroundColor: C.headLine,
+      backgroundColor: C.headLineFill,
     },
 
     /* ── Detail rows ─────────────────────────────────────────── */
@@ -482,7 +488,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 11,
       lineHeight: 14,
-      color: C.hint,
+      color: C.hintText,
     },
 
     dValue: {
@@ -491,7 +497,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodyBold,
       fontSize: 11,
       lineHeight: 14,
-      color: C.text,
+      color: C.textText,
     },
 
     /* ── Register form ───────────────────────────────────────── */
@@ -505,7 +511,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 11,
       lineHeight: 14,
-      color: C.hint,
+      color: C.hintText,
       marginBottom: 5,
     },
 
@@ -517,34 +523,34 @@ const styles = StyleSheet.create(
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      height: 34,
-      gap: 4,
-      paddingHorizontal: 9,
+      height: 44,
+      gap: 6,
+      paddingHorizontal: 12,
       borderWidth: 1,
-      borderColor: C.inputBorder,
-      borderRadius: 4,
+      borderColor: C.inputBorderBorder,
+      borderRadius: 10,
     },
 
     selText: {
       flex: 1,
       fontFamily: Fonts.body,
-      fontSize: 12,
-      color: C.text,
+      fontSize: 13.5,
+      color: C.textText,
     },
 
     opts: {
-      marginTop: 3,
-      backgroundColor: '#F5F5F5',
+      marginTop: 4,
+      backgroundColor: C.whiteFill,
       borderWidth: 1,
-      borderColor: C.inputBorder,
-      borderRadius: 4,
+      borderColor: C.inputBorderBorder,
+      borderRadius: 8,
       overflow: 'hidden',
     },
 
     opt: {
-      height: 28,
+      minHeight: 40,
       justifyContent: 'center',
-      paddingHorizontal: 9,
+      paddingHorizontal: 12,
     },
 
     optActive: {
@@ -553,8 +559,8 @@ const styles = StyleSheet.create(
 
     optText: {
       fontFamily: Fonts.body,
-      fontSize: 11,
-      color: C.text,
+      fontSize: 12.5,
+      color: C.textText,
     },
 
     optTextActive: {
@@ -573,7 +579,7 @@ const styles = StyleSheet.create(
       width: 54,
       height: 54,
       borderRadius: 27,
-      backgroundColor: C.green,
+      backgroundColor: C.greenFill,
       alignItems: 'center',
       justifyContent: 'center',
     },
@@ -583,15 +589,15 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 12,
       lineHeight: 15,
-      color: C.text,
+      color: C.textText,
     },
 
     /* Runs the full width of the card. */
     saveBtn: {
-      height: 40,
+      height: 44,
       marginTop: 18,
-      borderRadius: 5,
-      backgroundColor: C.greenBtn,
+      borderRadius: 10,
+      backgroundColor: C.greenBtnFill,
       alignItems: 'center',
       justifyContent: 'center',
     },
@@ -605,14 +611,14 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 11,
       lineHeight: 15,
-      color: C.red,
+      color: C.redText,
     },
 
     saveBtnText: {
       fontFamily: Fonts.bodySemiBold,
       fontSize: 13,
-      lineHeight: 16,
-      color: '#F5F5F5',
+      lineHeight: 18,
+      color: '#FFFFFF',
     },
 
     pressed: {

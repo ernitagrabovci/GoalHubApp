@@ -12,7 +12,7 @@ import { ADMIN_TABS, PILL_TABS, SIGNED_OUT_TABS } from '@/lib/tabs';
 import { useSession } from '@/lib/session';
 
 /** Screens present in the navigator but never shown in the tab bar. */
-const HIDDEN_ROUTES = ['admin', 'pagesat', 'profile'];
+const HIDDEN_ROUTES = ['pagesat', 'profile'];
 
 export default function TabLayout() {
   const { user } = useSession();

@@ -4,7 +4,8 @@ import { useState } from 'react';
 import { Modal, Pressable, StyleSheet, View } from 'react-native';
 
 import { Text } from '@/components/dashboard/dashboard-text';
-import { Fonts } from '@/constants/theme';
+import { Brand, Fonts, Semantic } from '@/constants/theme';
+import { useAppColors, usePaletteStyles, type AppColorsOf } from '@/lib/app-theme';
 import { ApiError } from '@/lib/api/errors';
 import { updatePlayerHealth } from '@/lib/api/players';
 import type { ApiPlayer } from '@/lib/api/types';
@@ -17,17 +18,19 @@ import { I, scaled } from '@/lib/responsive';
  */
 
 const OPTIONS = [
-  { value: 'active', label: 'Aktiv', tone: '#159447' },
-  { value: 'injured', label: 'I lënduar', tone: '#E03131' },
-  { value: 'rehabilitation', label: 'Rehab', tone: '#E4A000' },
-  { value: 'suspended', label: 'I pezulluar', tone: '#9E1B1B' },
+  { value: 'active', label: 'Aktiv', tone: Brand[600] },
+  { value: 'injured', label: 'I lënduar', tone: Semantic.danger },
+  { value: 'rehabilitation', label: 'Rehab', tone: Semantic.warning },
+  { value: 'suspended', label: 'I pezulluar', tone: '#991B1B' },
 ] as const;
 
-const C = {
-  text: '#111111',
-  gray: '#8A8A8A',
-  frame: '#000000',
-  red: '#E03131',
+const C_LIGHT = {
+  text: '#17251E',
+  gray: '#52645A',
+  frame: '#DCE5DF',
+  red: Semantic.danger,
+  white: '#FFFFFF',
+  brandSoft: Brand[100],
 };
 
 export function HealthStatusModal({
@@ -47,6 +50,8 @@ export function HealthStatusModal({
   onUpdated: (player: ApiPlayer) => void;
   onUnauthorized: () => void;
 }) {
+  const C = useAppColors(C_LIGHT);
+  const styles = usePaletteStyles(createStyles, C);
   const [saving, setSaving] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -109,6 +114,7 @@ export function HealthStatusModal({
                   disabled={saving != null}
                   accessibilityRole="button"
                   accessibilityLabel={option.label}
+                  accessibilityState={{ selected: active, disabled: saving != null }}
                   style={({ pressed }) => [styles.option, pressed && styles.pressed]}
                 >
                   <View style={[styles.dot, { backgroundColor: option.tone }]} />
@@ -118,7 +124,7 @@ export function HealthStatusModal({
                   {busy ? (
                     <Text style={styles.saving}>Duke ruajtur…</Text>
                   ) : active ? (
-                    <MaterialCommunityIcons name="check" size={I(17)} color={C.text} />
+                    <MaterialCommunityIcons name="check" size={I(17)} color={C.textText} />
                   ) : null}
                 </Pressable>
               );
@@ -147,7 +153,7 @@ export function HealthStatusModal({
   );
 }
 
-const styles = StyleSheet.create(
+const createStyles = (C: AppColorsOf<typeof C_LIGHT>) => StyleSheet.create(
   scaled({
     ovWrap: {
       flex: 1,
@@ -171,10 +177,10 @@ const styles = StyleSheet.create(
     card: {
       width: '86%',
       maxWidth: 340,
-      backgroundColor: '#F5F5F5',
+      backgroundColor: C.whiteFill,
       borderWidth: 1,
-      borderColor: C.frame,
-      borderRadius: 6,
+      borderColor: C.frameBorder,
+      borderRadius: 12,
       overflow: 'hidden',
       shadowColor: '#000000',
       shadowOffset: { width: 0, height: 5 },
@@ -191,14 +197,14 @@ const styles = StyleSheet.create(
 
     title: {
       fontFamily: Fonts.bodyBold,
-      fontSize: 17,
-      lineHeight: 21,
-      color: C.text,
+      fontSize: 18,
+      lineHeight: 24,
+      color: C.textText,
     },
 
     divider: {
       height: 1,
-      backgroundColor: 'rgba(0,0,0,0.15)',
+      backgroundColor: C.brandSoftFill,
     },
 
     body: {
@@ -208,17 +214,17 @@ const styles = StyleSheet.create(
     },
 
     option: {
-      minHeight: 44,
+      minHeight: 52,
       flexDirection: 'row',
       alignItems: 'center',
       gap: 10,
       borderBottomWidth: 1,
-      borderBottomColor: 'rgba(0,0,0,0.08)',
+      borderBottomColor: 'rgba(23,37,30,0.08)',
     },
 
     dot: {
-      width: 10,
-      height: 10,
+      width: 12,
+      height: 12,
       borderRadius: 999,
     },
 
@@ -227,7 +233,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 14,
       lineHeight: 18,
-      color: C.text,
+      color: C.textText,
     },
 
     optionTextActive: {
@@ -236,15 +242,15 @@ const styles = StyleSheet.create(
 
     saving: {
       fontFamily: Fonts.body,
-      fontSize: 11,
-      color: C.gray,
+      fontSize: 12,
+      color: C.grayText,
     },
 
     error: {
-      fontFamily: Fonts.body,
-      fontSize: 11.5,
-      lineHeight: 15,
-      color: C.red,
+      fontFamily: Fonts.bodySemiBold,
+      fontSize: 12.5,
+      lineHeight: 17,
+      color: C.redText,
       marginTop: 10,
     },
 
@@ -256,19 +262,19 @@ const styles = StyleSheet.create(
     },
 
     cancel: {
-      height: 32,
-      paddingHorizontal: 16,
+      height: 44,
+      paddingHorizontal: 20,
       alignItems: 'center',
       justifyContent: 'center',
       borderWidth: 1,
-      borderColor: C.frame,
-      borderRadius: 4,
+      borderColor: C.frameBorder,
+      borderRadius: 10,
     },
 
     cancelText: {
       fontFamily: Fonts.bodySemiBold,
-      fontSize: 12.5,
-      color: C.text,
+      fontSize: 13,
+      color: C.textText,
     },
 
     pressed: {

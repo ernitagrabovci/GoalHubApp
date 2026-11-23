@@ -3,8 +3,8 @@ import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useCallback, useEffect, useState } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, TextInput, useWindowDimensions, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, TextInput, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
@@ -24,6 +24,8 @@ import {
 import type { UserRole } from '@/lib/api/users';
 import { I, scaled } from '@/lib/responsive';
 import { useSession } from '@/lib/session';
+import { useAppColors, type AppColorsOf } from '@/lib/app-theme';
+import { useGlass } from '@/lib/glass';
 
 /**
  * Lista e përdoruesve — opened from "Përdoruesit" in the admin pill bar.
@@ -32,26 +34,28 @@ import { useSession } from '@/lib/session';
  * pager, the role-swap panel and the activity card.
  */
 
-const C = {
-  page: '#FAFBFA',
+const C_LIGHT = {
+  white: '#FFFFFF',
+  glassBack: 'rgba(245,245,245,0.5)',
+  page: '#F7F9F8',
   line: 'rgba(0,0,0,0.025)',
 
-  text: '#111111',
-  gray: '#8A8A8A',
+  text: '#17251E',
+  gray: '#52645A',
   hint: '#6E6E6E',
 
   cardBg: '#E3EEFB',
-  headBg: '#F6FBFF',
-  frame: '#000000',
+  headBg: '#F7F9F8',
+  frame: '#DCE5DF',
   headLine: 'rgba(30,40,35,0.10)',
   rowLine: 'rgba(100,140,190,0.22)',
 
   blueSoft: '#E3EEFB',
   blueBtn: '#86BCFD',
   blue: '#2F80ED',
-  green: '#159447',
-  orange: '#E4A000',
-  red: '#E03131',
+  green: '#2E7D5B',
+  orange: '#B45309',
+  red: '#B91C1C',
 };
 
 const IMG = {
@@ -59,19 +63,20 @@ const IMG = {
 };
 
 /* Popup palette — same shell as the modals on the other admin pages. */
-const MO = {
-  border: '#159B63',
-  divider: '#55B88B',
+const MO_LIGHT = {
+  border: '#B5DCC6',
+  divider: '#D9EEE2',
   title: '#080808',
-  text: '#111111',
+  text: '#17251E',
   sub: '#666666',
   inputBorder: '#777777',
+  chevron: '#777777',
   inputBg: '#FAFCFC',
   ph: '#A8A8A8',
-  cancel: '#ED5050',
-  create: '#16A51D',
-  white: '#F5F5F5',
-  err: '#C90000',
+  cancel: '#B91C1C',
+  create: '#2E7D5B',
+  white: '#FFFFFF',
+  err: '#B91C1C',
 };
 
 /* ── Headline squares ──────────────────────────────────────────────── */
@@ -81,15 +86,7 @@ const MO = {
  * nothing. Shading the pane instead — a very light grey at the top edge
  * sweeping down to white — is what gives the surface its glassy shape.
  */
-const SQ_GLOSS = [
-  'rgba(180,188,201,0.30)',
-  'rgba(216,222,231,0.15)',
-  'rgba(245,245,245,0.80)',
-] as const;
-
 /** Thin specular rim on the top edge — reads as the thickness of the pane. */
-const SQ_SHEEN = ['rgba(245,245,245,0.55)', 'rgba(245,245,245,0.00)'] as const;
-
 type Square = { label: string; value: string; hint: string; tone: string; tall?: boolean };
 
 const TRAINER_ROLES = new Set(['trainer', 'assistant_trainer', 'technical_staff']);
@@ -100,7 +97,7 @@ const TRAINER_ROLES = new Set(['trainer', 'assistant_trainer', 'technical_staff'
  * fill the slot they leave open. Counts cover the whole club, not just the
  * page currently on screen.
  */
-function summaryRows(users: ApiMember[] | null): Square[][] {
+function summaryRows(users: ApiMember[] | null, C: AppColorsOf<typeof C_LIGHT>): Square[][] {
   const count = (test: (u: ApiMember) => boolean) =>
     users ? String(users.filter(test).length) : '—';
 
@@ -261,12 +258,12 @@ const USER_COLS = [
 ] as const;
 
 /** Wide enough for the three row buttons side by side. */
-const ACTION_W = 182;
+const ACTION_W = 216;
 
-const STATUS_TONE: Record<User['status'], string> = {
+const STATUS_TONE = (C: AppColorsOf<typeof C_LIGHT>): Record<User['status'], string> => ({
   Aktiv: C.green,
   Joaktiv: C.red,
-};
+});
 
 const ROLES = ['Administrator', 'Trajner', 'Lojtar', 'Prind', 'Financier'];
 
@@ -280,15 +277,19 @@ const STATUSES: User['status'][] = ['Aktiv', 'Joaktiv'];
 
 /** A square of the summary grid — the tall top pair, then the short plates. */
 function SummarySquare({ square, tall }: { square: Square; tall?: boolean }) {
+  const glass = useGlass();
+  const C = useAppColors(C_LIGHT);
+  const MO = useAppColors(MO_LIGHT);
+  const styles = useMemo(() => createStyles(C, MO), [C, MO]);
   return (
     <View style={[styles.sqShadow, tall ? styles.sqTall : styles.sqShort]}>
       <View style={styles.sq}>
         {/* Frost the canvas grid, then lay a gloss sweep over it. */}
-        <BlurView pointerEvents="none" intensity={50} tint="light" style={StyleSheet.absoluteFill} />
+        <BlurView pointerEvents="none" intensity={50} tint={glass.tint} style={StyleSheet.absoluteFill} />
         <LinearGradient
           pointerEvents="none"
           style={StyleSheet.absoluteFill}
-          colors={SQ_GLOSS}
+          colors={glass.gloss}
           locations={[0, 0.55, 1]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
@@ -296,7 +297,7 @@ function SummarySquare({ square, tall }: { square: Square; tall?: boolean }) {
         <LinearGradient
           pointerEvents="none"
           style={styles.sheen}
-          colors={SQ_SHEEN}
+          colors={glass.sheen}
           start={{ x: 0, y: 0 }}
           end={{ x: 0, y: 1 }}
         />
@@ -339,6 +340,9 @@ function PopupSelect({
   options: string[];
   onChange: (v: string) => void;
 }) {
+  const C = useAppColors(C_LIGHT);
+  const MO = useAppColors(MO_LIGHT);
+  const styles = useMemo(() => createStyles(C, MO), [C, MO]);
   const [open, setOpen] = useState(false);
 
   return (
@@ -351,7 +355,7 @@ function PopupSelect({
         <Text style={styles.pmSelText} numberOfLines={1}>
           {value}
         </Text>
-        <MaterialCommunityIcons name="chevron-down" size={I(11)} color="#777777" />
+        <MaterialCommunityIcons name="chevron-down" size={I(11)} color={MO.chevronText} />
       </Pressable>
       {open ? (
         <View style={styles.pmOpts}>
@@ -389,6 +393,9 @@ function CreateUserModal({
   onSaved: () => void;
   onExpired: () => void;
 }) {
+  const C = useAppColors(C_LIGHT);
+  const MO = useAppColors(MO_LIGHT);
+  const styles = useMemo(() => createStyles(C, MO), [C, MO]);
   const { width, height } = useWindowDimensions();
   const cardW = Math.min(width - 24, 360);
   const maxBody = Math.max(280, height - 187);
@@ -565,6 +572,9 @@ function EditUserModal({
   onSaved: () => void;
   onExpired: () => void;
 }) {
+  const C = useAppColors(C_LIGHT);
+  const MO = useAppColors(MO_LIGHT);
+  const styles = useMemo(() => createStyles(C, MO), [C, MO]);
   const { width, height } = useWindowDimensions();
   const cardW = Math.min(width - 24, 360);
   const maxBody = Math.max(280, height - 187);
@@ -742,6 +752,9 @@ function ConfirmUserModal({
   onDone: () => void;
   onExpired: () => void;
 }) {
+  const C = useAppColors(C_LIGHT);
+  const MO = useAppColors(MO_LIGHT);
+  const styles = useMemo(() => createStyles(C, MO), [C, MO]);
   const { width } = useWindowDimensions();
   const cardW = Math.min(width - 24, 360);
 
@@ -852,6 +865,9 @@ function ConfirmUserModal({
 }
 
 export default function UsersListScreen() {
+  const C = useAppColors(C_LIGHT);
+  const MO = useAppColors(MO_LIGHT);
+  const styles = useMemo(() => createStyles(C, MO), [C, MO]);
   const router = useRouter();
   const { user, token, signOut } = useSession();
   const [creating, setCreating] = useState(false);
@@ -861,6 +877,8 @@ export default function UsersListScreen() {
   );
   const [actionError, setActionError] = useState<string | null>(null);
   const [rows, setRows] = useState<ApiUser[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   /** Every club member, for the headline counts. */
   const [allUsers, setAllUsers] = useState<ApiUser[] | null>(null);
   const [teams, setTeams] = useState<ApiTeam[]>([]);
@@ -909,16 +927,28 @@ export default function UsersListScreen() {
         if (controller.signal.aborted) return;
         setRows(res.data);
         setMeta(res.meta);
+        setLoadError(null);
+        setLoading(false);
       })
       .catch((e) => {
         if (controller.signal.aborted) return;
         if (e instanceof ApiError && e.status === 401) {
           signOut();
           router.replace('/login');
+          return;
         }
+        setLoading(false);
+        setLoadError('Nuk mund të ngarkohen përdoruesit. Kontrollo lidhjen.');
       });
     return () => controller.abort();
   }, [token, page, reload, router, signOut, search, roleFilter, statusFilter, teamFilter]);
+
+  /* Refetch from the error box; the effect cannot reset state synchronously. */
+  const retry = () => {
+    setLoading(true);
+    setLoadError(null);
+    setReload((value) => value + 1);
+  };
 
   /* The headline counts need the whole club, not just the visible page. */
   useEffect(() => {
@@ -1051,7 +1081,7 @@ export default function UsersListScreen() {
                 accessibilityLabel="Kthehu prapa"
                 style={({ pressed }) => [styles.backBtn, pressed && styles.pressed]}
               >
-                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.text} />
+                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.textText} />
               </Pressable>
               <View style={styles.headerText}>
                 <Text style={styles.title} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
@@ -1073,7 +1103,7 @@ export default function UsersListScreen() {
           <View style={styles.colPad}>
             {/* ── Summary grid: 2-3-2, ragged ends left open ───────────── */}
             <View style={styles.sqGrid}>
-              {summaryRows(allUsers).map((row) => (
+              {summaryRows(allUsers, C).map((row) => (
                 <View key={row[0].label} style={styles.sqRow}>
                   {row.map((s) => (
                     <SummarySquare key={s.label} square={s} tall={s.tall} />
@@ -1090,7 +1120,7 @@ export default function UsersListScreen() {
               style={({ pressed }) => [styles.newUser, pressed && styles.pressed]}
             >
               <View style={styles.newUserPlus}>
-                <MaterialCommunityIcons name="plus" size={I(15)} color="#F5F5F5" />
+                <MaterialCommunityIcons name="plus" size={I(15)} color="#FFFFFF" />
               </View>
               <Text style={styles.newUserText}>Krijo llogari</Text>
             </Pressable>
@@ -1141,7 +1171,7 @@ export default function UsersListScreen() {
                 onSubmitEditing={submitSearch}
                 returnKeyType="search"
                 placeholder="Kërko me emër lojtarin..."
-                placeholderTextColor={C.gray}
+                placeholderTextColor={C.grayText}
                 accessibilityLabel="Kërko përdorues"
               />
               <Pressable
@@ -1188,7 +1218,30 @@ export default function UsersListScreen() {
                     <View style={{ width: ACTION_W }} />
                   </View>
 
-                  {rows.map((u) => {
+                  {loading ? (
+                    <View style={styles.stateRow}>
+                      <ActivityIndicator color={C.greenText} />
+                      <Text style={styles.stateText}>Duke ngarkuar përdoruesit…</Text>
+                    </View>
+                  ) : loadError ? (
+                    <View style={styles.stateRow}>
+                      <Text style={[styles.stateText, styles.stateErr]}>{loadError}</Text>
+                      <Pressable
+                        onPress={retry}
+                        accessibilityRole="button"
+                        accessibilityLabel="Provo përsëri"
+                        style={({ pressed }) => [styles.stateRetry, pressed && styles.pressed]}
+                      >
+                        <Text style={styles.stateRetryText}>Provo përsëri</Text>
+                      </Pressable>
+                    </View>
+                  ) : rows.length === 0 ? (
+                    <View style={styles.stateRow}>
+                      <Text style={styles.stateText}>Nuk u gjet asnjë përdorues.</Text>
+                    </View>
+                  ) : null}
+
+                  {!loading && !loadError ? rows.map((u) => {
                     const row = toUser(u);
                     return (
                       <View key={u.id} style={[styles.tr, styles.trBorder]}>
@@ -1213,7 +1266,7 @@ export default function UsersListScreen() {
                           style={[
                             styles.td,
                             styles.tdStatus,
-                            { width: 74, color: STATUS_TONE[row.status] },
+                            { width: 74, color: STATUS_TONE(C)[row.status] },
                           ]}
                           numberOfLines={1}
                         >
@@ -1229,6 +1282,7 @@ export default function UsersListScreen() {
                             onPress={() => setEditing(u)}
                             accessibilityRole="button"
                             accessibilityLabel={`Edito ${row.name}`}
+                            hitSlop={{ top: 7, bottom: 7, left: 4, right: 4 }}
                             style={({ pressed }) => [styles.actEdit, pressed && styles.pressed]}
                           >
                             <Text style={styles.actEditText}>Edito</Text>
@@ -1237,6 +1291,7 @@ export default function UsersListScreen() {
                             onPress={() => setConfirm({ member: u, action: 'toggle' })}
                             accessibilityRole="button"
                             accessibilityLabel={`${u.is_active ? 'Çaktivizo' : 'Aktivizo'} ${row.name}`}
+                            hitSlop={{ top: 7, bottom: 7, left: 4, right: 4 }}
                             style={({ pressed }) => [
                               u.is_active ? styles.actOff : styles.actOn,
                               pressed && styles.pressed,
@@ -1250,6 +1305,7 @@ export default function UsersListScreen() {
                             onPress={() => requestDelete(u)}
                             accessibilityRole="button"
                             accessibilityLabel={`Fshi ${row.name}`}
+                            hitSlop={{ top: 7, bottom: 7, left: 4, right: 4 }}
                             style={({ pressed }) => [styles.actOff, pressed && styles.pressed]}
                           >
                             <Text style={styles.actOffText}>Fshi</Text>
@@ -1257,7 +1313,7 @@ export default function UsersListScreen() {
                         </View>
                       </View>
                     );
-                  })}
+                  }) : null}
                 </View>
               </ScrollView>
             </View>
@@ -1268,10 +1324,10 @@ export default function UsersListScreen() {
                 onPress={() => setPage((p) => Math.max(1, p - 1))}
                 accessibilityRole="button"
                 accessibilityLabel="Faqja e mëparshme"
-                hitSlop={8}
+                hitSlop={11}
                 style={({ pressed }) => [styles.pagerArrow, pressed && styles.pressed]}
               >
-                <MaterialCommunityIcons name="chevron-left" size={I(22)} color={C.text} />
+                <MaterialCommunityIcons name="chevron-left" size={I(22)} color={C.textText} />
               </Pressable>
 
               {pages.map((p) => (
@@ -1290,10 +1346,10 @@ export default function UsersListScreen() {
                 onPress={() => setPage((p) => Math.min(lastPage, p + 1))}
                 accessibilityRole="button"
                 accessibilityLabel="Faqja tjetër"
-                hitSlop={8}
+                hitSlop={11}
                 style={({ pressed }) => [styles.pagerArrow, pressed && styles.pressed]}
               >
-                <MaterialCommunityIcons name="chevron-right" size={I(22)} color={C.text} />
+                <MaterialCommunityIcons name="chevron-right" size={I(22)} color={C.textText} />
               </Pressable>
             </View>
 
@@ -1322,7 +1378,7 @@ export default function UsersListScreen() {
                     <Text style={styles.pickerText} numberOfLines={1}>
                       {roleMember?.name ?? '—'}
                     </Text>
-                    <MaterialCommunityIcons name="chevron-down" size={I(13)} color={C.text} />
+                    <MaterialCommunityIcons name="chevron-down" size={I(13)} color={C.textText} />
                   </Pressable>
 
                   <Pressable
@@ -1334,7 +1390,7 @@ export default function UsersListScreen() {
                     <Text style={styles.pickerText} numberOfLines={1}>
                       {roleLabelShown}
                     </Text>
-                    <MaterialCommunityIcons name="chevron-down" size={I(13)} color={C.text} />
+                    <MaterialCommunityIcons name="chevron-down" size={I(13)} color={C.textText} />
                   </Pressable>
                 </View>
 
@@ -1524,7 +1580,7 @@ export default function UsersListScreen() {
 /* Styles                                                              */
 /* ------------------------------------------------------------------ */
 
-const styles = StyleSheet.create(
+const createStyles = (C: AppColorsOf<typeof C_LIGHT>, MO: AppColorsOf<typeof MO_LIGHT>) => StyleSheet.create(
   scaled({
     safe: {
       flex: 1,
@@ -1569,14 +1625,14 @@ const styles = StyleSheet.create(
       fontSize: 20,
       lineHeight: 24,
       letterSpacing: -0.3,
-      color: C.text,
+      color: C.textText,
     },
 
     subtitle: {
       fontFamily: Fonts.body,
       fontSize: 12,
       lineHeight: 16,
-      color: C.gray,
+      color: C.grayText,
       marginTop: 1,
     },
 
@@ -1601,7 +1657,7 @@ const styles = StyleSheet.create(
       width: '31.5%',
       borderRadius: 8,
       /* Translucent so the frosted pane inside has a backdrop to blur. */
-      backgroundColor: 'rgba(245,245,245,0.5)',
+      backgroundColor: C.glassBackFill,
       shadowColor: '#000000',
       shadowOffset: { width: 0, height: 2 },
       shadowOpacity: 0.04,
@@ -1621,7 +1677,7 @@ const styles = StyleSheet.create(
     sq: {
       flex: 1,
       borderWidth: 1,
-      borderColor: '#E4A000',
+      borderColor: '#B45309',
       borderRadius: 8,
       overflow: 'hidden',
     },
@@ -1646,7 +1702,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodyBold,
       fontSize: 12,
       lineHeight: 15,
-      color: C.gray,
+      color: C.grayText,
     },
 
     sqLabelShort: {
@@ -1689,28 +1745,29 @@ const styles = StyleSheet.create(
       alignItems: 'center',
       gap: 8,
       marginTop: 14,
-      height: 36,
-      paddingLeft: 5,
-      paddingRight: 14,
-      backgroundColor: C.blueSoft,
+      height: 44,
+      paddingLeft: 9,
+      paddingRight: 16,
+      backgroundColor: C.blueSoftFill,
       borderWidth: 1,
-      borderColor: C.frame,
-      borderRadius: 4,
+      borderColor: C.frameBorder,
+      borderRadius: 10,
     },
 
     newUserPlus: {
       width: 25,
       height: 25,
       borderRadius: 13,
-      backgroundColor: C.blueBtn,
+      backgroundColor: C.blueBtnFill,
       alignItems: 'center',
       justifyContent: 'center',
     },
 
     newUserText: {
       fontFamily: Fonts.bodySemiBold,
-      fontSize: 12.5,
-      color: C.text,
+      fontSize: 13,
+      lineHeight: 18,
+      color: C.textText,
     },
 
     /* ── Filters ─────────────────────────────────────────────── */
@@ -1725,19 +1782,19 @@ const styles = StyleSheet.create(
       flexDirection: 'row',
       alignItems: 'center',
       gap: 5,
-      height: 32,
-      paddingHorizontal: 8,
-      backgroundColor: C.blueSoft,
+      height: 44,
+      paddingHorizontal: 10,
+      backgroundColor: C.blueSoftFill,
       borderWidth: 1,
-      borderColor: C.frame,
-      borderRadius: 4,
+      borderColor: C.frameBorder,
+      borderRadius: 10,
     },
 
     filterText: {
       fontFamily: Fonts.bodyBold,
-      fontSize: 11,
-      lineHeight: 14,
-      color: C.text,
+      fontSize: 12.5,
+      lineHeight: 16,
+      color: C.textText,
     },
 
     /* ── Search ──────────────────────────────────────────────── */
@@ -1750,51 +1807,52 @@ const styles = StyleSheet.create(
 
     searchInput: {
       flex: 1,
-      height: 38,
-      paddingHorizontal: 10,
+      height: 44,
+      paddingHorizontal: 12,
       paddingVertical: 0,
-      backgroundColor: '#F5F5F5',
+      backgroundColor: C.whiteFill,
       borderWidth: 1,
-      borderColor: C.frame,
-      borderRadius: 4,
+      borderColor: C.frameBorder,
+      borderRadius: 10,
       fontFamily: Fonts.body,
-      fontSize: 12,
-      color: C.text,
+      fontSize: 14,
+      color: C.textText,
     },
 
     /* Same fill as the filters above, so the controls read as one set. */
     searchBtn: {
-      height: 38,
-      paddingHorizontal: 14,
+      height: 44,
+      paddingHorizontal: 16,
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: C.blueSoft,
+      backgroundColor: C.blueSoftFill,
       borderWidth: 1,
-      borderColor: C.frame,
-      borderRadius: 4,
+      borderColor: C.frameBorder,
+      borderRadius: 10,
     },
 
     searchBtnText: {
       fontFamily: Fonts.bodyBold,
-      fontSize: 12.5,
-      color: C.text,
+      fontSize: 13,
+      lineHeight: 18,
+      color: C.textText,
     },
 
     /* Inline failure of a row action, sitting just above the table. */
     screenErr: {
       marginTop: 10,
       fontFamily: Fonts.body,
-      fontSize: 11,
-      lineHeight: 15,
-      color: C.red,
+      fontSize: 12,
+      lineHeight: 16,
+      color: C.redText,
     },
 
     /* ── Cards ───────────────────────────────────────────────── */
     card: {
       marginTop: 14,
-      backgroundColor: C.cardBg,
+      backgroundColor: C.cardBgFill,
       borderWidth: 1,
-      borderColor: C.frame,
+      borderColor: C.frameBorder,
       borderRadius: 7,
       overflow: 'hidden',
     },
@@ -1808,19 +1866,19 @@ const styles = StyleSheet.create(
       justifyContent: 'center',
       paddingHorizontal: 12,
       paddingVertical: 11,
-      backgroundColor: C.headBg,
+      backgroundColor: C.headBgFill,
     },
 
     headText: {
       fontFamily: Fonts.bodyBold,
       fontSize: 15,
       lineHeight: 19,
-      color: C.text,
+      color: C.textText,
     },
 
     headLine: {
       height: 1,
-      backgroundColor: C.headLine,
+      backgroundColor: C.headLineFill,
     },
 
     /* ── Users table ─────────────────────────────────────────── */
@@ -1838,7 +1896,7 @@ const styles = StyleSheet.create(
       paddingTop: 10,
       paddingBottom: 8,
       borderBottomWidth: 1,
-      borderBottomColor: C.headLine,
+      borderBottomColor: C.headLineBorder,
     },
 
     tr: {
@@ -1849,21 +1907,57 @@ const styles = StyleSheet.create(
 
     trBorder: {
       borderTopWidth: 1,
-      borderTopColor: C.rowLine,
+      borderTopColor: C.rowLineBorder,
+    },
+
+    stateRow: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 10,
+      minHeight: 120,
+      paddingHorizontal: 16,
+      paddingVertical: 24,
+    },
+
+    stateText: {
+      fontFamily: Fonts.body,
+      fontSize: 13,
+      lineHeight: 18,
+      color: C.grayText,
+      textAlign: 'center',
+    },
+
+    stateErr: {
+      color: C.redText,
+    },
+
+    stateRetry: {
+      minHeight: 44,
+      justifyContent: 'center',
+      paddingHorizontal: 18,
+      borderWidth: 1,
+      borderColor: C.greenBorder,
+      borderRadius: 10,
+    },
+
+    stateRetryText: {
+      fontFamily: Fonts.bodySemiBold,
+      fontSize: 13,
+      color: C.greenText,
     },
 
     th: {
       fontFamily: Fonts.bodySemiBold,
-      fontSize: 10.5,
-      lineHeight: 13,
-      color: C.gray,
+      fontSize: 11.5,
+      lineHeight: 15,
+      color: C.grayText,
     },
 
     td: {
       fontFamily: Fonts.body,
-      fontSize: 11,
-      lineHeight: 14,
-      color: C.text,
+      fontSize: 12,
+      lineHeight: 16,
+      color: C.textText,
     },
 
     tdName: {
@@ -1883,52 +1977,55 @@ const styles = StyleSheet.create(
     },
 
     actEdit: {
-      height: 24,
-      paddingHorizontal: 9,
+      height: 30,
+      paddingHorizontal: 10,
       alignItems: 'center',
       justifyContent: 'center',
       borderWidth: 1,
-      borderColor: C.frame,
-      borderRadius: 4,
+      borderColor: C.frameBorder,
+      borderRadius: 6,
     },
 
     actEditText: {
       fontFamily: Fonts.bodySemiBold,
-      fontSize: 10.5,
-      color: C.text,
+      fontSize: 11.5,
+      lineHeight: 15,
+      color: C.textText,
     },
 
     actOff: {
-      height: 24,
-      paddingHorizontal: 9,
+      height: 30,
+      paddingHorizontal: 10,
       alignItems: 'center',
       justifyContent: 'center',
       borderWidth: 1,
-      borderColor: C.red,
-      borderRadius: 4,
+      borderColor: C.redBorder,
+      borderRadius: 6,
     },
 
     actOffText: {
       fontFamily: Fonts.bodySemiBold,
-      fontSize: 10.5,
-      color: C.red,
+      fontSize: 11.5,
+      lineHeight: 15,
+      color: C.redText,
     },
 
     /* The green twin of "Çaktivizo", for an account that is switched off. */
     actOn: {
-      height: 24,
-      paddingHorizontal: 9,
+      height: 30,
+      paddingHorizontal: 10,
       alignItems: 'center',
       justifyContent: 'center',
       borderWidth: 1,
-      borderColor: C.green,
-      borderRadius: 4,
+      borderColor: C.greenBorder,
+      borderRadius: 6,
     },
 
     actOnText: {
       fontFamily: Fonts.bodySemiBold,
-      fontSize: 10.5,
-      color: C.green,
+      fontSize: 11.5,
+      lineHeight: 15,
+      color: C.greenText,
     },
 
     /* ── Pager ───────────────────────────────────────────────── */
@@ -1946,10 +2043,10 @@ const styles = StyleSheet.create(
     },
 
     pageSq: {
-      width: 34,
-      height: 34,
-      borderRadius: 5,
-      backgroundColor: C.blueBtn,
+      width: 44,
+      height: 44,
+      borderRadius: 10,
+      backgroundColor: C.blueBtnFill,
       alignItems: 'center',
       justifyContent: 'center',
     },
@@ -1957,7 +2054,7 @@ const styles = StyleSheet.create(
     pageSqText: {
       fontFamily: Fonts.bodySemiBold,
       fontSize: 14,
-      color: '#F5F5F5',
+      color: '#FFFFFF',
     },
 
     /* ── Role swap ───────────────────────────────────────────── */
@@ -1976,9 +2073,9 @@ const styles = StyleSheet.create(
     pickLabel: {
       flex: 1,
       fontFamily: Fonts.body,
-      fontSize: 11.5,
-      lineHeight: 15,
-      color: C.hint,
+      fontSize: 12.5,
+      lineHeight: 16,
+      color: C.hintText,
     },
 
     pickLabelRight: {
@@ -1992,18 +2089,19 @@ const styles = StyleSheet.create(
       alignItems: 'center',
       justifyContent: 'space-between',
       gap: 4,
-      height: 32,
-      paddingHorizontal: 8,
+      height: 44,
+      paddingHorizontal: 10,
       borderWidth: 1,
-      borderColor: C.frame,
-      borderRadius: 4,
+      borderColor: C.frameBorder,
+      borderRadius: 10,
     },
 
     pickerText: {
       flex: 1,
       fontFamily: Fonts.body,
-      fontSize: 11.5,
-      color: C.text,
+      fontSize: 13.5,
+      lineHeight: 18,
+      color: C.textText,
     },
 
     /* FFDF50 at a fifth — a warm hint nobody mistakes for an error. */
@@ -2013,16 +2111,16 @@ const styles = StyleSheet.create(
       paddingVertical: 9,
       backgroundColor: 'rgba(255,223,80,0.20)',
       borderWidth: 1,
-      borderColor: C.frame,
+      borderColor: C.frameBorder,
       borderRadius: 5,
     },
 
     roleNoteText: {
       textAlign: 'center',
       fontFamily: Fonts.body,
-      fontSize: 11,
-      lineHeight: 15,
-      color: C.hint,
+      fontSize: 12,
+      lineHeight: 16,
+      color: C.hintText,
     },
 
     /* Inline failure of the role swap, above its save button. */
@@ -2030,9 +2128,9 @@ const styles = StyleSheet.create(
       marginTop: 12,
       textAlign: 'center',
       fontFamily: Fonts.body,
-      fontSize: 11,
-      lineHeight: 15,
-      color: C.red,
+      fontSize: 12,
+      lineHeight: 16,
+      color: C.redText,
     },
 
     roleActions: {
@@ -2042,18 +2140,19 @@ const styles = StyleSheet.create(
     },
 
     roleSave: {
-      height: 32,
-      paddingHorizontal: 14,
+      height: 44,
+      paddingHorizontal: 20,
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: C.green,
-      borderRadius: 5,
+      backgroundColor: C.greenFill,
+      borderRadius: 10,
     },
 
     roleSaveText: {
       fontFamily: Fonts.bodySemiBold,
-      fontSize: 12,
-      color: '#F5F5F5',
+      fontSize: 13.5,
+      lineHeight: 18,
+      color: '#FFFFFF',
     },
 
     /* ── Aktiviteti ──────────────────────────────────────────── */
@@ -2063,7 +2162,7 @@ const styles = StyleSheet.create(
       borderRadius: 9,
       borderWidth: 1,
       borderColor: 'rgba(47,128,237,0.30)',
-      backgroundColor: C.blueSoft,
+      backgroundColor: C.blueSoftFill,
       overflow: 'hidden',
     },
 
@@ -2076,7 +2175,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodyBold,
       fontSize: 22,
       lineHeight: 26,
-      color: C.text,
+      color: C.textText,
       zIndex: 3,
     },
 
@@ -2109,7 +2208,7 @@ const styles = StyleSheet.create(
     },
 
     aktBtn: {
-      backgroundColor: C.blue,
+      backgroundColor: C.blueFill,
       borderRadius: 6,
       paddingHorizontal: 18,
       paddingVertical: 7,
@@ -2118,7 +2217,7 @@ const styles = StyleSheet.create(
     aktBtnText: {
       fontFamily: Fonts.bodyBold,
       fontSize: 12.5,
-      color: '#F5F5F5',
+      color: '#FFFFFF',
     },
 
     /* ── Popup overlay ───────────────────────────────────────── */
@@ -2147,9 +2246,9 @@ const styles = StyleSheet.create(
     pmCard: {
       marginTop: 100,
       alignSelf: 'center',
-      backgroundColor: '#F5F5F5',
+      backgroundColor: C.whiteFill,
       borderWidth: 1,
-      borderColor: MO.border,
+      borderColor: MO.borderBorder,
       borderRadius: 5,
       overflow: 'hidden',
       shadowColor: '#000000',
@@ -2171,20 +2270,20 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodyBold,
       fontSize: 20,
       lineHeight: 24,
-      color: MO.title,
+      color: MO.titleText,
     },
 
     pmSub: {
       fontFamily: Fonts.body,
-      fontSize: 11,
-      lineHeight: 15,
-      color: MO.sub,
+      fontSize: 12,
+      lineHeight: 16,
+      color: MO.subText,
       marginTop: 2,
     },
 
     pmDivider: {
       height: 1,
-      backgroundColor: MO.divider,
+      backgroundColor: MO.dividerFill,
     },
 
     pmContent: {
@@ -2195,17 +2294,17 @@ const styles = StyleSheet.create(
 
     pmErr: {
       fontFamily: Fonts.body,
-      fontSize: 9,
-      lineHeight: 12,
-      color: MO.err,
+      fontSize: 11.5,
+      lineHeight: 15,
+      color: MO.errText,
       marginBottom: 8,
     },
 
     pmLabel: {
       fontFamily: Fonts.body,
-      fontSize: 9.5,
-      lineHeight: 12,
-      color: MO.sub,
+      fontSize: 11.5,
+      lineHeight: 15,
+      color: MO.subText,
       marginBottom: 4,
     },
 
@@ -2227,51 +2326,52 @@ const styles = StyleSheet.create(
     },
 
     pmInput: {
-      height: 31,
-      backgroundColor: MO.inputBg,
+      height: 44,
+      backgroundColor: MO.inputBgFill,
       borderWidth: 1,
-      borderColor: MO.inputBorder,
-      borderRadius: 1,
-      paddingHorizontal: 8,
+      borderColor: MO.inputBorderBorder,
+      borderRadius: 10,
+      paddingHorizontal: 12,
       paddingVertical: 0,
-      fontSize: 11.5,
+      fontSize: 14,
       fontFamily: Fonts.body,
-      color: MO.text,
+      color: MO.textText,
     },
 
     pmSel: {
-      height: 31,
+      height: 44,
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      backgroundColor: MO.inputBg,
+      backgroundColor: MO.inputBgFill,
       borderWidth: 1,
-      borderColor: MO.inputBorder,
-      borderRadius: 1,
-      paddingHorizontal: 8,
+      borderColor: MO.inputBorderBorder,
+      borderRadius: 10,
+      paddingHorizontal: 12,
     },
 
     pmSelText: {
       flex: 1,
       fontFamily: Fonts.body,
-      fontSize: 11.5,
-      color: MO.text,
+      fontSize: 13.5,
+      lineHeight: 18,
+      color: MO.textText,
       marginRight: 3,
     },
 
     pmOpts: {
       marginTop: 2,
-      backgroundColor: '#F5F5F5',
+      backgroundColor: C.whiteFill,
       borderWidth: 1,
-      borderColor: MO.inputBorder,
-      borderRadius: 1,
+      borderColor: MO.inputBorderBorder,
+      borderRadius: 10,
       overflow: 'hidden',
     },
 
     pmOpt: {
-      height: 25,
+      minHeight: 44,
       justifyContent: 'center',
-      paddingHorizontal: 8,
+      paddingHorizontal: 12,
     },
 
     pmOptActive: {
@@ -2280,13 +2380,14 @@ const styles = StyleSheet.create(
 
     pmOptText: {
       fontFamily: Fonts.body,
-      fontSize: 10,
-      color: MO.text,
+      fontSize: 12.5,
+      lineHeight: 16,
+      color: MO.textText,
     },
 
     pmOptTextActive: {
       fontFamily: Fonts.bodyBold,
-      color: MO.create,
+      color: MO.createText,
     },
 
     /* ── Confirmation body ───────────────────────────────────── */
@@ -2294,7 +2395,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 11.5,
       lineHeight: 16,
-      color: MO.text,
+      color: MO.textText,
       textAlign: 'center',
     },
 
@@ -2304,7 +2405,7 @@ const styles = StyleSheet.create(
       justifyContent: 'center',
       paddingHorizontal: 8,
       borderWidth: 1,
-      borderColor: '#000000',
+      borderColor: C.frameBorder,
       borderRadius: 3,
       backgroundColor: 'rgba(224,49,49,0.10)',
     },
@@ -2313,15 +2414,16 @@ const styles = StyleSheet.create(
       textAlign: 'center',
       fontFamily: Fonts.bodyBold,
       fontSize: 12,
-      color: '#000000',
+      color: C.textText,
     },
 
     pmMeta: {
       marginTop: 3,
       textAlign: 'center',
       fontFamily: Fonts.body,
-      fontSize: 10,
-      color: MO.sub,
+      fontSize: 11.5,
+      lineHeight: 15,
+      color: MO.subText,
     },
 
     /* FFDF50 at a fifth — a warm hint nobody mistakes for an error. */
@@ -2331,15 +2433,15 @@ const styles = StyleSheet.create(
       paddingVertical: 9,
       backgroundColor: 'rgba(255,223,80,0.20)',
       borderWidth: 1,
-      borderColor: '#000000',
+      borderColor: C.frameBorder,
       borderRadius: 3,
     },
 
     pmNoteText: {
       fontFamily: Fonts.body,
-      fontSize: 10.5,
-      lineHeight: 14,
-      color: C.hint,
+      fontSize: 12,
+      lineHeight: 16,
+      color: C.hintText,
       textAlign: 'center',
     },
 
@@ -2351,20 +2453,20 @@ const styles = StyleSheet.create(
     },
 
     pmBtn: {
-      height: 28,
+      height: 44,
       alignItems: 'center',
       justifyContent: 'center',
-      borderRadius: 2,
+      borderRadius: 10,
     },
 
     pmBtnCancel: {
-      width: 74,
-      backgroundColor: MO.cancel,
+      width: 88,
+      backgroundColor: MO.cancelFill,
     },
 
     pmBtnCreate: {
-      width: 74,
-      backgroundColor: MO.create,
+      width: 88,
+      backgroundColor: MO.createFill,
     },
 
     /* A submit button held while its write is in flight. */
@@ -2374,8 +2476,9 @@ const styles = StyleSheet.create(
 
     pmBtnText: {
       fontFamily: Fonts.bodyMedium,
-      fontSize: 10.5,
-      color: MO.white,
+      fontSize: 13,
+      lineHeight: 18,
+      color: MO.whiteText,
     },
 
     pressed: {

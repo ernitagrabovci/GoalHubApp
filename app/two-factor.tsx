@@ -15,11 +15,12 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
-import { Fonts } from '@/constants/theme';
+import { Brand, Fonts, Semantic } from '@/constants/theme';
 import { challengeTwoFactor } from '@/lib/api/auth';
 import { ApiError } from '@/lib/api/errors';
 import { I, scaled } from '@/lib/responsive';
 import { useSession } from '@/lib/session';
+import { useAppColors, usePaletteStyles, type AppColorsOf } from '@/lib/app-theme';
 
 /**
  * Second step of login for accounts with an authenticator app. The password
@@ -27,14 +28,14 @@ import { useSession } from '@/lib/session';
  * TOTP (or recovery) code exchanges it for a real session.
  */
 
-const C = {
-  text: '#111111',
-  gray: '#8A8A8A',
-  frame: '#000000',
-  white: '#F5F5F5',
-  green: '#36AC6B',
-  greenTint: '#D7EEE1',
-  danger: '#D64545',
+const C_LIGHT = {
+  text: '#17251E',
+  gray: '#52645A',
+  frame: '#DCE5DF',
+  white: '#FFFFFF',
+  green: Brand[600],
+  greenTint: Brand[50],
+  danger: Semantic.danger,
 };
 
 const IMG_PLAYER = require('@/assets/dashboard/lojtaret.png');
@@ -51,6 +52,8 @@ function errorMessage(error: unknown): string {
 }
 
 export default function TwoFactorScreen() {
+  const C = useAppColors(C_LIGHT);
+  const styles = usePaletteStyles(createStyles, C);
   const router = useRouter();
   const { completeSignIn } = useSession();
   const params = useLocalSearchParams<{ challenge_token?: string }>();
@@ -114,7 +117,7 @@ export default function TwoFactorScreen() {
             accessibilityRole="button"
             accessibilityLabel="Kthehu"
           >
-            <MaterialCommunityIcons name="chevron-left" size={I(26)} color={C.text} />
+            <MaterialCommunityIcons name="chevron-left" size={I(26)} color={C.textText} />
             <Text style={styles.backText}>Kthehu</Text>
           </Pressable>
 
@@ -141,7 +144,7 @@ export default function TwoFactorScreen() {
             <TextInput
               style={[styles.field, recovery && styles.fieldRecovery]}
               placeholder={recovery ? 'XXXXX-XXXXX' : '000000'}
-              placeholderTextColor={C.gray}
+              placeholderTextColor={C.grayText}
               value={code}
               onChangeText={(value) =>
                 setCode(recovery ? value : value.replace(/[^0-9]/g, ''))
@@ -172,7 +175,7 @@ export default function TwoFactorScreen() {
               accessibilityRole="button"
             >
               {busy ? (
-                <ActivityIndicator color={C.white} />
+                <ActivityIndicator color={C.whiteText} />
               ) : (
                 <Text style={styles.primaryText}>Verifiko</Text>
               )}
@@ -199,7 +202,7 @@ export default function TwoFactorScreen() {
   );
 }
 
-const styles = StyleSheet.create(
+const createStyles = (C: AppColorsOf<typeof C_LIGHT>) => StyleSheet.create(
   scaled({
     safe: {
       flex: 1,
@@ -239,6 +242,7 @@ const styles = StyleSheet.create(
       flexDirection: 'row',
       alignItems: 'center',
       gap: 4,
+      minHeight: 44,
       marginTop: 2,
       marginLeft: -6,
       alignSelf: 'flex-start',
@@ -248,16 +252,16 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodyBold,
       fontSize: 18,
       lineHeight: 22,
-      color: C.text,
+      color: C.textText,
     },
 
     card: {
       marginTop: 14,
       paddingHorizontal: 16,
       paddingVertical: 16,
-      backgroundColor: C.greenTint,
+      backgroundColor: C.greenTintFill,
       borderWidth: 1,
-      borderColor: C.frame,
+      borderColor: C.frameBorder,
       borderRadius: 7,
     },
 
@@ -267,7 +271,7 @@ const styles = StyleSheet.create(
       fontSize: 34,
       lineHeight: 38,
       letterSpacing: -0.6,
-      color: C.text,
+      color: C.textText,
     },
 
     title: {
@@ -277,7 +281,7 @@ const styles = StyleSheet.create(
       fontSize: 20,
       lineHeight: 25,
       letterSpacing: -0.3,
-      color: C.text,
+      color: C.textText,
     },
 
     ask: {
@@ -286,7 +290,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodyBold,
       fontSize: 13.5,
       lineHeight: 18,
-      color: C.text,
+      color: C.textText,
     },
 
     help: {
@@ -295,11 +299,11 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 12,
       lineHeight: 17,
-      color: C.text,
+      color: C.textText,
     },
 
     field: {
-      height: 44,
+      height: 50,
       marginTop: 14,
       paddingHorizontal: 14,
       paddingVertical: 0,
@@ -307,11 +311,11 @@ const styles = StyleSheet.create(
       letterSpacing: 3,
       fontFamily: Fonts.bodySemiBold,
       fontSize: 18,
-      color: C.text,
+      color: C.textText,
       backgroundColor: 'transparent',
       borderWidth: 1,
-      borderColor: C.frame,
-      borderRadius: 5,
+      borderColor: C.frameBorder,
+      borderRadius: 12,
     },
 
     fieldRecovery: {
@@ -325,22 +329,22 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodySemiBold,
       fontSize: 12,
       lineHeight: 16,
-      color: C.danger,
+      color: C.dangerText,
     },
 
     primary: {
-      height: 42,
+      height: 50,
       marginTop: 14,
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: C.green,
-      borderRadius: 5,
+      backgroundColor: C.greenFill,
+      borderRadius: 12,
     },
 
     primaryText: {
       fontFamily: Fonts.bodyBold,
       fontSize: 15,
-      color: C.white,
+      color: C.whiteText,
     },
 
     switchRow: {
@@ -352,7 +356,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodySemiBold,
       fontSize: 12,
       lineHeight: 16,
-      color: C.text,
+      color: C.textText,
       textDecorationLine: 'underline',
     },
 

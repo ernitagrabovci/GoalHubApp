@@ -1,10 +1,13 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import { useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Animated, StyleSheet, View } from 'react-native';
 import type { StyleProp, TextStyle, ViewStyle } from 'react-native';
 
+import { AnimatedPressable } from '@/components/ui/animated-pressable';
 import { Text } from '@/components/dashboard/dashboard-text';
-import { Fonts } from '@/constants/theme';
+import { Elevation, Fonts, LightColors, Radius } from '@/constants/theme';
+import { useAppColors } from '@/lib/app-theme';
+import { Easings, Motion, useReducedMotion } from '@/lib/motion';
 import { I, scaled } from '@/lib/responsive';
 
 /**
@@ -37,48 +40,80 @@ export function FilterSelect({
   textStyle,
   minWidth = 170,
 }: Props) {
+  const colors = useAppColors(LightColors);
+  const reduced = useReducedMotion();
   const [open, setOpen] = useState(false);
+  const [reveal] = useState(() => new Animated.Value(0));
   const current = options.find((o) => o.value === value) ?? options[0];
+
+  useEffect(() => {
+    if (!open) return;
+    reveal.setValue(0);
+    Animated.timing(reveal, {
+      toValue: 1,
+      duration: reduced ? 0 : Motion.standard,
+      easing: Easings.enter,
+      useNativeDriver: true,
+    }).start();
+  }, [open, reduced, reveal]);
 
   return (
     /* Raised while open so the menu draws over the rows below it. */
     <View style={open ? styles.lift : undefined}>
-      <Pressable
+      <AnimatedPressable
         onPress={() => setOpen((v) => !v)}
         accessibilityRole="button"
         accessibilityLabel={label}
+        accessibilityState={{ expanded: open }}
+        hitSlop={{ top: 6, bottom: 6, left: 2, right: 2 }}
         style={({ pressed }) => [boxStyle, pressed && styles.pressed]}
       >
         <Text style={textStyle} numberOfLines={1}>
           {current?.label ?? ''}
         </Text>
-        <MaterialCommunityIcons name="chevron-down" size={I(14)} color="#111111" />
-      </Pressable>
+        <MaterialCommunityIcons name="chevron-down" size={I(14)} color={colors.text} />
+      </AnimatedPressable>
 
       {open ? (
-        <View style={[styles.menu, { minWidth }]}>
+        <Animated.View
+          style={[
+            styles.menu,
+            {
+              minWidth,
+              backgroundColor: colors.surfaceAlt,
+              borderColor: colors.border,
+              opacity: reveal,
+              transform: [
+                {
+                  translateY: reveal.interpolate({ inputRange: [0, 1], outputRange: [-4, 0] }),
+                },
+              ],
+            },
+          ]}
+        >
           {options.map((o) => {
             const active = o.value === value;
             return (
-              <Pressable
+              <AnimatedPressable
                 key={o.value || 'all'}
                 onPress={() => {
                   onChange(o.value);
                   setOpen(false);
                 }}
                 accessibilityRole="button"
+                accessibilityState={{ selected: active }}
                 style={({ pressed }) => [styles.item, pressed && styles.pressed]}
               >
                 <Text
-                  style={[styles.itemText, active && styles.itemTextActive]}
+                  style={[styles.itemText, { color: colors.text }, active && styles.itemTextActive]}
                   numberOfLines={1}
                 >
                   {o.label}
                 </Text>
-              </Pressable>
+              </AnimatedPressable>
             );
           })}
-        </View>
+        </Animated.View>
       ) : null}
     </View>
   );
@@ -96,27 +131,22 @@ const styles = StyleSheet.create(
       top: '100%',
       left: 0,
       marginTop: 2,
-      backgroundColor: '#FFFFFF',
       borderWidth: 1,
-      borderColor: '#000000',
-      borderRadius: 4,
+      borderRadius: Radius.md,
       overflow: 'hidden',
-      shadowColor: '#000000',
-      shadowOffset: { width: 0, height: 3 },
-      shadowOpacity: 0.12,
-      shadowRadius: 8,
-      elevation: 6,
+      ...Elevation.md,
     },
 
     item: {
-      paddingHorizontal: 12,
-      paddingVertical: 9,
+      minHeight: 44,
+      justifyContent: 'center',
+      paddingHorizontal: 14,
+      paddingVertical: 10,
     },
 
     itemText: {
       fontFamily: Fonts.body,
-      fontSize: 12,
-      color: '#111111',
+      fontSize: 13,
     },
 
     itemTextActive: {

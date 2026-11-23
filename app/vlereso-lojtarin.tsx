@@ -18,6 +18,7 @@ import { ApiError } from '@/lib/api/errors';
 import { ratePlayer } from '@/lib/api/players';
 import { I, scaled } from '@/lib/responsive';
 import { useSession } from '@/lib/session';
+import { useAppColors, usePaletteStyles, type AppColorsOf } from '@/lib/app-theme';
 
 /**
  * Vlerëso lojtarin — the trainer's grading form, opened from the "Vlerëso"
@@ -28,17 +29,17 @@ import { useSession } from '@/lib/session';
  * date, the comment, and the cancel/create pair.
  */
 
-const C = {
-  page: '#FAFBFA',
+const C_LIGHT = {
+  page: '#F7F9F8',
   line: 'rgba(0,0,0,0.025)',
 
-  text: '#111111',
-  gray: '#8A8A8A',
+  text: '#17251E',
+  gray: '#52645A',
   hint: '#6E6E6E',
   hintSoft: '#E2E2E2',
 
-  frame: '#000000',
-  white: '#F5F5F5',
+  frame: '#DCE5DF',
+  white: '#FFFFFF',
   blueSoft: '#E3EEFB',
 
   /* Fields sit on the blue card, so they are hollow rather than filled. */
@@ -46,9 +47,9 @@ const C = {
   inputBorder: '#777777',
   ph: '#A8A8A8',
 
-  green: '#159447',
-  cancel: '#ED5050',
-  create: '#16A51D',
+  green: '#2E7D5B',
+  cancel: '#B91C1C',
+  create: '#2E7D5B',
 };
 
 /* ── The graded categories ─────────────────────────────────────────── */
@@ -82,6 +83,8 @@ function RatingRow({
   value: number;
   onChange: (value: number) => void;
 }) {
+  const C = useAppColors(C_LIGHT);
+  const styles = usePaletteStyles(createStyles, C);
   const widthRef = useRef(0);
   const startRef = useRef(value);
   const valueRef = useRef(value);
@@ -153,6 +156,8 @@ function RatingRow({
 }
 
 export default function RatePlayerScreen() {
+  const C = useAppColors(C_LIGHT);
+  const styles = usePaletteStyles(createStyles, C);
   const router = useRouter();
   const { token, signOut } = useSession();
 
@@ -240,7 +245,7 @@ export default function RatePlayerScreen() {
                 accessibilityLabel="Kthehu prapa"
                 style={({ pressed }) => [styles.backBtn, pressed && styles.pressed]}
               >
-                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.text} />
+                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.textText} />
               </Pressable>
               <View style={styles.headerText}>
                 <Text
@@ -284,7 +289,7 @@ export default function RatePlayerScreen() {
                   value={day}
                   onChangeText={setDay}
                   placeholder="DD"
-                  placeholderTextColor={C.ph}
+                  placeholderTextColor={C.phText}
                   maxLength={2}
                   keyboardType="number-pad"
                   allowFontScaling={false}
@@ -295,7 +300,7 @@ export default function RatePlayerScreen() {
                   value={month}
                   onChangeText={setMonth}
                   placeholder="MM"
-                  placeholderTextColor={C.ph}
+                  placeholderTextColor={C.phText}
                   maxLength={2}
                   keyboardType="number-pad"
                   allowFontScaling={false}
@@ -306,7 +311,7 @@ export default function RatePlayerScreen() {
                   value={year}
                   onChangeText={setYear}
                   placeholder="YYYY"
-                  placeholderTextColor={C.ph}
+                  placeholderTextColor={C.phText}
                   maxLength={4}
                   keyboardType="number-pad"
                   allowFontScaling={false}
@@ -372,7 +377,7 @@ export default function RatePlayerScreen() {
 /* Styles                                                              */
 /* ------------------------------------------------------------------ */
 
-const styles = StyleSheet.create(
+const createStyles = (C: AppColorsOf<typeof C_LIGHT>) => StyleSheet.create(
   scaled({
     safe: {
       flex: 1,
@@ -417,7 +422,7 @@ const styles = StyleSheet.create(
       fontSize: 20,
       lineHeight: 24,
       letterSpacing: -0.3,
-      color: C.text,
+      color: C.textText,
     },
 
     scroll: {
@@ -426,9 +431,9 @@ const styles = StyleSheet.create(
 
     /* ── Graded rows ─────────────────────────────────────────── */
     card: {
-      backgroundColor: C.blueSoft,
+      backgroundColor: C.blueSoftFill,
       borderWidth: 1,
-      borderColor: C.frame,
+      borderColor: C.frameBorder,
       borderRadius: 5,
       paddingHorizontal: 12,
       paddingTop: 4,
@@ -451,14 +456,14 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodyBold,
       fontSize: 11.5,
       lineHeight: 15,
-      color: C.text,
+      color: C.textText,
     },
 
     sliderValue: {
       fontFamily: Fonts.bodyBold,
       fontSize: 13,
       lineHeight: 17,
-      color: C.text,
+      color: C.textText,
     },
 
     /* Tall enough to be a comfortable grab target around the thin rail. */
@@ -471,14 +476,14 @@ const styles = StyleSheet.create(
     rail: {
       height: RAIL_H,
       borderRadius: RAIL_H / 2,
-      backgroundColor: C.hintSoft,
+      backgroundColor: C.hintSoftFill,
     },
 
     /* Rides inside the rail, so it stops where the square does. */
     railFill: {
       height: RAIL_H,
       borderRadius: RAIL_H / 2,
-      backgroundColor: C.green,
+      backgroundColor: C.greenFill,
     },
 
     /* The white square that sets the score. */
@@ -488,9 +493,9 @@ const styles = StyleSheet.create(
       width: THUMB,
       height: THUMB,
       marginLeft: -THUMB_HALF,
-      backgroundColor: C.white,
+      backgroundColor: C.whiteFill,
       borderWidth: 1,
-      borderColor: C.frame,
+      borderColor: C.frameBorder,
       borderRadius: 2,
       shadowColor: '#000000',
       shadowOffset: { width: 0, height: 1 },
@@ -509,7 +514,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 9,
       lineHeight: 12,
-      color: C.gray,
+      color: C.grayText,
     },
 
     /* ── Form fields ─────────────────────────────────────────── */
@@ -519,7 +524,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 10.5,
       lineHeight: 13,
-      color: C.hint,
+      color: C.hintText,
     },
 
     formGap: {
@@ -533,52 +538,52 @@ const styles = StyleSheet.create(
     },
 
     dateBox: {
-      width: 30,
-      height: 30,
-      backgroundColor: C.inputBg,
+      width: 36,
+      height: 44,
+      backgroundColor: C.inputBgFill,
       borderWidth: 1,
-      borderColor: C.inputBorder,
-      borderRadius: 4,
+      borderColor: C.inputBorderBorder,
+      borderRadius: 8,
       paddingHorizontal: 0,
       paddingVertical: 0,
       textAlign: 'center',
-      fontSize: 11,
+      fontSize: 13,
       fontFamily: Fonts.body,
-      color: C.text,
+      color: C.textText,
     },
 
     yearBox: {
-      width: 50,
-      height: 30,
-      backgroundColor: C.inputBg,
+      width: 60,
+      height: 44,
+      backgroundColor: C.inputBgFill,
       borderWidth: 1,
-      borderColor: C.inputBorder,
-      borderRadius: 4,
+      borderColor: C.inputBorderBorder,
+      borderRadius: 8,
       paddingHorizontal: 0,
       paddingVertical: 0,
       textAlign: 'center',
-      fontSize: 11,
+      fontSize: 13,
       fontFamily: Fonts.body,
-      color: C.text,
+      color: C.textText,
     },
 
     dateSep: {
       fontFamily: Fonts.body,
       fontSize: 11,
-      color: C.gray,
+      color: C.grayText,
     },
 
     textarea: {
       height: 76,
-      backgroundColor: C.inputBg,
+      backgroundColor: C.inputBgFill,
       borderWidth: 1,
-      borderColor: C.inputBorder,
+      borderColor: C.inputBorderBorder,
       borderRadius: 4,
       paddingHorizontal: 8,
       paddingVertical: 7,
       fontSize: 11.5,
       fontFamily: Fonts.body,
-      color: C.text,
+      color: C.textText,
     },
 
     /* ── Actions ─────────────────────────────────────────────── */
@@ -587,7 +592,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 11,
       lineHeight: 15,
-      color: C.cancel,
+      color: C.cancelText,
     },
 
     actions: {
@@ -598,19 +603,19 @@ const styles = StyleSheet.create(
     },
 
     btn: {
-      height: 28,
+      height: 44,
       alignItems: 'center',
       justifyContent: 'center',
-      borderRadius: 2,
-      paddingHorizontal: 12,
+      borderRadius: 10,
+      paddingHorizontal: 18,
     },
 
     btnCancel: {
-      backgroundColor: C.cancel,
+      backgroundColor: C.cancelFill,
     },
 
     btnCreate: {
-      backgroundColor: C.create,
+      backgroundColor: C.createFill,
     },
 
     btnOff: {
@@ -619,8 +624,9 @@ const styles = StyleSheet.create(
 
     btnText: {
       fontFamily: Fonts.bodyMedium,
-      fontSize: 10.5,
-      color: C.white,
+      fontSize: 13,
+      lineHeight: 18,
+      color: C.whiteText,
     },
 
     pressed: {

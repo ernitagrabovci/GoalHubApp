@@ -9,6 +9,7 @@ import { Fonts } from '@/constants/theme';
 import { ApiError } from '@/lib/api/errors';
 import { getPlayer } from '@/lib/api/players';
 import type { ApiPlayer } from '@/lib/api/types';
+import { useAppColors } from '@/lib/app-theme';
 import { useSession } from '@/lib/session';
 
 /**
@@ -27,9 +28,15 @@ function initialsOf(name: string) {
     .toUpperCase();
 }
 
+const C_LIGHT = {
+  error: '#52645A',
+  green: '#2E7D5B',
+};
+
 export default function EditPlayerScreen() {
   const router = useRouter();
   const { token, signOut } = useSession();
+  const C = useAppColors(C_LIGHT);
 
   const params = useLocalSearchParams<{ id?: string; name?: string; team?: string; nr?: string }>();
 
@@ -62,7 +69,7 @@ export default function EditPlayerScreen() {
     return (
       <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
         <View style={styles.center}>
-          <Text style={styles.errorText}>Lojtari nuk u gjet.</Text>
+          <Text style={[styles.errorText, { color: C.errorText }]}>Lojtari nuk u gjet.</Text>
         </View>
       </SafeAreaView>
     );
@@ -72,7 +79,7 @@ export default function EditPlayerScreen() {
     return (
       <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
         <View style={styles.center}>
-          <ActivityIndicator color="#159447" />
+          <ActivityIndicator color={C.greenText} />
         </View>
       </SafeAreaView>
     );
@@ -107,6 +114,5 @@ const styles = StyleSheet.create({
   errorText: {
     fontFamily: Fonts.body,
     fontSize: 14,
-    color: '#8A8A8A',
   },
 });

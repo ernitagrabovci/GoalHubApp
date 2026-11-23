@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
 import { I, scaled } from '@/lib/responsive';
+import { useAppColors, usePaletteStyles, useThemedColor, type AppColorsOf } from '@/lib/app-theme';
 
 /**
  * Akademia, the trainer's own view — opened from the "Akademia" card on the
@@ -15,17 +16,17 @@ import { I, scaled } from '@/lib/responsive';
  * bottom-left corner, the title up top, the Vazhdo button bottom-right.
  */
 
-const C = {
-  page: '#FAFBFA',
+const C_LIGHT = {
+  page: '#F7F9F8',
   line: 'rgba(0,0,0,0.025)',
 
-  text: '#111111',
-  gray: '#8A8A8A',
+  text: '#17251E',
+  gray: '#52645A',
 
   /* The thin, see-through tray the four cards sit in. */
   tray: '#4DBB7B',
   trayBg: 'transparent',
-  white: '#F5F5F5',
+  white: '#FFFFFF',
 };
 
 /* ---------------------------------------------------------------- */
@@ -46,6 +47,9 @@ type Card = {
 };
 
 export default function TrainerAcademyScreen() {
+  const C = useAppColors(C_LIGHT);
+  const styles = usePaletteStyles(createStyles, C);
+  const themed = useThemedColor();
   const router = useRouter();
 
   return (
@@ -64,7 +68,7 @@ export default function TrainerAcademyScreen() {
                 accessibilityLabel="Kthehu prapa"
                 style={({ pressed }) => [styles.backBtn, pressed && styles.pressed]}
               >
-                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.text} />
+                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.textText} />
               </Pressable>
               <View style={styles.headerText}>
                 <Text style={styles.title} numberOfLines={1}>
@@ -88,7 +92,7 @@ export default function TrainerAcademyScreen() {
             <View style={styles.menuWrap}>
               {/* A thin see-through tray, ruled in green. */}
               <View style={styles.menuTray}>
-                {CARDS.map((card) => (
+                {CARDS(styles).map((card) => (
                   <Pressable
                     key={card.id}
                     onPress={card.route ? () => router.push(card.route as never) : undefined}
@@ -96,7 +100,7 @@ export default function TrainerAcademyScreen() {
                     accessibilityLabel={card.title}
                     style={({ pressed }) => [
                       styles.card,
-                      { backgroundColor: card.bg, borderColor: card.border },
+                      { backgroundColor: themed(card.bg), borderColor: themed(card.border) },
                       pressed && styles.pressed,
                     ]}
                   >
@@ -139,7 +143,7 @@ export default function TrainerAcademyScreen() {
 /* Styles                                                              */
 /* ------------------------------------------------------------------ */
 
-const styles = StyleSheet.create(
+const createStyles = (C: AppColorsOf<typeof C_LIGHT>) => StyleSheet.create(
   scaled({
     safe: {
       flex: 1,
@@ -184,14 +188,14 @@ const styles = StyleSheet.create(
       fontSize: 20,
       lineHeight: 24,
       letterSpacing: -0.3,
-      color: C.text,
+      color: C.textText,
     },
 
     subtitle: {
       fontFamily: Fonts.body,
       fontSize: 12,
       lineHeight: 16,
-      color: C.gray,
+      color: C.grayText,
       marginTop: 1,
     },
 
@@ -210,8 +214,8 @@ const styles = StyleSheet.create(
       flexDirection: 'row',
       flexWrap: 'wrap',
       borderWidth: 1,
-      borderColor: C.tray,
-      backgroundColor: C.trayBg,
+      borderColor: C.trayBorder,
+      backgroundColor: C.trayBgFill,
       borderRadius: 8,
       padding: 8,
       columnGap: 10,
@@ -237,7 +241,7 @@ const styles = StyleSheet.create(
       fontSize: 20,
       lineHeight: 21,
       letterSpacing: 0.3,
-      color: C.text,
+      color: C.textText,
       zIndex: 3,
     },
 
@@ -269,7 +273,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodySemiBold,
       fontSize: 11,
       lineHeight: 14,
-      color: C.white,
+      color: C.whiteText,
     },
 
     /* ── Menu tab ────────────────────────────────────────────── */
@@ -287,9 +291,9 @@ const styles = StyleSheet.create(
     menuPill: {
       width: 100,
       height: 28,
-      backgroundColor: C.white,
+      backgroundColor: C.whiteFill,
       borderWidth: 1,
-      borderColor: C.tray,
+      borderColor: C.trayBorder,
       borderTopLeftRadius: 7,
       borderTopRightRadius: 7,
       alignItems: 'center',
@@ -300,7 +304,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodySemiBold,
       fontSize: 13,
       lineHeight: 16,
-      color: C.text,
+      color: C.textText,
     },
 
     pressed: {
@@ -320,7 +324,7 @@ const styles = StyleSheet.create(
  * Planet e sesioneve  Ushtrime
  */
 
-const CARDS: Card[] = [
+const CARDS = (styles: ReturnType<typeof createStyles>): Card[] => ([
   {
     id: 'libraria',
     title: 'Libraria',
@@ -361,4 +365,4 @@ const CARDS: Card[] = [
     img: require('@/assets/dashboard/ushtrimet.png'),
     imgStyle: styles.cardImg,
   },
-];
+]);

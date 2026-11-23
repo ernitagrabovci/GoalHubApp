@@ -9,12 +9,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/dashboard/dashboard-text';
 import { Fonts } from '@/constants/theme';
-import { ApiError } from '@/lib/api/errors';
+import { ApiError, loadErrorMessage } from '@/lib/api/errors';
 import { matchesReport } from '@/lib/api/reports';
 import { listTeams } from '@/lib/api/teams';
 import type { ApiTeam, MatchesReport } from '@/lib/api/types';
 import { I, scaled } from '@/lib/responsive';
 import { useSession } from '@/lib/session';
+import { useAppColors, usePaletteStyles, type AppColorsOf } from '@/lib/app-theme';
+import { useGlass } from '@/lib/glass';
 
 /**
  * Raporti i ndeshjeve — opened from "Vazhdo" on the Raportet e ndeshjeve card
@@ -24,26 +26,30 @@ import { useSession } from '@/lib/session';
  * pager, then the competition breakdown and the seasonal summary box.
  */
 
-const C = {
-  page: '#FAFBFA',
+const C_LIGHT = {
+  white: '#FFFFFF',
+  glassBase: 'rgba(255,255,255,0.12)',
+  glassEdge: 'rgba(255,255,255,0.95)',
+  glassDivider: 'rgba(16,51,38,0.18)',
+  page: '#F7F9F8',
   line: 'rgba(0,0,0,0.025)',
 
-  text: '#111111',
-  gray: '#8A8A8A',
+  text: '#17251E',
+  gray: '#52645A',
   hint: '#6E6E6E',
   ghost: '#A8A8A8',
 
   cardBg: '#E3EEFB',
-  headBg: '#F6FBFF',
-  frame: '#000000',
+  headBg: '#F7F9F8',
+  frame: '#DCE5DF',
   headLine: 'rgba(30,40,35,0.10)',
   rowLine: 'rgba(100,140,190,0.22)',
 
   blueSoft: '#E3EEFB',
   blueBtn: '#86BCFD',
-  green: '#159447',
-  orange: '#E4A000',
-  red: '#E03131',
+  green: '#2E7D5B',
+  orange: '#B45309',
+  red: '#B91C1C',
 
   /* Unfilled part of every progress rail. */
   track: 'rgba(0,0,0,0.10)',
@@ -56,21 +62,15 @@ const C = {
  * nothing. Shading the pane instead — a very light grey at the top edge
  * sweeping down to white — is what gives the surface its glassy shape.
  */
-const SQ_GLOSS = [
-  'rgba(180,188,201,0.30)',
-  'rgba(216,222,231,0.15)',
-  'rgba(245,245,245,0.80)',
-] as const;
-
 /* ── Fixtures ──────────────────────────────────────────────────────── */
 
 type Outcome = 'Fitore' | 'Barazim' | 'Humbje';
 
-const OUTCOME_TONE: Record<Outcome, string> = {
+const OUTCOME_TONE = (C: AppColorsOf<typeof C_LIGHT>): Record<Outcome, string> => ({
   Fitore: C.green,
   Barazim: C.orange,
   Humbje: C.red,
-};
+});
 
 /** Goals are from the club's perspective, so the outcome reads straight off them. */
 function outcomeOf(gf: number, ga: number): Outcome {
@@ -92,11 +92,11 @@ const COLS = [
 /** The report returns every match at once, so the pager works on the client. */
 const PAGE_SIZE = 8;
 
-const LEGEND: { label: string; color: string }[] = [
-  { label: 'Fitore', color: C.green },
-  { label: 'Barazim', color: C.orange },
-  { label: 'Humbje', color: C.red },
-];
+const LEGEND = (C: AppColorsOf<typeof C_LIGHT>): { label: string; color: string }[] => ([
+  { label: 'Fitore', color: C.greenText },
+  { label: 'Barazim', color: C.orangeText },
+  { label: 'Humbje', color: C.redText },
+]);
 
 type FilterKey = 'team' | 'result';
 
@@ -114,6 +114,9 @@ function pageWindow(current: number, last: number, span = 4): number[] {
 }
 
 export default function MatchReportScreen() {
+  const glass = useGlass();
+  const C = useAppColors(C_LIGHT);
+  const styles = usePaletteStyles(createStyles, C);
   const router = useRouter();
   const { token, signOut } = useSession();
 
@@ -126,6 +129,7 @@ export default function MatchReportScreen() {
   const [openFilter, setOpenFilter] = useState<FilterKey | null>(null);
   const [page, setPage] = useState(1);
   const [error, setError] = useState<string | null>(null);
+  const [reload, setReload] = useState(0);
 
   const filterKey = `${filters.team}|${filters.result}`;
 
@@ -167,14 +171,17 @@ export default function MatchReportScreen() {
           router.replace('/login');
           return;
         }
-        setError(
-          err instanceof ApiError && err.status === 0
-            ? 'Nuk mund të lidhemi me serverin. Kontrollo lidhjen.'
-            : 'Nuk mund të ngarkohet raporti.',
-        );
+        setError(loadErrorMessage(err, 'Nuk mund të ngarkohet raporti. Kontrollo lidhjen.'));
       });
     return () => controller.abort();
-  }, [token, filterKey, filters.team, filters.result, signOut, router]);
+  }, [token, filterKey, filters.team, filters.result, signOut, router, reload]);
+
+  /* Refetch from the error box; the effect cannot reset state synchronously. */
+  const retry = () => {
+    setReport(null);
+    setError(null);
+    setReload((value) => value + 1);
+  };
 
   const stats = report?.stats;
   const total = stats?.total ?? 0;
@@ -284,7 +291,7 @@ export default function MatchReportScreen() {
                 accessibilityLabel="Kthehu prapa"
                 style={({ pressed }) => [styles.backBtn, pressed && styles.pressed]}
               >
-                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.text} />
+                <MaterialCommunityIcons name="chevron-left" size={I(24)} color={C.textText} />
               </Pressable>
               <View style={styles.headerText}>
                 <Text style={styles.title} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
@@ -311,14 +318,14 @@ export default function MatchReportScreen() {
               <BlurView
                 pointerEvents="none"
                 intensity={55}
-                tint="light"
+                tint={glass.tint}
                 experimentalBlurMethod="dimezisBlurView"
                 style={StyleSheet.absoluteFill}
               />
               <LinearGradient
                 pointerEvents="none"
                 style={StyleSheet.absoluteFill}
-                colors={SQ_GLOSS}
+                colors={glass.gloss}
                 locations={[0, 0.55, 1]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
@@ -326,12 +333,7 @@ export default function MatchReportScreen() {
               <LinearGradient
                 pointerEvents="none"
                 style={styles.statsGloss}
-                colors={[
-                  'rgba(255,255,255,0)',
-                  'rgba(255,255,255,0.78)',
-                  'rgba(255,255,255,0.55)',
-                  'rgba(255,255,255,0)',
-                ]}
+                colors={glass.sweep}
                 locations={[0, 0.38, 0.62, 1]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
@@ -339,11 +341,7 @@ export default function MatchReportScreen() {
               <LinearGradient
                 pointerEvents="none"
                 style={styles.statsGloss2}
-                colors={[
-                  'rgba(255,255,255,0)',
-                  'rgba(255,255,255,0.55)',
-                  'rgba(255,255,255,0)',
-                ]}
+                colors={glass.sweepSoft}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
               />
@@ -399,7 +397,7 @@ export default function MatchReportScreen() {
                   <MaterialCommunityIcons
                     name={openFilter === key ? 'chevron-up' : 'chevron-down'}
                     size={I(14)}
-                    color={C.text}
+                    color={C.textText}
                   />
                 </Pressable>
               ))}
@@ -422,6 +420,7 @@ export default function MatchReportScreen() {
                       onPress={() => applyFilter(openFilter, item.value)}
                       accessibilityRole="button"
                       accessibilityLabel={item.label}
+                      hitSlop={{ top: 4, bottom: 4, left: 2, right: 2 }}
                       style={({ pressed }) => [
                         styles.filterChip,
                         active && styles.filterChipActive,
@@ -480,7 +479,7 @@ export default function MatchReportScreen() {
                     <Text style={[styles.td, styles.tdPlus, { flex: 0.5 }]}>{m.plus}</Text>
                     <Text style={[styles.td, styles.tdMinus, { flex: 0.5 }]}>{m.minus}</Text>
                     <Text
-                      style={[styles.td, { flex: 1.1, color: OUTCOME_TONE[m.status] }]}
+                      style={[styles.td, { flex: 1.1, color: OUTCOME_TONE(C)[m.status] }]}
                       numberOfLines={1}
                       adjustsFontSizeToFit
                       minimumFontScale={0.7}
@@ -496,10 +495,19 @@ export default function MatchReportScreen() {
               {error ? (
                 <View style={styles.stateRow}>
                   <Text style={styles.stateText}>{error}</Text>
+                  <Pressable
+                    onPress={retry}
+                    accessibilityRole="button"
+                    accessibilityLabel="Provo përsëri"
+                    style={({ pressed }) => [styles.stateRetry, pressed && styles.pressed]}
+                  >
+                    <Text style={styles.stateRetryText}>Provo përsëri</Text>
+                  </Pressable>
                 </View>
               ) : report === null ? (
                 <View style={styles.stateRow}>
-                  <ActivityIndicator color={C.blueBtn} />
+                  <ActivityIndicator color={C.blueBtnText} />
+                  <Text style={styles.stateText}>Duke përgatitur raportin…</Text>
                 </View>
               ) : matches.length === 0 ? (
                 <View style={styles.stateRow}>
@@ -523,7 +531,7 @@ export default function MatchReportScreen() {
                     pressed && styles.pressed,
                   ]}
                 >
-                  <MaterialCommunityIcons name="chevron-left" size={I(22)} color={C.text} />
+                  <MaterialCommunityIcons name="chevron-left" size={I(22)} color={C.textText} />
                 </Pressable>
 
                 {pageWindow(current, lastPage).map((p) => (
@@ -553,7 +561,7 @@ export default function MatchReportScreen() {
                     pressed && styles.pressed,
                   ]}
                 >
-                  <MaterialCommunityIcons name="chevron-right" size={I(22)} color={C.text} />
+                  <MaterialCommunityIcons name="chevron-right" size={I(22)} color={C.textText} />
                 </Pressable>
               </View>
             ) : null}
@@ -570,7 +578,7 @@ export default function MatchReportScreen() {
               <View style={styles.body}>
                 {/* Laid out left to right, kept short of the card's full width. */}
                 <View style={styles.legend}>
-                  {LEGEND.map((l) => (
+                  {LEGEND(C).map((l) => (
                     <View key={l.label} style={styles.legendItem}>
                       <View style={[styles.legendDot, { backgroundColor: l.color }]} />
                       <Text style={styles.legendText}>{l.label}</Text>
@@ -593,20 +601,20 @@ export default function MatchReportScreen() {
                       {/* One rail, split win / draw / loss. */}
                       <View style={styles.splitBar}>
                         <View
-                          style={[styles.splitFill, { flex: Math.max(c.win, 0.001), backgroundColor: C.green }]}
+                          style={[styles.splitFill, { flex: Math.max(c.win, 0.001), backgroundColor: C.greenFill }]}
                         />
                         <View
-                          style={[styles.splitFill, { flex: Math.max(c.draw, 0.001), backgroundColor: C.orange }]}
+                          style={[styles.splitFill, { flex: Math.max(c.draw, 0.001), backgroundColor: C.orangeFill }]}
                         />
                         <View
-                          style={[styles.splitFill, { flex: Math.max(c.loss, 0.001), backgroundColor: C.red }]}
+                          style={[styles.splitFill, { flex: Math.max(c.loss, 0.001), backgroundColor: C.redFill }]}
                         />
                       </View>
 
                       <View style={styles.tallyRow}>
-                        <Text style={[styles.tally, { color: C.green }]}>{c.win}F</Text>
-                        <Text style={[styles.tally, { color: C.orange }]}>{c.draw}F</Text>
-                        <Text style={[styles.tally, { color: C.red }]}>{c.loss}F</Text>
+                        <Text style={[styles.tally, { color: C.greenText }]}>{c.win}F</Text>
+                        <Text style={[styles.tally, { color: C.orangeText }]}>{c.draw}F</Text>
+                        <Text style={[styles.tally, { color: C.redText }]}>{c.loss}F</Text>
                       </View>
                     </View>
                   ))
@@ -637,7 +645,7 @@ export default function MatchReportScreen() {
 /* Styles                                                              */
 /* ------------------------------------------------------------------ */
 
-const styles = StyleSheet.create(
+const createStyles = (C: AppColorsOf<typeof C_LIGHT>) => StyleSheet.create(
   scaled({
     safe: {
       flex: 1,
@@ -682,14 +690,14 @@ const styles = StyleSheet.create(
       fontSize: 20,
       lineHeight: 24,
       letterSpacing: -0.3,
-      color: C.text,
+      color: C.textText,
     },
 
     subtitle: {
       fontFamily: Fonts.body,
       fontSize: 12,
       lineHeight: 16,
-      color: C.gray,
+      color: C.grayText,
       marginTop: 1,
     },
 
@@ -713,8 +721,8 @@ const styles = StyleSheet.create(
       height: 104,
       borderRadius: 16,
       borderWidth: 1,
-      borderColor: '#E4A000',
-      backgroundColor: 'rgba(255,255,255,0.12)',
+      borderColor: '#B45309',
+      backgroundColor: C.glassBaseFill,
       overflow: 'hidden',
       shadowColor: '#0B3B33',
       shadowOffset: { width: 0, height: 6 },
@@ -748,7 +756,7 @@ const styles = StyleSheet.create(
       right: 10,
       height: 1.5,
       borderRadius: 1,
-      backgroundColor: 'rgba(255,255,255,0.95)',
+      backgroundColor: C.glassEdgeFill,
     },
 
     statItem: {
@@ -763,7 +771,7 @@ const styles = StyleSheet.create(
       top: 10,
       bottom: 10,
       width: StyleSheet.hairlineWidth,
-      backgroundColor: 'rgba(16,51,38,0.18)',
+      backgroundColor: C.glassDividerFill,
     },
 
     /* Content rides above the frost and gloss overlays. */
@@ -778,7 +786,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodyBold,
       fontSize: 9.5,
       lineHeight: 11.5,
-      color: C.gray,
+      color: C.grayText,
     },
 
     sqValue: {
@@ -807,22 +815,22 @@ const styles = StyleSheet.create(
       flexDirection: 'row',
       alignItems: 'center',
       gap: 6,
-      height: 32,
-      paddingHorizontal: 9,
-      backgroundColor: C.blueSoft,
+      height: 44,
+      paddingHorizontal: 12,
+      backgroundColor: C.blueSoftFill,
       borderWidth: 1,
-      borderColor: C.frame,
-      borderRadius: 4,
+      borderColor: C.frameBorder,
+      borderRadius: 10,
     },
 
     filterText: {
       fontFamily: Fonts.bodyBold,
       fontSize: 12.5,
-      color: C.text,
+      color: C.textText,
     },
 
     filterBoxOpen: {
-      borderColor: C.orange,
+      borderColor: C.orangeBorder,
     },
 
     /* ── Filter options (inline strip under an open filter) ──── */
@@ -832,35 +840,37 @@ const styles = StyleSheet.create(
     },
 
     filterChip: {
-      height: 28,
+      height: 36,
       justifyContent: 'center',
-      paddingHorizontal: 11,
-      borderRadius: 14,
+      paddingHorizontal: 13,
+      borderRadius: 18,
       borderWidth: 1,
       borderColor: 'rgba(0,0,0,0.15)',
-      backgroundColor: '#FFFFFF',
+      backgroundColor: C.whiteFill,
     },
 
     filterChipActive: {
-      backgroundColor: C.blueSoft,
-      borderColor: C.frame,
+      backgroundColor: C.blueSoftFill,
+      borderColor: C.frameBorder,
     },
 
     filterChipText: {
       fontFamily: Fonts.body,
-      fontSize: 11.5,
-      color: C.hint,
+      fontSize: 12,
+      color: C.hintText,
     },
 
     filterChipTextActive: {
       fontFamily: Fonts.bodySemiBold,
-      color: C.text,
+      color: C.textText,
     },
 
     /* ── Loading / empty / error ─────────────────────────────── */
     stateRow: {
       alignItems: 'center',
       justifyContent: 'center',
+      gap: 10,
+      minHeight: 96,
       paddingHorizontal: 12,
       paddingVertical: 18,
     },
@@ -868,16 +878,32 @@ const styles = StyleSheet.create(
     stateText: {
       fontFamily: Fonts.body,
       fontSize: 12.5,
-      color: C.hint,
+      lineHeight: 18,
+      color: C.hintText,
       textAlign: 'center',
+    },
+
+    stateRetry: {
+      minHeight: 44,
+      justifyContent: 'center',
+      paddingHorizontal: 18,
+      borderWidth: 1,
+      borderColor: C.blueBtnBorder,
+      borderRadius: 10,
+    },
+
+    stateRetryText: {
+      fontFamily: Fonts.bodySemiBold,
+      fontSize: 13,
+      color: C.blueBtnText,
     },
 
     /* ── Tables ──────────────────────────────────────────────── */
     card: {
       marginTop: 14,
-      backgroundColor: C.cardBg,
+      backgroundColor: C.cardBgFill,
       borderWidth: 1,
-      borderColor: C.frame,
+      borderColor: C.frameBorder,
       borderRadius: 7,
       overflow: 'hidden',
     },
@@ -891,19 +917,19 @@ const styles = StyleSheet.create(
       justifyContent: 'center',
       paddingHorizontal: 12,
       paddingVertical: 11,
-      backgroundColor: C.headBg,
+      backgroundColor: C.headBgFill,
     },
 
     headText: {
       fontFamily: Fonts.bodyBold,
       fontSize: 15,
       lineHeight: 19,
-      color: C.text,
+      color: C.textText,
     },
 
     headLine: {
       height: 1,
-      backgroundColor: C.headLine,
+      backgroundColor: C.headLineFill,
     },
 
     /* ── Fixtures table ──────────────────────────────────────── */
@@ -914,7 +940,7 @@ const styles = StyleSheet.create(
     thRow: {
       paddingTop: 9,
       borderBottomWidth: 1,
-      borderBottomColor: C.headLine,
+      borderBottomColor: C.headLineBorder,
     },
 
     tr: {
@@ -926,14 +952,14 @@ const styles = StyleSheet.create(
 
     trBorder: {
       borderTopWidth: 1,
-      borderTopColor: C.rowLine,
+      borderTopColor: C.rowLineBorder,
     },
 
     th: {
       fontFamily: Fonts.bodySemiBold,
       fontSize: 10.5,
       lineHeight: 13,
-      color: C.gray,
+      color: C.grayText,
       textAlign: 'center',
     },
 
@@ -941,7 +967,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 11,
       lineHeight: 14,
-      color: C.text,
+      color: C.textText,
       textAlign: 'center',
     },
 
@@ -952,12 +978,12 @@ const styles = StyleSheet.create(
 
     tdPlus: {
       fontFamily: Fonts.bodyBold,
-      color: C.green,
+      color: C.greenText,
     },
 
     tdMinus: {
       fontFamily: Fonts.bodyBold,
-      color: C.red,
+      color: C.redText,
     },
 
     /* ── Pager ───────────────────────────────────────────────── */
@@ -979,18 +1005,18 @@ const styles = StyleSheet.create(
     },
 
     pageSq: {
-      width: 34,
-      height: 34,
-      borderRadius: 5,
-      backgroundColor: C.blueBtn,
+      width: 44,
+      height: 44,
+      borderRadius: 10,
+      backgroundColor: C.blueBtnFill,
       alignItems: 'center',
       justifyContent: 'center',
     },
 
     pageSqActive: {
-      width: 34,
-      height: 34,
-      borderRadius: 5,
+      width: 44,
+      height: 44,
+      borderRadius: 10,
       backgroundColor: '#4E90D8',
       alignItems: 'center',
       justifyContent: 'center',
@@ -999,7 +1025,7 @@ const styles = StyleSheet.create(
     pageSqText: {
       fontFamily: Fonts.bodySemiBold,
       fontSize: 14,
-      color: '#F5F5F5',
+      color: '#FFFFFF',
     },
 
     /* ── Competition breakdown ───────────────────────────────── */
@@ -1032,7 +1058,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 10.5,
       lineHeight: 13,
-      color: C.text,
+      color: C.textText,
     },
 
     statBlock: {
@@ -1051,14 +1077,14 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodyBold,
       fontSize: 12.5,
       lineHeight: 16,
-      color: C.text,
+      color: C.textText,
     },
 
     compPlayed: {
       fontFamily: Fonts.bodyBold,
       fontSize: 12.5,
       lineHeight: 16,
-      color: C.text,
+      color: C.textText,
     },
 
     splitBar: {
@@ -1066,7 +1092,7 @@ const styles = StyleSheet.create(
       height: 7,
       borderRadius: 4,
       overflow: 'hidden',
-      backgroundColor: C.track,
+      backgroundColor: C.trackFill,
     },
 
     splitFill: {
@@ -1090,9 +1116,9 @@ const styles = StyleSheet.create(
       paddingHorizontal: 12,
       paddingTop: 11,
       paddingBottom: 13,
-      backgroundColor: '#F5F5F5',
+      backgroundColor: C.whiteFill,
       borderWidth: 1,
-      borderColor: C.frame,
+      borderColor: C.frameBorder,
       borderRadius: 7,
     },
 
@@ -1100,14 +1126,14 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.bodyBold,
       fontSize: 14,
       lineHeight: 18,
-      color: C.text,
+      color: C.textText,
     },
 
     seasonLine: {
       height: 1,
       marginTop: 9,
       marginBottom: 4,
-      backgroundColor: C.headLine,
+      backgroundColor: C.headLineFill,
     },
 
     seasonRow: {
@@ -1122,7 +1148,7 @@ const styles = StyleSheet.create(
       fontFamily: Fonts.body,
       fontSize: 12,
       lineHeight: 15,
-      color: C.text,
+      color: C.textText,
     },
 
     seasonValue: {
