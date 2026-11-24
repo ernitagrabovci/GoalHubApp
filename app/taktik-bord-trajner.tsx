@@ -107,13 +107,39 @@ export default function TacticalBoardScreen() {
   const [notice, setNotice] = useState<string | null>(null);
   const [boardReady, setBoardReady] = useState(false);
   const [attempt, setAttempt] = useState(0);
+  const [exiting, setExiting] = useState(false);
+  const rotatedRef = useRef(false);
+  const exitTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Cover the board, then rotate, then pop. The order matters: popping while
+  // the device is still landscape makes the back animation restart in portrait
+  // mid-flight, and rotating while the WebView is still on screen makes
+  // Android show a sideways snapshot of the board — both read as a freeze.
+  const beginExit = useCallback(() => {
+    if (rotatedRef.current) return;
+    rotatedRef.current = true;
+    if (exitTimer.current) {
+      clearTimeout(exitTimer.current);
+      exitTimer.current = null;
+    }
+    // Let the cover paint for one frame before the configuration change.
+    requestAnimationFrame(() => {
+      ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP)
+        .catch(() => {})
+        .finally(() => {
+          if (router.canGoBack()) router.back();
+          else router.replace('/ushtrimet-trajner');
+        });
+    });
+  }, [router]);
 
   const leave = useCallback(() => {
     if (closingRef.current) return;
     closingRef.current = true;
-    if (router.canGoBack()) router.back();
-    else router.replace('/ushtrimet-trajner');
-  }, [router]);
+    setExiting(true);
+    // Safety net if onLayout never fires (e.g. the cover is already laid out).
+    exitTimer.current = setTimeout(() => beginExit(), 500);
+  }, [beginExit]);
 
   // Landscape only while the board is open. `app.json` is "default" so this
   // lock is permitted; the root layout pins portrait and we restore it here.
@@ -133,6 +159,7 @@ export default function TacticalBoardScreen() {
 
     return () => {
       cancelled = true;
+      if (exitTimer.current) clearTimeout(exitTimer.current);
       ScreenOrientation.lockAsync(
         ScreenOrientation.OrientationLock.PORTRAIT_UP,
       ).catch(() => {});
@@ -254,11 +281,11 @@ export default function TacticalBoardScreen() {
 
   return (
     <SafeAreaView style={styles.root} edges={['top', 'bottom', 'left', 'right']}>
-      <StatusBar hidden={!!url && !error} style="dark" />
+      <StatusBar hidden={!!url && !error} style="light" />
 
       {error ? (
         <View style={styles.center}>
-          <MaterialCommunityIcons name="web-off" size={44} color="#4A6078" />
+          <MaterialCommunityIcons name="web-off" size={44} color="#7FA494" />
           <Text style={styles.title}>Tavola nuk u hap</Text>
           <Text style={styles.body}>{error}</Text>
           <View style={styles.actions}>
@@ -278,6 +305,8 @@ export default function TacticalBoardScreen() {
             </Pressable>
           </View>
         </View>
+      ) : exiting ? (
+        <View style={styles.exitCover} onLayout={beginExit} />
       ) : url ? (
         <View style={styles.webArea}>
           <BoardWebView
@@ -307,7 +336,7 @@ export default function TacticalBoardScreen() {
             textZoom={100}
             renderLoading={() => (
               <View style={styles.center}>
-                <ActivityIndicator color="#12664D" />
+                <ActivityIndicator color="#58A77E" />
                 <Text style={styles.loading}>Po hapet tavola…</Text>
               </View>
             )}
@@ -315,7 +344,7 @@ export default function TacticalBoardScreen() {
 
           {!boardReady ? (
             <View style={styles.overlay} pointerEvents="none">
-              <ActivityIndicator color="#12664D" />
+              <ActivityIndicator color="#58A77E" />
               <Text style={styles.loading}>Po përgatitet tavola…</Text>
             </View>
           ) : null}
@@ -330,14 +359,14 @@ export default function TacticalBoardScreen() {
                 hitSlop={6}
                 style={({ pressed }) => [styles.noticeClose, pressed && styles.pressed]}
               >
-                <MaterialCommunityIcons name="close" size={16} color="#16261F" />
+                <MaterialCommunityIcons name="close" size={16} color="#F87171" />
               </Pressable>
             </View>
           ) : null}
         </View>
       ) : (
         <View style={styles.center}>
-          <ActivityIndicator color="#12664D" />
+          <ActivityIndicator color="#58A77E" />
           <Text style={styles.loading}>Po hapet tavola…</Text>
         </View>
       )}
@@ -350,14 +379,19 @@ const styles = StyleSheet.create({
     flex: 1,
     // Matches the editor's dark chrome, so the safe-area strips in landscape
     // read as part of the board instead of light letterboxing.
-    backgroundColor: '#16213e',
+    backgroundColor: '#0A1512',
   },
   webArea: {
     flex: 1,
   },
+  // Plain board-chrome colour: the WebView is gone while portrait is restored.
+  exitCover: {
+    flex: 1,
+    backgroundColor: '#0A1512',
+  },
   web: {
     flex: 1,
-    backgroundColor: '#1a1a2e',
+    backgroundColor: '#0A1512',
   },
   center: {
     flex: 1,
@@ -365,7 +399,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 28,
     gap: 10,
-    backgroundColor: '#F5F7F4',
+    backgroundColor: '#0A1512',
   },
   overlay: {
     position: 'absolute',
@@ -376,20 +410,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 10,
-    backgroundColor: '#F5F7F4',
+    backgroundColor: '#0A1512',
   },
   loading: {
-    color: '#4A6078',
+    color: '#A9C9B8',
     fontSize: 14,
   },
   title: {
-    color: '#16261F',
+    color: '#E6F4EC',
     fontSize: 18,
     fontWeight: '700',
     marginTop: 4,
   },
   body: {
-    color: '#4A6078',
+    color: '#A9C9B8',
     fontSize: 14,
     lineHeight: 20,
     textAlign: 'center',
@@ -400,7 +434,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   primary: {
-    backgroundColor: '#12664D',
+    backgroundColor: '#2E7D5B',
     borderRadius: 10,
     paddingHorizontal: 18,
     paddingVertical: 11,
@@ -414,7 +448,7 @@ const styles = StyleSheet.create({
   },
   secondary: {
     borderWidth: 1.5,
-    borderColor: '#C6D2CB',
+    borderColor: '#2A5B48',
     borderRadius: 10,
     paddingHorizontal: 18,
     paddingVertical: 11,
@@ -422,7 +456,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   secondaryText: {
-    color: '#33463D',
+    color: '#A9C9B8',
     fontSize: 14,
     fontWeight: '600',
   },
@@ -434,16 +468,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: '#FDE8E8',
+    backgroundColor: 'rgba(248,113,113,0.16)',
     borderWidth: 1,
-    borderColor: '#F3B4B4',
+    borderColor: 'rgba(248,113,113,0.45)',
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 10,
   },
   noticeText: {
     flex: 1,
-    color: '#7A1F1F',
+    color: '#F87171',
     fontSize: 13,
     lineHeight: 18,
   },
