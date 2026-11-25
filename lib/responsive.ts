@@ -21,7 +21,12 @@ const SIZE_BOOST = 1.1;
 
 const { width: WINDOW_WIDTH } = Dimensions.get('window');
 
-export const SCALE = (WINDOW_WIDTH / DESIGN_WIDTH) * SIZE_BOOST;
+/**
+ * Width fit, capped so tablets and unfolded foldables don't blow the fixed
+ * dashboard layouts up to ~2x. Phones (the widest is 440 dp → 1.1) are below
+ * the cap and still scale proportionally.
+ */
+export const SCALE = Math.min((WINDOW_WIDTH / DESIGN_WIDTH) * SIZE_BOOST, 1.2);
 
 // Numeric style values that are NOT lengths and must stay unscaled.
 const NO_SCALE = new Set([

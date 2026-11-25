@@ -229,9 +229,7 @@ export function FinancierHome() {
                 labelBottom="paguar"
                 value={stats ? usd(stats.collected) : '—'}
                 color={C.greenText}
-                valueSize={12.5}
-                img={IMG.statCalc}
-                imgStyle={styles.statImgStat}
+                valueSize={16}
               />
 
               <View style={styles.statDivider} />
@@ -241,9 +239,7 @@ export function FinancierHome() {
                 labelBottom="papaguar"
                 value={stats ? usd(stats.pending) : '—'}
                 color={C.redText}
-                valueSize={12.5}
-                img={IMG.statCalc}
-                imgStyle={styles.statImgStat}
+                valueSize={16}
               />
 
               <View style={styles.statDivider} />
@@ -253,9 +249,7 @@ export function FinancierHome() {
                 labelBottom="Kritike"
                 value={stats ? String(stats.overdue) : '—'}
                 color={C.goldText}
-                valueSize={20}
-                img={IMG.statCalc}
-                imgStyle={styles.statImgStat}
+                valueSize={25}
               />
             </View>
           </View>
@@ -506,36 +500,13 @@ type StatCardProps = {
   value: string;
   color: string;
   valueSize: number;
-  img?: number;
-  imgStyle?: object;
 };
 
-function StatCard({
-  labelTop,
-  labelBottom,
-  value,
-  color,
-  valueSize,
-  img,
-  imgStyle,
-}: StatCardProps) {
+function StatCard({ labelTop, labelBottom, value, color, valueSize }: StatCardProps) {
   const C = useAppColors(DashboardC);
   const styles = usePaletteStyles(createStyles, C);
   return (
     <View style={styles.statItem}>
-
-      {/* IMAGE */}
-
-      {img ? (
-        <Image
-          source={img}
-          style={imgStyle}
-          resizeMode="contain"
-        />
-      ) : null}
-
-      {/* TEXT */}
-
       <Text style={styles.statLabel} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
         {labelTop}
       </Text>
@@ -559,7 +530,6 @@ function StatCard({
       >
         {value}
       </Text>
-
     </View>
   );
 }
@@ -836,7 +806,8 @@ const createStyles = (C: AppColorsOf<typeof DashboardC>) => StyleSheet.create(sc
 
     position: 'relative',
 
-    paddingTop: 8,
+    justifyContent: 'center',
+
     paddingLeft: 10,
     paddingRight: 8,
 
@@ -881,8 +852,8 @@ const createStyles = (C: AppColorsOf<typeof DashboardC>) => StyleSheet.create(sc
   statLabel: {
     fontFamily: Fonts.bodySemiBold,
 
-    fontSize: 9.5,
-    lineHeight: 11.5,
+    fontSize: 11.5,
+    lineHeight: 14,
 
     color: C.statLabelSoftText,
 
@@ -895,22 +866,6 @@ const createStyles = (C: AppColorsOf<typeof DashboardC>) => StyleSheet.create(sc
     marginTop: 3,
 
     zIndex: 3,
-  },
-
-  /* =======================================================
-     STATISTICS IMAGES
-     ======================================================= */
-
-  statImgStat: {
-    position: 'absolute',
-
-    width: 100,
-    height: 100,
-
-    right: -45,
-    bottom: -22,
-
-    zIndex: 1,
   },
 
   /* =======================================================

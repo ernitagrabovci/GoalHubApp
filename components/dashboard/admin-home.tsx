@@ -263,8 +263,6 @@ export function AdminHome() {
               <View pointerEvents="none" style={styles.statsSheen} />
 
               <StatCard
-                image={IMG.statPlayer}
-                imageStyle={styles.statImgPlayer}
                 labelTop="Lojtarë"
                 labelBottom="Aktivë"
                 value={count(stats?.players)}
@@ -278,8 +276,6 @@ export function AdminHome() {
               <View style={styles.statDivider} />
 
               <StatCard
-                image={IMG.statGrupe}
-                imageStyle={styles.statImgGrupe}
                 labelTop="Numri i"
                 labelBottom="Grupeve"
                 value={count(stats?.teams)}
@@ -293,8 +289,6 @@ export function AdminHome() {
               <View style={styles.statDivider} />
 
               <StatCard
-                image={IMG.calc}
-                imageStyle={styles.statImgCalc}
                 labelTop="Të"
                 labelBottom="Ardhurat"
                 value={income}
@@ -308,8 +302,6 @@ export function AdminHome() {
               <View style={styles.statDivider} />
 
               <StatCard
-                image={IMG.statGrupe}
-                imageStyle={styles.statImgGrupe}
                 labelTop="Trajnerët"
                 labelBottom="Aktivë"
                 value={count(teamData?.total_trainers)}
@@ -536,12 +528,10 @@ type StatCardProps = {
   labelTop: string;
   labelBottom: string;
   value: string;
-  image?: number;
-  imageStyle?: object;
   children: ReactNode;
 };
 
-function StatCard({ labelTop, labelBottom, value, image, imageStyle, children }: StatCardProps) {
+function StatCard({ labelTop, labelBottom, value, children }: StatCardProps) {
   const C = useAppColors(DashboardC);
   const styles = usePaletteStyles(createStyles, C);
   return (
@@ -556,7 +546,6 @@ function StatCard({ labelTop, labelBottom, value, image, imageStyle, children }:
         {value}
       </Text>
       <View style={styles.statFoot}>{children}</View>
-      {image ? <Image source={image} style={[styles.statImg, imageStyle]} resizeMode="contain" /> : null}
     </View>
   );
 }
@@ -748,7 +737,7 @@ const createStyles = (C: AppColorsOf<typeof DashboardC>) => StyleSheet.create(sc
   statItem: {
     flex: 1,
     minWidth: 0,
-    height: 96,
+    height: 108,
     padding: 8,
     overflow: 'hidden',
   },
@@ -760,66 +749,44 @@ const createStyles = (C: AppColorsOf<typeof DashboardC>) => StyleSheet.create(sc
   },
   statLabel: {
     fontFamily: Fonts.bodyBold,
-    fontSize: 9.5,
+    fontSize: 11,
     color: C.statLabelText,
-    lineHeight: 11.5,
+    lineHeight: 13.5,
   },
   statValue: {
     fontFamily: Fonts.bodyBold,
-    fontSize: 19,
+    fontSize: 22,
     color: C.textText,
     letterSpacing: -0.5,
     marginTop: 2,
-    lineHeight: 23,
+    lineHeight: 25,
   },
   statFoot: {
     marginTop: 2,
   },
   statDown: {
     fontFamily: Fonts.bodySemiBold,
-    fontSize: 9.5,
+    fontSize: 10.5,
     color: C.redText,
-    lineHeight: 11.5,
+    lineHeight: 12.5,
   },
   statDownSub: {
     fontFamily: Fonts.body,
-    fontSize: 9,
+    fontSize: 10,
     color: C.statDownSubText,
-    lineHeight: 11,
+    lineHeight: 12,
   },
   statSubLabel: {
     fontFamily: Fonts.body,
-    fontSize: 9,
+    fontSize: 10,
     color: C.statSubLabelText,
-    lineHeight: 11,
+    lineHeight: 12,
   },
   statSubValue: {
     fontFamily: Fonts.bodyMedium,
-    fontSize: 10,
+    fontSize: 11,
     color: C.statSubValueText,
-    lineHeight: 13,
-  },
-  statImg: {
-    position: 'absolute',
-  },
-  statImgPlayer: {
-    width: 46,
-    height: 62,
-    right: -4,
-    bottom: -6,
-  },
-  statImgGrupe: {
-    width: 40,
-    height: 76,
-    right: -2,
-    bottom: -6,
-  },
-  statImgCalc: {
-    width: 40,
-    height: 84,
-    right: 0,
-    bottom: -2,
-    opacity: 0.97,
+    lineHeight: 13.5,
   },
 
   /* Section headers */

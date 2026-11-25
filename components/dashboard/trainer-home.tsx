@@ -230,9 +230,6 @@ export function TrainerHome() {
                 labelTop="Lojtarë"
                 labelBottom="Aktivë"
                 value={stats ? String(stats.active) : '—'}
-                img={IMG.statPlayer}
-                imgStyle={styles.statImgPlayer}
-                imgCover
               />
 
               <View style={styles.statDivider} />
@@ -241,9 +238,6 @@ export function TrainerHome() {
                 labelTop="Të"
                 labelBottom="Lënduar"
                 value={stats ? String(stats.injured) : '—'}
-                img={IMG.doctor}
-                imgStyle={styles.statImgDoctor}
-                imgCover
               />
 
               <View style={styles.statDivider} />
@@ -252,9 +246,6 @@ export function TrainerHome() {
                 labelTop="Shërvitje"
                 labelBottom="(muaj)"
                 value={monthStats ? String(monthStats.sessions) : '—'}
-                img={IMG.stervitje}
-                imgStyle={styles.statImgStervitje}
-                imgCover
               />
 
               <View style={styles.statDivider} />
@@ -267,9 +258,6 @@ export function TrainerHome() {
                     ? `${Math.round(monthStats.attendance_rate)}%`
                     : '—'
                 }
-                img={IMG.prezenca}
-                imgStyle={styles.statImgPrezenca}
-                imgCover
               />
             </View>
           </View>
@@ -537,36 +525,13 @@ type StatCardProps = {
   labelTop: string;
   labelBottom: string;
   value: string;
-  img?: number;
-  imgStyle?: object;
-  imgCover?: boolean;
 };
 
-function StatCard({
-  labelTop,
-  labelBottom,
-  value,
-  img,
-  imgStyle,
-  imgCover,
-}: StatCardProps) {
+function StatCard({ labelTop, labelBottom, value }: StatCardProps) {
   const C = useAppColors(DashboardC);
   const styles = usePaletteStyles(createStyles, C);
   return (
     <View style={styles.statItem}>
-
-      {/* IMAGE */}
-
-      {img ? (
-        <Image
-          source={img}
-          style={imgStyle}
-          resizeMode={imgCover ? 'cover' : 'contain'}
-        />
-      ) : null}
-
-      {/* TEXT */}
-
       <Text style={styles.statLabel} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
         {labelTop}
       </Text>
@@ -578,7 +543,6 @@ function StatCard({
       <Text style={styles.statValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.5}>
         {value}
       </Text>
-
     </View>
   );
 }
@@ -855,7 +819,8 @@ const createStyles = (C: AppColorsOf<typeof DashboardC>) => StyleSheet.create(sc
 
     position: 'relative',
 
-    paddingTop: 9,
+    justifyContent: 'center',
+
     paddingLeft: 10,
     paddingRight: 8,
 
@@ -900,8 +865,8 @@ const createStyles = (C: AppColorsOf<typeof DashboardC>) => StyleSheet.create(sc
   statLabel: {
     fontFamily: Fonts.bodySemiBold,
 
-    fontSize: 9.5,
-    lineHeight: 12,
+    fontSize: 11.5,
+    lineHeight: 14.5,
 
     color: C.statLabelSoftText,
 
@@ -911,68 +876,16 @@ const createStyles = (C: AppColorsOf<typeof DashboardC>) => StyleSheet.create(sc
   statValue: {
     fontFamily: Fonts.bodyBold,
 
-    fontSize: 20,
-    lineHeight: 23,
+    fontSize: 25,
+    lineHeight: 28,
 
     letterSpacing: -0.5,
 
     color: C.textText,
 
-    marginTop: 0,
+    marginTop: 1,
 
     zIndex: 3,
-  },
-
-  /* =======================================================
-     STATISTICS IMAGES
-     ======================================================= */
-
-  statImgPlayer: {
-    position: 'absolute',
-
-    width: 80,
-    height: 80,
-
-    right: -40,
-    bottom: -14,
-
-    zIndex: 1,
-  },
-
-  statImgDoctor: {
-    position: 'absolute',
-
-    width: 80,
-    height: 96,
-
-    right: -40,
-    bottom: 5,
-
-    zIndex: 1,
-  },
-
-  statImgStervitje: {
-    position: 'absolute',
-
-    width: 80,
-    height: 96,
-
-    right: -40,
-    bottom: -1,
-
-    zIndex: 1,
-  },
-
-  statImgPrezenca: {
-    position: 'absolute',
-
-    width: 96,
-    height: 88,
-
-    right: -38,
-    bottom: 2,
-
-    zIndex: 1,
   },
 
   /* =======================================================

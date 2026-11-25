@@ -95,8 +95,17 @@ function RootNavigator() {
       <AppBackground />
       <SystemBars />
       {/* Every screen paints its own background transparent so the app
-          wallpaper shows through; the scenes must be transparent too. */}
-      <Stack screenOptions={{ contentStyle: { backgroundColor: 'transparent' } }}>
+          wallpaper shows through; the scenes must be transparent too.
+          The explicit slide keeps Android on the same push animation as iOS
+          instead of the theme's default, which stutters over transparent
+          scenes. */}
+      <Stack
+        screenOptions={{
+          contentStyle: { backgroundColor: 'transparent' },
+          animation: 'slide_from_right',
+          animationDuration: 250,
+        }}
+      >
         <Stack.Screen name="intro" options={{ headerShown: false }} />
         <Stack.Screen
           name="login"

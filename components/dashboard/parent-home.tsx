@@ -214,9 +214,6 @@ export function ParentHome() {
                 labelTop="Fëmijë të"
                 labelBottom="regjistruar"
                 value={totals ? String(totals.children) : '…'}
-                img={IMG.statPlayer}
-                imgStyle={styles.statImgPlayer}
-                imgCover
               />
 
               <View style={styles.statDivider} />
@@ -225,8 +222,6 @@ export function ParentHome() {
                 labelTop="Kuota të"
                 labelBottom="hapura"
                 value={totals ? String(totals.open_fees) : '…'}
-                img={IMG.statCalc}
-                imgStyle={styles.statImgCalc}
               />
 
               <View style={styles.statDivider} />
@@ -235,8 +230,6 @@ export function ParentHome() {
                 labelTop="Lëndimet"
                 labelBottom="aktive"
                 value={totals ? String(totals.active_injuries) : '…'}
-                img={IMG.ball}
-                imgStyle={styles.statImgBall}
               />
 
               <View style={styles.statDivider} />
@@ -245,8 +238,6 @@ export function ParentHome() {
                 labelTop="Vlerësimi"
                 labelBottom="i fundit"
                 value={children ? lastRating : '…'}
-                img={IMG.star}
-                imgStyle={styles.statImgStar}
               />
             </View>
           </View>
@@ -515,36 +506,13 @@ type StatCardProps = {
   labelTop: string;
   labelBottom: string;
   value: string;
-  img?: number;
-  imgStyle?: object;
-  imgCover?: boolean;
 };
 
-function StatCard({
-  labelTop,
-  labelBottom,
-  value,
-  img,
-  imgStyle,
-  imgCover,
-}: StatCardProps) {
+function StatCard({ labelTop, labelBottom, value }: StatCardProps) {
   const C = useAppColors(DashboardC);
   const styles = usePaletteStyles(createStyles, C);
   return (
     <View style={styles.statItem}>
-
-      {/* IMAGE */}
-
-      {img ? (
-        <Image
-          source={img}
-          style={imgStyle}
-          resizeMode={imgCover ? 'cover' : 'contain'}
-        />
-      ) : null}
-
-      {/* TEXT */}
-
       <Text style={styles.statLabel} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
         {labelTop}
       </Text>
@@ -556,7 +524,6 @@ function StatCard({
       <Text style={styles.statValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.5}>
         {value}
       </Text>
-
     </View>
   );
 }
@@ -832,7 +799,8 @@ const createStyles = (C: AppColorsOf<typeof DashboardC>) => StyleSheet.create(sc
 
     position: 'relative',
 
-    paddingTop: 8,
+    justifyContent: 'center',
+
     paddingLeft: 10,
     paddingRight: 8,
 
@@ -877,8 +845,8 @@ const createStyles = (C: AppColorsOf<typeof DashboardC>) => StyleSheet.create(sc
   statLabel: {
     fontFamily: Fonts.bodySemiBold,
 
-    fontSize: 9.5,
-    lineHeight: 11,
+    fontSize: 11.5,
+    lineHeight: 14.5,
 
     color: C.statLabelSoftText,
 
@@ -888,68 +856,16 @@ const createStyles = (C: AppColorsOf<typeof DashboardC>) => StyleSheet.create(sc
   statValue: {
     fontFamily: Fonts.bodyBold,
 
-    fontSize: 19,
-    lineHeight: 22,
+    fontSize: 25,
+    lineHeight: 28,
 
     letterSpacing: -0.5,
 
     color: C.textText,
 
-    marginTop: 0,
+    marginTop: 1,
 
     zIndex: 3,
-  },
-
-  /* =======================================================
-     STATISTICS IMAGES
-     ======================================================= */
-
-  statImgPlayer: {
-    position: 'absolute',
-
-    width: 64,
-    height: 80,
-
-    right: -40,
-    bottom: -14,
-
-    zIndex: 1,
-  },
-
-  statImgCalc: {
-    position: 'absolute',
-
-    width: 80,
-    height: 80,
-
-    right: -36,
-    bottom: -18,
-
-    zIndex: 1,
-  },
-
-  statImgBall: {
-    position: 'absolute',
-
-    width: 74,
-    height: 74,
-
-    right: -32,
-    bottom: -22,
-
-    zIndex: 1,
-  },
-
-  statImgStar: {
-    position: 'absolute',
-
-    width: 74,
-    height: 74,
-
-    right: -30,
-    bottom: -18,
-
-    zIndex: 1,
   },
 
   /* =======================================================
